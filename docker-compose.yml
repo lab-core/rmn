@@ -12,15 +12,15 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: example
     ports:
       - "27017:27017"
-#  executor:
-#    build: ./services/executor
-#    restart: unless-stopped
-#    # ports:
-#    #   - "5001:5001"
-#    volumes:
-#      - ./storage:/Executor/storage
-#    depends_on:
-#      - redis
+  executor:
+   build: ./services/executor
+   restart: unless-stopped
+   # ports:
+   #   - "5001:5001"
+   volumes:
+     - ./storage:/Executor/storage
+   depends_on:
+     - redis
   server:
     build: ./services/server
     restart: unless-stopped
@@ -37,12 +37,29 @@ services:
       - '7000:7000'
     # network_mode: "host"
   webapp:
-    build: ./services/webapp
+    # build: ./services/webapp
+    # command: bash -c "while true; do echo hello; sleep 2; done"
+    build:
+      context: ./services/webapp
+      dockerfile: Dockerfile-dev
     restart: unless-stopped
+    volumes:
+      - ./services/webapp/src:/app/src
+    # ports:
+    #   - "4200:4200"
   nginx:
+    depends_on:
+      - webapp
+      - server
     build: ./services/nginx
     restart: unless-stopped
     ports:
       - 80:80
 volumes:
+  webapp:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./services/webapp/src
   storage:

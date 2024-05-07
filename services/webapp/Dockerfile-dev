@@ -1,0 +1,11 @@
+#stage 1
+FROM node:16.13.0 as node
+WORKDIR /app
+
+COPY *.json ./
+RUN npm i @angular/cli && npm ci
+# EXPOSE 4200
+CMD ["npm", "run", "start"]
+
+
+
