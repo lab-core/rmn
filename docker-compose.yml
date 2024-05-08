@@ -44,7 +44,7 @@ services:
       dockerfile: Dockerfile-dev
     restart: unless-stopped
     volumes:
-      - ./services/webapp/src:/app/src
+      - C:/Users/edgar/.vscode/rmn/services/webapp/src:/app/src:rw
     # ports:
     #   - "4200:4200"
   nginx:
@@ -61,5 +61,5 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: ./services/webapp/src
+      device: C:/Users/edgar/.vscode/rmn/services/webapp/src
   storage:
