@@ -4,8 +4,7 @@ WORKDIR /app
 
 COPY *.json ./
 RUN npm i @angular/cli && npm ci
-# EXPOSE 4200
-CMD ["npm", "run", "start"]
 
+EXPOSE 80
 
-
+CMD ["npm", "start"]
