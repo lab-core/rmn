@@ -43,6 +43,7 @@ import { DeleteTemplateDialogComponent } from './components/templates-page/delet
 import { PresentationPageComponent } from './components/presentation-page/presentation-page.component';
 import { UserGuideComponent } from './components/user-guide/user-guide.component';
 import { TaskShareDialogComponent } from "./components/tasks-history/task-share-dialog/task-share-dialog.component";
+import { NavBarComponent } from './components/nav-bar/nav-bar.component';
 
 
 @NgModule({
@@ -64,7 +65,8 @@ import { TaskShareDialogComponent } from "./components/tasks-history/task-share-
     TemplateEditorComponent,
     DeleteTemplateDialogComponent,
     PresentationPageComponent,
-    UserGuideComponent
+    UserGuideComponent,
+    NavBarComponent
   ],
   imports: [
     BrowserModule,
