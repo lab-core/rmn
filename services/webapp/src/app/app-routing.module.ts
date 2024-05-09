@@ -20,18 +20,13 @@ const routes: Routes = [
         component : LoginPageComponent
     },
     {
-        path: 'main-menu',
-        component : MainMenuComponent,
+        path: 'tasks-history',
+        component : TasksHistoryComponent,
         canActivate: [UserService]
     },
     {
         path: 'new-correction',
         component : NewCorrectionComponent,
-        canActivate: [UserService]
-    },
-    {
-        path: 'tasks-history',
-        component : TasksHistoryComponent,
         canActivate: [UserService]
     },
     {
@@ -66,7 +61,7 @@ const routes: Routes = [
     },
     {
         path: '**',
-        redirectTo : 'main-menu',
+        redirectTo : 'tasks-history',
         canActivate: [UserService]
     },
     {
