@@ -17,37 +17,32 @@
     border-bottom: 2px solid gray;
 }
 
-.logo {
-    width: 5%;
-    height: 90%;
-    margin-top: 0.25%;
-    margin-left: 0.25%;
-    float:left;
-    background-image: url("~src/assets/LOGO.png");
-    background-size: contain;
-    background-repeat: no-repeat;
-}
-
 .disconnect-button {
     position: relative;
     text-align: center;
     width: 5%;
     height: 90%;
-    margin-top: 0.25%;
-    margin-right: 0.5%;
-    float:right;
+    /* margin-top: 0.25%; */
+    /* margin-right: -5%; */
+    float: right;
 }
 
 .disconnect-button > mat-icon {
-    height: 60px;
-    width: 60px;
-    font-size: 60px;
-    margin-top: 10%;
-    color: #ffffff;
+    height: 50px;
+    width: 50px;
+    font-size: 50px;
+    /* margin-top: 10%; */
+    /* margin-left: 80%; */
+    color: #000000;
 }
 .disconnect-button > mat-icon:hover {
     cursor: pointer;
     transform: scale(1.1,1.1);
+}
+
+.disconnect-button > span {
+    margin-top: 0.25%;
+    font-size: 15px;
 }
 
 .background {
@@ -66,7 +61,7 @@
 .buttons-container {
     width: 93%;
     height: 60%;
-
+    margin-top: -1.5%;
     display: flex;                  
     flex-direction: row;            
     flex-wrap: nowrap;              
@@ -75,23 +70,13 @@
 }
 
 .buttons-container > div {
-    background-color: white;
     width: 15%;
     height: 59%;
-
     border-radius: 6%;
-    border: 2px solid gray;
-
     display: flex;
     flex-direction: column;
     text-align: center;
     align-items: center;
-
-    box-shadow: 0 5px 10px 0px rgb(0 0 0 / 70%);
-    -moz-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
-    -webkit-box-shadow: 0 5px 10px 0px rgb(0 0 0 / 70%);
-    -o-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
-    -ms-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
 }
 
 .buttons-container > div > .badge {
@@ -122,15 +107,13 @@
 
 .buttons-container > div > mat-icon {
     color: black;
-    height: 200px;
-    width: 200px;
-    font-size: 200px;
-    vertical-align: middle;
-    
+    height: 50px;
+    width: 50px;
+    font-size: 50px;
 }
 
 .buttons-container > div > span {
-    margin-top: 10%;
-    font-size: 20px;
+    margin-top: 0.25%;
+    font-size: 15px;
     
 }

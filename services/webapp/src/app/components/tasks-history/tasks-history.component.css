@@ -23,32 +23,15 @@
     transition: 3s;
 }
 
-.header {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    align-items: center;
-
-    width: 100%;
-    height: 10%;
-}
-
-.logo {
-    width: 4%;
-    height: 90%;
-    margin-top: 0.25%;
-    margin-left: 0.25%;
-    float:left;
-    background-image: url("~src/assets/LOGO.png");
-    background-size: contain;
-    background-repeat: no-repeat;
-}
-
-hr.header-line {
-    border: 5px solid darkslategray;
-    width: 96%;
-    height: 0%;
-}
+app-main-menu {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    margin: auto;
+    z-index: 1;
+  }
 
 .refresh-container {
     display: flex;
@@ -84,6 +67,7 @@ hr.header-line {
 .table {
     width: 100%;
     height: 80%;
+    margin-top: 5%;
 }
 
 .container_tasks {
@@ -94,6 +78,7 @@ hr.header-line {
 /* for filter */
 .filter {
     margin-left: 40%;
+    margin-top: 10%;
 }
 mat-form-field {
     font-size: 14px;
