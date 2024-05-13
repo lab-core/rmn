@@ -10,19 +10,6 @@
     overflow-y: auto;
 }
 
-.back-button {
-  position: absolute;
-  top:0;
-  left: 0;
-  bottom: 0;
-  transition: 3s;
-}
-
-.back-button:hover {
-  background: linear-gradient(to right, rgba(170, 169, 169, 0.326), rgba(255,0,0,0));
-  transition: 3s;
-}
-
 app-main-menu {
   position: absolute;
   top: 0;
@@ -30,7 +17,20 @@ app-main-menu {
   bottom: 0;
   right: 0;
   margin: auto;
+}
+
+.back-button {
+  position: absolute;
+  top:0;
+  left: 0;
+  bottom: 0;
+  transition: 3s;
   z-index: 1;
+}
+
+.back-button:hover {
+  background: linear-gradient(to right, rgba(170, 169, 169, 0.326), rgba(255,0,0,0));
+  transition: 3s;
 }
 
 
@@ -53,6 +53,7 @@ app-main-menu {
     width : 35%;
     height : 90%;
     top: 15%;
+    z-index: 1;
     
 
     box-shadow: 0 5px 10px 0px rgb(0 0 0 / 10%);

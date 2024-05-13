@@ -23,6 +23,7 @@
     left: 0;
     bottom: 0;
     transition: 3s;
+    z-index: 1;
 }
 
 .back-button:hover {
@@ -37,7 +38,6 @@ app-main-menu {
     bottom: 0;
     right: 0;
     margin: auto;
-    z-index: 1;
   }
 
 .background {
@@ -45,6 +45,7 @@ app-main-menu {
     height: 90%;
     margin-top: 12%;
     justify-content: center;
+    z-index: 1;
 }
 
 #main-card {

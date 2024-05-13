@@ -2,14 +2,6 @@
     <div class="header">
         <div class="background">
             <div class="buttons-container">
-                <div class="disconnect-button">
-                    <mat-icon (click)="disconnect()">exit_to_app</mat-icon>
-                    <span> Déconnexion </span>
-                </div>
-                <div (click)="newCorrection()">
-                    <mat-icon>find_in_page</mat-icon>
-                    <span> Correction </span>
-                </div>
                 <div (click)="goToTasksHistory()">
                     <mat-icon> list_alt</mat-icon>
                     <span> Tâches </span>
@@ -23,6 +15,10 @@
                     <mat-icon> insert_drive_file</mat-icon>
                     <span> Page de présentation </span>
                 </div>
+                <div (click)="newCorrection()">
+                    <mat-icon>find_in_page</mat-icon>
+                    <span> Correction </span>
+                </div>
                 <div (click)="goToProfilePage()">
                     <mat-icon>person</mat-icon>
                     <span> Profil </span>
@@ -30,6 +26,10 @@
                 <div (click)="goToUserGuide()">
                     <mat-icon>library_books</mat-icon>
                     <span> Guide </span>
+                </div>
+                <div class="disconnect-button">
+                    <mat-icon (click)="disconnect()">exit_to_app</mat-icon>
+                    <span> Déconnexion </span>
                 </div>
             </div>
         </div>
