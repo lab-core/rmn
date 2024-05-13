@@ -50,6 +50,8 @@ export class NewCorrectionComponent implements OnInit {
   numberPages: number = 1;
   taskName: string = "Tâche";
 
+  suffix: string = "";
+
   constructor(
     private router: Router,
     private tasksService: TasksService,
@@ -61,6 +63,14 @@ export class NewCorrectionComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.getTemplates();
+  }
+
+  updateSuffix(event: KeyboardEvent) {
+    let regex = new RegExp("^[a-zA-ZÀ-ÿ0-9\-\_\ ]+$");
+    let key = String.fromCharCode(!event.charCode ? event.which : event.charCode);
+    if (!regex.test(key)) {
+      event.preventDefault();
+    }
   }
 
 

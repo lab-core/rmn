@@ -2,7 +2,7 @@
     <app-main-menu></app-main-menu>
     <div class="background">
         <mat-horizontal-stepper #stepper class="stepper_horizontal">
-            <mat-step [stepControl]="firstFormGroup" label="Entrer un nom pour la tâche">
+            <mat-step [stepControl]="firstFormGroup" label="Nommer la tâche">
                 <div class="breaker">
                 </div>
                 <form [formGroup]="firstFormGroup">
@@ -56,13 +56,6 @@
                 </div>
               </form>
             </mat-step>
-
-            <!--
-                
-                *********************************************************
-
-            -->
-
             <mat-step [stepControl]="thirdFormGroup" label="Téléverser le fichier csv de matricules">
                 <div class="breaker">
                 </div>
@@ -96,16 +89,58 @@
               </form>
             </mat-step>
 
-            <!--
-                
-                *********************************************************
 
-            -->
-            
-            <mat-step [stepControl]="fourthFormGroup" label="Assigner le gabarit voulu">
+            <mat-step [stepControl]="fourthFormGroup" label="Ajouter une page de couverture">
                 <div class="breaker">
                 </div>
                 <form [formGroup]="fourthFormGroup">
+                    <div class="presentation-steps-container">
+                        <div class="step">
+                            <h2><u>Étape 1</u></h2>
+                            <input #fileInput hidden="true" type="file" onclick="this.value=null"
+                                   (change)="CopiesFileEvent($event)" accept=".zip" />
+                            <button id="copies-input-button" mat-flat-button color="primary" (click)="fileInput.click()"
+                                    [disabled]="this.uploading">Téléverser le moodle.zip</button>
+                        </div>
+                    
+                        <div class="step">
+                            <h2><u>Étape 2</u></h2>
+                            <input #fileInput hidden="true" type="file" onclick="this.value=null"
+                                   (change)="CopiesFileEvent($event)" accept=".tex" />
+                            <button id="copies-input-button" mat-flat-button color="primary" (click)="fileInput.click()"
+                                    [disabled]="this.uploading">Téléverser la page de présentation en .tex</button>
+                        </div>
+                    
+                        <div class="step">
+                            <h2><u>Étape 3</u></h2>
+                            <mat-form-field style="margin-bottom: -1.25em" appearance="outline">
+                                <mat-label>Suffixe</mat-label>
+                                <input matInput [(ngModel)]="this.suffix" (keypress)="updateSuffix($event)">
+                            </mat-form-field>
+                        </div>
+                    </div>
+                    
+                    <span id="files-upload-label"></span>
+    
+                    <div class="pages-number-div">
+                        <div class="number-pages-container" id="number-page-container" style="display: none">
+                            <h3><u>Entrer le nombre de pages par copies (page de couverture incluse):</u></h3>
+                            <input [(ngModel)]="this.numberPages" [ngModelOptions]="{standalone: true}" type="number" step=1 [disabled]="this.uploading" required>
+                        </div>
+                    </div>
+                    
+                    <div class="next-button">
+                        <button mat-button matStepperPrevious>Retour</button>
+                        <button mat-button matStepperNext>Suivant</button>
+                    </div>
+                </form>
+            </mat-step>
+            
+            
+            <mat-step [stepControl]="fithFormGroup" label="Assigner le gabarit voulu">
+                <div class="breaker">
+                </div>
+                <form [formGroup]="fithFormGroup">
                     <div class="steps-container">
                         <mat-form-field appearance="fill">
                             <mat-label>Choisir gabarit</mat-label>
@@ -123,12 +158,6 @@
                     </div>
                 </form>
             </mat-step>
-
-            <!--
-                
-                *********************************************************
-
-            -->
         </mat-horizontal-stepper>
     </div>
 </div>
