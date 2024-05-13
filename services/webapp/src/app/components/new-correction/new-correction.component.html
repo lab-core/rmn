@@ -2,10 +2,28 @@
     <app-main-menu></app-main-menu>
     <div class="background">
         <mat-horizontal-stepper #stepper class="stepper_horizontal">
-            <mat-step [stepControl]="firstFormGroup" label="Téléverser les copies à corriger">
+            <mat-step [stepControl]="firstFormGroup" label="Entrer un nom pour la tâche">
                 <div class="breaker">
                 </div>
-              <form [formGroup]="firstFormGroup">
+                <form [formGroup]="firstFormGroup">
+                    <div class="steps-container">
+                        <mat-form-field style="margin-bottom: -1.25em" appearance="outline">
+                            <mat-label>Nom de la tâche</mat-label>
+                            <input [(ngModel)]="this.taskName" [ngModelOptions]="{standalone: true}" matInput >
+                        </mat-form-field>
+                    </div>
+
+                    <div class="next-button">
+                        <button mat-button matStepperPrevious>Retour</button>
+                        <button mat-flat-button color="accent" (click)="createTask()" [disabled]="this.uploading" *ngIf="!this.disabled">Commencer</button>
+                        <button mat-flat-button color="accent" (click)="createTask()" *ngIf="this.disabled" disabled>Commencer</button>
+                    </div>
+                </form>
+            </mat-step>
+            <mat-step [stepControl]="secondFormGroup" label="Téléverser les copies à corriger">
+                <div class="breaker">
+                </div>
+              <form [formGroup]="secondFormGroup">
                 <div class="files-steps-options-container">
                     <input #fileInput hidden="true" type="file" onclick="this.value=null"
                         (change)="CopiesFileEvent($event)" accept=".zip,.pdf" />
@@ -45,10 +63,10 @@
 
             -->
 
-            <mat-step [stepControl]="secondFormGroup" label="Téléverser le fichier csv de matricules">
+            <mat-step [stepControl]="thirdFormGroup" label="Téléverser le fichier csv de matricules">
                 <div class="breaker">
                 </div>
-              <form [formGroup]="secondFormGroup">
+              <form [formGroup]="thirdFormGroup">
                 
                     <div class="files-steps-options-container">
                         <input #csvInput hidden="true" type="file" onclick="this.value=null" (change)="CsvFileEvent($event)"
@@ -84,10 +102,10 @@
 
             -->
             
-            <mat-step [stepControl]="thirdFormGroup" label="Assigner le gabarit voulu">
+            <mat-step [stepControl]="fourthFormGroup" label="Assigner le gabarit voulu">
                 <div class="breaker">
                 </div>
-                <form [formGroup]="thirdFormGroup">
+                <form [formGroup]="fourthFormGroup">
                     <div class="steps-container">
                         <mat-form-field appearance="fill">
                             <mat-label>Choisir gabarit</mat-label>
@@ -111,26 +129,7 @@
                 *********************************************************
 
             -->
-            
-            <mat-step [stepControl]="fourthFormGroup" label="Entrer un nom pour la tâche">
-                <div class="breaker">
-                </div>
-                <form [formGroup]="fourthFormGroup">
-                    <div class="steps-container">
-                        <mat-form-field style="margin-bottom: -1.25em" appearance="outline">
-                            <mat-label>Nom de la tâche</mat-label>
-                            <input [(ngModel)]="this.taskName" [ngModelOptions]="{standalone: true}" matInput >
-                        </mat-form-field>
-                    </div>
-
-                    <div class="next-button">
-                        <button mat-button matStepperPrevious>Retour</button>
-                        <button mat-flat-button color="accent" (click)="createTask()" [disabled]="this.uploading" *ngIf="!this.disabled">Commencer</button>
-                        <button mat-flat-button color="accent" (click)="createTask()" *ngIf="this.disabled" disabled>Commencer</button>
-                    </div>
-                </form>
-            </mat-step>
-          </mat-horizontal-stepper>
+        </mat-horizontal-stepper>
     </div>
 </div>
 <button mat-button (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
