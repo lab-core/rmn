@@ -6,6 +6,7 @@ import { TasksService } from 'src/app/services/tasks.service';
 import { SERVER_URL } from 'src/app/utils';
 import { NotificationService } from 'src/app/services/notification.service';
 import {FormBuilder, Validators} from '@angular/forms';
+import * as saveAs from 'file-saver';
 
 
 //DropBox API
@@ -38,6 +39,9 @@ export class NewCorrectionComponent implements OnInit {
   fourthFormGroup = this._formBuilder.group({
     fourthCtrl: ['', Validators.required],
   })
+  fifthFormGroup = this._formBuilder.group({
+    fourthCtrl: ['', Validators.required],
+  })
   isLinear = true;
 
   copiesName: string = "";
@@ -51,6 +55,12 @@ export class NewCorrectionComponent implements OnInit {
   taskName: string = "Tâche";
 
   suffix: string = "";
+  presentationCopies: File;
+  latexFrontPage: File;
+  latexInputPage: File;
+
+  presentationCopiesName: string = "";
+  latexFrontPageName: string = "";
 
   constructor(
     private router: Router,
@@ -72,6 +82,21 @@ export class NewCorrectionComponent implements OnInit {
       event.preventDefault();
     }
   }
+
+  presentationCopiesFileEvent(fileInput: Event) {
+    let target = fileInput.target as HTMLInputElement;
+    let file: File = (target.files as FileList)[0];
+    this.copiesName = file.name;
+    this.copies = file;
+  }
+
+  latexFrontPageEvent(fileInput: Event) {
+    let target = fileInput.target as HTMLInputElement;
+    let file: File = (target.files as FileList)[0];
+    this.latexFrontPageName = file.name;
+    this.latexFrontPage = file;
+  }
+
 
 
   getDropBoxUpload() {
@@ -257,6 +282,52 @@ export class NewCorrectionComponent implements OnInit {
     this.copiesName = "";
     this.csvName = "";
     this.router.navigate(['/main-menu']);
+  }
+
+  cancelPresentation() {
+    this.copiesName = "";
+    this.latexFrontPageName = "";
+    this.suffix = "";
+  }
+
+  checkDisabledPresentation() {
+    if (this.copiesName !== "" && this.latexFrontPageName !== "" ) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  createPresentation() {
+    if (this.checkDisabledPresentation()) {
+      this.notifyService.showError("Assurez-vous de complêter toutes les étapes!", "ERREUR")
+    } else {
+      this.disabled = true;
+      console.log("suffix:", this.suffix)
+      // post request
+      const formdata: FormData = new FormData();
+      formdata.append('user_id', this.userService.currentUsername);
+      formdata.append('token', this.userService.token);
+      formdata.append('suffix', this.suffix);
+      formdata.append('moodle_zip', this.copies);
+      formdata.append('latex_front_page', this.latexFrontPage);
+
+      let file: Blob;
+
+      this.http.post(`${SERVER_URL}front_page`, formdata, { responseType: 'blob' }).subscribe(
+        (data) => {
+          // moodle.zip in data
+          file = data;
+          let downloadURL = window.URL.createObjectURL(data);
+          saveAs(downloadURL, this.copiesName);
+          this.disabled = false;
+        },
+        (error) => {
+          this.notifyService.showError(error.message, "ERREUR")
+          this.disabled = false;
+        });
+
+    }
   }
 
   async createTask() {

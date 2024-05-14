@@ -9,21 +9,75 @@
                     <div class="steps-container">
                         <mat-form-field style="margin-bottom: -1.25em" appearance="outline">
                             <mat-label>Nom de la tâche</mat-label>
-                            <input [(ngModel)]="this.taskName" [ngModelOptions]="{standalone: true}" matInput >
+                            <input matInput [(ngModel)]="this.taskName" [ngModelOptions]="{standalone: true}">
                         </mat-form-field>
                     </div>
 
                     <div class="next-button">
                         <button mat-button matStepperPrevious>Retour</button>
-                        <button mat-flat-button color="accent" (click)="createTask()" [disabled]="this.uploading" *ngIf="!this.disabled">Commencer</button>
-                        <button mat-flat-button color="accent" (click)="createTask()" *ngIf="this.disabled" disabled>Commencer</button>
+                        <button mat-button matStepperNext>Suivant</button>
                     </div>
                 </form>
             </mat-step>
-            <mat-step [stepControl]="secondFormGroup" label="Téléverser les copies à corriger">
+
+            <mat-step [stepControl]="secondFormGroup" label="Ajouter une page de couverture">
                 <div class="breaker">
                 </div>
-              <form [formGroup]="secondFormGroup">
+                <form [formGroup]="secondFormGroup">
+                    <div class="presentation-steps-container">
+                        <div class="step">
+                            <h2><u>Étape 1</u></h2>
+                            <input #fileInput hidden="true" type="file" onclick="this.value=null"
+                                   (change)="presentationCopiesFileEvent($event)" accept=".zip" />
+                            <button id="copies-input-button" mat-flat-button color="primary" (click)="fileInput.click()">Téléverser le moodle.zip</button>
+                            <div class="label-box">
+                                <label for="copies-input-button">{{this.copiesName}}</label>
+                            </div>
+                        </div>
+                    
+                        <div class="step">
+                            <h2><u>Étape 2</u></h2>
+                            <input #latexFrontPageInput hidden="true" type="file" onclick="this.value=null"
+                            (change)="latexFrontPageEvent($event)" accept=".tex" />
+                            <button id="latexFrontPageInput-button" mat-flat-button color="primary"
+                            (click)="latexFrontPageInput.click()">Téléverser la page de présentation en .tex</button>
+                            <div class="label-box">
+                                <label for="latexFrontPageInput-button">{{this.latexFrontPageName}}</label>
+                            </div>
+                        </div>
+                    
+                        <div class="step">
+                            <h2><u>Étape 3</u></h2>
+                            <mat-form-field style="margin-bottom: -1.25em" appearance="outline">
+                                <mat-label>Veuillez rentrer un suffixe</mat-label>
+                                <input matInput [(ngModel)]="this.suffix" [ngModelOptions]="{standalone: true}" (keypress)="updateSuffix($event)">
+                            </mat-form-field>
+                        </div>
+                    </div>
+                    
+                    <span id="files-upload-label"></span>
+    
+                    <div class="pages-number-div">
+                        <div class="number-pages-container" id="number-page-container" style="display: none">
+                            <h3><u>Entrer le nombre de pages par copies (page de couverture incluse):</u></h3>
+                            <input [(ngModel)]="this.numberPages" [ngModelOptions]="{standalone: true}" type="number" step=1 [disabled]="this.uploading" required>
+                        </div>
+                    </div>
+                    
+                    <div class="next-button">
+                        <button mat-button matStepperPrevious>Retour</button>
+                        <button mat-button matStepperNext>Suivant</button>
+                        <button mat-stroked-button (click)="cancelPresentation()" [disabled]="this.disabled">Réinitialiser</button>
+                        <button mat-flat-button color="accent" (click)="createPresentation()"
+                            [disabled]="this.disabled">Télécharger</button>
+                    </div>
+                </form>
+            </mat-step>
+
+            <mat-step [stepControl]="thirdFormGroup" label="Téléverser les copies à corriger">
+                <div class="breaker">
+                </div>
+              <form [formGroup]="thirdFormGroup">
                 <div class="files-steps-options-container">
                     <input #fileInput hidden="true" type="file" onclick="this.value=null"
                         (change)="CopiesFileEvent($event)" accept=".zip,.pdf" />
@@ -56,10 +110,11 @@
                 </div>
               </form>
             </mat-step>
-            <mat-step [stepControl]="thirdFormGroup" label="Téléverser le fichier csv de matricules">
+
+            <mat-step [stepControl]="fourthFormGroup" label="Téléverser le fichier csv de matricules">
                 <div class="breaker">
                 </div>
-              <form [formGroup]="thirdFormGroup">
+              <form [formGroup]="fourthFormGroup">
                 
                     <div class="files-steps-options-container">
                         <input #csvInput hidden="true" type="file" onclick="this.value=null" (change)="CsvFileEvent($event)"
@@ -88,59 +143,11 @@
                     </div>
               </form>
             </mat-step>
-
-
-            <mat-step [stepControl]="fourthFormGroup" label="Ajouter une page de couverture">
+         
+            <mat-step [stepControl]="fifthFormGroup" label="Assigner le gabarit voulu">
                 <div class="breaker">
                 </div>
-                <form [formGroup]="fourthFormGroup">
-                    <div class="presentation-steps-container">
-                        <div class="step">
-                            <h2><u>Étape 1</u></h2>
-                            <input #fileInput hidden="true" type="file" onclick="this.value=null"
-                                   (change)="CopiesFileEvent($event)" accept=".zip" />
-                            <button id="copies-input-button" mat-flat-button color="primary" (click)="fileInput.click()"
-                                    [disabled]="this.uploading">Téléverser le moodle.zip</button>
-                        </div>
-                    
-                        <div class="step">
-                            <h2><u>Étape 2</u></h2>
-                            <input #fileInput hidden="true" type="file" onclick="this.value=null"
-                                   (change)="CopiesFileEvent($event)" accept=".tex" />
-                            <button id="copies-input-button" mat-flat-button color="primary" (click)="fileInput.click()"
-                                    [disabled]="this.uploading">Téléverser la page de présentation en .tex</button>
-                        </div>
-                    
-                        <div class="step">
-                            <h2><u>Étape 3</u></h2>
-                            <mat-form-field style="margin-bottom: -1.25em" appearance="outline">
-                                <mat-label>Suffixe</mat-label>
-                                <input matInput [(ngModel)]="this.suffix" (keypress)="updateSuffix($event)">
-                            </mat-form-field>
-                        </div>
-                    </div>
-                    
-                    <span id="files-upload-label"></span>
-    
-                    <div class="pages-number-div">
-                        <div class="number-pages-container" id="number-page-container" style="display: none">
-                            <h3><u>Entrer le nombre de pages par copies (page de couverture incluse):</u></h3>
-                            <input [(ngModel)]="this.numberPages" [ngModelOptions]="{standalone: true}" type="number" step=1 [disabled]="this.uploading" required>
-                        </div>
-                    </div>
-                    
-                    <div class="next-button">
-                        <button mat-button matStepperPrevious>Retour</button>
-                        <button mat-button matStepperNext>Suivant</button>
-                    </div>
-                </form>
-            </mat-step>
-            
-            
-            <mat-step [stepControl]="fithFormGroup" label="Assigner le gabarit voulu">
-                <div class="breaker">
-                </div>
-                <form [formGroup]="fithFormGroup">
+                <form [formGroup]="fifthFormGroup">
                     <div class="steps-container">
                         <mat-form-field appearance="fill">
                             <mat-label>Choisir gabarit</mat-label>
@@ -154,7 +161,8 @@
 
                     <div class="next-button">
                         <button mat-button matStepperPrevious>Retour</button>
-                        <button mat-button matStepperNext>Suivant</button>
+                        <button mat-flat-button color="accent" (click)="createTask()" [disabled]="this.uploading" *ngIf="!this.disabled">Commencer</button>
+                        <button mat-flat-button color="accent" (click)="createTask()" *ngIf="this.disabled" disabled>Commencer</button>
                     </div>
                 </form>
             </mat-step>

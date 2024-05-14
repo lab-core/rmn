@@ -2,10 +2,7 @@
     {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
 </div>
 <div class="task-verification-container">
-    <div class="header">
-        <div class="logo"></div>
-        <hr class="header-line">
-    </div>
+    <app-main-menu></app-main-menu>
     <div class="background">
         <div class="files-container">
             <div class="filter-job-container" *ngIf="this.showFilter()">
