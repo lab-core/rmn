@@ -393,7 +393,19 @@ mat-spinner {
 
 
 .next-button {
-    margin-top:2.5%;
-    /*display: inline-block;*/
-    /*background-color: rgba(235, 235, 235, 0.812);*/
+    display: flex;
+    justify-content: space-between;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: center;
+}
+
+.action-buttons button {
+    margin-right: 5%; 
+}
+
+.action-buttons button:last-child {
+    margin-right: 0; 
 }

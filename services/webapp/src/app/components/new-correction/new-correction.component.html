@@ -66,11 +66,13 @@
                     
                     <div class="next-button">
                         <button mat-button matStepperPrevious>Retour</button>
-                        <button mat-button matStepperNext>Suivant</button>
-                        <button mat-stroked-button (click)="cancelPresentation()" [disabled]="this.disabled">Réinitialiser</button>
-                        <button mat-flat-button color="accent" (click)="createPresentation()"
-                            [disabled]="this.disabled">Télécharger</button>
-                    </div>
+                        <div class="action-buttons">
+                            <button mat-stroked-button (click)="cancelPresentation()" [disabled]="this.disabled">Réinitialiser</button>
+                            <button mat-flat-button color="accent" (click)="createPresentation()"
+                                [disabled]="this.disabled">Télécharger</button>
+                        </div>   
+                        <button mat-button matStepperNext>Suivant</button> 
+                    </div>    
                 </form>
             </mat-step>
 
