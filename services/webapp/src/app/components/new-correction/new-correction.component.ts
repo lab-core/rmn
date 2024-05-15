@@ -232,9 +232,7 @@ export class NewCorrectionComponent implements OnInit {
 
     if (this.copiesName === "" && dropboxInput === null && onedriveInput === null) {
       return true;
-    } else if (this.presentationCopiesName === "" && this.latexFrontPageName === "" && this.suffix === "") {
-      return true;
-    } else if (this.csvName === "" && dropboxInputCSV === null && onedriveInputCSV === null) {
+    }  else if (this.csvName === "" && dropboxInputCSV === null && onedriveInputCSV === null) {
       return true;
     } else if (this.taskName === "") {
       return true;
