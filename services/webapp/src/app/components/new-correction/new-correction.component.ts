@@ -88,8 +88,6 @@ export class NewCorrectionComponent implements OnInit {
     let file: File = (target.files as FileList)[0];
     this.presentationCopiesName = file.name;
     this.presentationCopies = file;
-    console.log("presentation:", this.presentationCopiesName);
-    console.log("presentation:", this.presentationCopies);
   }
 
   latexFrontPageEvent(fileInput: Event) {
@@ -180,7 +178,6 @@ export class NewCorrectionComponent implements OnInit {
   }
 
   CopiesFileEvent(fileInput: Event) {
-    console.log("CopiesFileEvent called")
     if (document.getElementById("files-dropbox-input").getAttribute("value") != null) {
       document.getElementById("files-dropbox-input").removeAttribute("value");
     }
@@ -197,11 +194,9 @@ export class NewCorrectionComponent implements OnInit {
     let target = fileInput.target as HTMLInputElement;
     let file: File = (target.files as FileList)[0];
     this.copiesName = file.name;
-    console.log("copies:", this.copiesName);
     document.getElementById("files-upload-label").setAttribute("value", this.copiesName);
     document.getElementById("files-upload-label").innerHTML = this.copiesName;
     this.copies = file;
-    console.log("copies:", this.copies);
     document.getElementById("number-page-container").style.display = (this.copiesName.endsWith('.zip')) ? 'none' : 'block';
   }
 
