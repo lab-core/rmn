@@ -86,8 +86,10 @@ export class NewCorrectionComponent implements OnInit {
   presentationCopiesFileEvent(fileInput: Event) {
     let target = fileInput.target as HTMLInputElement;
     let file: File = (target.files as FileList)[0];
-    this.copiesName = file.name;
-    this.copies = file;
+    this.presentationCopiesName = file.name;
+    this.presentationCopies = file;
+    console.log("presentation:", this.presentationCopiesName);
+    console.log("presentation:", this.presentationCopies);
   }
 
   latexFrontPageEvent(fileInput: Event) {
@@ -178,6 +180,7 @@ export class NewCorrectionComponent implements OnInit {
   }
 
   CopiesFileEvent(fileInput: Event) {
+    console.log("CopiesFileEvent called")
     if (document.getElementById("files-dropbox-input").getAttribute("value") != null) {
       document.getElementById("files-dropbox-input").removeAttribute("value");
     }
@@ -194,9 +197,11 @@ export class NewCorrectionComponent implements OnInit {
     let target = fileInput.target as HTMLInputElement;
     let file: File = (target.files as FileList)[0];
     this.copiesName = file.name;
+    console.log("copies:", this.copiesName);
     document.getElementById("files-upload-label").setAttribute("value", this.copiesName);
     document.getElementById("files-upload-label").innerHTML = this.copiesName;
     this.copies = file;
+    console.log("copies:", this.copies);
     document.getElementById("number-page-container").style.display = (this.copiesName.endsWith('.zip')) ? 'none' : 'block';
   }
 
@@ -231,6 +236,8 @@ export class NewCorrectionComponent implements OnInit {
     let onedriveInputCSV = document.getElementById("csv-onedrive-input").getAttribute("value");
 
     if (this.copiesName === "" && dropboxInput === null && onedriveInput === null) {
+      return true;
+    } else if (this.presentationCopiesName === "" && this.latexFrontPageName === "" && this.suffix === "") {
       return true;
     } else if (this.csvName === "" && dropboxInputCSV === null && onedriveInputCSV === null) {
       return true;
@@ -285,13 +292,13 @@ export class NewCorrectionComponent implements OnInit {
   }
 
   cancelPresentation() {
-    this.copiesName = "";
+    this.presentationCopiesName = "";
     this.latexFrontPageName = "";
     this.suffix = "";
   }
 
   checkDisabledPresentation() {
-    if (this.copiesName !== "" && this.latexFrontPageName !== "" ) {
+    if (this.presentationCopiesName !== "" && this.latexFrontPageName !== "" ) {
       return false;
     } else {
       return true;
@@ -303,13 +310,12 @@ export class NewCorrectionComponent implements OnInit {
       this.notifyService.showError("Assurez-vous de complêter toutes les étapes!", "ERREUR")
     } else {
       this.disabled = true;
-      console.log("suffix:", this.suffix)
       // post request
       const formdata: FormData = new FormData();
       formdata.append('user_id', this.userService.currentUsername);
       formdata.append('token', this.userService.token);
       formdata.append('suffix', this.suffix);
-      formdata.append('moodle_zip', this.copies);
+      formdata.append('moodle_zip', this.presentationCopies);
       formdata.append('latex_front_page', this.latexFrontPage);
 
       let file: Blob;
@@ -319,7 +325,7 @@ export class NewCorrectionComponent implements OnInit {
           // moodle.zip in data
           file = data;
           let downloadURL = window.URL.createObjectURL(data);
-          saveAs(downloadURL, this.copiesName);
+          saveAs(downloadURL, this.presentationCopiesName);
           this.disabled = false;
         },
         (error) => {

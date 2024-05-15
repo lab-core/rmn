@@ -27,11 +27,11 @@
                     <div class="presentation-steps-container">
                         <div class="step">
                             <h2><u>Étape 1</u></h2>
-                            <input #fileInput hidden="true" type="file" onclick="this.value=null"
+                            <input #presentationCopiesFileInput hidden="true" type="file" onclick="this.value=null"
                                    (change)="presentationCopiesFileEvent($event)" accept=".zip" />
-                            <button id="copies-input-button" mat-flat-button color="primary" (click)="fileInput.click()">Téléverser le moodle.zip</button>
+                            <button id="copies-input-button" mat-flat-button color="primary" (click)="presentationCopiesFileInput.click()">Téléverser le moodle.zip</button>
                             <div class="label-box">
-                                <label for="copies-input-button">{{this.copiesName}}</label>
+                                <label for="copies-input-button">{{this.presentationCopiesName}}</label>
                             </div>
                         </div>
                     
@@ -54,8 +54,6 @@
                             </mat-form-field>
                         </div>
                     </div>
-                    
-                    <span id="files-upload-label"></span>
     
                     <div class="pages-number-div">
                         <div class="number-pages-container" id="number-page-container" style="display: none">
@@ -81,9 +79,9 @@
                 </div>
               <form [formGroup]="thirdFormGroup">
                 <div class="files-steps-options-container">
-                    <input #fileInput hidden="true" type="file" onclick="this.value=null"
+                    <input #copiesFileInput hidden="true" type="file" onclick="this.value=null"
                         (change)="CopiesFileEvent($event)" accept=".zip,.pdf" />
-                    <button id="copies-input-button" mat-flat-button color="primary" (click)="fileInput.click()"
+                    <button id="copies-input-button" mat-flat-button color="primary" (click)="copiesFileInput.click()"
                         [disabled]="this.uploading">Téléverser localement</button>
 
                     <button id="files-dropbox-input" (click)="getDropBoxUpload()" [disabled]="this.uploading">
