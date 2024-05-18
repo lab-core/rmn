@@ -15,6 +15,7 @@ services:
       - "27017:27017"
   executor:
    build: ./services/executor
+  #  command: bash -c "while true; do echo hello; sleep 2; done"
    restart: unless-stopped
    # ports:
    #   - "5001:5001"
@@ -58,3 +59,4 @@ services:
       - 80:80
 volumes:
   storage:
+

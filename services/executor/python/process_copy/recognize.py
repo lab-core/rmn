@@ -112,7 +112,7 @@ def find_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
         r = os.path.dirname(path)
         if not root_dir:
             root_dir = r
-        elif root_dir.count("/") > r.count("/"):
+        elif root_dir.count(os.sep) > r.count(os.sep):
             root_dir = r
 
         for root, dirs, files in os.walk(path):
@@ -169,7 +169,7 @@ def find_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
             name,
             None,
             None,
-            "%d: %s" % (i, file.rsplit("/")[-1]),
+            "%d: %s" % (i, file.rsplit(os.sep)[-1]),
             dpi,
             align_matricule_left=False,
             name_bottom=False,
@@ -452,7 +452,7 @@ def grade_files(
             start_time = time.time()
 
             # search matricule in filename
-            filename = file.rsplit("/", 1)[-1]
+            filename = file.rsplit(os.sep, 1)[-1]
             m = re.search(re_mat, filename)
             is_matricule_valid = True
             use_mat_box = False
@@ -460,7 +460,7 @@ def grade_files(
             # search matricule in forlder name
             # use folder name: "Nom complet_Identifiant_Matricule_assignsubmission_file_"
             if not m:
-                par_dir = file.rsplit('/', 2)[-2]
+                par_dir = file.rsplit(os.sep, 2)[-2]
                 dir_split = par_dir.split("_")
                 if len(dir_split) > 3:
                     m = re.search(re_mat, dir_split[2])

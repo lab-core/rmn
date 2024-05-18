@@ -74,21 +74,25 @@ class Database:
         time,
         group
     ):
-        # return updated doc
-        return self.documents_collection().update_one(
-            {"job_id": job_id, "document_index": doc_index},
-            {
-                "$set": {
-                    "matricule": str(matricule),
-                    "subquestion_predictions": subquestion_pred,
-                    "total": total,
-                    "image_id": image_id,
-                    "status": status.value,
-                    "execution_time": time,
-                    "group": group
-                }
-            },
-        ).matched_count > 0
+        try:
+            # return updated doc
+            return self.documents_collection().update_one(
+                {"job_id": job_id, "document_index": doc_index},
+                {
+                    "$set": {
+                        "matricule": str(matricule),
+                        "subquestion_predictions": subquestion_pred,
+                        "total": total,
+                        "image_id": image_id,
+                        "status": status.value,
+                        "execution_time": time,
+                        "group": group
+                    }
+                },
+            ).matched_count > 0
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
 
     def update_document_predictions(
         self,

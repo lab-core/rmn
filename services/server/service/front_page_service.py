@@ -18,7 +18,7 @@ class FrontPageHandler:
     ):
         for root, dirs, files in os.walk(input_folder):
             # try to split name based on: "Nom complet_Identifiant_Matricule_assignsubmission_file_"
-            folder = root.rsplit("/", 1)[-1]
+            folder = root.rsplit(os.sep, 1)[-1]
             split_folder = folder.split("_")
             # if folder start by _, ignore whole directory
             ignore_folder = split_folder[0] == ""

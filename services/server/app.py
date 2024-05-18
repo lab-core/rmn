@@ -127,7 +127,7 @@ def verify_share_token():
     return _verify_token
 
 
-@app.route("/")
+@app.route(os.sep)
 def say_hello():
     return "<h1>Hi Andy, I'm on fire !</h1>"
 
@@ -648,7 +648,7 @@ def download_file(user_id):
         os.makedirs(TEMP_FOLDER)
 
     # Save file to local
-    filepath = str(TEMP_FOLDER.joinpath(file_id.split("/")[-1]))
+    filepath = str(TEMP_FOLDER.joinpath(file_id.split(os.sep)[-1]))
     storage.copy_from(file_id, filepath)
     file_send = send_file(filepath)
     os.remove(filepath)

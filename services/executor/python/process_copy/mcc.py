@@ -49,7 +49,7 @@ def load_csv(grades_csv):
             df = df.drop(dup_index)
             df.to_csv(g)
         grades_dfs.append(df.set_index(MF.mat))
-    grades_names = [g.rsplit("/")[-1].split(".")[0] for g in grades_csv]
+    grades_names = [g.rsplit(os.sep)[-1].split(".")[0] for g in grades_csv]
 
     for g in grades_dfs:
         g.index = g.index.map(str)
@@ -68,9 +68,9 @@ def copy_file(file, dest):
     # extract folder and name if dest is not a folder
     old_name = None
     folder = dest
-    if "." in dest.rsplit("/")[-1]:
-        old_name = file.rsplit("/")[-1]
-        folder = dest.rsplit("/", 1)[0]
+    if "." in dest.rsplit(os.sep)[-1]:
+        old_name = file.rsplit(os.sep)[-1]
+        folder = dest.rsplit(os.sep, 1)[0]
         if not folder:
             folder = "./"
 
@@ -87,7 +87,7 @@ def copy_file(file, dest):
 def copy_file_with_front_page(file, dfile, name=None, mat=None, latex_front_page=None):
     # add front page if any
     if latex_front_page:
-        f = file.rsplit("/")[-1]
+        f = file.rsplit(os.sep)[-1]
         f_page = None
         try:
             f_page = create_front_page(latex_front_page, name, mat)

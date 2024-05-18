@@ -80,7 +80,7 @@ def try_alternative_root_paths(path, root=None, check=True):
     if not path:
         return []
 
-    if path.startswith('/'):
+    if path.startswith(os.sep):
         if not check:
             return [path]
         return glob.glob(path)

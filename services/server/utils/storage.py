@@ -8,7 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 
 def create_tree(file_path):
-    os.makedirs(file_path.rsplit("/",1)[0], exist_ok=True)
+    os.makedirs(file_path.rsplit(os.sep,1)[0], exist_ok=True)
 
 
 # use this method to avoid Invalid cross-device link error
