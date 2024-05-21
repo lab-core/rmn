@@ -11,6 +11,7 @@ import { PresentationPageComponent } from './components/presentation-page/presen
 import { UserProfileComponent } from './components/user-profile/user-profile.component';
 import { UserGuideComponent } from './components/user-guide/user-guide.component';
 import { UserService } from './services/user.service';
+import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
 
 
 // This is my case
@@ -49,6 +50,11 @@ const routes: Routes = [
     //     component : PresentationPageComponent,
     //     canActivate: [UserService]
     // },
+    {
+        path: 'new-exam-correction',
+        component : NewExamCorrectionComponent,
+        canActivate: [UserService]
+    },
     {
         path: 'user-profile',
         component : UserProfileComponent,

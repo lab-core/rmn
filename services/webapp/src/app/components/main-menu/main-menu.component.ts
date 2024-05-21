@@ -30,6 +30,10 @@ export class MainMenuComponent implements OnInit {
   newCorrection(): void {
     this.router.navigate(['/new-correction']);
   }
+  
+  newExamCorrection(): void {
+    this.router.navigate(['/new-exam-correction']);
+  }
 
   goToTasksHistory(): void {
     this.router.navigate(['/tasks-history']);
