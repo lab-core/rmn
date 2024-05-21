@@ -44,11 +44,11 @@ const routes: Routes = [
         component : TaskVerificationComponent,
         canActivateChild: [UserService]
     },
-    {
-        path: 'presentation-page',
-        component : PresentationPageComponent,
-        canActivate: [UserService]
-    },
+    // {
+    //     path: 'presentation-page',
+    //     component : PresentationPageComponent,
+    //     canActivate: [UserService]
+    // },
     {
         path: 'user-profile',
         component : UserProfileComponent,
