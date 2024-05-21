@@ -19,17 +19,18 @@ class Storage:
     def __init__(self, storage_path=None):
         if storage_path:
             self.path = Path(storage_path)
+            print("storage_path: ", self.path)
         elif os.getenv('STORAGE'):
             self.path = Path(os.getenv('STORAGE'))
+            print("os.getenv('STORAGE'): ", self.path)
         else:
-            ROOT_DIR_PROJECT = ROOT_DIR.parent.parent
-            self.path = ROOT_DIR_PROJECT.joinpath("storage")
+            # ROOT_DIR_PROJECT = ROOT_DIR.parent.parent
+            # self.path = ROOT_DIR_PROJECT.joinpath("storage")
+            self.path = ROOT_DIR.joinpath("storage")
 
     def abs_path(self, r_path):
-        print("BLABLALBALA")
         abs_p = os.path.join(str(self.path), r_path)
-        abs_p =f'/Executor/storage/{r_path}'
-        print(f"Resolved path: {abs_p}")
+        # abs_p =f'/Executor/storage/{r_path}'
         return str(abs_p)
 
     def move_to(self, l_file, s_file):
@@ -39,14 +40,8 @@ class Storage:
 
     def copy_from(self, s_file, l_file):
         s_abs_file = self.abs_path(s_file)
-        if not os.path.exists(s_abs_file):
-            print(f"Source file does not exist: {s_abs_file}")
-            # while True:
-            #     print(f"Trying to copy from {s_abs_file} to {l_file}")
-            return
         create_tree(l_file)
         shutil.copy(s_abs_file, l_file)
-        print(f"Copied from {s_abs_file} to {l_file}")
 
     def remove(self, s_file):
         os.remove(self.abs_path(s_file))

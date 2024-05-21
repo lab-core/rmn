@@ -21,8 +21,8 @@ from datetime import datetime, timedelta
 
 
 ROOT_DIR = Path(__file__).resolve().parent
-MAX_RETRY = int(os.getenv("MAX_RETRY", "1000")) # 5
-MAX_IDLE_TIME = 5 # 120
+MAX_RETRY = int(os.getenv("MAX_RETRY", "5")) # 5
+MAX_IDLE_TIME = 120 # 120
 
 storage = Storage()
 
@@ -35,8 +35,6 @@ def save_number_images(job_id, document_index, questions):
             number = float(number)
             if number.is_integer() and 0 <= int(number) <= 9:
                 try:
-                    # unverified_filename = f"unverified_numbers/{job_id}/{document_index}/{index}.png"
-                    # new_filename = f"numbers/{int(number)}/{uuid.uuid4()}.png"
                     unverified_filename = os.path.join("unverified_numbers", job_id, str(document_index),f"{index}.png")
                     new_filename = os.path.join("numbers", str(int(number)), f"{uuid.uuid4()}.png")
                     storage.move_to(storage.abs_path(unverified_filename), new_filename)
@@ -268,7 +266,7 @@ if __name__ == "__main__":
                 "zip",
                 str(all_copies_folder_path)
             )
-            # zip_file_id = f"output_zip/{job_id}_all.zip"
+
             zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_all.zip")
             try:
                 all_zip_name = str(VALIDATE_FOLDER.joinpath("all"))
@@ -287,7 +285,7 @@ if __name__ == "__main__":
                 return
 
             try:
-                # n_csv = f"output_csv/{job_id}.csv"
+                #
                 n_csv = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
                 storage.move_to(csv_file_path, n_csv)
 
@@ -341,12 +339,10 @@ if __name__ == "__main__":
                     try:
                         storage.remove(os.path.normpath(
                             f"unverified_numbers{os.sep}{job_id}{os.sep}{document_index}{os.sep}{image_index}.png"))
-                        # storage.remove(f"unverified_numbers/{job_id}/{document_index}/{image_index}.png")
                     except:
                         continue
 
             try:
-                # storage.remove_tree(f"documents/{job_id}")
                 storage.remove_tree(os.path.normpath(f"documents{os.sep}{job_id}"))
             except:
                 pass
@@ -360,7 +356,7 @@ if __name__ == "__main__":
             EXTRACT_FOLDER.mkdir(exist_ok=True)
 
             # Query job params
-            # print("Querying job details from Database...")
+            print("Querying job details from Database...")
             job_params = db.eval_jobs_collection().find_one({"job_id": job_id})
 
             if job_params is None:
@@ -378,18 +374,14 @@ if __name__ == "__main__":
                 }
             )
             # Save notes.csv file to local
-            # while True:
-            #     print(str(OUTPUT_FOLDER.joinpath("notes.csv")))
-            #     print(job_params["notes_file_id"])
 
             storage.copy_from(job_params["notes_file_id"], str(OUTPUT_FOLDER.joinpath("notes.csv")))
-            print("passed notes.csv")
             # Save zip file to local
             storage.copy_from(job_params["zip_file_id"], str(OUTPUT_FOLDER.joinpath("content.zip")))
-            print("passed zip")
+
             with ZipFile(str(OUTPUT_FOLDER.joinpath("content.zip")), 'r') as zip_ref:
                 zip_ref.extractall(EXTRACT_FOLDER)
-            print("passed zip and storage")
+
             args = [
                 str(EXTRACT_FOLDER),
                 "-m",
@@ -418,8 +410,7 @@ if __name__ == "__main__":
 
                 if stopH.stop():
                     print("Job has been deleted.")
-                    # storage.remove(f"csv/{job_id}.csv")
-                    # storage.remove(f"zips/{job_id}.zip")
+
                     storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
                     storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
                     return
@@ -446,26 +437,11 @@ if __name__ == "__main__":
                     ),
                 )
 
-                # storage.remove(f"csv/{job_id}.csv")
-                # storage.remove(f"zips/{job_id}.zip")
                 storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
                 storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
                 return
 
             print("Module Done")
-
-            # # Save output files in storage
-            # # folder = "output_csv/"
-            # folder = os.path.normpath(f"output_csv{os.sep}")
-            # filename = f"{job_id}.csv"
-            # notes_csv_file_id = f"{folder}{filename}"
-            # storage.move_to(str(OUTPUT_FOLDER.joinpath("notes.csv")), notes_csv_file_id)
-            #
-            # # folder = "output_zip/"
-            # folder = os.path.normpath(f"output_zip{os.sep}")
-            # filename = f"{job_id}.zip"
-            # moodle_zip_file_id = f"{folder}{filename}"
-            # storage.move_to(str(MOODLE_ZIP), moodle_zip_file_id)
 
             # Save output files in storage
             notes_csv_file_id = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
@@ -508,8 +484,6 @@ if __name__ == "__main__":
                 ),
             )
 
-            # storage.remove(f"csv/{job_id}.csv")
-            # storage.remove(f"zips/{job_id}.zip")
             storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
             storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
         else:

@@ -454,7 +454,7 @@ export class TaskVerificationComponent implements OnInit {
     let height = 80;
     if (!this.loggued()) height += 10;
     if (!this.showFilter()) height += 10;
-    console.log("height", height+"%")
+    // console.log("height", height+"%")
     return height+"%";
   }
   checkValidationButton(): void {
