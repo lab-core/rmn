@@ -52,7 +52,8 @@ export class NewExamCorrectionComponent implements OnInit {
   uploading: boolean = false;
 
   nQuestions: number = 0;
-  questionsArray: number[] = [];
+  nPagesPerQuestion = new Map<string, number>();
+  questionKeys: string[] = [];
   taskName: string = "Tâche";
 
   suffix: string = "";
@@ -76,9 +77,21 @@ export class NewExamCorrectionComponent implements OnInit {
     this.getTemplates();
   }
 
-  updateQuestionCount() {
-    this.questionsArray = Array.from({ length: this.nQuestions }, () => 0);
+  updateQuestionsCount() {
+    this.nPagesPerQuestion.clear();
+    this.questionKeys = [];
+    for (let i = 1; i <= this.nQuestions; i++) {
+      this.nPagesPerQuestion.set(`Q${i}`, 1);
+      this.questionKeys.push(`Q${i}`);
+    }
   }
+
+  updatePageCount(key: string, event: Event) {
+    const inputElement = event.target as HTMLInputElement;
+    const pageCount = parseInt(inputElement.value, 10);
+    this.nPagesPerQuestion.set(key, pageCount);
+  }
+
 
   updateSuffix(event: KeyboardEvent) {
     let regex = new RegExp("^[a-zA-ZÀ-ÿ0-9\-\_\ ]+$");

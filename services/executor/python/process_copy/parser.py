@@ -63,6 +63,7 @@ parser.add_argument("-co", "--course", type=str, help="Name of the course.")
 parser.add_argument("-se", "--session", type=str, help="Name of the session.")
 
 parser.add_argument('-t', '--train', default=False, action='store_true', help='train the CNN on the MNIST dataset')
+parser.add_argument('--split_and_merge', default=False, action='store_true', help='split and merge the pdf files')
 
 parser.add_argument('-j', '--job_id', type=str, help='Id of the job.')
 
@@ -169,6 +170,11 @@ def run_args(args):
         print('Training recognition deep learning model')
         from process_copy.train import train
         train()
+    
+    # if args.split_and_merge:
+    #     print('Splitting and merging pdf files')
+    #     from process_copy.split_and_merge import split_and_merge
+    #     split_and_merge(args.path)
 
     if args.find:
         print('Find the matricule for the pdf files in %s' % args.path)

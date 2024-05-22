@@ -512,8 +512,8 @@ if __name__ == "__main__":
                 print(e)
                 pass
 
-            # clean
-            shutil.rmtree(WORK_TMP_DIR)
+            # clean ENLEVER
+            # shutil.rmtree(WORK_TMP_DIR)
 
         # check if any job is idle and dangling
         alive_times = {}
