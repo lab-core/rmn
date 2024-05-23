@@ -13,6 +13,7 @@ from PyPDF2 import PdfWriter, PdfReader
 from service.front_page_service import FrontPageHandler
 from threading import Thread
 from zipfile import ZipFile
+from utils.split_and_merge import process_path
 
 
 import uuid
@@ -182,9 +183,15 @@ def evaluate(user_id):
             status=400,
         )
 
-    if "nb_pages" not in request_form:
+    # if "nb_pages" not in request_form:
+    #     return Response(
+    #         response=json.dumps({"response": f"Error: nb_pages not provided."}),
+    #         status=400,
+    #     )
+    
+    if "n_pages_per_question" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: nb_pages not provided."}),
+            response=json.dumps({"response": f"Error: n_pages_per_question not provided."}),
             status=400,
         )
 
@@ -221,7 +228,8 @@ def evaluate(user_id):
     template_id = str(request_form["template_id"])
     template_name = str(request_form["template_name"])
     job_name = str(request_form["job_name"])
-    nb_pages = int(request_form["nb_pages"])
+    # nb_pages = int(request_form["nb_pages"])
+    n_pages_per_question = json.loads(request_form["n_pages_per_question"])
 
     # Define db and collection used
     db = mongo["RMN"]
@@ -261,6 +269,7 @@ def evaluate(user_id):
     if not os.path.exists(TEMP_FOLDER):
         os.makedirs(TEMP_FOLDER)
     try:
+        # only for a zip with a folder for each student
         notes_csv_file = request.files.get("notes_csv_file")
         notes_csv_file_name = secure_filename(notes_csv_file.filename)
         notes_csv_file.save(FileIO(TEMP_FOLDER.joinpath(notes_csv_file_name), "wb"))
@@ -268,38 +277,11 @@ def evaluate(user_id):
         zip_file = request.files.get("zip_file")
         zip_file_name = secure_filename(zip_file.filename)
 
-        # transform into zip file
-        if str(zip_file_name).endswith(".pdf"):
-            reader = PdfReader(zip_file)
-            folder_to_zip = TEMP_FOLDER.joinpath("folder_to_zip")
+        with open(str(TEMP_FOLDER.joinpath(zip_file_name)), "wb") as f_out:
+            file_content = zip_file.stream.read()
+            f_out.write(file_content)
 
-            if not os.path.exists(folder_to_zip):
-                os.makedirs(folder_to_zip)
-
-            current_idx = 0
-            writer = PdfWriter()
-            for p in reader.pages:
-                writer.add_page(p)
-                if len(writer.pages) == nb_pages:
-                    with open(
-                        str(folder_to_zip.joinpath(f"{str(current_idx)}.pdf")), "wb"
-                    ) as out:
-                        writer.write(out)
-                    writer = PdfWriter()
-                    current_idx += 1
-            if len(writer.pages) > 0:
-                print("WARNING: there are some pages that will be lost:", len(writer.pages))
-
-            zip_file_name = "copies.zip"
-            shutil.make_archive(
-                str(TEMP_FOLDER.joinpath("copies")), "zip", str(folder_to_zip)
-            )
-
-            shutil.rmtree(str(folder_to_zip))
-        else:
-            with open(str(TEMP_FOLDER.joinpath(zip_file_name)), "wb") as f_out:
-                file_content = zip_file.stream.read()
-                f_out.write(file_content)
+        process_path(TEMP_FOLDER, n_pages_per_question)
 
     except Exception as e:
         print(e)

@@ -411,8 +411,8 @@ if __name__ == "__main__":
                 if stopH.stop():
                     print("Job has been deleted.")
 
-                    storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-                    storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
+                    # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+                    # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
                     return
 
                 # check if should retry
@@ -437,8 +437,8 @@ if __name__ == "__main__":
                     ),
                 )
 
-                storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-                storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
+                # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+                # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
                 return
 
             print("Module Done")
@@ -484,8 +484,8 @@ if __name__ == "__main__":
                 ),
             )
 
-            storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-            storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
+            # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+            # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
         else:
             print("Job status "+job["job_status"]+" not handled.")
 
