@@ -65,3 +65,4 @@ urllib3==1.26.14
 Werkzeug==2.2.2
 wrapt==1.14.1
 wsproto==1.2.0
+PyPDF2==2.12.1

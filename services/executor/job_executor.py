@@ -9,6 +9,7 @@ from utils.storage import Storage
 from utils.stop_handler import StopHandler
 from utils.clients import redis_client, socketio_client
 from zipfile import ZipFile
+from utils.split_and_merge import process_path
 
 import os
 import re
@@ -411,8 +412,8 @@ if __name__ == "__main__":
                 if stopH.stop():
                     print("Job has been deleted.")
 
-                    # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-                    # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
+                    storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+                    storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
                     return
 
                 # check if should retry
@@ -437,8 +438,8 @@ if __name__ == "__main__":
                     ),
                 )
 
-                # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-                # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
+                storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+                storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
                 return
 
             print("Module Done")
@@ -457,6 +458,9 @@ if __name__ == "__main__":
                 storage.move_to(str(file_path), moodle_zip_file_id)
                 moodle_zip_id_list.append(moodle_zip_file_id)
                 i = i + 1
+
+            zip_folder_to_extract = os.path.join('storage', 'output_zip')
+            process_path(zip_folder_to_extract, job_id, job_params["n_pages_per_question"])
 
             db.jobs_output_collection().insert_one(
                 {
@@ -484,8 +488,8 @@ if __name__ == "__main__":
                 ),
             )
 
-            # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-            # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
+            storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+            storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
         else:
             print("Job status "+job["job_status"]+" not handled.")
 
@@ -513,7 +517,7 @@ if __name__ == "__main__":
                 pass
 
             # clean ENLEVER
-            # shutil.rmtree(WORK_TMP_DIR)
+            shutil.rmtree(WORK_TMP_DIR)
 
         # check if any job is idle and dangling
         alive_times = {}

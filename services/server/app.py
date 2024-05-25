@@ -13,7 +13,6 @@ from PyPDF2 import PdfWriter, PdfReader
 from service.front_page_service import FrontPageHandler
 from threading import Thread
 from zipfile import ZipFile
-from utils.split_and_merge import process_path
 
 
 import uuid
@@ -229,7 +228,8 @@ def evaluate(user_id):
     template_name = str(request_form["template_name"])
     job_name = str(request_form["job_name"])
     # nb_pages = int(request_form["nb_pages"])
-    n_pages_per_question = json.loads(request_form["n_pages_per_question"])
+    n_pages_per_question = request_form["n_pages_per_question"] # need to get the dictionary
+    print(n_pages_per_question)
 
     # Define db and collection used
     db = mongo["RMN"]
@@ -254,6 +254,7 @@ def evaluate(user_id):
         "retry": 0,
         "notes_file_id": notes_file_id,
         "zip_file_id": zip_file_id,
+        "n_pages_per_question": n_pages_per_question,
         "students_list": []
     }
 
@@ -280,8 +281,6 @@ def evaluate(user_id):
         with open(str(TEMP_FOLDER.joinpath(zip_file_name)), "wb") as f_out:
             file_content = zip_file.stream.read()
             f_out.write(file_content)
-
-        process_path(TEMP_FOLDER, n_pages_per_question)
 
     except Exception as e:
         print(e)

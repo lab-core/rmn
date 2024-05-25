@@ -7,7 +7,7 @@ from PyPDF2 import PdfReader, PdfWriter
 
 def calculate_pages(pages_per_question):
     results = {}
-    current_start_page = 2
+    current_start_page = 3 # start_page
     for question, num_pages in pages_per_question.items():
         end_page = current_start_page + num_pages - 1
         results[question] = list(range(current_start_page - 1, end_page))
@@ -51,9 +51,12 @@ def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question):
     split_and_merge(n_pages_per_question, extracted_files, output_folder)
     shutil.rmtree(temp_folder)
 
-def process_path(zip_folder, n_pages_per_question):
+def process_path(zip_folder, job_id, n_pages_per_question):
     root_path = Path(__file__).resolve().parent.parent
+    documents_path = root_path.joinpath('storage', 'documents', job_id)
+
     zip_path = root_path.joinpath(zip_folder)
+    print(zip_path)
     zip_files = glob.glob(str(zip_path / '*.zip'))
     
     if not zip_files:
@@ -61,16 +64,18 @@ def process_path(zip_folder, n_pages_per_question):
     
     zip_file_path = os.path.join(zip_path, zip_files[0])
     temp_path = zip_path.joinpath('extracted')
-    output_path = zip_path.joinpath('questions')
     
     if not n_pages_per_question:
         raise ValueError("Please provide a mapping of questions to page numbers.")
 
-    process_zip(zip_file_path, temp_path, output_path, n_pages_per_question)
+    process_zip(zip_file_path, temp_path, documents_path, n_pages_per_question)
 
 # example
 # n_pages_per_question = {'Q1': 2, 'Q2': 3, 'Q3': 1}
-# process_path('tmp_job_id', n_pages_per_question)
+#
+# zip_folder_to_extract = os.path.join('storage', 'output_zip')
+# process_path(zip_folder_to_extract, '7edc7584-1321-488b-8414-06a2640cee45', n_pages_per_question)
+
 
 
 
