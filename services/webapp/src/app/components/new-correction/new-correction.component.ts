@@ -27,21 +27,11 @@ export class NewCorrectionComponent implements OnInit {
   copies: File;
   csv: File;
 
-  firstFormGroup = this._formBuilder.group({
-    firstCtrl: ['', Validators.required],
-  });
-  secondFormGroup = this._formBuilder.group({
-    secondCtrl: ['', Validators.required],
-  });
-  thirdFormGroup = this._formBuilder.group({
-    thirdCtrl: ['', Validators.required],
-  });
-  fourthFormGroup = this._formBuilder.group({
-    fourthCtrl: ['', Validators.required],
-  })
-  fifthFormGroup = this._formBuilder.group({
-    fourthCtrl: ['', Validators.required],
-  })
+  firstFormGroup: any;
+  secondFormGroup: any;
+  thirdFormGroup: any;
+  fourthFormGroup: any;
+  fifthFormGroup: any;
   isLinear = true;
 
   copiesName: string = "";
@@ -69,7 +59,23 @@ export class NewCorrectionComponent implements OnInit {
     private userService: UserService,
     private notifyService: NotificationService,
     private _formBuilder: FormBuilder
-  ) { }
+  ) {
+    this.firstFormGroup = this._formBuilder.group({
+      firstCtrl: ['', Validators.required],
+    });
+    this.secondFormGroup = this._formBuilder.group({
+      secondCtrl: ['', Validators.required],
+    });
+    this.thirdFormGroup = this._formBuilder.group({
+      thirdCtrl: ['', Validators.required],
+    });
+    this.fourthFormGroup = this._formBuilder.group({
+      fourthCtrl: ['', Validators.required],
+    });
+    this.fifthFormGroup = this._formBuilder.group({
+      fifthCtrl: ['', Validators.required],
+    });
+   }
 
   async ngOnInit(): Promise<void> {
     this.getTemplates();

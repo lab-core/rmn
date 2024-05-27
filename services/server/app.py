@@ -1,3 +1,4 @@
+from bson import BSON
 from service.template_service import TemplateService
 from service.user_service import UserService, Role
 from flask import Flask, request, Response, json, send_file, after_this_request
@@ -228,7 +229,7 @@ def evaluate(user_id):
     template_name = str(request_form["template_name"])
     job_name = str(request_form["job_name"])
     # nb_pages = int(request_form["nb_pages"])
-    n_pages_per_question = request_form["n_pages_per_question"] # need to get the dictionary
+    n_pages_per_question = json.loads(request_form["n_pages_per_question"])
     print(n_pages_per_question)
 
     # Define db and collection used

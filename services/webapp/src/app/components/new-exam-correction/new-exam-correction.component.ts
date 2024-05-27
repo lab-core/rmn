@@ -26,19 +26,10 @@ declare function onedrivePickerCSV(): void;
 export class NewExamCorrectionComponent implements OnInit {
   copies: File;
   csv: File;
-
-  firstFormGroup = this._formBuilder.group({
-    firstCtrl: ['', Validators.required],
-  });
-  secondFormGroup = this._formBuilder.group({
-    secondCtrl: ['', Validators.required],
-  });
-  thirdFormGroup = this._formBuilder.group({
-    thirdCtrl: ['', Validators.required],
-  });
-  fourthFormGroup = this._formBuilder.group({
-    fourthCtrl: ['', Validators.required],
-  })
+  firstFormGroup: any;
+  secondFormGroup: any;
+  thirdFormGroup: any;
+  fourthFormGroup: any;
   // fifthFormGroup = this._formBuilder.group({
   //   fourthCtrl: ['', Validators.required],
   // })
@@ -71,7 +62,20 @@ export class NewExamCorrectionComponent implements OnInit {
     private userService: UserService,
     private notifyService: NotificationService,
     private _formBuilder: FormBuilder
-  ) { }
+  ) { 
+    this.firstFormGroup = this._formBuilder.group({
+      firstCtrl: ['', Validators.required],
+    });
+    this.secondFormGroup = this._formBuilder.group({
+      secondCtrl: ['', Validators.required],
+    });
+    this.thirdFormGroup = this._formBuilder.group({
+      thirdCtrl: ['', Validators.required],
+    });
+    this.fourthFormGroup = this._formBuilder.group({
+      fourthCtrl: ['', Validators.required],
+    })
+  }
 
   async ngOnInit(): Promise<void> {
     this.getTemplates();
@@ -215,7 +219,7 @@ export class NewExamCorrectionComponent implements OnInit {
     document.getElementById("files-upload-label").setAttribute("value", this.copiesName);
     document.getElementById("files-upload-label").innerHTML = this.copiesName;
     this.copies = file;
-    document.getElementById("number-page-container").style.display = (this.copiesName.endsWith('.zip')) ? 'none' : 'block';
+    // document.getElementById("number-page-container").style.display = (this.copiesName.endsWith('.zip')) ? 'none' : 'block';
   }
 
   CsvFileEvent(fileInput: Event) {

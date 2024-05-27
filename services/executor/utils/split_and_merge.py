@@ -18,25 +18,23 @@ def split_and_merge(n_pages_per_question, input_pdfs, output_folder):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    question_writers = {key: PdfWriter() for key in n_pages_per_question}
-
     for input_pdf in input_pdfs:
         with open(input_pdf, 'rb') as f:
             reader = PdfReader(f)
             pages_for_questions = calculate_pages(n_pages_per_question)
 
             for question, pages in pages_for_questions.items():
+                writer = PdfWriter()
                 for page_index in pages:
                     if page_index < len(reader.pages):
-                        question_writers[question].add_page(reader.pages[page_index])
+                        writer.add_page(reader.pages[page_index])
                     else:
-                        # flag for missing pages
                         print(f"Page {page_index + 1} missing in '{input_pdf}' for question '{question}'.")
 
-    for question, writer in question_writers.items():
-        output_path = os.path.join(output_folder, f"{question}.pdf")
-        with open(output_path, 'wb') as output_file:
-            writer.write(output_file)
+                output_path = os.path.join(output_folder, f"{question}.pdf")
+                with open(output_path, 'wb') as output_file:
+                    writer.write(output_file)
+                    print(f"Finished writing to {output_path}")
 
 def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:

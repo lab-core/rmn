@@ -459,8 +459,14 @@ if __name__ == "__main__":
                 moodle_zip_id_list.append(moodle_zip_file_id)
                 i = i + 1
 
+            # n_pages_per_question_list = json.loads(job_params["n_pages_per_question"])
+            n_pages_per_question = {key: value for key, value in job_params["n_pages_per_question"]}
+            print("n_pages_per_question: ", n_pages_per_question)
             zip_folder_to_extract = os.path.join('storage', 'output_zip')
-            process_path(zip_folder_to_extract, job_id, job_params["n_pages_per_question"])
+            try:
+                process_path(zip_folder_to_extract, job_id, n_pages_per_question)
+            except Exception as e:
+                print("Error in process_path:", e)
 
             db.jobs_output_collection().insert_one(
                 {
@@ -487,6 +493,11 @@ if __name__ == "__main__":
                     }
                 ),
             )
+            
+            # elapsed_time = 0 
+            # while elapsed_time < 1000000000:  
+            #     elapsed_time = elapsed_time + 1
+            #     print(f"Elapsed time: {elapsed_time} seconds") 
 
             storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
             storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))

@@ -112,7 +112,7 @@ export class TasksService {
     formdata.append('zip_file', copies);
     formdata.append('notes_csv_file', csv);
     // formdata.append('nb_pages', number_pages.toString());
-    formdata.append('n_pages_per_question', n_pages_per_question);
+    formdata.append('n_pages_per_question', JSON.stringify(Array.from(n_pages_per_question.entries())));
     formdata.append('job_name', taskName);
     formdata.append('template_name', template_name);
 
