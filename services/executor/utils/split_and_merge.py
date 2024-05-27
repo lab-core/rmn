@@ -82,15 +82,14 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
     for pdf_path in generated_pdfs:
         file_name = os.path.basename(pdf_path)
         document_index = file_name[:-4]
-        # Assuming function arguments are appropriate for the data model
         db.insert_document(
             job_id=job_id,
             doc_index=document_index,
-            subquestion_pred=[],  # example of expected data
+            subquestion_pred=[], 
             total=0,
             image_id="",
-            status=Document_Status.NOT_READY,  # example status
-            matricule="",  # example matricule
+            status=Document_Status.READY,  
+            matricule="", 
             time=0,
             filename=file_name
         )
