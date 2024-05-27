@@ -78,10 +78,9 @@ def process_path(zip_folder, job_id, n_pages_per_question):
 def insert_copies(zip_folder, job_id, n_pages_per_question):
     db = Database()
     generated_pdfs = process_path(zip_folder, job_id, n_pages_per_question)
-
+    document_index = 2
     for pdf_path in generated_pdfs:
         file_name = os.path.basename(pdf_path)
-        document_index = file_name[:-4]
         db.insert_document(
             job_id=job_id,
             doc_index=document_index,
@@ -93,6 +92,7 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
             time=0,
             filename=file_name
         )
+        document_index += 1
 
 # example
 # n_pages_per_question = {'Q1': 2, 'Q2': 3, 'Q3': 1}
