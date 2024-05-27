@@ -4,6 +4,8 @@ import zipfile
 import glob
 from pathlib import Path
 from PyPDF2 import PdfReader, PdfWriter
+from python.process_copy.database import Database
+from utils.utils import Document_Status
 
 def calculate_pages(pages_per_question):
     results = {}
@@ -15,6 +17,7 @@ def calculate_pages(pages_per_question):
     return results
 
 def split_and_merge(n_pages_per_question, input_pdfs, output_folder):
+    generated_pdfs = []
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
@@ -29,12 +32,14 @@ def split_and_merge(n_pages_per_question, input_pdfs, output_folder):
                     if page_index < len(reader.pages):
                         writer.add_page(reader.pages[page_index])
                     else:
-                        print(f"Page {page_index + 1} missing in '{input_pdf}' for question '{question}'.")
+                        print(f"Page {page_index + 1} missing in '{input_pdf}' for question '{question}'.") # should re ask for the missing page
 
                 output_path = os.path.join(output_folder, f"{question}.pdf")
                 with open(output_path, 'wb') as output_file:
                     writer.write(output_file)
-                    print(f"Finished writing to {output_path}")
+                generated_pdfs.append(output_path)
+
+    return generated_pdfs
 
 def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -46,8 +51,9 @@ def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question):
                 if file.lower().endswith('.pdf'):
                     extracted_files.append(os.path.join(root, file))
 
-    split_and_merge(n_pages_per_question, extracted_files, output_folder)
+    generated_pdfs = split_and_merge(n_pages_per_question, extracted_files, output_folder)
     shutil.rmtree(temp_folder)
+    return generated_pdfs
 
 def process_path(zip_folder, job_id, n_pages_per_question):
     root_path = Path(__file__).resolve().parent.parent
@@ -66,11 +72,31 @@ def process_path(zip_folder, job_id, n_pages_per_question):
     if not n_pages_per_question:
         raise ValueError("Please provide a mapping of questions to page numbers.")
 
-    process_zip(zip_file_path, temp_path, documents_path, n_pages_per_question)
+    generated_pdfs = process_zip(zip_file_path, temp_path, documents_path, n_pages_per_question)
+    return generated_pdfs
+
+def insert_copies(zip_folder, job_id, n_pages_per_question):
+    db = Database()
+    generated_pdfs = process_path(zip_folder, job_id, n_pages_per_question)
+
+    for pdf_path in generated_pdfs:
+        file_name = os.path.basename(pdf_path)
+        document_index = file_name[:-4]
+        # Assuming function arguments are appropriate for the data model
+        db.insert_document(
+            job_id=job_id,
+            doc_index=document_index,
+            subquestion_pred=[],  # example of expected data
+            total=0,
+            image_id="",
+            status=Document_Status.NOT_READY,  # example status
+            matricule="",  # example matricule
+            time=0,
+            filename=file_name
+        )
 
 # example
 # n_pages_per_question = {'Q1': 2, 'Q2': 3, 'Q3': 1}
-#
 # zip_folder_to_extract = os.path.join('storage', 'output_zip')
 # process_path(zip_folder_to_extract, '7edc7584-1321-488b-8414-06a2640cee45', n_pages_per_question)
 

@@ -9,7 +9,7 @@ from utils.storage import Storage
 from utils.stop_handler import StopHandler
 from utils.clients import redis_client, socketio_client
 from zipfile import ZipFile
-from utils.split_and_merge import process_path
+from utils.split_and_merge import insert_copies
 
 import os
 import re
@@ -459,14 +459,13 @@ if __name__ == "__main__":
                 moodle_zip_id_list.append(moodle_zip_file_id)
                 i = i + 1
 
-            # n_pages_per_question_list = json.loads(job_params["n_pages_per_question"])
             n_pages_per_question = {key: value for key, value in job_params["n_pages_per_question"]}
-            print("n_pages_per_question: ", n_pages_per_question)
             zip_folder_to_extract = os.path.join('storage', 'output_zip')
+
             try:
-                process_path(zip_folder_to_extract, job_id, n_pages_per_question)
+                insert_copies(zip_folder_to_extract, job_id, n_pages_per_question)
             except Exception as e:
-                print("Error in process_path:", e)
+                print("Error in insert_copies:", e)
 
             db.jobs_output_collection().insert_one(
                 {
