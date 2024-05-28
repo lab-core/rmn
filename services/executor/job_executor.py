@@ -464,6 +464,7 @@ if __name__ == "__main__":
 
             try:
                 insert_copies(zip_folder_to_extract, job_id, n_pages_per_question)
+                print("Copies inserted in database")
             except Exception as e:
                 print("Error in insert_copies:", e)
 

@@ -164,6 +164,26 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
+  printPdf(): void {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', this.tasksService.getvalidatingTaskId());
+    formdata.append('document_index', "2");
+
+    this.pictureLoading = true;
+
+    if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
+      this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
+        (data) => {
+          console.log("data: ", data);
+          let url = window.URL.createObjectURL(data);
+          console.log("url: ", url);
+        }, (error) => {
+          console.error(error);
+        });
+    }
+  }
+
   loadCopyInCanvas() {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
@@ -215,7 +235,8 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   loadCopy(): void {
-    this.loadCopyInCanvas();
+    this.printPdf();
+    // this.loadCopyInCanvas();
     this.getCurrentMatricule();
     this.getCurrentTotal();
     this.getCurrentPredictions();

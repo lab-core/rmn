@@ -1,4 +1,3 @@
-from bson import BSON
 from service.template_service import TemplateService
 from service.user_service import UserService, Role
 from flask import Flask, request, Response, json, send_file, after_this_request
@@ -10,7 +9,6 @@ from utils.storage import Storage
 from utils.clients import redis_client, socketio_client, mongo_client
 from datetime import datetime, timedelta
 from io import FileIO
-from PyPDF2 import PdfWriter, PdfReader
 from service.front_page_service import FrontPageHandler
 from threading import Thread
 from zipfile import ZipFile
@@ -230,7 +228,6 @@ def evaluate(user_id):
     job_name = str(request_form["job_name"])
     # nb_pages = int(request_form["nb_pages"])
     n_pages_per_question = json.loads(request_form["n_pages_per_question"])
-    print(n_pages_per_question)
 
     # Define db and collection used
     db = mongo["RMN"]
@@ -796,6 +793,7 @@ def download_document():
             status=404,
         )
 
+    print("document_file: ", document_file)
     # Save file to local
     file_id = str(document_file["image_id"])
     storage.copy_from(file_id, file_id)
