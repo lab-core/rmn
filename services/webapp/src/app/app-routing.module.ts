@@ -23,27 +23,27 @@ const routes: Routes = [
     {
         path: 'tasks-history',
         component : TasksHistoryComponent,
-        canActivate: [UserService]
+        // canActivate: [UserService]
     },
     {
         path: 'new-correction',
         component : NewCorrectionComponent,
-        canActivate: [UserService]
+        // canActivate: [UserService]
     },
     {
         path: 'templates',
         component : TemplatesPageComponent,
-        canActivate: [UserService]
+        // canActivate: [UserService]
     },
     {
         path: 'template-editor',
         component : TemplateEditorComponent,
-        canActivate: [UserService]
+        // canActivate: [UserService]
     },
     {
         path: 'task-validation',
         component : TaskVerificationComponent,
-        canActivateChild: [UserService]
+        // canActivateChild: [UserService]
     },
     // {
     //     path: 'presentation-page',
@@ -53,27 +53,23 @@ const routes: Routes = [
     {
         path: 'new-exam-correction',
         component : NewExamCorrectionComponent,
-        canActivate: [UserService]
+        // canActivate: [UserService]
     },
     {
         path: 'user-profile',
         component : UserProfileComponent,
-        canActivate: [UserService]
+        // canActivate: [UserService]
     },
     {
         path: 'user-guide',
         component : UserGuideComponent,
-        canActivate: [UserService]
+        // canActivate: [UserService]
     },
     {
         path: '**',
         redirectTo : 'tasks-history',
-        canActivate: [UserService]
+        // canActivate: [UserService]
     },
-    {
-        path: '**',
-        redirectTo : ''
-    }
 ];
 
 @NgModule({
