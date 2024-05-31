@@ -82,7 +82,7 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
     unique_generated_pdfs = list(OrderedDict.fromkeys(generated_pdfs))
     generated_pdfs = unique_generated_pdfs
     print("generated_pdfs: ", generated_pdfs)
-    document_index = 2
+    document_index = 1
     for pdf_path in generated_pdfs:
         file_name = f"documents{os.sep}{job_id}{os.sep}Q{document_index}.pdf"
         db.insert_document(

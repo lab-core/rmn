@@ -170,15 +170,15 @@ export class TaskVerificationComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-    formdata.append('document_index', "2");
+    formdata.append('document_index', this.currentCopy.toString());
 
     this.pdfLoading = true;
-
     if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
       this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
         (data) => {
           let url = window.URL.createObjectURL(data);
           this.pdfSrc = url;
+          console.log("pdfSrc ", this.pdfSrc)
           this.pdfLoading = false;
         }, (error) => {
           console.error(error);

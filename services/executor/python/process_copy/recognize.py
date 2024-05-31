@@ -305,7 +305,7 @@ def grade_all(
                 g_files.append(file)
                 if new_job:
                     db.insert_document(job_id, doc_index, [], 0, "",
-                                       Document_Status.NOT_READY, "", 0, f)
+                                       Document_Status.TO_VALIDATE, "", 0, f)
                 doc_index += 1
     db.close()
 
@@ -601,7 +601,7 @@ def grade_files(
             print(f"src: {src}")
             # DB update
 
-            image_id = db.save_preview_image(src, job_id, doc_index)
+            # image_id = db.save_preview_image(src, job_id, doc_index)
             doc_status = (
                 Document_Status.HIGH_ACCURACY
                 if total_matched and is_matricule_valid
@@ -616,17 +616,17 @@ def grade_files(
 
             exec_time = time.time() - start_time
 
-            if not db.update_document(
-                job_id,
-                doc_index,
-                subquestions,
-                numbers[-1],
-                image_id,
-                doc_status,
-                m,
-                exec_time,
-                group):
-                raise KeyError(f"Document {doc_index} was not found.")
+            # if not db.update_document(
+            #     job_id,
+            #     doc_index,
+            #     subquestions,
+            #     numbers[-1],
+            #     image_id,
+            #     doc_status,
+            #     m,
+            #     exec_time,
+            #     group):
+            #     raise KeyError(f"Document {doc_index} was not found.")
 
             sio.emit(
                 "document_ready",
