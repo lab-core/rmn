@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
-import * as pdfjs from 'pdfjs-dist/build/pdf';
-import * as pdfjsWorker  from 'pdfjs-dist/build/pdf.worker.entry';
-pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// import * as pdfjs from 'pdfjs-dist/build/pdf';
+// import * as pdfjsWorker  from 'pdfjs-dist/build/pdf.worker.entry';
+// pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// NOTE: This is a workaround for the pdfjs-dist lib not being compatible with ngx-extended-pdf-viewer.
 
 @Injectable({
   providedIn: 'root'
@@ -20,11 +21,11 @@ export class TemplateService {
 
   async createNewTemplate(copy : File) {
     let url = URL.createObjectURL(copy);
-    let loadingTask = pdfjs.getDocument(url);
-    let pdf = await loadingTask.promise;
+    // let loadingTask = pdfjs.getDocument(url);
+    // let pdf = await loadingTask.promise;
 
-    let page = await pdf.getPage(1);
-    this.template = page;
+    // let page = await pdf.getPage(1);
+    // this.template = page;
   }
 
   setFile(file: File){

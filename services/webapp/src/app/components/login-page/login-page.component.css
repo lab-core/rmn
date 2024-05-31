@@ -98,7 +98,8 @@
 
   .icon-display {
     transform: scale(1);
-    color: #000000
+    color: #000000;
+    font-size: 24px;
   }
   
   mat-form-field.mat-form-field {

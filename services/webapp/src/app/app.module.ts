@@ -22,6 +22,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ReactiveFormsModule } from '@angular/forms';
 import {MatStepperModule} from '@angular/material/stepper';
 import {MatListModule} from '@angular/material/list';
+import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
 
 
 import { AppComponent } from './components/app/app.component';
@@ -92,6 +93,7 @@ import { NewExamCorrectionComponent } from './components/new-exam-correction/new
     MatButtonToggleModule,
     MatSlideToggleModule,
     ReactiveFormsModule,
+    NgxExtendedPdfViewerModule,
     ToastrModule.forRoot()
   ],
   providers: [],

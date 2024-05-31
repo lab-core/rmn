@@ -30,12 +30,14 @@ export class TaskVerificationComponent implements OnInit {
     private docService: DocumentsService) { }
 
   pictureLoading: boolean = true;
+  pdfLoading: boolean = true;
   disabledValidationcontainer = true;
   disabledValidationButton = true;
 
   validating: boolean = false;
 
   job: Map<string, any>;
+  pdfSrc: string;
 
   initialCopyIndex: number = -1;
   currentCopy: number = -1;
@@ -164,20 +166,19 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  printPdf(): void {
+  loadPdf(): void {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.tasksService.getvalidatingTaskId());
     formdata.append('document_index', "2");
 
-    this.pictureLoading = true;
+    this.pdfLoading = true;
 
     if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
       this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
         (data) => {
-          console.log("data: ", data);
           let url = window.URL.createObjectURL(data);
-          console.log("url: ", url);
+          this.pdfLoading = false;
         }, (error) => {
           console.error(error);
         });
@@ -235,8 +236,8 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   loadCopy(): void {
-    this.printPdf();
-    // this.loadCopyInCanvas();
+    this.loadPdf();
+    this.loadCopyInCanvas();
     this.getCurrentMatricule();
     this.getCurrentTotal();
     this.getCurrentPredictions();
