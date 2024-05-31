@@ -242,8 +242,9 @@ app-main-menu {
 
 .picture-container {
     height: 90%;
-    width: 60%;
-    margin-right: 5%;
+    width: 80%;
+    margin-right: 2.5%;
+    margin-left: 5.5%;
     border: 2px solid gray;
     display: flex;
     align-items: center;
@@ -446,10 +447,10 @@ ngx-extended-pdf-viewer {
 .back-button2 {
     position: absolute;
     top: 55%;
-    left: 28%;
+    left: 25.5%;
     margin-right: -50%;
     transform: translate(-50%, -50%);
-    height: 73%;
+    height: 70%;
     width: 1%;
     transition: 3s;
     z-index: 2;
@@ -475,10 +476,10 @@ ngx-extended-pdf-viewer {
 .back-button3 {
     position: absolute;
     top: 55%;
-    left: 65%;
+    left: 76.5%;
     margin-right: -50%;
     transform: translate(-50%, -50%);
-    height: 73%;
+    height: 70%;
     width: 1%;
     transition: 3s;
     z-index: 2;

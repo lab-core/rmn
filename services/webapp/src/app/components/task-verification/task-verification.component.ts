@@ -178,6 +178,7 @@ export class TaskVerificationComponent implements OnInit {
       this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
         (data) => {
           let url = window.URL.createObjectURL(data);
+          this.pdfSrc = url;
           this.pdfLoading = false;
         }, (error) => {
           console.error(error);
@@ -237,7 +238,7 @@ export class TaskVerificationComponent implements OnInit {
 
   loadCopy(): void {
     this.loadPdf();
-    this.loadCopyInCanvas();
+    // this.loadCopyInCanvas();
     this.getCurrentMatricule();
     this.getCurrentTotal();
     this.getCurrentPredictions();
