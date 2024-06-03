@@ -3,7 +3,7 @@ import shutil
 import zipfile
 import glob
 from pathlib import Path
-from PyPDF2 import PdfReader, PdfWriter
+from PyPDF2 import PdfReader, PdfWriter, PdfFileMerger
 from python.process_copy.database import Database
 from utils.utils import Document_Status
 from collections import OrderedDict
@@ -18,7 +18,8 @@ def calculate_pages(pages_per_question):
     return results
 
 def split_and_merge(n_pages_per_question, input_pdfs, output_folder):
-    generated_pdfs = []
+    generated_pdfs_per_question = {question: [] for question in n_pages_per_question.keys()}
+
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
@@ -35,12 +36,22 @@ def split_and_merge(n_pages_per_question, input_pdfs, output_folder):
                     else:
                         print(f"Page {page_index + 1} missing in '{input_pdf}' for question '{question}'.") # should re ask for the missing page
 
-                output_path = os.path.join(output_folder, f"{question}.pdf")
+                output_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(input_pdf))[0]}_{question}.pdf")
                 with open(output_path, 'wb') as output_file:
                     writer.write(output_file)
-                generated_pdfs.append(output_path)
+                generated_pdfs_per_question[question].append(output_path)
 
-    return generated_pdfs
+    merged_pdfs = []
+    for question, pdfs in generated_pdfs_per_question.items():
+        merger = PdfFileMerger()
+        for pdf in pdfs:
+            merger.append(pdf)
+        merged_output_path = os.path.join(output_folder, f"{question}.pdf")
+        with open(merged_output_path, 'wb') as merged_file:
+            merger.write(merged_file)
+        merged_pdfs.append(merged_output_path)
+
+    return merged_pdfs
 
 def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
