@@ -140,10 +140,10 @@ class Database:
         )
         return self.eval_jobs_collection().find_one({"job_id": job_id})
 
-    def save_preview_image(self, src, job_id, document_index):
-        filename = f"documents/{job_id}/Q{document_index}.pdf"
-        # self.storage.move_to(str(src), filename)
-        return filename
+    # def save_preview_image(self, src, job_id, document_index):
+    #     filename = f"documents/{job_id}/Q{document_index+1}.pdf"
+    #     # self.storage.move_to(str(src), filename)
+    #     return filename
 
     def save_unverified_number_images(self, job_id, document_index, images):
         for index, img in enumerate(images):

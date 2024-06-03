@@ -74,7 +74,7 @@ export class TaskVerificationComponent implements OnInit {
     // fetch job and documents
     this.job = await this.tasksService.getTask();
     if (this.job && this.job["job_id"]) {
-      this.getMatriculeList();
+      // this.getMatriculeList();
       await this.getDocuments();
       if (this.checkForAvailableCopies()) {
         this.nextCopy();
@@ -239,9 +239,9 @@ export class TaskVerificationComponent implements OnInit {
   loadCopy(): void {
     this.loadPdf();
     // this.loadCopyInCanvas();
-    this.getCurrentMatricule();
-    this.getCurrentTotal();
-    this.getCurrentPredictions();
+    // this.getCurrentMatricule();
+    // this.getCurrentTotal();
+    // this.getCurrentPredictions();
     this.getCurrentStatus();
   }
 
