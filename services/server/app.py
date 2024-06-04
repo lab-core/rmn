@@ -175,11 +175,11 @@ def change_password(user_id):
 def evaluate(user_id):
     request_form = request.form
 
-    if "template_id" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: template_id not provided."}),
-            status=400,
-        )
+    # if "template_id" not in request_form:
+    #     return Response(
+    #         response=json.dumps({"response": f"Error: template_id not provided."}),
+    #         status=400,
+    #     )
 
     # if "nb_pages" not in request_form:
     #     return Response(
@@ -199,11 +199,11 @@ def evaluate(user_id):
             status=400,
         )
 
-    if "template_name" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: template_name not provided."}),
-            status=400,
-        )
+    # if "template_name" not in request_form:
+    #     return Response(
+    #         response=json.dumps({"response": f"Error: template_name not provided."}),
+    #         status=400,
+    #     )
 
     if not request.files:
         return Response(
@@ -223,8 +223,8 @@ def evaluate(user_id):
             status=400,
         )
 
-    template_id = str(request_form["template_id"])
-    template_name = str(request_form["template_name"])
+    # template_id = str(request_form["template_id"])
+    # template_name = str(request_form["template_name"])
     job_name = str(request_form["job_name"])
     # nb_pages = int(request_form["nb_pages"])
     n_pages_per_question = json.loads(request_form["n_pages_per_question"])
@@ -245,8 +245,8 @@ def evaluate(user_id):
         "job_id": job_id,
         "job_name": job_name,
         "user_id": user_id,
-        "template_id": template_id,
-        "template_name": template_name,
+        # "template_id": template_id,
+        # "template_name": template_name,
         "queued_time": datetime.utcnow(),
         "job_status": Job_Status.QUEUED.value,
         "retry": 0,
@@ -412,11 +412,11 @@ def get_jobs(user_id):
     resp = [
         {
             "job_id": job["job_id"],
-            "template_id": job["template_id"],
+            # "template_id": job["template_id"],
             "queued_time": str(job["queued_time"]),
             "job_status": job["job_status"],
             "job_name": job["job_name"],
-            "template_name": job["template_name"]
+            # "template_name": job["template_name"]
         }
         for job in jobs
     ]
@@ -472,11 +472,11 @@ def get_job():
     #
     resp = {
         "job_id": job["job_id"],
-        "template_id": job["template_id"],
+        # "template_id": job["template_id"],
         "queued_time": str(job["queued_time"]),
         "job_status": job["job_status"],
         "job_name": job["job_name"],
-        "template_name": job["template_name"],
+        # "template_name": job["template_name"],
         "students_list": job["students_list"]
     }
     return Response(response=json.dumps({"response": resp}), status=200)

@@ -104,17 +104,17 @@ export class TasksService {
     }
   }
 
-  addTask(copies, csv, template_id, n_pages_per_question, taskName, template_name) {
+  addTask(copies, csv, n_pages_per_question, taskName) {
     const formdata: FormData = new FormData();
     formdata.append('user_id', this.userService.currentUsername);
     formdata.append('token', this.userService.token);
-    formdata.append('template_id', template_id);
+    // formdata.append('template_id', template_id);
     formdata.append('zip_file', copies);
     formdata.append('notes_csv_file', csv);
     // formdata.append('nb_pages', number_pages.toString());
     formdata.append('n_pages_per_question', JSON.stringify(Array.from(n_pages_per_question.entries())));
     formdata.append('job_name', taskName);
-    formdata.append('template_name', template_name);
+    // formdata.append('template_name', template_name);
 
     this.percentDone = 0;
 
