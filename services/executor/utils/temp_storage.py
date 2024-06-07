@@ -15,10 +15,10 @@ def move(old_file, new_file):
     shutil.copy(old_file, new_file)
     os.remove(old_file)
 
-class Storage:
-    def __init__(self, storage_path=None):
-        if storage_path:
-            self.path = Path(storage_path)
+class TempStorage:
+    def __init__(self, temp_storage_path=None):
+        if temp_storage_path:
+            self.path = Path(temp_storage_path)
             print("storage_path: ", self.path)
         elif os.getenv('STORAGE'):
             self.path = Path(os.getenv('STORAGE'))

@@ -3,14 +3,17 @@ import shutil
 import zipfile
 import glob
 from pathlib import Path
-from PyPDF2 import PdfReader, PdfWriter, PdfFileMerger
+from PyPDF2 import PdfReader, PdfWriter, PdfMerger
 from python.process_copy.database import Database
+from utils.temp_storage import TempStorage
 from utils.utils import Document_Status
 from collections import OrderedDict
 
+temp_storage = TempStorage()
+
 def calculate_pages(pages_per_question):
     results = {}
-    current_start_page = 3 # start_page
+    current_start_page = 2 # start_page
     for question, num_pages in pages_per_question.items():
         end_page = current_start_page + num_pages - 1
         results[question] = list(range(current_start_page - 1, end_page))
@@ -43,13 +46,19 @@ def split_and_merge(n_pages_per_question, input_pdfs, output_folder):
 
     merged_pdfs = []
     for question, pdfs in generated_pdfs_per_question.items():
-        merger = PdfFileMerger()
-        for pdf in pdfs:
-            merger.append(pdf)
-        merged_output_path = os.path.join(output_folder, f"{question}.pdf")
-        with open(merged_output_path, 'wb') as merged_file:
-            merger.write(merged_file)
-        merged_pdfs.append(merged_output_path)
+        with PdfMerger() as merger:
+            for pdf in pdfs:
+                merger.append(pdf)
+            merged_output_path = os.path.join(output_folder, f"{question}.pdf")
+            with open(merged_output_path, 'wb') as merged_file:
+                merger.write(merged_file)
+            merged_pdfs.append(merged_output_path)
+
+    # deleting temporary files
+    for pdf_list in generated_pdfs_per_question.values():
+        for pdf_path in pdf_list:
+            if os.path.exists(pdf_path):
+                os.remove(pdf_path)
 
     return merged_pdfs
 
