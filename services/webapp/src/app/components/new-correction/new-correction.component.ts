@@ -342,9 +342,9 @@ export class NewCorrectionComponent implements OnInit {
       this.uploading = true;
       await this.convertDownloadableFile();
       await this.convertDownloadableCSV();
-      // let template_name = this.templates.find(template => template['template_id'] == this.selectedTemplate)['template_name'];
+      let template_name = this.templates.find(template => template['template_id'] == this.selectedTemplate)['template_name'];
 
-      this.tasksService.addTask(this.copies, this.csv, this.numberPages, this.taskName);
+      this.tasksService.addTask(this.copies, this.csv, this.selectedTemplate, this.numberPages, this.taskName, template_name);
     }
   }
 

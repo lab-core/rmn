@@ -656,7 +656,8 @@ def grade_files(
                 max_question = get_max_question(max_grade, max_nb_questions)
                 for index, doc_questions in n_questions.items():
                     n_doc_q = len(doc_questions)
-                    doc_questions = try_fix_n_questions(max_nb_questions, doc_questions)
+                    # doc_questions = try_fix_n_questions(max_nb_questions, doc_questions)
+                    doc_questions = try_fix_n_questions(int(max_nb_questions), doc_questions)
                     changed2, doc_questions = try_fix_questions(max_question, doc_questions)
 
                     if len(doc_questions) != n_doc_q or changed2:
@@ -879,7 +880,9 @@ def try_fix_n_questions(max_nb_questions, predictions):
     print("Try fixing the number of questions for:", predictions)
     if len(predictions) < max_nb_questions:
         diff = max_nb_questions - len(predictions)
-        predictions = [0] * diff + predictions
+        # predictions = [0] * diff + predictions
+        predictions = [0] * int(diff) + predictions
+
     else:
         # try to remove 0 first
         i = 0
@@ -889,7 +892,8 @@ def try_fix_n_questions(max_nb_questions, predictions):
             else:
                 i += 1
         # remove values at the end
-        predictions = predictions[:max_nb_questions]
+        # predictions = predictions[:max_nb_questions]
+        predictions = predictions[:int(max_nb_questions)]
 
     return predictions
 

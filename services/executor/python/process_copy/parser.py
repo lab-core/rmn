@@ -63,7 +63,6 @@ parser.add_argument("-co", "--course", type=str, help="Name of the course.")
 parser.add_argument("-se", "--session", type=str, help="Name of the session.")
 
 parser.add_argument('-t', '--train', default=False, action='store_true', help='train the CNN on the MNIST dataset')
-# parser.add_argument('--split_and_merge', default=False, action='store_true', help='split and merge the pdf files')
 
 parser.add_argument('-j', '--job_id', type=str, help='Id of the job.')
 
@@ -170,11 +169,6 @@ def run_args(args):
         print('Training recognition deep learning model')
         from process_copy.train import train
         train()
-    
-    # if args.split_and_merge:
-    #     print('Splitting and merging pdf files')
-    #     from process_copy.split_and_merge import split_and_merge
-    #     split_and_merge(args.path)
 
     if args.find:
         print('Find the matricule for the pdf files in %s' % args.path)
@@ -190,16 +184,16 @@ def run_args(args):
         else:
             mcc.import_files(args.path, args.mpath, suffix=args.suffix, latex_front_page=args.frontpage)
 
-    # if args.grade:
-    #     print('Find the grade for the pdf files in %s' % args.path)
-    #     from process_copy.recognize import grade_all, compare_all
-    #     try:
-    #         if args.compare:
-    #             compare_all(args.path, args.grades, config.grade_box[args.grade])
-    #         else:
-    #             grade_all(args.path, args.grades, config.matricule_box["exam"], args.job_id, args.user_id, args.template_id)
-    #     except KeyError:
-    #         raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
+    if args.grade:
+        print('Find the grade for the pdf files in %s' % args.path)
+        from process_copy.recognize import grade_all, compare_all
+        try:
+            if args.compare:
+                compare_all(args.path, args.grades, config.grade_box[args.grade])
+            else:
+                grade_all(args.path, args.grades, config.matricule_box["exam"], args.job_id, args.user_id, args.template_id)
+        except KeyError:
+            raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
 
     if args.export:
         try:

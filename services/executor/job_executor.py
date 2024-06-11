@@ -375,13 +375,14 @@ if __name__ == "__main__":
                 }
             )
             # Save notes.csv file to local
-
+            print("COPYING FROM ", storage.abs_path(job_params["notes_file_id"]), " TO ", str(OUTPUT_FOLDER.joinpath("notes.csv")))
             storage.copy_from(job_params["notes_file_id"], str(OUTPUT_FOLDER.joinpath("notes.csv")))
             # Save zip file to local
             storage.copy_from(job_params["zip_file_id"], str(OUTPUT_FOLDER.joinpath("content.zip")))
 
             with ZipFile(str(OUTPUT_FOLDER.joinpath("content.zip")), 'r') as zip_ref:
                 zip_ref.extractall(EXTRACT_FOLDER)
+
 
             args = [
                 str(EXTRACT_FOLDER),
@@ -396,8 +397,8 @@ if __name__ == "__main__":
                 job_id,
                 "--user_id",
                 user_id,
-                # "--template_id",
-                # job_params["template_id"],
+                "--template_id",
+                job_params["template_id"],
                 "--export",
                 "--batch",
                 "500",
@@ -493,11 +494,6 @@ if __name__ == "__main__":
                     }
                 ),
             )
-            
-            # elapsed_time = 0 
-            # while elapsed_time < 1000000000:  
-            #     elapsed_time = elapsed_time + 1
-            #     print(f"Elapsed time: {elapsed_time} seconds") 
 
             storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
             storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))

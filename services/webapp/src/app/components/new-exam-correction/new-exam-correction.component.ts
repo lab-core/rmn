@@ -358,9 +358,9 @@ export class NewExamCorrectionComponent implements OnInit {
       this.uploading = true;
       await this.convertDownloadableFile();
       await this.convertDownloadableCSV();
-      // let template_name = this.templates.find(template => template['template_id'] == this.selectedTemplate)['template_name'];
+      let template_name = this.templates.find(template => template['template_id'] == this.selectedTemplate)['template_name'];
 
-      this.tasksService.addTask(this.copies, this.csv, this.nPagesPerQuestion, this.taskName);
+      this.tasksService.addTask(this.copies, this.csv, this.selectedTemplate, this.nPagesPerQuestion, this.taskName, template_name);
     }
   }
 

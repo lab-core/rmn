@@ -16,6 +16,8 @@ import { SERVER_URL } from 'src/app/utils';
 })
 export class TemplateEditorComponent implements OnInit {
 
+  pdfSrc: string;
+
   templateName: string = 'Template';
   toolType: string = 'rectangle';
   rectangleType: string = 'identification';
@@ -24,17 +26,17 @@ export class TemplateEditorComponent implements OnInit {
   questionsActive : boolean = false;
 
   constructor(
+    public templateService : TemplateService,
     private http: HttpClient,
     private router: Router,
     private userService: UserService,
-    private templateService : TemplateService,
     private rectangleService : RectangleService,
     private selectionService : SelectionService,
     private notifyService : NotificationService,
-    private eraserService : EraserService) { }
+    private eraserService : EraserService) {
+     }
 
   ngOnInit(): void {
-    this.loadTemplate();
     if (this.templateService.checkEditing()){
       this.templateName = this.templateService.getTemplateName();
       this.rectangleService.initExistingRects();
@@ -42,54 +44,21 @@ export class TemplateEditorComponent implements OnInit {
     this.rectangleService.init();
   }
 
-  async loadTemplate() {
-
-    const scale = 1;
-    let page = this.templateService.getTemplate();
-    let viewport = page.getViewport({ scale });
-
-    // Apply page dimensions to the `<canvas>` element.
-    let canvas = document.getElementById("cv") as HTMLCanvasElement;
-    let context = canvas.getContext("2d");
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-
-    // Render the page into the `<canvas>` element.
-    let renderContext = {
-      canvasContext: context,
-      viewport: viewport,
-    };
-    await page.render(renderContext);
+  async onFileSelected(event: any) {
+    const file = event.target.files[0];
+    this.templateService.setFile(file);
+    await this.templateService.createNewTemplate(file);
   }
-
 
   onToolChange(value){
     if(value === 'rectangle'){
       this.rectangleService.init();
-
-      let indentificationRect = document.querySelector('#identification');
-      if(indentificationRect !== null){
-        this.selectionService.deleteControlPoints();
-      }
-
-      let questionsRect = document.querySelector('#questions');
-      if(questionsRect !== null){
-        this.selectionService.deleteControlPoints();
-      }
-    }else if(value === 'selection'){
+      this.selectionService.deleteControlPoints();
+    } else if(value === 'selection'){
       this.selectionService.init();
-    }else if(value === 'delete'){
+    } else if(value === 'delete'){
       this.eraserService.init();
-
-      let indentificationRect = document.querySelector('#identification');
-      if(indentificationRect !== null){
-        this.selectionService.deleteControlPoints();
-      }
-
-      let questionsRect = document.querySelector('#questions');
-      if(questionsRect !== null){
-        this.selectionService.deleteControlPoints();
-      }
+      this.selectionService.deleteControlPoints();
     }
   }
 
@@ -103,13 +72,12 @@ export class TemplateEditorComponent implements OnInit {
     this.questionsActive = true;
   }
 
-
   mouseDown(event: MouseEvent): void  {
     if (this.toolType === 'rectangle'){
       this.rectangleService.mouseDown(event, this.identificationActive);
-    }else if(this.toolType === 'selection'){
+    } else if(this.toolType === 'selection'){
       this.selectionService.mouseDown(event);
-    }else if(this.toolType === 'delete'){
+    } else if(this.toolType === 'delete'){
       this.eraserService.mouseDown(event);
     }
   }
@@ -117,7 +85,7 @@ export class TemplateEditorComponent implements OnInit {
   mouseMove(event: MouseEvent): void  {
     if (this.toolType === 'rectangle'){
       this.rectangleService.mouseMove(event, this.identificationActive);
-    }else if(this.toolType === 'selection'){
+    } else if(this.toolType === 'selection'){
       this.selectionService.mouseMove(event);
     }
   }
@@ -125,7 +93,7 @@ export class TemplateEditorComponent implements OnInit {
   mouseUp(event: MouseEvent): void {
     if (this.toolType === 'rectangle'){
       this.rectangleService.mouseUp(event, this.identificationActive);
-    }else if(this.toolType === 'selection'){
+    } else if(this.toolType === 'selection'){
       this.selectionService.mouseUp(event);
     }
   }
@@ -133,27 +101,25 @@ export class TemplateEditorComponent implements OnInit {
   mouseLeave(event: MouseEvent): void {
     if (this.toolType === 'rectangle'){
       this.rectangleService.mouseLeave(event, this.identificationActive);
-    }else if(this.toolType === 'selection'){
+    } else if(this.toolType === 'selection'){
       this.selectionService.mouseLeave(event);
     }
   }
 
   showRectanglesNotificationError(){
-    this.notifyService.showError("Assurez-vous de définir le rectangle de notes.", "ERREUR")
+    this.notifyService.showError("Assurez-vous de définir le rectangle de notes.", "ERREUR");
   }
 
   showNameNotificationError(){
-    this.notifyService.showError("Assurez-vous de remplir le champ du nom de template!", "ERREUR")
+    this.notifyService.showError("Assurez-vous de remplir le champ du nom de template!", "ERREUR");
   }
 
   confirm() {
     if(this.templateName.trim() === ''){
       this.showNameNotificationError();
-    }else if(this.rectangleService.getQuestionsRectCoords().x1 === null){
+    } else if(this.rectangleService.getQuestionsRectCoords().x1 === null){
       this.showRectanglesNotificationError();
-    }else{
-
-
+    } else {
       const formdata: FormData = new FormData();
       formdata.append('user_id', this.userService.currentUsername);
       formdata.append('token', this.userService.token);
@@ -167,7 +133,7 @@ export class TemplateEditorComponent implements OnInit {
           (data) => {
             this.router.navigate(['/templates']);
           });
-      }else{
+      } else {
         formdata.append('template_id', this.templateService.getTemplateId());
         this.http.post<any>(`${SERVER_URL}template/modify`, formdata).subscribe(
           (data) => {
@@ -175,8 +141,6 @@ export class TemplateEditorComponent implements OnInit {
           });
       }
       this.rectangleService.resetRects();
-
-
     }
   }
 

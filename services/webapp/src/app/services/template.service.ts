@@ -1,8 +1,4 @@
 import { Injectable } from '@angular/core';
-// import * as pdfjs from 'pdfjs-dist/build/pdf';
-// import * as pdfjsWorker  from 'pdfjs-dist/build/pdf.worker.entry';
-// pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-// NOTE: This is a workaround for the pdfjs-dist lib not being compatible with ngx-extended-pdf-viewer.
 
 @Injectable({
   providedIn: 'root'
@@ -10,53 +6,48 @@ import { Injectable } from '@angular/core';
 export class TemplateService {
 
   editingTemplate: boolean = false;
+  templateFile: File;
+  templateUrl: string;
 
-  templateFile : File;
-  template : any;
-
-  templateName : string;
-  templateId : string;
+  templateName: string;
+  templateId: string;
 
   constructor() { }
 
-  async createNewTemplate(copy : File) {
-    let url = URL.createObjectURL(copy);
-    // let loadingTask = pdfjs.getDocument(url);
-    // let pdf = await loadingTask.promise;
-
-    // let page = await pdf.getPage(1);
-    // this.template = page;
+  async createNewTemplate(data: Blob) {
+    let url = window.URL.createObjectURL(data);
+    this.templateUrl = url;
   }
 
-  setFile(file: File){
+  setFile(file: File) {
     this.templateFile = file;
   }
 
-  getFile(){
+  getFile() {
     return this.templateFile;
   }
 
-  getTemplate() {
-    return this.template;
+  getTemplateUrl() {
+    return this.templateUrl;
   }
 
-  setTemplateName(name: string){
+  setTemplateName(name: string) {
     this.templateName = name;
   }
 
-  getTemplateName(){
+  getTemplateName() {
     return this.templateName;
   }
 
-  setTemplateId(id: string){
+  setTemplateId(id: string) {
     this.templateId = id;
   }
 
-  getTemplateId(){
+  getTemplateId() {
     return this.templateId;
   }
 
-  setEditingExisting(isEditing: boolean){
+  setEditingExisting(isEditing: boolean) {
     this.editingTemplate = isEditing;
   }
 

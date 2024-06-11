@@ -146,13 +146,12 @@
 
                     <div class="next-button">
                         <button mat-button matStepperPrevious>Retour</button>
-                        <button mat-flat-button color="accent" (click)="createTask()" [disabled]="this.uploading" *ngIf="!this.disabled">Commencer</button>
-                        <button mat-flat-button color="accent" (click)="createTask()" *ngIf="this.disabled" disabled>Commencer</button>
+                        <button mat-button matStepperNext>Suivant</button>
                     </div>
               </form>
             </mat-step>
          
-            <!-- <mat-step [stepControl]="fourthFormGroup" label="Assigner le gabarit voulu">
+            <mat-step [stepControl]="fourthFormGroup" label="Assigner le gabarit voulu">
                 <div class="breaker">
                 </div>
                 <form [formGroup]="fourthFormGroup">
@@ -173,7 +172,7 @@
                         <button mat-flat-button color="accent" (click)="createTask()" *ngIf="this.disabled" disabled>Commencer</button>
                     </div>
                 </form>
-            </mat-step> -->
+            </mat-step>
         </mat-horizontal-stepper>
     </div>
 </div>

@@ -19,13 +19,14 @@ class Storage:
     def __init__(self, storage_path=None):
         if storage_path:
             self.path = Path(storage_path)
-            print("storage_path: ", self.path)
         elif os.getenv('STORAGE'):
             self.path = Path(os.getenv('STORAGE'))
             print("os.getenv('STORAGE'): ", self.path)
         else:
-            ROOT_DIR_PROJECT = ROOT_DIR.parent.parent
-            self.path = ROOT_DIR_PROJECT.joinpath("storage")
+            # ROOT_DIR_PROJECT = ROOT_DIR
+            # self.path = ROOT_DIR_PROJECT.joinpath("storage")
+            self.path = ROOT_DIR.joinpath("storage")
+            print("ROOT_DIR_PROJECT: ", self.path)
 
     def abs_path(self, r_path):
         abs_p = os.path.join(str(self.path), r_path)
