@@ -28,7 +28,8 @@ export class TaskVerificationComponent implements OnInit {
     private route: ActivatedRoute,
     private userService: UserService,
     private docService: DocumentsService) { }
-
+  
+  isSidebarHidden = false;
   pictureLoading: boolean = true;
   pdfLoading: boolean = true;
   disabledValidationcontainer = true;
@@ -111,6 +112,10 @@ export class TaskVerificationComponent implements OnInit {
     this.socketService.getSocket().off('document_ready');
     this.socketService.getSocket().off('jobs_status');
     this.socketService.disconnectSocket();
+  }
+  
+  toggleSidebar() {
+    this.isSidebarHidden = !this.isSidebarHidden;
   }
 
 
