@@ -2,7 +2,8 @@ import os
 import shutil
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+# ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
 def create_tree(file_path):
     split = file_path.rsplit(os.sep, 1)
@@ -26,7 +27,8 @@ class Storage:
             # ROOT_DIR_PROJECT = ROOT_DIR
             # self.path = ROOT_DIR_PROJECT.joinpath("storage")
             self.path = ROOT_DIR.joinpath("storage")
-            print("ROOT_DIR_PROJECT: ", self.path)
+            print("ROOT_DIR: ", ROOT_DIR)
+            print("self.path: ", self.path)
 
     def abs_path(self, r_path):
         abs_p = os.path.join(str(self.path), r_path)

@@ -5,11 +5,11 @@ import glob
 from pathlib import Path
 from PyPDF2 import PdfReader, PdfWriter, PdfMerger
 from python.process_copy.database import Database
-from utils.temp_storage import TempStorage
+from utils.storage import Storage
 from utils.utils import Document_Status
 from collections import OrderedDict
 
-temp_storage = TempStorage()
+storage = Storage()
 
 def calculate_pages(pages_per_question):
     results = {}
@@ -80,7 +80,7 @@ def process_path(zip_folder, job_id, n_pages_per_question):
     root_path = Path(__file__).resolve().parent.parent
     documents_path = root_path.joinpath('storage', 'documents', job_id)
 
-    zip_path = root_path.joinpath(zip_folder)
+    zip_path = Path(storage.abs_path(zip_folder))
     print("zip_path: ", zip_path)
     print("document_path: ", documents_path)
     zip_files = glob.glob(str(zip_path / '*.zip'))
@@ -105,7 +105,9 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
     print("generated_pdfs: ", generated_pdfs)
     document_index = 1
     for pdf_path in generated_pdfs:
-        file_name = f"documents{os.sep}{job_id}{os.sep}Q{document_index}.pdf"
+        file_path = os.path.join('documents', job_id, f"Q{document_index}.pdf")
+        storage.copy_from(pdf_path, storage.abs_path(file_path))
+        file_name = f"documents/{job_id}/Q{document_index}.pdf"
         db.insert_document(
             job_id=job_id,
             doc_index=document_index,
@@ -118,6 +120,8 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
             filename=file_name
         )
         document_index += 1
+
+        
 
 # example
 # n_pages_per_question = {'Q1': 2, 'Q2': 3, 'Q3': 1}

@@ -40,7 +40,10 @@
             <p *ngIf="this.disabledValidationcontainer">Aucune copie n'est prête à être validée.</p>
             <div class="picture-container" *ngIf="!this.disabledValidationcontainer">
                 <!-- <canvas id="cv" *ngIf="!this.pictureLoading"></canvas> -->
-                <ngx-extended-pdf-viewer *ngIf="!this.pdfLoading"[src]="this.pdfSrc" [language]="'fr'"></ngx-extended-pdf-viewer>
+                <ngx-extended-pdf-viewer *ngIf="!this.pdfLoading"
+                    [src]="this.pdfSrc" 
+                    [language]="'fr'">
+                </ngx-extended-pdf-viewer>
                 <button mat-button (click)="previousCopy()"class="back-button2"><mat-icon>arrow_back_ios</mat-icon></button>
                 <button mat-button (click)="nextCopy()"class="back-button3"><mat-icon>arrow_forward_ios</mat-icon></button>
                 <mat-spinner *ngIf="this.pdfLoading"></mat-spinner>

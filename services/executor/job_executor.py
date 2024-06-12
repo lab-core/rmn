@@ -461,10 +461,9 @@ if __name__ == "__main__":
                 i = i + 1
 
             n_pages_per_question = {key: value for key, value in job_params["n_pages_per_question"]}
-            zip_folder_to_extract = os.path.join('storage', 'output_zip')
 
             try:
-                insert_copies(zip_folder_to_extract, job_id, n_pages_per_question)
+                insert_copies('output_zip', job_id, n_pages_per_question)
                 print("Copies inserted in database")
             except Exception as e:
                 print("Error in insert_copies:", e)

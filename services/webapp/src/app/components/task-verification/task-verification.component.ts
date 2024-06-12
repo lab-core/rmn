@@ -151,6 +151,7 @@ export class TaskVerificationComponent implements OnInit {
     } else {
       console.log("sub exam list is the full list of size", this.examsList.length)
       this.subExamsList = this.examsList;
+      console.log(this.subExamsList)
     }
   }
 

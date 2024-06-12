@@ -42,7 +42,7 @@
     "karma": "~6.3.0",
     "karma-chrome-launcher": "^3.1.0",
     "karma-coverage": "^2.0.3",
-    "ngx-extended-pdf-viewer": "^17.4.10",
+    "ngx-extended-pdf-viewer": "^18.1.14",
     "protractor": "~7.0.0",
     "ts-node": "~8.3.0",
     "tslint": "~6.1.0",

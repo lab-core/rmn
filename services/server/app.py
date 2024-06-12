@@ -29,6 +29,7 @@ app.config["CORS_HEADERS"] = "Content-Type"
 mongo = mongo_client()
 redis = redis_client()
 storage = Storage()
+# exec_storage = Storage(f"C:{os.sep}Users{os.sep}edgar{os.sep}rmn{os.sep}services{os.sep}executor{os.sep}storage")
 
 ROOT_DIR = Path(__file__).resolve().parent
 TEMP_FOLDER = ROOT_DIR.joinpath("temp")

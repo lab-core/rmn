@@ -302,11 +302,11 @@ def grade_all(
                 file = os.path.join(root, f)
                 if not os.path.isfile(file):
                     continue
-                g_files.append(file)
-                if new_job:
-                    db.insert_document(job_id, doc_index, [], 0, "",
-                                       Document_Status.NOT_READY, "", 0, f)
-                doc_index += 1
+                # g_files.append(file)
+                # if new_job:
+                #     db.insert_document(job_id, doc_index, [], 0, "",
+                #                        Document_Status.NOT_READY, "", 0, f)
+                # doc_index += 1
     db.close()
 
     if not os.path.exists(DIRPATH):
