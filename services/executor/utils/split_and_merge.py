@@ -10,17 +10,38 @@ from utils.utils import Document_Status
 from collections import OrderedDict
 
 storage = Storage()
+CURRENT_START_PAGE = 2 # start_page
 
 def calculate_pages(pages_per_question):
+    current_start_page = CURRENT_START_PAGE
     results = {}
-    current_start_page = 2 # start_page
     for question, num_pages in pages_per_question.items():
         end_page = current_start_page + num_pages - 1
         results[question] = list(range(current_start_page - 1, end_page))
         current_start_page = end_page + 1
     return results
 
+def verify_n_pages(n_pages_per_question, input_pdfs):
+    is_valid = True
+    error_messages = []
+    total_expected_pages = sum(n_pages_per_question.values()) + CURRENT_START_PAGE
+
+    for input_pdf in input_pdfs:
+        with open(input_pdf, 'rb') as f:
+            reader = PdfReader(f)
+            total_pages = len(reader.pages)
+
+            if total_pages != total_expected_pages:
+                is_valid = False
+                file_name = os.path.basename(input_pdf)
+                error_messages.append(f"Erreur : {file_name} a {total_pages} page(s).")
+            
+    if not is_valid:
+        raise ValueError(error_messages)
+
 def split_and_merge(n_pages_per_question, input_pdfs, output_folder):
+    verify_n_pages(n_pages_per_question, input_pdfs)
+
     generated_pdfs_per_question = {question: [] for question in n_pages_per_question.keys()}
 
     if not os.path.exists(output_folder):
@@ -36,8 +57,6 @@ def split_and_merge(n_pages_per_question, input_pdfs, output_folder):
                 for page_index in pages:
                     if page_index < len(reader.pages):
                         writer.add_page(reader.pages[page_index])
-                    else:
-                        print(f"Page {page_index + 1} missing in '{input_pdf}' for question '{question}'.") # should re ask for the missing page
 
                 output_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(input_pdf))[0]}_{question}.pdf")
                 with open(output_path, 'wb') as output_file:
@@ -99,6 +118,7 @@ def process_path(zip_folder, job_id, n_pages_per_question):
 
 def insert_copies(zip_folder, job_id, n_pages_per_question):
     db = Database()
+    generated_pdfs = process_path(zip_folder, job_id, n_pages_per_question)
     generated_pdfs = process_path(zip_folder, job_id, n_pages_per_question)
     unique_generated_pdfs = list(OrderedDict.fromkeys(generated_pdfs))
     generated_pdfs = unique_generated_pdfs

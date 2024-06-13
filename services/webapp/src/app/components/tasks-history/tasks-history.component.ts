@@ -29,7 +29,7 @@ export class TasksHistoryComponent implements OnInit {
   color: ThemePalette = 'primary';
   mode: ProgressSpinnerMode = 'determinate';
   diameter = 60;
-  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status', 'job_completion', 'job_estimation', 'job_deletion', 'job_share'];
+  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status', 'job_infos', 'job_estimation', 'job_deletion', 'job_share'];
   dataSource: MatTableDataSource<any> = new MatTableDataSource<any>();
 
   @ViewChild(MatPaginator) paginator: MatPaginator;
@@ -89,6 +89,9 @@ export class TasksHistoryComponent implements OnInit {
               break;
             case 'ERROR':
               status = 'Erreur';
+              let cleanedInfos = resp.job_infos.slice(1, -1).replace(/['",]/g, '');
+              x.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
+              console.log(x.job_infos);
               break;
           }
           const message = "Le status de la tâche " + String(job_id) + " a changé à [" + String(status) + "] !";
@@ -113,7 +116,7 @@ export class TasksHistoryComponent implements OnInit {
       this.tasksList.forEach(x => {
         if (x.job_id === job_id) {
           x.job_estimation = Math.round((n_total_doc - lastN) * lastExecTime);
-          x.job_completion = Math.round((lastN / n_total_doc) * 100);
+          // x.job_completion = Math.round((lastN / n_total_doc) * 100);
         }
       });
       this.dataSource.data = this.tasksList;
@@ -186,13 +189,13 @@ export class TasksHistoryComponent implements OnInit {
                 x.job_estimation = Math.round((response[0].n_total_doc - lastN) * lastExecTime);
               }
               if (x.job_status === "QUEUED") {
-                x.job_completion = 0;
+                // x.job_completion = 0;
               } else if (x.job_status === "ERROR") {
-                x.job_completion = 0;
+                // x.job_completion = 0;
               } else if (x.job_status === "ARCHIVED") {
-                x.job_completion = 100;
+                // x.job_completion = 100;
               } else {
-                x.job_completion = Math.round((lastN / response[0].n_total_doc) * 100);
+                // x.job_completion = Math.round((lastN / response[0].n_total_doc) * 100);
               }
             }, (error) => {
               console.error(error);

@@ -465,34 +465,55 @@ if __name__ == "__main__":
             try:
                 insert_copies('output_zip', job_id, n_pages_per_question)
                 print("Copies inserted in database")
-            except Exception as e:
-                print("Error in insert_copies:", e)
 
-            db.jobs_output_collection().insert_one(
-                {
-                    "job_id": job_id,
-                    "user_id": user_id,
-                    "notes_csv_file_id": notes_csv_file_id,
-                    "preview_file_id": "None",
-                    "moodle_zip_id_list": moodle_zip_id_list,
-                }
-            )
-
-            # Set Job status to VALIDATION
-            db.eval_jobs_collection().update_one(
-                {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value}}
-            )
-
-            sio.emit(
-                "jobs_status",
-                json.dumps(
+                db.jobs_output_collection().insert_one(
                     {
                         "job_id": job_id,
-                        "status": Job_Status.VALIDATION.value,
                         "user_id": user_id,
+                        "notes_csv_file_id": notes_csv_file_id,
+                        "preview_file_id": "None",
+                        "moodle_zip_id_list": moodle_zip_id_list,
                     }
-                ),
-            )
+                )
+
+                # Set Job status to VALIDATION
+                db.eval_jobs_collection().update_one(
+                    {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value}}
+                )
+
+                sio.emit(
+                    "jobs_status",
+                    json.dumps(
+                        {
+                            "job_id": job_id,
+                            "status": Job_Status.VALIDATION.value,
+                            "user_id": user_id,
+                        }
+                    ),
+                )
+                
+            except Exception as e:
+                error_messages = str(e)
+                print(e)
+
+                # Set Job status to ERROR
+                db.eval_jobs_collection().update_one(
+                    {"job_id": job_id},
+                    {"$set": {"job_status": Job_Status.ERROR.value,
+                              "job_infos": error_messages}}
+                )
+
+                sio.emit(
+                    "jobs_status",
+                    json.dumps(
+                        {
+                            "job_id": job_id,
+                            "user_id": user_id,
+                            "status": Job_Status.ERROR.value,
+                            "job_infos": error_messages
+                        }
+                    ),
+                )
 
             storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
             storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))

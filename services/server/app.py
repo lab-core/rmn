@@ -478,7 +478,8 @@ def get_job():
         "job_status": job["job_status"],
         "job_name": job["job_name"],
         "template_name": job["template_name"],
-        "students_list": job["students_list"]
+        "students_list": job["students_list"],
+        "job_infos": job["job_infos"]
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
