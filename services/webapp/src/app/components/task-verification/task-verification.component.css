@@ -50,8 +50,8 @@
 
 .sidebar-toggle-button {
     position: absolute;
-    top: 20px;
-    left: 20px;
+    top: 15px;
+    left: 15px;
     color: black;
     border: none;
     padding: 10px;
@@ -296,11 +296,11 @@
 }
 
 .picture-container.expanded {
-    height: 99%;
+    height: 98.5%;
     width: 150%;
     margin-right: 2.5%;
     margin-left: 5.5%;
-    margin-top: 2%;
+    margin-top: 3%;
     border: 2px solid gray;
     display: flex;
     align-items: center;
