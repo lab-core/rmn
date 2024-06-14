@@ -45,6 +45,7 @@ import { PresentationPageComponent } from './components/presentation-page/presen
 import { UserGuideComponent } from './components/user-guide/user-guide.component';
 import { TaskShareDialogComponent } from "./components/tasks-history/task-share-dialog/task-share-dialog.component";
 import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
+import { TaskRetryDialogComponent } from './components/tasks-history/task-retry-dialog/task-retry-dialog.component';
 
 
 @NgModule({
@@ -68,6 +69,7 @@ import { NewExamCorrectionComponent } from './components/new-exam-correction/new
     PresentationPageComponent,
     UserGuideComponent,
     NewExamCorrectionComponent,
+    TaskRetryDialogComponent,
   ],
   imports: [
     BrowserModule,

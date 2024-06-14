@@ -16,6 +16,7 @@ import { ThemePalette } from '@angular/material/core';
 import { ProgressSpinnerMode } from '@angular/material/progress-spinner';
 import { SERVER_URL } from 'src/app/utils';
 import { filter } from 'rxjs/operators';
+import { TaskRetryDialogComponent } from './task-retry-dialog/task-retry-dialog.component';
 
 @Component({
   selector: 'app-tasks-history',
@@ -29,7 +30,7 @@ export class TasksHistoryComponent implements OnInit {
   color: ThemePalette = 'primary';
   mode: ProgressSpinnerMode = 'determinate';
   diameter = 60;
-  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status', 'job_infos', 'job_estimation', 'job_deletion', 'job_share'];
+  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status', 'job_infos', 'job_estimation', 'job_deletion', 'job_share', 'job_retry'];
   dataSource: MatTableDataSource<any> = new MatTableDataSource<any>();
 
   @ViewChild(MatPaginator) paginator: MatPaginator;
@@ -91,7 +92,7 @@ export class TasksHistoryComponent implements OnInit {
               status = 'Erreur';
               let cleanedInfos = resp.job_infos.slice(1, -1).replace(/['",]/g, '');
               x.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
-              console.log(x.job_infos);
+              this.saveJobInfos(job_id, x.job_infos);
               break;
           }
           const message = "Le status de la tâche " + String(job_id) + " a changé à [" + String(status) + "] !";
@@ -240,6 +241,23 @@ export class TasksHistoryComponent implements OnInit {
       });
   }
 
+  retryJob(jobId: string, jobName: string): void {
+    let errorMessages = this.getSavedJobInfos(jobId);
+    let dialogRef = this.dialog.open(TaskRetryDialogComponent, {
+      width: '40%',
+      height: '50%',
+      data: {taskId: jobId, taskName: jobName, taskMessages: errorMessages }
+    });
+    dialogRef.afterClosed().subscribe(async result => {
+        if (result === false) {
+          const message = "Une erreur est intervenue lors de la correction de la tâche !";
+          this.notificationService.showError(message, "Erreur!");
+        }
+      }, (error) => {
+        console.error(error);
+      });
+  }
+
   getTaskInfo(task: any) {
     if (task.job_status === 'ARCHIVED') {
       this.openTaskFilesDialog(task.job_id);
@@ -266,6 +284,15 @@ export class TasksHistoryComponent implements OnInit {
       }, (error) => {
         console.error(error);
       });
+  }
+
+  saveJobInfos(jobId: string, jobInfos: string[]) {
+    localStorage.setItem(`job_infos_${jobId}`, JSON.stringify(jobInfos));
+  }
+
+  getSavedJobInfos(jobId: string): string[] | null {
+    const savedJobInfos = localStorage.getItem(`job_infos_${jobId}`);
+    return savedJobInfos ? JSON.parse(savedJobInfos) : null;
   }
 
   decrementTime() {

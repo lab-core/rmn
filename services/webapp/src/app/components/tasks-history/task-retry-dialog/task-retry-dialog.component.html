@@ -1,0 +1,19 @@
+<div class="dialog-container">
+    <div class="header-container">
+        <h1>Téléversement des fichiers</h1>
+    </div>
+    <div class="error-messages-container">
+        <div class="error-message" *ngIf="this.errorMessages">
+            <div *ngFor="let message of this.errorMessages">{{ message }}</div>
+        </div>
+    </div>
+    <div class="button-container">
+        <button mat-raised-button color="primary">Téléverser les fichiers</button>
+        <button mat-raised-button color="primary" (click)="cancel()">Relancer la tâche</button>
+        <button mat-raised-button color="warn" (click)="cancel()">Annuler</button>
+    </div>
+</div>
+<div id="overlay" *ngIf="this.downloading"></div>
+<mat-spinner *ngIf="this.downloading" color="accent" [diameter]="150" mode="determinate" [value]="this.downloadProgress"></mat-spinner> 
+<div id="overlay" *ngIf="this.downloading"></div>
+<div class="files-uploading-steps" *ngIf="this.downloading">Téléversement du fichier...</div>
