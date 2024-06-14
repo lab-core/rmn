@@ -127,7 +127,7 @@
                     <td mat-cell *matCellDef="let row">
                         <button *ngIf="row.job_status == 'ERROR'"
                                 (click)="retryJob(row.job_id, row.job_name)" mat-raised-button color="primary"
-                                class="button-cell">Relancer</button>
+                                class="button-cell">Continuer</button>
                     </td>
                 </ng-container>
 
