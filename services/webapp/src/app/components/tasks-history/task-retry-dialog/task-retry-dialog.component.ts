@@ -98,17 +98,11 @@ export class TaskRetryDialogComponent implements OnInit {
   }
 
   downloadFile(filename: string): void {
-    const job_id = this.data.taskId; // assuming taskId is the job_id
+    const job_id = this.data.taskId;
     const formData = new FormData();
     formData.append('token', this.userService.token);
     formData.append('job_id', job_id);
     formData.append('file', filename);
-
-
-    // Log the form data for debugging
-    formData.forEach((value, key) => {
-        console.log(`${key}: ${value}`);
-    });
 
     const requestURL = `${SERVER_URL}incorrect/download`;
 
@@ -117,7 +111,7 @@ export class TaskRetryDialogComponent implements OnInit {
             if (data.type === HttpEventType.DownloadProgress) {
                 this.downloadProgress = data.total ? Math.round(100 * data.loaded / data.total) : 0;
             } else if (data.type === HttpEventType.Response) {
-                let typeExport = 'application/pdf';  // Adjust this based on your file type
+                let typeExport = 'application/pdf'; 
                 const file = new Blob([data.body as any], { type: typeExport });
                 const downloadURL = window.URL.createObjectURL(file);
                 saveAs(downloadURL, filename);
