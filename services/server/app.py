@@ -559,6 +559,32 @@ def unshare_job(user_id):
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
+@app.route("/incorrect/download", methods=["POST"])
+@cross_origin()
+@verify_token()
+def download_incorrect_files(user_id):
+    request_form = request.form
+    #
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": f"Error: job_id not provided."}),
+            status=400,
+        )
+
+    #
+    if "file" not in request_form:
+        return Response(
+            response=json.dumps({"response": f"Error: file not provided."}),
+            status=400,
+        )
+
+    #
+    job_id = str(request_form["job_id"])
+    target_file = str(request_form["file"])
+    file_path = os.path.join('incorrect_files', job_id, target_file)
+    file_send = send_file(storage.abs_path(file_path))
+
+    return file_send
 
 @app.route("/file/download", methods=["POST"])
 @cross_origin()
@@ -566,6 +592,8 @@ def unshare_job(user_id):
 def download_file(user_id):
     #
     request_form = request.form
+
+    print("RECEIVED FORM DATA:", request_form)
 
     #
     if "job_id" not in request_form:
@@ -635,7 +663,6 @@ def download_file(user_id):
     os.remove(filepath)
 
     return file_send
-
 
 @app.route("/job/batch/info", methods=["POST"])
 @cross_origin()

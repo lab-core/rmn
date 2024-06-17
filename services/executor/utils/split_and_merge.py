@@ -21,8 +21,9 @@ def calculate_pages(pages_per_question):
         current_start_page = end_page + 1
     return results
 
-def verify_n_pages(n_pages_per_question, input_pdfs):
+def verify_n_pages(n_pages_per_question, input_pdfs, job_id):
     is_valid = True
+    incorrect_files = []
     error_messages = []
     total_expected_pages = sum(n_pages_per_question.values()) + CURRENT_START_PAGE
 
@@ -34,13 +35,16 @@ def verify_n_pages(n_pages_per_question, input_pdfs):
             if total_pages != total_expected_pages:
                 is_valid = False
                 file_name = os.path.basename(input_pdf)
+                incorrect_files.append(file_name)
                 error_messages.append(f"Erreur : {file_name} a {total_pages} page(s).")
+                file_path = os.path.join('incorrect_files', job_id, file_name)
+                storage.copy_from(input_pdf, storage.abs_path(file_path))
             
     if not is_valid:
         raise ValueError(error_messages)
 
-def split_and_merge(n_pages_per_question, input_pdfs, output_folder):
-    verify_n_pages(n_pages_per_question, input_pdfs)
+def split_and_merge(n_pages_per_question, input_pdfs, output_folder, job_id):
+    verify_n_pages(n_pages_per_question, input_pdfs, job_id)
 
     generated_pdfs_per_question = {question: [] for question in n_pages_per_question.keys()}
 
@@ -81,7 +85,7 @@ def split_and_merge(n_pages_per_question, input_pdfs, output_folder):
 
     return merged_pdfs
 
-def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question):
+def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_id):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(temp_folder)
 
@@ -91,7 +95,7 @@ def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question):
                 if file.lower().endswith('.pdf'):
                     extracted_files.append(os.path.join(root, file))
 
-    generated_pdfs = split_and_merge(n_pages_per_question, extracted_files, output_folder)
+    generated_pdfs = split_and_merge(n_pages_per_question, extracted_files, output_folder, job_id)
     shutil.rmtree(temp_folder)
     return generated_pdfs
 
@@ -113,12 +117,11 @@ def process_path(zip_folder, job_id, n_pages_per_question):
     if not n_pages_per_question:
         raise ValueError("Please provide a mapping of questions to page numbers.")
 
-    generated_pdfs = process_zip(zip_file_path, temp_path, documents_path, n_pages_per_question)
+    generated_pdfs = process_zip(zip_file_path, temp_path, documents_path, n_pages_per_question, job_id)
     return generated_pdfs
 
 def insert_copies(zip_folder, job_id, n_pages_per_question):
     db = Database()
-    generated_pdfs = process_path(zip_folder, job_id, n_pages_per_question)
     generated_pdfs = process_path(zip_folder, job_id, n_pages_per_question)
     unique_generated_pdfs = list(OrderedDict.fromkeys(generated_pdfs))
     generated_pdfs = unique_generated_pdfs

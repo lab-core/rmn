@@ -2,13 +2,40 @@
     <div class="header-container">
         <h1>Téléversement des fichiers</h1>
     </div>
-    <div class="error-messages-container">
-        <div class="error-message" *ngIf="this.errorMessages">
-            <div *ngFor="let message of this.errorMessages">{{ message }}</div>
+    <div class="content-container">
+        <div class="error-messages-container">
+            <div class="error-message" *ngIf="this.filenames.length > 0">
+                <div *ngFor="let filename of filenames">
+                    {{ filename }}
+                    <button mat-icon-button color="primary" (click)="downloadFile(filename)">
+                        <mat-icon>download</mat-icon>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="upload-container"
+            (drop)="onDrop($event)"
+            (dragover)="onDragOver($event)">
+            <div class="upload-drop-zone" (click)="onUploadClick()">
+                Glissez-déposez les fichiers ici ou cliquez pour télécharger
+            </div>
+            <input #fileUpload type="file" id="file-upload" style="display: none;" (change)="onFileSelected($event)" multiple>
         </div>
     </div>
+    <div class="selected-files-container" *ngIf="selectedFiles.length > 0">
+        <h3>Fichiers sélectionnés:</h3>
+        <ul>
+            <li *ngFor="let file of selectedFiles">{{ file.name }}</li>
+        </ul>
+    </div>
+    <div class="uploaded-files-container" *ngIf="uploadedFiles.length > 0">
+        <h3>Fichiers téléchargés:</h3>
+        <ul>
+            <li *ngFor="let file of uploadedFiles">{{ file }}</li>
+        </ul>
+    </div>
     <div class="button-container">
-        <button mat-raised-button color="primary">Téléverser les fichiers</button>
+        <button mat-raised-button color="primary" (click)="uploadFiles()">Téléverser les fichiers</button>
         <button mat-raised-button color="primary" (click)="cancel()">Ignorer et continuer</button>
         <button mat-raised-button color="warn" (click)="cancel()">Annuler</button>
     </div>
