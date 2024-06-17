@@ -80,7 +80,9 @@
                 <ng-container matColumnDef="job_infos">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header> Informations </th>
                     <td mat-cell *matCellDef="let row">
-                        <span *ngIf="row.job_status === 'ERROR'"> Des fichiers erronés ont été trouvés. </span>
+                        <ng-container *ngFor="let info of getSavedJobInfos(row.job_id)">
+                            <div>{{ info }}</div>
+                        </ng-container>
                     </td>
                 </ng-container>
 
