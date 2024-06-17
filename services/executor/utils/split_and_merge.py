@@ -23,7 +23,6 @@ def calculate_pages(pages_per_question):
 
 def verify_n_pages(n_pages_per_question, input_pdfs, job_id):
     is_valid = True
-    incorrect_files = []
     error_messages = []
     total_expected_pages = sum(n_pages_per_question.values()) + CURRENT_START_PAGE
 
@@ -35,7 +34,6 @@ def verify_n_pages(n_pages_per_question, input_pdfs, job_id):
             if total_pages != total_expected_pages:
                 is_valid = False
                 file_name = os.path.basename(input_pdf)
-                incorrect_files.append(file_name)
                 error_messages.append(f"Erreur : {file_name} a {total_pages} page(s).")
                 file_path = os.path.join('incorrect_files', job_id, file_name)
                 storage.copy_from(input_pdf, storage.abs_path(file_path))
