@@ -609,27 +609,11 @@ if __name__ == "__main__":
                     })
                     if job:
                         job_id = job["job_id"]
-                        # user_id = job["user_id"]
-                        # # Set Job status from CORRECTED to QUEUED
-                        # db.eval_jobs_collection().update_one(
-                        #     {"job_id": job_id}, {"$set": {"job_status": Job_Status.QUEUED.value}}
-                        # )
-                
-                        # sio.emit(
-                        #     "jobs_status",
-                        #     json.dumps(
-                        #         {
-                        #             "job_id": job_id,
-                        #             "status": Job_Status.QUEUED.value,
-                        #             "user_id": user_id,
-                        #         }
-                        #     ),
-                        # )
                         # restart process
                         WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{job_id}")
                         WORK_TMP_DIR.mkdir(exist_ok=True)
-                        process(job, WORK_TMP_DIR)
                         print(f"Restarting process...")
+                        process(job, WORK_TMP_DIR)
 
                     # requeue old idle jobs
                     old_idle_jobs = False
