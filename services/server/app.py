@@ -619,6 +619,24 @@ def continue_job(user_id):
     storage.remove_all_files_in_folder(questions_folder_path)
     storage.remove_all_files_in_folder(incorrect_files_path)
 
+    #removing files in database
+    db = mongo["RMN"]
+    collection = db["job_documents"]
+    collection.delete_many({"job_id": job_id})
+
+    # set status to CORRECTED
+    db = mongo["RMN"]
+    collection_eval_jobs = db["eval_jobs"]
+    collection_eval_jobs.update_one(
+            {"job_id": job_id},
+            {
+                "$set": {
+                    "job_status": Job_Status.CORRECTED.value,
+                }
+            },
+    )
+
+
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 @app.route("/incorrect/download", methods=["POST"])

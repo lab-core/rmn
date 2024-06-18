@@ -350,7 +350,7 @@ if __name__ == "__main__":
 
             db.documents_collection().delete_many({"job_id": job_id})
 
-        elif job["job_status"] == Job_Status.QUEUED.value:
+        elif job["job_status"] == Job_Status.QUEUED.value or job["job_status"] == Job_Status.CORRECTED.value:
             # make directories
             MOODLE_FOLDER.mkdir(exist_ok=True)
             OUTPUT_FOLDER.mkdir(exist_ok=True)
@@ -374,6 +374,7 @@ if __name__ == "__main__":
                     }
                 }
             )
+            
             # Save notes.csv file to local
             print("COPYING FROM ", storage.abs_path(job_params["notes_file_id"]), " TO ", str(OUTPUT_FOLDER.joinpath("notes.csv")))
             storage.copy_from(job_params["notes_file_id"], str(OUTPUT_FOLDER.joinpath("notes.csv")))
@@ -449,16 +450,17 @@ if __name__ == "__main__":
             notes_csv_file_id = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
             storage.move_to(os.path.join(OUTPUT_FOLDER, "notes.csv"), notes_csv_file_id)
 
-            moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}.zip")
-            storage.move_to(MOODLE_ZIP, moodle_zip_file_id)
+            if job["job_status"] == Job_Status.QUEUED.value:
+                moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}.zip")
+                storage.move_to(MOODLE_ZIP, moodle_zip_file_id)
 
-            moodle_zip_id_list = [moodle_zip_file_id]
-            i = 1
-            for file_path in TMP_DIR.glob("moodle*.zip"):
-                moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_{i}.zip")
-                storage.move_to(str(file_path), moodle_zip_file_id)
-                moodle_zip_id_list.append(moodle_zip_file_id)
-                i = i + 1
+                moodle_zip_id_list = [moodle_zip_file_id]
+                i = 1
+                for file_path in TMP_DIR.glob("moodle*.zip"):
+                    moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_{i}.zip")
+                    storage.move_to(str(file_path), moodle_zip_file_id)
+                    moodle_zip_id_list.append(moodle_zip_file_id)
+                    i = i + 1
 
             n_pages_per_question = {key: value for key, value in job_params["n_pages_per_question"]}
 
@@ -466,15 +468,16 @@ if __name__ == "__main__":
                 insert_copies('output_zip', job_id, n_pages_per_question)
                 print("Copies inserted in database")
 
-                db.jobs_output_collection().insert_one(
-                    {
-                        "job_id": job_id,
-                        "user_id": user_id,
-                        "notes_csv_file_id": notes_csv_file_id,
-                        "preview_file_id": "None",
-                        "moodle_zip_id_list": moodle_zip_id_list,
-                    }
-                )
+                if job["job_status"] == Job_Status.QUEUED.value:
+                    db.jobs_output_collection().insert_one(
+                        {
+                            "job_id": job_id,
+                            "user_id": user_id,
+                            "notes_csv_file_id": notes_csv_file_id,
+                            "preview_file_id": "None",
+                            "moodle_zip_id_list": moodle_zip_id_list,
+                        }
+                    )
 
                 # Set Job status to VALIDATION
                 db.eval_jobs_collection().update_one(
@@ -525,8 +528,8 @@ if __name__ == "__main__":
                     ),
                 )
 
-            storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-            storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
+            # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+            # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
         else:
             print("Job status "+job["job_status"]+" not handled.")
 
@@ -600,6 +603,33 @@ if __name__ == "__main__":
                             ),
                         )
                         print(f"Ignoring incorrect files and setting job status of job ${job_id} from IGNORED to VALIDATION")
+
+                    job = db.eval_jobs_collection().find_one({
+                        "job_status": Job_Status.CORRECTED.value,
+                    })
+                    if job:
+                        job_id = job["job_id"]
+                        # user_id = job["user_id"]
+                        # # Set Job status from CORRECTED to QUEUED
+                        # db.eval_jobs_collection().update_one(
+                        #     {"job_id": job_id}, {"$set": {"job_status": Job_Status.QUEUED.value}}
+                        # )
+                
+                        # sio.emit(
+                        #     "jobs_status",
+                        #     json.dumps(
+                        #         {
+                        #             "job_id": job_id,
+                        #             "status": Job_Status.QUEUED.value,
+                        #             "user_id": user_id,
+                        #         }
+                        #     ),
+                        # )
+                        # restart process
+                        WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{job_id}")
+                        WORK_TMP_DIR.mkdir(exist_ok=True)
+                        process(job, WORK_TMP_DIR)
+                        print(f"Restarting process...")
 
                     # requeue old idle jobs
                     old_idle_jobs = False
