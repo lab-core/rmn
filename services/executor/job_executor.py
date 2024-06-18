@@ -579,10 +579,10 @@ if __name__ == "__main__":
                     })
 
                     job = db.eval_jobs_collection().find_one({
-                        "job_status": Job_Status.CORRECTED.value,
+                        "job_status": Job_Status.IGNORED.value,
                     })
                     if job:
-                        # Set Job status from CORRECTED to VALIDATION
+                        # Set Job status from IGNORED to VALIDATION
                         job_id = job["job_id"]
                         user_id = job["user_id"]
                         db.eval_jobs_collection().update_one(
@@ -599,7 +599,7 @@ if __name__ == "__main__":
                                 }
                             ),
                         )
-                        print(f"Ignoring incorrect files and setting job status of job ${job_id} from CORRECTED to VALIDATION")
+                        print(f"Ignoring incorrect files and setting job status of job ${job_id} from IGNORED to VALIDATION")
 
                     # requeue old idle jobs
                     old_idle_jobs = False

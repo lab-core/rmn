@@ -2,6 +2,7 @@ import os
 import shutil
 import glob
 from pathlib import Path
+import zipfile
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
@@ -56,3 +57,34 @@ class Storage:
 
     def remove_tree(self, s_dir):
         shutil.rmtree(self.abs_path(s_dir))
+
+    def replace_pdfs_in_zip(self, zip_path, pdf_files, job_id):
+        temp_dir = f'/tmp/zip_contents_{job_id}'
+
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(temp_dir)
+
+        for pdf_file in pdf_files:
+            pdf_filename = pdf_file.filename
+            pdf_file.save(os.path.join(temp_dir, pdf_filename))
+
+        new_zip_path = f'/tmp/{job_id}.zip'
+        with zipfile.ZipFile(new_zip_path, 'w') as new_zip:
+            for foldername, subfolders, filenames in os.walk(temp_dir):
+                for filename in filenames:
+                    file_path = os.path.join(foldername, filename)
+                    new_zip.write(file_path, os.path.relpath(file_path, temp_dir))
+
+        os.remove(zip_path)
+        return new_zip_path
+    
+    def remove_all_files_in_folder(self, folder_path):
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.remove(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f'Failed to delete {file_path}. Reason: {e}')

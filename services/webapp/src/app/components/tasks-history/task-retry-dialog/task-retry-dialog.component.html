@@ -23,19 +23,19 @@
         </div>
     </div>
     <div class="selected-files-container" *ngIf="selectedFiles.length > 0">
-        <h3>Fichiers sélectionnés:</h3>
+        <h3>Fichiers sélectionnés ({{selectedFiles.length}}/{{filenames.length}}):</h3>
         <ul>
             <li *ngFor="let file of selectedFiles">{{ file.name }}</li>
         </ul>
     </div>
     <div class="uploaded-files-container" *ngIf="uploadedFiles.length > 0">
-        <h3>Fichiers téléchargés:</h3>
+        <h3>Fichiers téléversés:</h3>
         <ul>
             <li *ngFor="let file of uploadedFiles">{{ file }}</li>
         </ul>
     </div>
     <div class="button-container">
-        <button mat-raised-button color="primary" (click)="uploadFiles()">Continuer</button>
+        <button mat-raised-button color="primary" (click)="retryJob()" [disabled]="isContinueDisabled()">Continuer</button>
         <button mat-raised-button color="primary" (click)="ignoreAndContinue()">Ignorer et continuer</button>
         <button mat-raised-button color="warn" (click)="cancel()">Annuler</button>
     </div>

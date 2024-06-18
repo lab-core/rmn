@@ -62,6 +62,7 @@ export class TaskRetryDialogComponent implements OnInit {
       const files: FileList = event.target.files;
       this.selectedFiles.push(...Array.from(files));
     }
+    console.log("onFileSelected", this.selectedFiles)
   }
 
   onDrop(event: DragEvent): void {
@@ -69,10 +70,15 @@ export class TaskRetryDialogComponent implements OnInit {
     if (event.dataTransfer && event.dataTransfer.files) {
       this.selectedFiles.push(...Array.from(event.dataTransfer.files));
     }
+    console.log("onDrop", this.selectedFiles)
   }
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();
+  }
+
+  isContinueDisabled(): boolean {
+    return this.selectedFiles.length < this.filenames.length;
   }
   
 
@@ -82,7 +88,7 @@ export class TaskRetryDialogComponent implements OnInit {
     formData.append('token', this.userService.token);
     formData.append('job_id', job_id);
 
-    const requestURL = `${SERVER_URL}job/continue`;
+    const requestURL = `${SERVER_URL}job/ignore`;
     this.http.post(requestURL, formData).subscribe(
         (data) => {
             this.notifyService.showSuccess('Reprise de la tâche', 'Success');
@@ -95,26 +101,30 @@ export class TaskRetryDialogComponent implements OnInit {
     );
   }
 
-  uploadFiles(): void {
-    if (this.selectedFiles.length > 0) {
-      const formData = new FormData();
-      this.selectedFiles.forEach(file => formData.append('files', file));
+  retryJob(): void {
+    const job_id = this.data.taskId;
+    const formData = new FormData();
+    formData.append('token', this.userService.token);
+    formData.append('job_id', job_id);
+    this.selectedFiles.forEach((file, index) => {
+      formData.append(`file${index}`, file);  // Use unique keys for each file
+      console.log('Appending file:', file.name);  // Print the file name being appended
+    });
 
-      this.http.post(`${SERVER_URL}/upload`, formData, {
-        reportProgress: true,
-        observe: 'events'
-      }).subscribe(event => {
-        if (event.type === HttpEventType.UploadProgress) {
-          this.downloadProgress = Math.round(100 * event.loaded / (event.total ?? 1));
-        } else if (event.type === HttpEventType.Response) {
-          this.notifyService.showSuccess('Files uploaded successfully', 'Success');
-          this.uploadedFiles.push(...this.selectedFiles.map(file => file.name));
-          this.selectedFiles = [];
-        }
-      }, error => {
-        this.notifyService.showError('File upload failed', 'Error');
-      });
-    }
+    this.http.post(`${SERVER_URL}job/continue`, formData, {
+      reportProgress: true,
+      observe: 'events'
+    }).subscribe(event => {
+      if (event.type === HttpEventType.UploadProgress) {
+        this.downloadProgress = Math.round(100 * event.loaded / (event.total ?? 1));
+      } else if (event.type === HttpEventType.Response) {
+        this.notifyService.showSuccess('Files uploaded successfully', 'Success');
+        this.uploadedFiles.push(...this.selectedFiles.map(file => file.name));
+        this.selectedFiles = [];
+      }
+    }, error => {
+      this.notifyService.showError('File upload failed', 'Error');
+    });
   }
 
   downloadFile(filename: string): void {

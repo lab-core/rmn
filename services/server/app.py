@@ -559,10 +559,10 @@ def unshare_job(user_id):
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
-@app.route("/job/continue", methods=["POST"])
+@app.route("/job/ignore", methods=["POST"])
 @cross_origin()
 @verify_token()
-def continue_job(user_id):
+def ignore_job(user_id):
 
     request_form = request.form
     #
@@ -579,12 +579,45 @@ def continue_job(user_id):
             {"job_id": job_id},
             {
                 "$set": {
-                    "job_status": Job_Status.CORRECTED.value,
+                    "job_status": Job_Status.IGNORED.value,
                 }
             },
     )
 
-    print("Job continued:", job_id)
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
+@app.route("/job/continue", methods=["POST"])
+@cross_origin()
+@verify_token()
+def continue_job(user_id):
+
+    request_form = request.form
+    job_id = str(request_form["job_id"])
+    
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": f"Error: job_id not provided."}),
+            status=400,
+        )
+    
+    if not request.files:
+        return Response(
+            response=json.dumps({"response": f"Error: No files provided."}),
+            status=400,
+        )
+
+    # replacing files in output_zip
+    pdf_files = [file for key, file in request.files.items() if file.filename.endswith('.pdf')]
+    zip_path = storage.abs_path(f"output_zip{os.sep}{job_id}.zip")
+    new_zip_path = storage.replace_pdfs_in_zip(zip_path, pdf_files, job_id)
+    final_zip_path =  storage.abs_path(f"output_zip{os.sep}")
+    shutil.move(new_zip_path, final_zip_path)
+
+    # removing questions pdfs
+    questions_folder_path = storage.abs_path(f"documents{os.sep}{job_id}")
+    incorrect_files_path = storage.abs_path(f"incorrect_files{os.sep}{job_id}")
+    storage.remove_all_files_in_folder(questions_folder_path)
+    storage.remove_all_files_in_folder(incorrect_files_path)
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
