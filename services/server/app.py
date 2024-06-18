@@ -559,6 +559,35 @@ def unshare_job(user_id):
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
+@app.route("/job/continue", methods=["POST"])
+@cross_origin()
+@verify_token()
+def continue_job(user_id):
+
+    request_form = request.form
+    #
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": f"Error: job_id not provided."}),
+            status=400,
+        )
+    
+    job_id = str(request_form["job_id"])
+    db = mongo["RMN"]
+    collection_eval_jobs = db["eval_jobs"]
+    collection_eval_jobs.update_one(
+            {"job_id": job_id},
+            {
+                "$set": {
+                    "job_status": Job_Status.CORRECTED.value,
+                }
+            },
+    )
+
+    print("Job continued:", job_id)
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
 @app.route("/incorrect/download", methods=["POST"])
 @cross_origin()
 @verify_token()

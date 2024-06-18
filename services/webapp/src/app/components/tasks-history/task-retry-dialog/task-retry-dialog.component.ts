@@ -74,6 +74,26 @@ export class TaskRetryDialogComponent implements OnInit {
   onDragOver(event: DragEvent): void {
     event.preventDefault();
   }
+  
+
+ ignoreAndContinue(): void {
+    const job_id = this.data.taskId;
+    const formData = new FormData();
+    formData.append('token', this.userService.token);
+    formData.append('job_id', job_id);
+
+    const requestURL = `${SERVER_URL}job/continue`;
+    this.http.post(requestURL, formData).subscribe(
+        (data) => {
+            this.notifyService.showSuccess('Reprise de la tâche', 'Success');
+            this.dialogRef.close('');
+        },
+        (error) => {
+            console.error('Ignore error', error);
+            this.notifyService.showError('Erreur dans la reprise de la tâche', 'Error');
+        }
+    );
+  }
 
   uploadFiles(): void {
     if (this.selectedFiles.length > 0) {

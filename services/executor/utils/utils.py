@@ -4,6 +4,7 @@ from enum import Enum
 class Job_Status(Enum):
     QUEUED = "QUEUED"
     RUN = "RUN"
+    CORRECTED = "CORRECTED"
     VALIDATION = "VALIDATION"
     FINALIZING = "FINALIZING"
     ARCHIVED = "ARCHIVED"

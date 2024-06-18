@@ -491,10 +491,20 @@ if __name__ == "__main__":
                         }
                     ),
                 )
-                
+
             except Exception as e:
                 error_messages = str(e)
                 print(e)
+                print("Copies inserted in database")
+                db.jobs_output_collection().insert_one(
+                    {
+                        "job_id": job_id,
+                        "user_id": user_id,
+                        "notes_csv_file_id": notes_csv_file_id,
+                        "preview_file_id": "None",
+                        "moodle_zip_id_list": moodle_zip_id_list,
+                    }
+                )
 
                 # Set Job status to ERROR
                 db.eval_jobs_collection().update_one(
@@ -567,6 +577,30 @@ if __name__ == "__main__":
                         "job_status": Job_Status.RUN.value,
                         "alive_time": {"$lt": max_alive}
                     })
+
+                    job = db.eval_jobs_collection().find_one({
+                        "job_status": Job_Status.CORRECTED.value,
+                    })
+                    if job:
+                        # Set Job status from CORRECTED to VALIDATION
+                        job_id = job["job_id"]
+                        user_id = job["user_id"]
+                        db.eval_jobs_collection().update_one(
+                            {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value}}
+                        )
+                
+                        sio.emit(
+                            "jobs_status",
+                            json.dumps(
+                                {
+                                    "job_id": job_id,
+                                    "status": Job_Status.VALIDATION.value,
+                                    "user_id": user_id,
+                                }
+                            ),
+                        )
+                        print(f"Ignoring incorrect files and setting job status of job ${job_id} from CORRECTED to VALIDATION")
+
                     # requeue old idle jobs
                     old_idle_jobs = False
                     for j in jobs:
@@ -591,6 +625,7 @@ if __name__ == "__main__":
 
                     # check if all running jobs are idle. If yes, sleep, otherwise break
                     print("Check alive running jobs")
+
                     jobs = db.eval_jobs_collection().find({
                         "job_status": Job_Status.RUN.value
                     })

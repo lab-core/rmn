@@ -37,12 +37,11 @@ def verify_n_pages(n_pages_per_question, input_pdfs, job_id):
                 error_messages.append(f"Erreur : {file_name} a {total_pages} page(s).")
                 file_path = os.path.join('incorrect_files', job_id, file_name)
                 storage.copy_from(input_pdf, storage.abs_path(file_path))
-            
-    if not is_valid:
-        raise ValueError(error_messages)
+    
+    return is_valid, error_messages
 
 def split_and_merge(n_pages_per_question, input_pdfs, output_folder, job_id):
-    verify_n_pages(n_pages_per_question, input_pdfs, job_id)
+    is_valid, error_messages = verify_n_pages(n_pages_per_question, input_pdfs, job_id)
 
     generated_pdfs_per_question = {question: [] for question in n_pages_per_question.keys()}
 
@@ -81,7 +80,7 @@ def split_and_merge(n_pages_per_question, input_pdfs, output_folder, job_id):
             if os.path.exists(pdf_path):
                 os.remove(pdf_path)
 
-    return merged_pdfs
+    return merged_pdfs, is_valid, error_messages
 
 def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_id):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -93,9 +92,9 @@ def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_
                 if file.lower().endswith('.pdf'):
                     extracted_files.append(os.path.join(root, file))
 
-    generated_pdfs = split_and_merge(n_pages_per_question, extracted_files, output_folder, job_id)
+    generated_pdfs, is_valid, error_messages = split_and_merge(n_pages_per_question, extracted_files, output_folder, job_id)
     shutil.rmtree(temp_folder)
-    return generated_pdfs
+    return generated_pdfs, is_valid, error_messages
 
 def process_path(zip_folder, job_id, n_pages_per_question):
     root_path = Path(__file__).resolve().parent.parent
@@ -115,15 +114,16 @@ def process_path(zip_folder, job_id, n_pages_per_question):
     if not n_pages_per_question:
         raise ValueError("Please provide a mapping of questions to page numbers.")
 
-    generated_pdfs = process_zip(zip_file_path, temp_path, documents_path, n_pages_per_question, job_id)
-    return generated_pdfs
+    generated_pdfs, is_valid, error_messages = process_zip(zip_file_path, temp_path, documents_path, n_pages_per_question, job_id)
+    return generated_pdfs, is_valid, error_messages
 
 def insert_copies(zip_folder, job_id, n_pages_per_question):
     db = Database()
-    generated_pdfs = process_path(zip_folder, job_id, n_pages_per_question)
+
+    generated_pdfs, is_valid, error_messages = process_path(zip_folder, job_id, n_pages_per_question)
     unique_generated_pdfs = list(OrderedDict.fromkeys(generated_pdfs))
     generated_pdfs = unique_generated_pdfs
-    print("generated_pdfs: ", generated_pdfs)
+
     document_index = 1
     for pdf_path in generated_pdfs:
         file_path = os.path.join('documents', job_id, f"Q{document_index}.pdf")
@@ -141,6 +141,9 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
             filename=file_name
         )
         document_index += 1
+    
+    if not is_valid:
+        raise ValueError(error_messages)
 
         
 
