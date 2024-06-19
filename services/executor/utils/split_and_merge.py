@@ -123,13 +123,11 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
     generated_pdfs, is_valid, error_messages = process_path(zip_folder, job_id, n_pages_per_question)
     unique_generated_pdfs = list(OrderedDict.fromkeys(generated_pdfs))
     generated_pdfs = unique_generated_pdfs
-    print("GENERATED_PDFS: ", generated_pdfs)
 
     document_index = 1
     for pdf_path in generated_pdfs:
         file_path = os.path.join('documents', job_id, f"Q{document_index}.pdf")
         # storing every pdf in the storage
-        print("COPYING ", pdf_path, "TO ", storage.abs_path(file_path))
         storage.copy_from(pdf_path, storage.abs_path(file_path))
         file_name = f"documents/{job_id}/Q{document_index}.pdf"
         db.insert_document(

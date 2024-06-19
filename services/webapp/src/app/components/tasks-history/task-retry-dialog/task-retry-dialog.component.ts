@@ -107,8 +107,7 @@ export class TaskRetryDialogComponent implements OnInit {
     formData.append('token', this.userService.token);
     formData.append('job_id', job_id);
     this.selectedFiles.forEach((file, index) => {
-      formData.append(`file${index}`, file);  // Use unique keys for each file
-      console.log('Appending file:', file.name);  // Print the file name being appended
+      formData.append(`file${index}`, file); 
     });
 
     this.http.post(`${SERVER_URL}job/continue`, formData, {
