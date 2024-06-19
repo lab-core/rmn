@@ -48,16 +48,16 @@
     flex-wrap: nowrap;               
     align-items: center;
     justify-content: center;
-    margin-top: 5%;
-    margin-bottom: 5%;
+    margin-top: 2%;
+    margin-bottom: 2%;
 }
 
 .content-container {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    margin-top: 5%;
-    margin-bottom: 5%;
+    margin-top: 2%;
+    margin-bottom: 2%;
 }
 
 .error-messages-container {
@@ -109,8 +109,9 @@
     align-items: center;
     justify-content: center;
     justify-content: space-between;
-    margin-top: 10%;
-    margin-bottom: 5%;
+    margin-top: 1%;
+    margin-bottom: 1%;
+    padding: 5% 0;
 }
 
 #overlay {

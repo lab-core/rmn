@@ -244,7 +244,7 @@ export class TasksHistoryComponent implements OnInit {
   retryJob(jobId: string, jobName: string): void {
     let errorMessages = this.getSavedJobInfos(jobId);
     let dialogRef = this.dialog.open(TaskRetryDialogComponent, {
-      width: '40%',
+      width: '50%',
       height: '50%',
       data: {taskId: jobId, taskName: jobName, taskMessages: errorMessages }
     });

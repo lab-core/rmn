@@ -5,13 +5,11 @@ import { UserService } from 'src/app/services/user.service';
 import { HttpClient, HttpEventType } from '@angular/common/http';
 import { SERVER_URL } from 'src/app/utils';
 import { saveAs } from 'file-saver';
-
 export interface DialogData {
   taskId: string;
   taskName: number;
   taskMessages: string[];
 }
-
 @Component({
   selector: 'app-task-retry-dialog',
   templateUrl: './task-retry-dialog.component.html',
@@ -118,6 +116,7 @@ export class TaskRetryDialogComponent implements OnInit {
         this.downloadProgress = Math.round(100 * event.loaded / (event.total ?? 1));
       } else if (event.type === HttpEventType.Response) {
         this.notifyService.showSuccess('Files uploaded successfully', 'Success');
+        this.dialogRef.close('');
         this.uploadedFiles.push(...this.selectedFiles.map(file => file.name));
         this.selectedFiles = [];
       }

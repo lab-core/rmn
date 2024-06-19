@@ -46,6 +46,7 @@ import { UserGuideComponent } from './components/user-guide/user-guide.component
 import { TaskShareDialogComponent } from "./components/tasks-history/task-share-dialog/task-share-dialog.component";
 import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
 import { TaskRetryDialogComponent } from './components/tasks-history/task-retry-dialog/task-retry-dialog.component';
+import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
 
 
 @NgModule({
@@ -70,6 +71,7 @@ import { TaskRetryDialogComponent } from './components/tasks-history/task-retry-
     UserGuideComponent,
     NewExamCorrectionComponent,
     TaskRetryDialogComponent,
+    DashboardPageComponent,
   ],
   imports: [
     BrowserModule,
