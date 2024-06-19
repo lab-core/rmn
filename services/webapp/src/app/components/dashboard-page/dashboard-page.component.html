@@ -1,28 +1,33 @@
 <div class="main-container">
-    <div class="task-container">
-        <div class="task-header">
-          <h2>{{ taskName }}</h2>
+  <div class="task-container">
+      <div class="task-header">
+        <h1>Tableau de bord pour {{ taskName }}</h1>
+      </div>
+      <div class="task-content">
+        <div class="questions">
+          <h3>Question(s)</h3>
+          <div *ngFor="let question of questions; let i = index">
+            Q{{ i + 1 }} : {{ question.corrected }}/{{ question.total }}
+          </div>
         </div>
-        <div class="task-content">
-          <div class="questions">
-            <h3>Question(s)</h3>
-            <div *ngFor="let question of questions; let i = index">
-              Q{{ i + 1 }}: {{ question.corrected }}/{{ question.total }}
-            </div>
+        <div class="averages">
+          <h3>Moyenne(s)</h3>
+          <div *ngFor="let average of averages; let i = index">
+            Q{{ i + 1 }} : {{ average }}
           </div>
-          <div class="averages">
-            <h3>Moyenne(s)</h3>
-            <div *ngFor="let average of averages; let i = index">
-              Q{{ i + 1 }}: {{ average }}
-            </div>
-          </div>
-          <div class="correction">
-            <h3>Correction</h3>
-            <button (click)="correctQuestion">
+        </div>
+        <div class="actions">
+          <h3>Actions</h3>
+          <div *ngFor="let question of questions; let i = index" class="action-buttons">
+            <button class="correct-button" (click)="correctQuestion(i)">
               Corriger
+            </button>
+            <button class="correct-button" (click)="shareQuestion(i)">
+              Partager
             </button>
           </div>
         </div>
-    </div>
+      </div>
+  </div>
 </div>
-  
+<button mat-button (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
