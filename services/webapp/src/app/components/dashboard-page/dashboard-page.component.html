@@ -1,1 +1,28 @@
-<p>dashboard-page works!</p>
+<div class="main-container">
+    <div class="task-container">
+        <div class="task-header">
+          <h2>{{ taskName }}</h2>
+        </div>
+        <div class="task-content">
+          <div class="questions">
+            <h3>Question(s)</h3>
+            <div *ngFor="let question of questions; let i = index">
+              Q{{ i + 1 }}: {{ question.corrected }}/{{ question.total }}
+            </div>
+          </div>
+          <div class="averages">
+            <h3>Moyenne(s)</h3>
+            <div *ngFor="let average of averages; let i = index">
+              Q{{ i + 1 }}: {{ average }}
+            </div>
+          </div>
+          <div class="correction">
+            <h3>Correction</h3>
+            <button (click)="correctQuestion">
+              Corriger
+            </button>
+          </div>
+        </div>
+    </div>
+</div>
+  

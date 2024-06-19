@@ -268,6 +268,12 @@ export class TasksHistoryComponent implements OnInit {
     }
   }
 
+  goToDashBoard(task: any) {
+    if (task.job_status === 'VALIDATION' || task.job_status === 'RUN') {
+      this.router.navigate(['/dashboard']);
+    }
+  }
+
   openTaskFilesDialog(jobId: string): void {
     const formdata: FormData = new FormData();
     formdata.append('user_id', this.userService.currentUsername);
