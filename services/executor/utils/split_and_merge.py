@@ -12,6 +12,9 @@ from collections import OrderedDict
 storage = Storage()
 CURRENT_START_PAGE = 2 # start_page
 
+def calculate_total_expected_pages(n_pages_per_question):
+    return sum(n_pages_per_question.values()) + CURRENT_START_PAGE
+
 def calculate_pages(pages_per_question):
     current_start_page = CURRENT_START_PAGE
     results = {}
@@ -24,7 +27,7 @@ def calculate_pages(pages_per_question):
 def verify_n_pages(n_pages_per_question, input_pdfs, job_id):
     is_valid = True
     error_messages = []
-    total_expected_pages = sum(n_pages_per_question.values()) + CURRENT_START_PAGE
+    total_expected_pages = calculate_total_expected_pages(n_pages_per_question)
 
     for input_pdf in input_pdfs:
         with open(input_pdf, 'rb') as f:
@@ -42,7 +45,7 @@ def verify_n_pages(n_pages_per_question, input_pdfs, job_id):
 
 def split_and_merge(n_pages_per_question, input_pdfs, output_folder, job_id):
     is_valid, error_messages = verify_n_pages(n_pages_per_question, input_pdfs, job_id)
-
+    total_expected_pages = calculate_total_expected_pages(n_pages_per_question)
     generated_pdfs_per_question = {question: [] for question in n_pages_per_question.keys()}
 
     if not os.path.exists(output_folder):
@@ -53,16 +56,17 @@ def split_and_merge(n_pages_per_question, input_pdfs, output_folder, job_id):
             reader = PdfReader(f)
             pages_for_questions = calculate_pages(n_pages_per_question)
 
-            for question, pages in pages_for_questions.items():
-                writer = PdfWriter()
-                for page_index in pages:
-                    if page_index < len(reader.pages):
-                        writer.add_page(reader.pages[page_index])
+            if len(reader.pages) == total_expected_pages:
+                for question, pages in pages_for_questions.items():
+                    writer = PdfWriter()
+                    for page_index in pages:
+                        if page_index < len(reader.pages):
+                            writer.add_page(reader.pages[page_index])
 
-                output_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(input_pdf))[0]}_{question}.pdf")
-                with open(output_path, 'wb') as output_file:
-                    writer.write(output_file)
-                generated_pdfs_per_question[question].append(output_path)
+                    output_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(input_pdf))[0]}_{question}.pdf")
+                    with open(output_path, 'wb') as output_file:
+                        writer.write(output_file)
+                    generated_pdfs_per_question[question].append(output_path)
 
     merged_pdfs = []
     for question, pdfs in generated_pdfs_per_question.items():
