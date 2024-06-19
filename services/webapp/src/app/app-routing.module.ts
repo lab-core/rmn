@@ -12,6 +12,7 @@ import { UserProfileComponent } from './components/user-profile/user-profile.com
 import { UserGuideComponent } from './components/user-guide/user-guide.component';
 import { UserService } from './services/user.service';
 import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
+import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
 
 
 // This is my case
@@ -24,6 +25,10 @@ const routes: Routes = [
         path: 'tasks-history',
         component : TasksHistoryComponent,
         // canActivate: [UserService]
+    },
+    {
+        path: 'dashboard',
+        component : DashboardPageComponent,
     },
     {
         path: 'new-correction',
