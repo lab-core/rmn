@@ -15,6 +15,7 @@ import { NotificationService } from 'src/app/services/notification.service';
   styleUrls: ['./dashboard-page.component.css']
 })
 export class DashboardPageComponent {
+  task: any;
   taskName: string = 'Tâche';
   questions: { corrected: number, total: number }[] = [
     { corrected: 0, total: 150 },
@@ -35,12 +36,12 @@ export class DashboardPageComponent {
     private notificationService: NotificationService
   ) { }
 
-  getTaskInfo(task: any) {
-    if (task.job_status === 'ARCHIVED') {
-      this.openTaskFilesDialog(task.job_id);
+  getTaskInfo() {
+    if (this.task.job_status === 'ARCHIVED') {
+      this.openTaskFilesDialog(this.task.job_id);
     }
-    else if (task.job_status === 'VALIDATION' || task.job_status === 'RUN') {
-      this.tasksService.setvalidatingTaskId(task.job_id);
+    else if (this.task.job_status === 'VALIDATION' || this.task.job_status === 'RUN') {
+      this.tasksService.setvalidatingTaskId(this.task.job_id);
       this.router.navigate(['/task-validation']);
     }
   }
