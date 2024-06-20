@@ -15,7 +15,7 @@
                 <!-- Job Name Column -->
                 <ng-container matColumnDef="job_name">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header> Nom de la tâche </th>
-                    <td (click)="goToDashBoard(row)" class="job_name_css" mat-cell *matCellDef="let row"> {{row.job_name}}
+                    <td (click)="getTaskInfo(row)" class="job_name_css" mat-cell *matCellDef="let row"> {{row.job_name}}
                     </td>
                 </ng-container>
 
