@@ -104,7 +104,7 @@ export class TaskRetryDialogComponent implements OnInit {
     for (const filename of files) {
       if (!contents.files[filename].dir) {
         const content = await contents.files[filename].async('blob');
-        const fileNameOnly = filename.split('/').pop();  // Get the filename without any directory structure
+        const fileNameOnly = filename.split('/').pop(); 
         const newFile = new File([content], fileNameOnly, { type: content.type });
         this.selectedFiles.push(newFile);
       }
