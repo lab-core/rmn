@@ -5,8 +5,8 @@
     <div class="content-container">
         <div class="error-messages-container">
             <div class="error-message" *ngIf="this.filenames.length > 0">
-                <div *ngFor="let error of errorMessages">
-                    {{ error }}
+                <div *ngFor="let filename of filenames">
+                    {{ filename }}
                     <button mat-icon-button color="primary" (click)="downloadFile(filename)">
                         <mat-icon>download</mat-icon>
                     </button>
