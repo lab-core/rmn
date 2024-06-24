@@ -26,7 +26,12 @@
     <div class="selected-files-container" *ngIf="selectedFiles.length > 0">
         <h3>Fichiers sélectionnés ({{selectedFiles.length}}/{{filenames.length}}):</h3>
         <ul>
-            <li *ngFor="let file of selectedFiles">{{ file.name }}</li>
+            <li *ngFor="let file of selectedFiles; let i = index">
+                {{ file.name }}
+                <button mat-icon-button color="warn" (click)="deleteFile(i)">
+                    <mat-icon>delete</mat-icon>
+                </button>
+            </li>
         </ul>
     </div>
     <div class="uploaded-files-container" *ngIf="uploadedFiles.length > 0">

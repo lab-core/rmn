@@ -81,7 +81,7 @@ export class TaskRetryDialogComponent implements OnInit {
   }
 
   isContinueDisabled(): boolean {
-    return this.selectedFiles.length < this.filenames.length;
+    return this.selectedFiles.length != this.filenames.length;
   }
 
   async handleFiles(): Promise<void> {
@@ -220,5 +220,9 @@ export class TaskRetryDialogComponent implements OnInit {
         }
       );
     });
+  }
+
+  deleteFile(index: number): void {
+    this.selectedFiles.splice(index, 1);
   }
 }
