@@ -5,11 +5,14 @@ import { UserService } from 'src/app/services/user.service';
 import { HttpClient, HttpEventType } from '@angular/common/http';
 import { SERVER_URL } from 'src/app/utils';
 import { saveAs } from 'file-saver';
+import * as JSZip from 'jszip';
+
 export interface DialogData {
   taskId: string;
   taskName: number;
   taskMessages: string[];
 }
+
 @Component({
   selector: 'app-task-retry-dialog',
   templateUrl: './task-retry-dialog.component.html',
@@ -59,6 +62,7 @@ export class TaskRetryDialogComponent implements OnInit {
     if (event.target.files) {
       const files: FileList = event.target.files;
       this.selectedFiles.push(...Array.from(files));
+      this.handleFiles();
     }
     console.log("onFileSelected", this.selectedFiles)
   }
@@ -67,6 +71,7 @@ export class TaskRetryDialogComponent implements OnInit {
     event.preventDefault();
     if (event.dataTransfer && event.dataTransfer.files) {
       this.selectedFiles.push(...Array.from(event.dataTransfer.files));
+      this.handleFiles();
     }
     console.log("onDrop", this.selectedFiles)
   }
@@ -78,9 +83,37 @@ export class TaskRetryDialogComponent implements OnInit {
   isContinueDisabled(): boolean {
     return this.selectedFiles.length < this.filenames.length;
   }
-  
 
- ignoreAndContinue(): void {
+  async handleFiles(): Promise<void> {
+    const nonZipFiles: File[] = [];
+    for (const file of this.selectedFiles) {
+      if (file.name.endsWith('.zip')) {
+        await this.extractZip(file);
+      } else {
+        nonZipFiles.push(file);
+      }
+    }
+    this.selectedFiles = nonZipFiles;
+  }
+
+  async extractZip(file: File): Promise<void> {
+    const zip = new JSZip();
+    const contents = await zip.loadAsync(file);
+    const files = Object.keys(contents.files);
+
+    for (const filename of files) {
+      if (!contents.files[filename].dir) {
+        const content = await contents.files[filename].async('blob');
+        const fileNameOnly = filename.split('/').pop();  // Get the filename without any directory structure
+        const newFile = new File([content], fileNameOnly, { type: content.type });
+        this.selectedFiles.push(newFile);
+      }
+    }
+
+    console.log('Files after ZIP extraction:', this.selectedFiles);
+  }
+
+  ignoreAndContinue(): void {
     const job_id = this.data.taskId;
     const formData = new FormData();
     formData.append('token', this.userService.token);
@@ -155,5 +188,37 @@ export class TaskRetryDialogComponent implements OnInit {
             this.notifyService.showError('File download failed', 'Error');
         }
     );
+  }
+
+  downloadAllAsZip(): void {
+    const job_id = this.data.taskId;
+    const zip = new JSZip();
+    let count = 0;
+    const filenames = this.filenames;
+
+    filenames.forEach((filename) => {
+      const formData = new FormData();
+      formData.append('token', this.userService.token);
+      formData.append('job_id', job_id);
+      formData.append('file', filename);
+
+      const requestURL = `${SERVER_URL}incorrect/download`;
+
+      this.http.post(requestURL, formData, { responseType: 'blob' }).subscribe(
+        (data: Blob) => {
+          zip.file(filename, data);
+          count++;
+          if (count === filenames.length) {
+            zip.generateAsync({ type: 'blob' }).then((content) => {
+              saveAs(content, 'all_pdfs.zip');
+            });
+          }
+        },
+        (error) => {
+          console.error('Download error', error);
+          this.notifyService.showError('Some files could not be downloaded', 'Error');
+        }
+      );
+    });
   }
 }

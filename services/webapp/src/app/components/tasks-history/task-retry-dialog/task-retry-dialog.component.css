@@ -114,6 +114,10 @@
     padding: 5% 0;
 }
 
+.download-zip-button {
+    margin-top: 20px;
+}
+
 #overlay {
     position: absolute;
     width: 100%;
