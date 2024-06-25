@@ -21,18 +21,19 @@
                 Glissez-déposez les fichiers ici ou cliquez pour téléverser
             </div>
             <input #fileUpload type="file" id="file-upload" style="display: none;" (change)="onFileSelected($event)" multiple>
+
+            <div class="selected-files-container" *ngIf="selectedFiles.length > 0">
+                <h3>Fichiers sélectionnés ({{selectedFiles.length}}/{{filenames.length}}):</h3>
+                <ul>
+                    <li *ngFor="let file of selectedFiles; let i = index">
+                        <span>{{ file.name }}</span>
+                        <button mat-icon-button color="warn" (click)="deleteFile(i)">
+                            <mat-icon>delete</mat-icon>
+                        </button>
+                    </li>
+                </ul>
+            </div>
         </div>
-    </div>
-    <div class="selected-files-container" *ngIf="selectedFiles.length > 0">
-        <h3>Fichiers sélectionnés ({{selectedFiles.length}}/{{filenames.length}}):</h3>
-        <ul>
-            <li *ngFor="let file of selectedFiles; let i = index">
-                {{ file.name }}
-                <button mat-icon-button color="warn" (click)="deleteFile(i)">
-                    <mat-icon>delete</mat-icon>
-                </button>
-            </li>
-        </ul>
     </div>
     <div class="uploaded-files-container" *ngIf="uploadedFiles.length > 0">
         <h3>Fichiers téléversés:</h3>

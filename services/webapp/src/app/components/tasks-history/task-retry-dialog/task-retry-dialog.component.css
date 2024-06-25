@@ -1,51 +1,17 @@
 .dialog-container {
-    width: 100%;
-    height: 100%;
+    width: calc(100% - 40px);
+    height: calc(100% - 40px);
     display: flex;
     flex-direction: column; 
-}
-
-.global-container {
-    width: 100%;
-    height: 30%;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column; 
-    border: 2px solid #000000;
-}
-
-.file-container {
-    height: 20%;
-    width: 95%;
-    display: flex;                  
-    flex-direction: row;            
-    flex-wrap: nowrap;               
-    align-items: center;
-    justify-content: center;
-    margin-top: 5%;
-    margin-bottom: 5%;
-}
-
-.error-message {
-    color: red;
-    font-size: 18px;
-    border: 2px solid #000000;
-    font-style: italic;  
-}
-
-.pdf-logo {
-    background-image: url("~src/assets/pdf-logo.png");
-}
-
-.zip-logo {
-    background-image: url("~src/assets/zip-logo.png");
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .header-container {
-    height: 10%;
+    height: auto;
     width: 100%;
-    display: flex;                          
-    flex-wrap: nowrap;               
+    display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
     margin-top: 2%;
@@ -58,19 +24,27 @@
     justify-content: space-between;
     margin-top: 2%;
     margin-bottom: 2%;
+    padding: 10px;
+    box-sizing: border-box;
 }
 
 .error-messages-container {
     width: 45%;
+    padding: 10px;
+    border: 2px solid #000000;
+    box-sizing: border-box;
 }
 
 .upload-container {
     width: 45%;
     border: 2px dashed #000;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    padding: 10px;
+    box-sizing: border-box;
 }
 
 .upload-drop-zone {
@@ -82,36 +56,46 @@
     text-align: center;
     color: #666;
     font-size: 16px;
+    padding: 10px;
+    box-sizing: border-box;
 }
 
 .upload-drop-zone:hover {
     background: #f0f0f0;
 }
 
-.selected-files-container, .uploaded-files-container {
+.selected-files-container {
     margin-top: 10px;
+    width: 100%;
 }
 
-.selected-files-container ul, .uploaded-files-container ul {
+.selected-files-container ul {
     list-style-type: none;
     padding: 0;
 }
 
-.selected-files-container li, .uploaded-files-container li {
+.selected-files-container li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin: 5px 0;
 }
 
+.selected-files-container li span {
+    flex: 1;
+}
+
 .button-container {
-    height: 10%;
+    height: auto;
     width: 100%;
-    display: flex;                          
-    flex-wrap: nowrap;               
+    display: flex;
+    flex-wrap: nowrap;
     align-items: center;
-    justify-content: center;
     justify-content: space-between;
     margin-top: 1%;
     margin-bottom: 1%;
-    padding: 5% 0;
+    padding: 10px;
+    box-sizing: border-box;
 }
 
 .download-zip-button {
