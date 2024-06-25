@@ -47,24 +47,25 @@
 
   mat-card-content{
     /*background-color:  rgba(255, 255, 255, 0.15);*/
-    padding: 10px;
+    padding: 10%;
   }
 
   mat-form-field{
     width: 80%;
   }
 
-  .login-button-box{
+  /* .login-button-box{
     height: 100%;
-  }
+  } */
   .login-button{
     margin-top: 8%;
-    padding: 20px;
+    padding: 6%;
     border-radius: 10px;
-    font-weight: 400;
-    width: 60%;
+    font-weight: 500;
+    width: 80%;
+    height: 100%;
     background-color: #0051ff;
-    color:white;
+    color: white;
     font-size: 185%;
     transition: 0.3s;
 
@@ -76,7 +77,7 @@
     -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
   }
   .login-button:hover{
-    background-color: #84a0df;
+    background: -webkit-linear-gradient(right,#2e59e9, #21d4fd);
     transition: 0.3s;
   }
 
