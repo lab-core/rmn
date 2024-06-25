@@ -170,7 +170,6 @@
         </mat-horizontal-stepper>
     </div>
 </div>
-<button mat-button (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
 <div id="overlay" *ngIf="this.uploading"></div>
 <mat-spinner *ngIf="this.uploading" color="accent" [diameter]="150" mode="determinate" [value]="this.tasksService.getpercentageDone()"></mat-spinner> 
 <div id="overlay" *ngIf="this.uploading"></div>
