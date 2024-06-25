@@ -7,7 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { FormsModule, NgSelectOption } from '@angular/forms';
+import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatSortModule } from '@angular/material/sort';
@@ -20,14 +20,12 @@ import { ToastrModule } from 'ngx-toastr';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ReactiveFormsModule } from '@angular/forms';
-import {MatStepperModule} from '@angular/material/stepper';
-import {MatListModule} from '@angular/material/list';
+import { MatStepperModule } from '@angular/material/stepper';
+import { MatListModule } from '@angular/material/list';
 import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
-
-
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { AppComponent } from './components/app/app.component';
 import { LoginPageComponent } from './components/login-page/login-page.component';
-import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { MainMenuComponent } from './components/main-menu/main-menu.component';
 import { NewCorrectionComponent } from './components/new-correction/new-correction.component';
 import { TasksHistoryComponent } from './components/tasks-history/tasks-history.component';
@@ -47,7 +45,6 @@ import { TaskShareDialogComponent } from "./components/tasks-history/task-share-
 import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
 import { TaskRetryDialogComponent } from './components/tasks-history/task-retry-dialog/task-retry-dialog.component';
 import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
-
 
 @NgModule({
   declarations: [
@@ -101,7 +98,6 @@ import { DashboardPageComponent } from './components/dashboard-page/dashboard-pa
     ToastrModule.forRoot()
   ],
   providers: [],
-  bootstrap: [AppComponent],
-  entryComponents: [TaskFilesDialogComponent, TaskShareDialogComponent, ChangePasswordDialogComponent, CreateUserDialogComponent, ValidationWarningDialogComponent, NewTemplateDialogComponent, DeleteTemplateDialogComponent]
+  bootstrap: [AppComponent]
 })
 export class AppModule { }

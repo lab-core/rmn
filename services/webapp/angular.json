@@ -81,14 +81,14 @@
           "options": {
             "port": 80,
             "host": "0.0.0.0",
-            "browserTarget": "cadriciel:build:development",
+            "buildTarget": "cadriciel:build:development",
             "verbose": true
           }
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "cadriciel:build"
+            "buildTarget": "cadriciel:build"
           }
         },
         "test": {

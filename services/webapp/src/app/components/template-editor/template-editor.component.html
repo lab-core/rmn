@@ -1,7 +1,7 @@
 <div class="template-editor-container">
     <div class="background">
         <div class="template-container">
-            <ngx-extended-pdf-viewer [src]="templateService.getTemplateUrl()" [useBrowserLocale]="true" [zoom]="'page-fit'"></ngx-extended-pdf-viewer> 
+            <ngx-extended-pdf-viewer [src]="templateService.getTemplateUrl()" [zoom]="'page-fit'"></ngx-extended-pdf-viewer> 
             <canvas id="cv"></canvas>
             <svg id="svg"
                 (mousedown)="mouseDown($event)" 
