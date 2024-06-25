@@ -3,7 +3,7 @@ import shutil
 import zipfile
 import glob
 from pathlib import Path
-from PyPDF2 import PdfReader, PdfWriter, PdfMerger
+from PyPDF2 import PdfReader, PdfWriter
 from python.process_copy.database import Database
 from utils.storage import Storage
 from utils.utils import Document_Status
@@ -43,7 +43,7 @@ def verify_n_pages(n_pages_per_question, input_pdfs, job_id):
     
     return is_valid, error_messages
 
-def split_and_merge(n_pages_per_question, input_pdfs, output_folder, job_id):
+def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
     is_valid, error_messages = verify_n_pages(n_pages_per_question, input_pdfs, job_id)
     total_expected_pages = calculate_total_expected_pages(n_pages_per_question)
     generated_pdfs_per_question = {question: [] for question in n_pages_per_question.keys()}
@@ -57,34 +57,22 @@ def split_and_merge(n_pages_per_question, input_pdfs, output_folder, job_id):
             pages_for_questions = calculate_pages(n_pages_per_question)
 
             if len(reader.pages) == total_expected_pages:
+                base_filename = os.path.splitext(os.path.basename(input_pdf))[0]
                 for question, pages in pages_for_questions.items():
                     writer = PdfWriter()
                     for page_index in pages:
                         if page_index < len(reader.pages):
                             writer.add_page(reader.pages[page_index])
 
-                    output_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(input_pdf))[0]}_{question}.pdf")
+                    question_folder = os.path.join(output_folder, question)
+                    if not os.path.exists(question_folder):
+                        os.makedirs(question_folder)
+                    output_path = os.path.join(question_folder, f"{base_filename}_{question}.pdf")
                     with open(output_path, 'wb') as output_file:
                         writer.write(output_file)
                     generated_pdfs_per_question[question].append(output_path)
 
-    merged_pdfs = []
-    for question, pdfs in generated_pdfs_per_question.items():
-        with PdfMerger() as merger:
-            for pdf in pdfs:
-                merger.append(pdf)
-            merged_output_path = os.path.join(output_folder, f"{question}.pdf")
-            with open(merged_output_path, 'wb') as merged_file:
-                merger.write(merged_file)
-            merged_pdfs.append(merged_output_path)
-
-    # deleting temporary files
-    for pdf_list in generated_pdfs_per_question.values():
-        for pdf_path in pdf_list:
-            if os.path.exists(pdf_path):
-                os.remove(pdf_path)
-
-    return merged_pdfs, is_valid, error_messages
+    return generated_pdfs_per_question, is_valid, error_messages
 
 def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_id):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -96,7 +84,7 @@ def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_
                 if file.lower().endswith('.pdf'):
                     extracted_files.append(os.path.join(root, file))
 
-    generated_pdfs, is_valid, error_messages = split_and_merge(n_pages_per_question, extracted_files, output_folder, job_id)
+    generated_pdfs, is_valid, error_messages = split_and_save(n_pages_per_question, extracted_files, output_folder, job_id)
     shutil.rmtree(temp_folder)
     return generated_pdfs, is_valid, error_messages
 
@@ -125,38 +113,29 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
     db = Database()
 
     generated_pdfs, is_valid, error_messages = process_path(zip_folder, job_id, n_pages_per_question)
-    unique_generated_pdfs = list(OrderedDict.fromkeys(generated_pdfs))
-    generated_pdfs = unique_generated_pdfs
-
+    
     document_index = 1
-    for pdf_path in generated_pdfs:
-        file_path = os.path.join('documents', job_id, f"Q{document_index}.pdf")
-        # storing every pdf in the storage
-        storage.copy_from(pdf_path, storage.abs_path(file_path))
-        file_name = f"documents/{job_id}/Q{document_index}.pdf"
-        db.insert_document(
-            job_id=job_id,
-            doc_index=document_index,
-            subquestion_pred=[], 
-            total=0,
-            image_id=file_name,
-            status=Document_Status.TO_VALIDATE,  
-            matricule="", 
-            time=0,
-            filename=file_name
-        )
-        document_index += 1
+    for question, pdf_paths in generated_pdfs.items():
+        for pdf_path in pdf_paths:
+            file_name = os.path.join('documents', job_id, question, os.path.basename(pdf_path))
+            storage.copy_from(pdf_path, storage.abs_path(file_name))
+            db.insert_document(
+                job_id=job_id,
+                doc_index=document_index,
+                subquestion_pred=[], 
+                total=0,
+                image_id=file_name,
+                status=Document_Status.TO_VALIDATE,  
+                matricule="", 
+                time=0,
+                filename=file_name
+            )
+            document_index += 1
     
     if not is_valid:
         raise ValueError(error_messages)
-
-        
 
 # example
 # n_pages_per_question = {'Q1': 2, 'Q2': 3, 'Q3': 1}
 # zip_folder_to_extract = os.path.join('storage', 'output_zip')
 # insert_copies(zip_folder_to_extract, '7edc7584-1321-488b-8414-06a2640cee45', n_pages_per_question)
-
-
-
-
