@@ -93,8 +93,6 @@ def process_path(zip_folder, job_id, n_pages_per_question):
     documents_path = root_path.joinpath('storage', 'documents', job_id)
 
     zip_path = Path(storage.abs_path(zip_folder))
-    print("zip_path: ", zip_path)
-    print("document_path: ", documents_path)
     zip_files = glob.glob(str(zip_path / '*.zip'))
     
     if not zip_files:
