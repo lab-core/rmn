@@ -27,7 +27,7 @@ export class TaskVerificationComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private userService: UserService,
-    private docService: DocumentsService) { }
+    private docService: DocumentsService) {}
   
   isSidebarHidden = false;
   pictureLoading: boolean = true;
@@ -39,10 +39,14 @@ export class TaskVerificationComponent implements OnInit {
 
   job: Map<string, any>;
   pdfSrc: string;
-
+  
+  copiesInformations: Map<string, Map<string, number>> = new Map();
   initialCopyIndex: number = -1;
   currentCopy: number = -1;
+  currentCopyName: string;
+  currentQuestionIndex: string;
   currentMatricule: number;
+  currentScore: number | null;
   currentTotal: number;
   currentPredictions: Map<string, number>;
   currentStatus: string;
@@ -172,6 +176,28 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
+  addScoreToQuestion(): void {
+    if (this.currentCopyName && this.currentScore !== null) {
+      this.addOrUpdateInnerMap(this.currentCopyName, this.currentQuestionIndex, this.currentScore);
+      this.currentScore = null;
+    } else {
+      alert('Please select a matricule and enter a score.');
+    }
+  }
+
+  addOrUpdateInnerMap(copieName: string, questionIndex: string, score: number) {
+    if (!this.copiesInformations.has(copieName)) {
+        let copieInformations = new Map<string, number>();
+        copieInformations.set(questionIndex, score);
+        this.copiesInformations.set(copieName, copieInformations);
+    } else {
+        let existingMap = this.copiesInformations.get(copieName);
+        if (existingMap) {
+          existingMap.set(questionIndex, score);
+      }
+    }
+  }
+
   loadPdf(): void {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
@@ -184,7 +210,6 @@ export class TaskVerificationComponent implements OnInit {
         (data) => {
           let url = window.URL.createObjectURL(data);
           this.pdfSrc = url;
-          console.log("pdfSrc ", this.pdfSrc)
           this.pdfLoading = false;
         }, (error) => {
           console.error(error);
@@ -230,7 +255,10 @@ export class TaskVerificationComponent implements OnInit {
 
   changeCurrentCopy(copyIndex, status) {
     if (status !== "NOT_READY") {
+      let exam = this.examsList[copyIndex];
       console.log("Change current copy to", copyIndex)
+      this.currentQuestionIndex = this.getQuestionIndex(exam["filename"]);
+      this.currentCopyName = this.getBaseNameWithExtension(exam["filename"]);
       this.currentCopy = copyIndex;
       this.disabledValidationcontainer = false;
       this.loadCopy();
@@ -263,10 +291,23 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
+  getQuestionIndex(filename: string): string {
+    const baseName = filename.substring(0, filename.lastIndexOf('.'));
+    const underscoreIndex = baseName.lastIndexOf('_');
+    const result = baseName.substring(underscoreIndex + 1);
+    return result;
+  }
+
+  getBaseNameWithExtension(filename: string): string {
+    const underscoreIndex = filename.lastIndexOf('_');
+    const baseNameWithExtension = filename.substring(0, underscoreIndex) + filename.substring(filename.lastIndexOf('.'));
+    return baseNameWithExtension;
+  }
+
   checkForAvailableCopies(): boolean {
     if (this.subExamsList.length == 0) return false;
     let exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
-    console.log("Found ready exam", exam)
+    console.log("Found ready exam", exam);
     return exam != undefined;
   }
 

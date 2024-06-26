@@ -798,6 +798,7 @@ def get_documents():
             "document_index": doc["document_index"],
             "subquestion_predictions": doc["subquestion_predictions"],
             "matricule": doc["matricule"],
+            "filename": os.path.basename(doc["filename"]),
             "total": doc["total"],
             "status": doc["status"],
             "exec_time": doc["execution_time"],

@@ -2,7 +2,6 @@
     {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
 </div>
 <div class="task-verification-container">
-    <!-- <app-main-menu></app-main-menu> -->
     <div class="background">
         <div *ngIf="isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
             <mat-icon>visibility</mat-icon>
@@ -73,7 +72,16 @@
                           Utilisé par plusieurs copies: {{this.currentMatriculeWarning}}.
                         </div>
                     </div>
-                    <!-- <div class="sub-check-container"
+                    <div class="sub-check-container">
+                        <h3>Note</h3>
+                        <div class="value-input-div">
+                            <input id="score" type="number" [(ngModel)]="currentScore" placeholder="Entrer la note" class="note-input"/>
+                        </div>
+                        <div class="button-container">
+                            <button class="add-score-button" (click)="addScoreToQuestion()">Ajouter la note</button>
+                        </div>
+                    </div>
+                    <div class="sub-check-container"
                         *ngFor="let prediction of this.currentPredictions | keyvalue : sortNull; trackBy: trackByIndex;">
                         <h3>{{prediction.key}}</h3>
                         <div class="value-input-div">
@@ -83,24 +91,8 @@
                                 [disabled]="this.validating">
                         </div>
                     </div>
-                    <div class="sub-check-container">
-                        <h3>Total</h3>
-                        <div class="value-input-div">
-                            <input type="number" id="total" [(ngModel)]="this.currentTotal" step=any
-                                [disabled]="this.validating">
-                        </div>
-                        <div *ngIf="this.currentTotal!==this.getTotal()" class="alert">
-                          La somme et le total sont différents.
-                        </div>
-                    </div> -->
                 </div>
                 <div class="validate-container">
-<!--                     
-                       <button class="validate-button"
-                                (click)="validateCurrentCopy()" [disabled]="this.validating">
-                            <mat-icon>done_outline</mat-icon>
-                        </button>
-                    -->
                     <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
                             (click)="validateCurrentCopy()" [disabled]="this.validating">
                         <mat-icon>done_outline</mat-icon>
