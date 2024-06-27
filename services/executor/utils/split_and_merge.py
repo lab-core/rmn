@@ -124,8 +124,6 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
             original_pdf_name = re.sub(r'_Q\d+', '', pdf_name)
             doc  = db.get_document(job_id, original_pdf_name)
 
-            print("Matricule for this ", os.path.basename(pdf_path),"is ", doc["matricule"])
-
             db.insert_document(
                 job_id=job_id,
                 doc_index=document_index,
