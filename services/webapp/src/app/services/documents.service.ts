@@ -23,7 +23,11 @@ export class DocumentsService {
 
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}documents`, formdata).toPromise();
-      this.documentsList = promise['response'];
+      let tempDocumentsList = promise['response'];
+      // filter out documents that do not have a numeric document_index
+      this.documentsList = tempDocumentsList.filter((exam: any) => {
+        return typeof exam.document_index === 'number' && !isNaN(exam.document_index);
+      });
       // fetch groups if any
       this.documentsList.forEach((exam: any) => {
         if (exam.group && !this.groupsList.includes(exam.group)) {

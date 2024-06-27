@@ -68,7 +68,7 @@ class Database:
         doc_index,
         subquestion_pred,
         total,
-        image_id,
+        # image_id,
         status,
         matricule,
         time,
@@ -83,7 +83,7 @@ class Database:
                         "matricule": str(matricule),
                         "subquestion_predictions": subquestion_pred,
                         "total": total,
-                        "image_id": image_id,
+                        # "image_id": image_id,
                         "status": status.value,
                         "execution_time": time,
                         "group": group

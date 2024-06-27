@@ -26,7 +26,7 @@ class Storage:
             # ROOT_DIR_PROJECT = ROOT_DIR
             # self.path = ROOT_DIR_PROJECT.joinpath("storage")
             self.path = ROOT_DIR.joinpath("storage")
-        print("self.path: ", self.path)
+        print("Storage path is: ", self.path)
 
     def abs_path(self, r_path):
         abs_p = os.path.join(str(self.path), r_path)

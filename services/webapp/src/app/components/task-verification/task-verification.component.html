@@ -10,12 +10,12 @@
             <mat-icon>visibility_off</mat-icon>
         </div>
         <div class="files-container" [ngClass]="{'hidden': isSidebarHidden}">
-            <div class="filter-job-container" *ngIf="this.showFilter()">
+            <!-- <div class="filter-job-container" *ngIf="this.showFilter()">
               <label>Filtrer par groupe: </label>
               <select (change)="this.loadSubExamsList()" [(ngModel)]="this.group">
                 <option *ngFor="let g of this.groupsList">{{g}}</option>
               </select>
-            </div>
+            </div> -->
             <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}">
                 <div class="file-container" *ngFor="let exam of this.subExamsList"
                     (click)="changeCurrentCopy(exam.document_index, exam.status)">
@@ -68,9 +68,9 @@
                                 [disabled]="this.validating">
                             </ng-select>
                         </div>
-                        <div *ngIf="this.currentMatriculeWarning" class="alert">
+                        <!-- <div *ngIf="this.currentMatriculeWarning" class="alert">
                           Utilisé par plusieurs copies: {{this.currentMatriculeWarning}}.
-                        </div>
+                        </div> -->
                     </div>
                     <div class="sub-check-container">
                         <h3>Note</h3>

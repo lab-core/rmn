@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import zipfile
 import glob
@@ -119,7 +120,12 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
             storage.copy_from(pdf_path, storage.abs_path(file_path))
             
             file_name = f"documents/{job_id}/{question}/{os.path.basename(pdf_path)}"
-        
+            pdf_name = os.path.basename(pdf_path)
+            original_pdf_name = re.sub(r'_Q\d+', '', pdf_name)
+            doc  = db.get_document(job_id, original_pdf_name)
+
+            print("Matricule for this ", os.path.basename(pdf_path),"is ", doc["matricule"])
+
             db.insert_document(
                 job_id=job_id,
                 doc_index=document_index,
@@ -127,7 +133,7 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
                 total=0,
                 image_id=file_name,
                 status=Document_Status.TO_VALIDATE,  
-                matricule="", 
+                matricule=doc["matricule"], 
                 time=0,
                 filename=file_name
             )

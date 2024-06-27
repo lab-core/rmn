@@ -481,7 +481,8 @@ if __name__ == "__main__":
 
                 # Set Job status to VALIDATION
                 db.eval_jobs_collection().update_one(
-                    {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value}}
+                    {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value,
+                                                   "job_infos": "Tâche prête"}}
                 )
 
                 sio.emit(
@@ -491,6 +492,7 @@ if __name__ == "__main__":
                             "job_id": job_id,
                             "status": Job_Status.VALIDATION.value,
                             "user_id": user_id,
+                            "job_infos": "Tâche prête"
                         }
                     ),
                 )

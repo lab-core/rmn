@@ -302,11 +302,11 @@ def grade_all(
                 file = os.path.join(root, f)
                 if not os.path.isfile(file):
                     continue
-                # g_files.append(file)
-                # if new_job:
-                #     db.insert_document(job_id, doc_index, [], 0, "",
-                #                        Document_Status.NOT_READY, "", 0, f)
-                # doc_index += 1
+                g_files.append(file)
+                if new_job:
+                    db.insert_document(job_id, f, [], 0, "",
+                                       Document_Status.NOT_READY, "", 0, f)
+                doc_index += 1
     db.close()
 
     if not os.path.exists(DIRPATH):
@@ -424,7 +424,10 @@ def grade_files(
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
     # loading our CNN model
     from keras.models import load_model
-    classifier = load_model("digit_recognizer.h5")
+    # classifier = load_model("digit_recognizer.h5")
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    model_path = os.path.join(base_dir, 'digit_recognizer.h5')
+    classifier = load_model(model_path)
 
     handler = PreviewHandler()
 
@@ -435,10 +438,12 @@ def grade_files(
         n_questions = {}
         max_question = get_max_question(max_grade, max_nb_questions)
         for file in files:
+            # getting filename
+            filename = file.rsplit(os.sep, 1)[-1]
             # check if document has already been processed
-            doc = db.get_document(job_id, doc_index)
+            doc = db.get_document(job_id, filename)
             if doc and doc['status'] != Document_Status.NOT_READY.value:
-                print("Document", doc_index, "is ready with status", doc['status'])
+                print("Document", filename, "is ready with status", doc['status'])
                 n_questions[doc_index] = list(doc["subquestion_predictions"].values())
                 m = doc["matricule"]
                 if m not in matricules_data:
@@ -452,7 +457,6 @@ def grade_files(
             start_time = time.time()
 
             # search matricule in filename
-            filename = file.rsplit(os.sep, 1)[-1]
             m = re.search(re_mat, filename)
             is_matricule_valid = True
             use_mat_box = False
@@ -533,9 +537,9 @@ def grade_files(
             if numbers and len(numbers) > 1:
                 print("Found numbers:", numbers)
 
-                db.save_unverified_number_images(
-                    job_id, doc_index, number_images[:-1]
-                )
+                # db.save_unverified_number_images(
+                #     job_id, doc_index, number_images[:-1]
+                # )
                 number_images.clear()  # delete numbers picture
 
                 # fill csv for all the subquestion
@@ -607,7 +611,7 @@ def grade_files(
                 if total_matched and is_matricule_valid
                 else Document_Status.TO_VALIDATE
             )
-            numbers[:-1] = try_fix_n_questions(max_nb_questions, numbers[:-1])
+            # numbers[:-1] = try_fix_n_questions(max_nb_questions, numbers[:-1])
             subquestions = {
                 f"Question {index_sub + 1}": sub
                 for index_sub, sub in enumerate(numbers[:-1])
@@ -615,18 +619,19 @@ def grade_files(
             n_questions[doc_index] = numbers[:-1]
 
             exec_time = time.time() - start_time
-
-            # if not db.update_document(
-            #     job_id,
-            #     doc_index,
-            #     subquestions,
-            #     numbers[-1],
-            #     image_id,
-            #     doc_status,
-            #     m,
-            #     exec_time,
-            #     group):
-            #     raise KeyError(f"Document {doc_index} was not found.")
+            
+            #TODO: update document with right data
+            if not db.update_document(
+                job_id,
+                filename,
+                subquestions,
+                numbers[-1],
+                # image_id,
+                doc_status,
+                m,
+                exec_time,
+                group):
+                raise KeyError(f"Document {filename} was not found.")
 
             sio.emit(
                 "document_ready",
@@ -634,7 +639,7 @@ def grade_files(
                     {
                         "job_id": job_id,
                         "user_id": user_id,
-                        "document_index": doc_index,
+                        "document_index": filename,
                         "execution_time": exec_time,
                         "status": doc_status.value,
                         "n_total_doc": doc_index + 1,
@@ -649,40 +654,41 @@ def grade_files(
             print('RAM Used once grade found (GB):', RAM_used)
 
             if max_nb_questions is None and len(n_questions) > min_documents_for_max_questions:
+                print("--n_questions:", n_questions)
                 max_nb_questions = median(len(v) for v in n_questions.values())
                 db.set_job_max_questions(job_id, max_nb_questions)
 
                 # fix previous documents that were not with the right number of questions
-                max_question = get_max_question(max_grade, max_nb_questions)
-                for index, doc_questions in n_questions.items():
-                    n_doc_q = len(doc_questions)
-                    # doc_questions = try_fix_n_questions(max_nb_questions, doc_questions)
-                    doc_questions = try_fix_n_questions(int(max_nb_questions), doc_questions)
-                    changed2, doc_questions = try_fix_questions(max_question, doc_questions)
+                # print("--max_nb_questions:", max_nb_questions)
+                # max_question = get_max_question(max_grade, max_nb_questions)
+                # for index, doc_questions in n_questions.items():
+                #     n_doc_q = len(doc_questions)
+                #     doc_questions = try_fix_n_questions(max_nb_questions, doc_questions)
+                #     changed2, doc_questions = try_fix_questions(max_question, doc_questions)
 
-                    if len(doc_questions) != n_doc_q or changed2:
-                        n_questions[index] = doc_questions
-                        # update document
-                        subquestions = {
-                            f"Question {index_sub + 1}": sub
-                            for index_sub, sub in enumerate(doc_questions)
-                        }
-                        db.update_document_predictions(job_id, index, subquestions)
+                #     if len(doc_questions) != n_doc_q or changed2:
+                #         n_questions[index] = doc_questions
+                #         # update document
+                #         subquestions = {
+                #             f"Question {index_sub + 1}": sub
+                #             for index_sub, sub in enumerate(doc_questions)
+                #         }
+                #         db.update_document_predictions(job_id, index, subquestions)
 
-                        doc = db.get_document(job_id, index)
-                        sio.emit(
-                            "document_ready",
-                            json.dumps(
-                                {
-                                    "job_id": job_id,
-                                    "user_id": user_id,
-                                    "document_index": index,
-                                    "execution_time": doc["execution_time"],
-                                    "status": doc["status"],
-                                    "n_total_doc": doc_index,
-                                }
-                            ),
-                        )
+                #         doc = db.get_document(job_id, index)
+                #         sio.emit(
+                #             "document_ready",
+                #             json.dumps(
+                #                 {
+                #                     "job_id": job_id,
+                #                     "user_id": user_id,
+                #                     "document_index": index,
+                #                     "execution_time": doc["execution_time"],
+                #                     "status": doc["status"],
+                #                     "n_total_doc": doc_index,
+                #                 }
+                #             ),
+                #         )
 
             if RAM_used >= max_RAM_GB:
                 print('RAM limit exceeded')
@@ -880,9 +886,7 @@ def try_fix_n_questions(max_nb_questions, predictions):
     print("Try fixing the number of questions for:", predictions)
     if len(predictions) < max_nb_questions:
         diff = max_nb_questions - len(predictions)
-        # predictions = [0] * diff + predictions
-        predictions = [0] * int(diff) + predictions
-
+        predictions = [0] * diff + predictions
     else:
         # try to remove 0 first
         i = 0
@@ -892,8 +896,7 @@ def try_fix_n_questions(max_nb_questions, predictions):
             else:
                 i += 1
         # remove values at the end
-        # predictions = predictions[:max_nb_questions]
-        predictions = predictions[:int(max_nb_questions)]
+        predictions = predictions[:max_nb_questions]
 
     return predictions
 
