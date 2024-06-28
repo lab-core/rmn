@@ -64,7 +64,6 @@ export class TaskRetryDialogComponent implements OnInit {
       this.selectedFiles.push(...Array.from(files));
       this.handleFiles();
     }
-    console.log("onFileSelected", this.selectedFiles)
   }
 
   onDrop(event: DragEvent): void {
@@ -73,7 +72,6 @@ export class TaskRetryDialogComponent implements OnInit {
       this.selectedFiles.push(...Array.from(event.dataTransfer.files));
       this.handleFiles();
     }
-    console.log("onDrop", this.selectedFiles)
   }
 
   onDragOver(event: DragEvent): void {
@@ -82,6 +80,10 @@ export class TaskRetryDialogComponent implements OnInit {
 
   isContinueDisabled(): boolean {
     return this.selectedFiles.length != this.filenames.length;
+  }
+
+  isFileNamesEmpty(): boolean {
+    return this.filenames.length == 0;
   }
 
   async handleFiles(): Promise<void> {
@@ -109,8 +111,6 @@ export class TaskRetryDialogComponent implements OnInit {
         this.selectedFiles.push(newFile);
       }
     }
-
-    console.log('Files after ZIP extraction:', this.selectedFiles);
   }
 
   ignoreAndContinue(): void {
@@ -122,12 +122,12 @@ export class TaskRetryDialogComponent implements OnInit {
     const requestURL = `${SERVER_URL}job/ignore`;
     this.http.post(requestURL, formData).subscribe(
         (data) => {
-            this.notifyService.showSuccess('Reprise de la tâche', 'Success');
+            this.notifyService.showSuccess('Reprise de la tâche', 'SUCCÈS');
             this.dialogRef.close('');
         },
         (error) => {
             console.error('Ignore error', error);
-            this.notifyService.showError('Erreur dans la reprise de la tâche', 'Error');
+            this.notifyService.showError('Erreur dans la reprise de la tâche', 'ERREUR');
         }
     );
   }
@@ -148,13 +148,13 @@ export class TaskRetryDialogComponent implements OnInit {
       if (event.type === HttpEventType.UploadProgress) {
         this.downloadProgress = Math.round(100 * event.loaded / (event.total ?? 1));
       } else if (event.type === HttpEventType.Response) {
-        this.notifyService.showSuccess('Files uploaded successfully', 'Success');
+        this.notifyService.showSuccess('Fichier(s) téléversé(s) avec succès', 'SUCCÈS');
         this.dialogRef.close('');
         this.uploadedFiles.push(...this.selectedFiles.map(file => file.name));
         this.selectedFiles = [];
       }
     }, error => {
-      this.notifyService.showError('File upload failed', 'Error');
+      this.notifyService.showError('Échec du téléversement du/des fichier(s)', 'ERREUR');
     });
   }
 
@@ -185,7 +185,7 @@ export class TaskRetryDialogComponent implements OnInit {
             console.error('Download error', error);
             this.downloading = false;
             this.downloadProgress = 0;
-            this.notifyService.showError('File download failed', 'Error');
+            this.notifyService.showError('Échec du téléchargement du fichier', 'ERREUR');
         }
     );
   }
@@ -216,7 +216,7 @@ export class TaskRetryDialogComponent implements OnInit {
         },
         (error) => {
           console.error('Download error', error);
-          this.notifyService.showError('Some files could not be downloaded', 'Error');
+          this.notifyService.showError("Certains fichiers n'ont pas pu être téléchargés", 'ERREUR');
         }
       );
     });
