@@ -190,10 +190,10 @@ export class TaskVerificationComponent implements OnInit {
         this.addOrUpdateInnerMap(this.currentCopyName, this.currentQuestionIndex, this.currentScore);
         this.currentScore = null;
       } else {
-        alert('Veuillez saisir une note valide.');
+        this.notificationService.showWarning('Veuillez saisir une note valide.', 'Note invalide');
       }
     } else {
-      alert('Veuillez sélectionner un matricule et saisir un note.');
+      this.notificationService.showWarning('Veuillez sélectionner un matricule et saisir un note.', 'Matricule manquant ou note invalide');
     }
   }
 
