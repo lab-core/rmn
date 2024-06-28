@@ -41,6 +41,7 @@ export class TaskVerificationComponent implements OnInit {
   pdfSrc: string;
   
   copiesInformations: Map<string, Map<string, number>> = new Map();
+  nMaxPointsPerQuestion = new Map<string, number>();
   initialCopyIndex: number = -1;
   currentCopy: number = -1;
   currentCopyName: string;
@@ -81,6 +82,7 @@ export class TaskVerificationComponent implements OnInit {
     if (this.job && this.job["job_id"]) {
       this.getMatriculeList();
       await this.getDocuments();
+      await this.getMaxPointsPerQuestion();
       if (this.checkForAvailableCopies()) {
         this.nextCopy();
       }
@@ -89,6 +91,7 @@ export class TaskVerificationComponent implements OnInit {
       this.socketService.join(this.job["job_id"]);
       this.socketService.getSocket().on('document_ready', async (params: any) => {
         await this.getDocuments();
+        await this.getMaxPointsPerQuestion();
         if (this.disabledValidationcontainer) {
           this.nextCopy();
         }
@@ -146,6 +149,11 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
+  async getMaxPointsPerQuestion() {
+    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
+    this.nMaxPointsPerQuestion = this.docService.nMaxPointsPerQuestion;
+  }
+
   getSubExamsList(): void {
     console.log("group", this.group)
     if (this.group) {
@@ -160,7 +168,6 @@ export class TaskVerificationComponent implements OnInit {
     } else {
       console.log("sub exam list is the full list of size", this.examsList.length)
       this.subExamsList = this.examsList;
-      console.log(this.subExamsList)
     }
   }
 
@@ -177,11 +184,16 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   addScoreToQuestion(): void {
+    this.getMaxPointsPerQuestion();
     if (this.currentCopyName && this.currentScore !== null) {
-      this.addOrUpdateInnerMap(this.currentCopyName, this.currentQuestionIndex, this.currentScore);
-      this.currentScore = null;
+      if (this.currentScore <= this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
+        this.addOrUpdateInnerMap(this.currentCopyName, this.currentQuestionIndex, this.currentScore);
+        this.currentScore = null;
+      } else {
+        alert('Veuillez saisir une note valide.');
+      }
     } else {
-      alert('Please select a matricule and enter a score.');
+      alert('Veuillez sélectionner un matricule et saisir un note.');
     }
   }
 
@@ -505,7 +517,6 @@ export class TaskVerificationComponent implements OnInit {
 
   nextCopyIndex(): number {
     let tempIndex = this.currentIndex() + 1;
-    console.log("tempIndex", tempIndex)
     while (tempIndex < this.examsList.length && !this.subExamsList.includes(this.examsList[tempIndex])) {
       tempIndex ++;
     }

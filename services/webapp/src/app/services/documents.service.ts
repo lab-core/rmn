@@ -11,6 +11,7 @@ export class DocumentsService {
   jobId: string;
   documentsList: Array<any>;
   groupsList: Array<string>;
+  nMaxPointsPerQuestion = new Map<string, number>();
 
   constructor(private http: HttpClient,
               private userService: UserService) { }
@@ -38,6 +39,24 @@ export class DocumentsService {
         if (a === "") return -1;
         return a.localeCompare(b);
       });
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async getJobInfos(jobId: string) {
+    const formdata: FormData = new FormData();
+    formdata.append('job_id', jobId);
+    this.userService.addTokens(formdata);
+
+    try {
+      const promise = await this.http.post<any>(`${SERVER_URL}job`, formdata).toPromise();
+      let jobInfos = promise['response'];
+      // fetch n_max_points_per_question
+      const nMaxPointsPerQuestionArray = jobInfos['n_max_points_per_question'];
+      this.nMaxPointsPerQuestion = new Map<string, number>(
+        nMaxPointsPerQuestionArray.map((item: [string, number]) => [item[0], item[1]])
+      );
     } catch (error) {
       console.error(error);
     }

@@ -100,13 +100,19 @@
 
                 <div class="pages-number-div">
                     <div class="number-pages-container" id="number-page-container">
-                        <h3><u>Nombre de questions :</u></h3>
+                        <h3><u>Nombre de questions</u></h3>
                         <input [(ngModel)]="this.nQuestions" [ngModelOptions]="{standalone: true}" (change)="updateQuestionsCount()" type="number" min="1" step="1" required>
                     </div>
                     <div class="questions-container">
                         <div class="question-row" *ngFor="let key of questionKeys; let i = index">
-                            <h3><u>Nombre de pages pour {{key}}:</u></h3>
-                            <input (change)="updatePageCount(key, $event)" type="number" min="1" step="1" required>
+                            <div class="question-column">
+                                <h3><u>Nombre de pages pour {{key}}</u></h3>
+                                <input (change)="updatePageCount(key, $event)" type="number" min="1" step="1" required>
+                            </div>
+                            <div class="question-column">
+                                <h3><u>Nombre de points max pour {{key}}</u></h3>
+                                <input (change)="updateMaxPoints(key, $event)" type="number" min="1" step="1" required>
+                            </div>
                         </div>
                     </div>
                 </div>

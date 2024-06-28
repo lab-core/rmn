@@ -44,6 +44,7 @@ export class NewExamCorrectionComponent implements OnInit {
 
   nQuestions: number = 0;
   nPagesPerQuestion = new Map<string, number>();
+  nMaxPointsPerQuestion = new Map<string, number>();
   questionKeys: string[] = [];
   taskName: string = "Tâche";
 
@@ -83,9 +84,11 @@ export class NewExamCorrectionComponent implements OnInit {
 
   updateQuestionsCount() {
     this.nPagesPerQuestion.clear();
+    this.nMaxPointsPerQuestion.clear();
     this.questionKeys = [];
     for (let i = 1; i <= this.nQuestions; i++) {
       this.nPagesPerQuestion.set(`Q${i}`, 1);
+      this.nMaxPointsPerQuestion.set(`Q${i}`, 1);
       this.questionKeys.push(`Q${i}`);
     }
   }
@@ -96,6 +99,11 @@ export class NewExamCorrectionComponent implements OnInit {
     this.nPagesPerQuestion.set(key, pageCount);
   }
 
+  updateMaxPoints(key: string, event: Event) {
+    const inputElement = event.target as HTMLInputElement;
+    const maxPoints = parseInt(inputElement.value, 10);
+    this.nMaxPointsPerQuestion.set(key, maxPoints);
+  }  
 
   updateSuffix(event: KeyboardEvent) {
     let regex = new RegExp("^[a-zA-ZÀ-ÿ0-9\-\_\ ]+$");
@@ -360,7 +368,7 @@ export class NewExamCorrectionComponent implements OnInit {
       await this.convertDownloadableCSV();
       let template_name = this.templates.find(template => template['template_id'] == this.selectedTemplate)['template_name'];
 
-      this.tasksService.addTask(this.copies, this.csv, this.selectedTemplate, this.nPagesPerQuestion, this.taskName, template_name);
+      this.tasksService.addTask(this.copies, this.csv, this.selectedTemplate, this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.taskName, template_name);
     }
   }
 

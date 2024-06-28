@@ -42,6 +42,7 @@ export class NewCorrectionComponent implements OnInit {
   uploading: boolean = false;
 
   numberPages: number = 1;
+  maxPoints: number = 5;
   taskName: string = "Tâche";
 
   suffix: string = "";
@@ -344,7 +345,7 @@ export class NewCorrectionComponent implements OnInit {
       await this.convertDownloadableCSV();
       let template_name = this.templates.find(template => template['template_id'] == this.selectedTemplate)['template_name'];
 
-      this.tasksService.addTask(this.copies, this.csv, this.selectedTemplate, this.numberPages, this.taskName, template_name);
+      this.tasksService.addTask(this.copies, this.csv, this.selectedTemplate, this.numberPages, this.maxPoints, this.taskName, template_name);
     }
   }
 

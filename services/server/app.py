@@ -193,6 +193,12 @@ def evaluate(user_id):
             response=json.dumps({"response": f"Error: n_pages_per_question not provided."}),
             status=400,
         )
+    
+    if "n_max_points_per_question" not in request_form:
+        return Response(
+            response=json.dumps({"response": f"Error: n_max_points_per_question not provided."}),
+            status=400,
+        )
 
     if "job_name" not in request_form:
         return Response(
@@ -229,6 +235,7 @@ def evaluate(user_id):
     job_name = str(request_form["job_name"])
     # nb_pages = int(request_form["nb_pages"])
     n_pages_per_question = json.loads(request_form["n_pages_per_question"])
+    n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
 
     # Define db and collection used
     db = mongo["RMN"]
@@ -254,6 +261,7 @@ def evaluate(user_id):
         "notes_file_id": notes_file_id,
         "zip_file_id": zip_file_id,
         "n_pages_per_question": n_pages_per_question,
+        "n_max_points_per_question": n_max_points_per_question,
         "students_list": []
     }
 
@@ -479,7 +487,8 @@ def get_job():
         "job_name": job["job_name"],
         "template_name": job["template_name"],
         "students_list": job["students_list"],
-        "job_infos": job["job_infos"]
+        "job_infos": job["job_infos"],
+        "n_max_points_per_question": job["n_max_points_per_question"]
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
