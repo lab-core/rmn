@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';
@@ -10,6 +10,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
 import { DocumentsService } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
+import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 
 @Component({
   selector: 'app-task-verification',
@@ -27,7 +28,8 @@ export class TaskVerificationComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private userService: UserService,
-    private docService: DocumentsService) {}
+    private docService: DocumentsService,
+    private ngxService: NgxExtendedPdfViewerService) {}
   
   isSidebarHidden = false;
   pictureLoading: boolean = true;
@@ -368,28 +370,45 @@ export class TaskVerificationComponent implements OnInit {
 
   async validateCurrentCopy() {
     if (!this.currentMatriculeSelection) {
-      this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
-      return;
+        this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
+        return;
     }
-    Object.keys(this.currentPredictions).forEach(key => {
-      let inputValue = (<HTMLInputElement>document.getElementById(key.replace(/\s/g, ''))).value;
-      this.currentPredictions[key] = Number(inputValue);
-    });
+
     this.examsList[this.currentIndex()]["total"] = this.currentTotal;
+    const filename = this.examsList[this.currentIndex()]["filename"];
 
-    let response = await this.validationService.validateDocument(
-      this.tasksService.getvalidatingTaskId(),
-      this.currentCopy,
-      this.currentPredictions,
-      this.currentMatricule,
-      this.currentTotal,
-      this.currentStatus);
+    try {
+        const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
 
-    if (response === "OK") {
-      this.setValidatedStatus();
-      this.nextCopy();
+        if (editedPdfData) {
+            const file = new File([editedPdfData], filename, { type: editedPdfData.type });
+            console.log("File to upload: ", file);
+
+            let validationResponse = await this.validationService.validateDocument(
+                this.tasksService.getvalidatingTaskId(),
+                this.currentCopy,
+                file,
+                this.copiesInformations,
+                this.currentMatricule,
+                this.nMaxPointsPerQuestion,
+                this.currentStatus
+            );
+
+            if (validationResponse === "OK") {
+                this.setValidatedStatus();
+                this.nextCopy();
+            }
+        } else {
+            console.error('Erreur lors de l\'obtention du document PDF modifié.');
+            this.notificationService.showError('Échec de l\'obtention du document PDF modifié.', 'Erreur de validation');
+        }
+    } catch (error) {
+        console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
+        this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
     }
-  }
+}
+
+
 
   async validateJob() {
     let uncheckedcopy = 0;

@@ -15,19 +15,24 @@ export class ValidationService {
     private userService: UserService
   ) { }
 
-  async validateDocument(jobId, validatingCopy, predictions, registration, total, status) {
-    const formdata: FormData = new FormData();
-    this.userService.addTokens(formdata);
-    formdata.append('job_id', jobId);
-    formdata.append('document_index', validatingCopy.toString());
-    formdata.append('subquestion_predictions', JSON.stringify(predictions));
-    formdata.append('matricule', registration);
-    formdata.append('total', total);
-    formdata.append('status', status);
+  async validateDocument(jobId, validatingCopy, file, copiesInformations, registration, nMaxPointsPerQuestion, status) {
+    const formData: FormData = new FormData();
+    this.userService.addTokens(formData);
+    formData.append('job_id', jobId);
+    formData.append('document_index', validatingCopy.toString());
+    formData.append('file', file);
+    const serializedCopiesInformations = JSON.stringify(
+        Array.from(copiesInformations.entries()).map(([key, value]) => [key, Array.from(value.entries())])
+    );
+    formData.append('copies_informations', serializedCopiesInformations);
+    const serializedNMaxPointsPerQuestion = JSON.stringify(Array.from(nMaxPointsPerQuestion.entries()));
+    formData.append('n_max_points_per_question', serializedNMaxPointsPerQuestion);
+    formData.append('matricule', registration);
+    formData.append('status', status);
 
     let response;
     try {
-      const promise = await this.http.post<any>(`${SERVER_URL}documents/update`, formdata).toPromise();
+      const promise = await this.http.post<any>(`${SERVER_URL}documents/update`, formData).toPromise();
       response = promise['response'];
     } catch (error) {
       console.error(error);

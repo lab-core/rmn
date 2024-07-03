@@ -826,60 +826,53 @@ def get_documents():
 @verify_share_token()
 def update_document():
     request_form = request.form
+    request_files = request.files
 
-    if "document_index" not in request_form:
+    required_fields = ["job_id", "document_index", "copies_informations", "matricule", "n_max_points_per_question", "status"]
+    for field in required_fields:
+        if field not in request_form:
+            return Response(
+                response=json.dumps({"response": f"Error: {field} not provided."}),
+                status=400,
+            )
+
+    if "file" not in request.files:
         return Response(
-            response=json.dumps({"response": f"Error: document_index not provided."}),
+            response=json.dumps({"response": "Error: file not provided."}),
             status=400,
         )
 
-    if "matricule" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: matricule not provided."}),
-            status=400,
-        )
-
-    if "subquestion_predictions" not in request_form:
-        return Response(
-            response=json.dumps(
-                {"response": f"Error: subquestion_predictions not provided."}
-            ),
-            status=400,
-        )
-
-    if "total" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: total not provided."}),
-            status=400,
-        )
-
-    if "status" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: document_index not provided."}),
-            status=400,
-        )
-
-    #
     job_id = str(request_form["job_id"])
     document_index = int(request_form["document_index"])
     matricule = str(request_form["matricule"])
-    subquestion_predictions = json.loads(request_form["subquestion_predictions"])
-    total = float(request_form["total"])
+    copies_informations = json.loads(request_form["copies_informations"])
+    n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
 
-    #
+    # replacing the previous file by the new one in storage
+    file = request_files["file"]
+    file_name = secure_filename(file.filename)
+
+    last_underscore_index = file_name.rfind('_')
+    extension_index = file_name.rfind('.pdf')
+    question_index = file_name[last_underscore_index + 1:extension_index]
+    
+    file_path = os.path.join('documents', job_id, question_index, file_name)
+    print("file path ", storage.abs_path(file_path))
+    file.save(storage.abs_path(file_path))
+
+    # update the database
     db = mongo["RMN"]
     collection = db["job_documents"]
 
-    #
     collection.update_one(
         {"job_id": job_id, "document_index": document_index},
         {"$set": {
             "matricule": matricule,
-            "subquestion_predictions": subquestion_predictions,
-            "total": total,
+            "copies_informations": copies_informations,
+            "n_max_points_per_question": n_max_points_per_question,
             "status": Document_Status.VALIDATED.value,
-        }
-    })
+        }}
+    )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
@@ -915,7 +908,6 @@ def download_document():
     print("document_file: ", document_file)
     # Save file to local
     file_id = str(document_file["image_id"])
-    print("COPYING FROM ", storage.abs_path(file_id), " TO ", file_id)
     storage.copy_from(file_id, file_id)
     file_send = send_file(file_id)
 

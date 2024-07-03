@@ -47,7 +47,7 @@
                 <ngx-extended-pdf-viewer *ngIf="!this.pdfLoading"
                     [src]="this.pdfSrc" 
                     [language]="'fr'"
-                    [showDownloadButton]="false"
+                    [showDownloadButton]="true"
                     [showPrintButton]="false"
                     [showOpenFileButton]="false">
                 </ngx-extended-pdf-viewer>
@@ -93,6 +93,10 @@
                     </div>
                 </div>
                 <div class="validate-container">
+                    <!-- <button class="validate-button"
+                            (click)="validateCurrentCopy()" [disabled]="this.validating">
+                        <mat-icon>done_outline</mat-icon>
+                    </button> -->
                     <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
                             (click)="validateCurrentCopy()" [disabled]="this.validating">
                         <mat-icon>done_outline</mat-icon>
