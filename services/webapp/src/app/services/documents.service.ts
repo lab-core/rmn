@@ -12,6 +12,7 @@ export class DocumentsService {
   documentsList: Array<any>;
   groupsList: Array<string>;
   nMaxPointsPerQuestion = new Map<string, number>();
+  copiesInformations = new Map<string, Map<string, number>>();
 
   constructor(private http: HttpClient,
               private userService: UserService) { }
@@ -52,10 +53,30 @@ export class DocumentsService {
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}job`, formdata).toPromise();
       let jobInfos = promise['response'];
-      // fetch n_max_points_per_question
+      // fetch n_max_points_per_question and copies_informations
       const nMaxPointsPerQuestionArray = jobInfos['n_max_points_per_question'];
       this.nMaxPointsPerQuestion = new Map<string, number>(
         nMaxPointsPerQuestionArray.map((item: [string, number]) => [item[0], item[1]])
+      );
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async getCopiesInformations(jobId: string, filename: string) {
+    const formdata: FormData = new FormData();
+    formdata.append('job_id', jobId);
+    this.userService.addTokens(formdata);
+
+    try {
+      const promise = await this.http.post<any>(`${SERVER_URL}job`, formdata).toPromise();
+      let job = promise['response'];
+      const copiesInformationsArray = job['copies_informations'];
+
+      this.copiesInformations = new Map<string, Map<string, number>>(
+        copiesInformationsArray.map((item: [string, Array<[string, number]>]) => 
+          [item[0], new Map<string, number>(item[1].map(innerItem => [innerItem[0], innerItem[1]]))]
+        )
       );
     } catch (error) {
       console.error(error);

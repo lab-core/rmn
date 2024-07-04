@@ -156,6 +156,13 @@ export class TaskVerificationComponent implements OnInit {
     this.nMaxPointsPerQuestion = this.docService.nMaxPointsPerQuestion;
   }
 
+  async getCopiesInformations() {
+    let exam = this.examsList[this.currentCopy.toString()];
+    this.currentCopyName = exam["filename"];
+    await this.docService.getCopiesInformations(this.tasksService.getvalidatingTaskId(), this.currentCopyName);
+    this.copiesInformations = this.docService.copiesInformations;
+  }
+
   getSubExamsList(): void {
     console.log("group", this.group)
     if (this.group) {
@@ -185,11 +192,14 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  addScoreToQuestion(): void {
-    this.getMaxPointsPerQuestion();
-    if (this.currentCopyName && this.currentScore !== null) {
+  async addScoreToQuestion(): Promise<void> {
+    await this.getMaxPointsPerQuestion();
+    await this.getCopiesInformations();
+    console.log("Copies informations before", this.copiesInformations)
+    const fullCopyName = this.getBaseNameWithExtension(this.currentCopyName);
+    if (fullCopyName && this.currentScore !== null) {
       if (this.currentScore <= this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
-        this.addOrUpdateInnerMap(this.currentCopyName, this.currentQuestionIndex, this.currentScore);
+        this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
         this.currentScore = null;
       } else {
         this.notificationService.showWarning('Veuillez saisir une note valide.', 'Note invalide');
@@ -197,6 +207,7 @@ export class TaskVerificationComponent implements OnInit {
     } else {
       this.notificationService.showWarning('Veuillez sélectionner un matricule et saisir un note.', 'Matricule manquant ou note invalide');
     }
+    console.log("Copies informations after", this.copiesInformations)
   }
 
   addOrUpdateInnerMap(copieName: string, questionIndex: string, score: number) {
@@ -225,7 +236,7 @@ export class TaskVerificationComponent implements OnInit {
           let url = window.URL.createObjectURL(data);
           this.pdfSrc = url;
           this.pdfLoading = false;
-          console.log("Current Exam: ", this.examsList[this.currentIndex()])
+          // console.log("Current Exam: ", this.examsList[this.currentIndex()])
         }, (error) => {
           console.error(error);
         });
@@ -382,8 +393,8 @@ export class TaskVerificationComponent implements OnInit {
 
         if (editedPdfData) {
             const file = new File([editedPdfData], filename, { type: editedPdfData.type });
-            console.log("File to upload: ", file);
-
+            this.getCurrentMatricule();
+            console.log("current copies infos", this.copiesInformations)
             let validationResponse = await this.validationService.validateDocument(
                 this.tasksService.getvalidatingTaskId(),
                 this.currentCopy,

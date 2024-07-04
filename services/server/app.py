@@ -488,7 +488,8 @@ def get_job():
         "template_name": job["template_name"],
         "students_list": job["students_list"],
         "job_infos": job["job_infos"],
-        "n_max_points_per_question": job["n_max_points_per_question"]
+        "n_max_points_per_question": job["n_max_points_per_question"],
+        "copies_informations": job.get("copies_informations", [])
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
@@ -845,7 +846,6 @@ def update_document():
     job_id = str(request_form["job_id"])
     document_index = int(request_form["document_index"])
     matricule = str(request_form["matricule"])
-    copies_informations = json.loads(request_form["copies_informations"])
     n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
 
     # replacing the previous file by the new one in storage
@@ -868,9 +868,19 @@ def update_document():
         {"job_id": job_id, "document_index": document_index},
         {"$set": {
             "matricule": matricule,
-            "copies_informations": copies_informations,
             "n_max_points_per_question": n_max_points_per_question,
             "status": Document_Status.VALIDATED.value,
+        }}
+    )
+
+
+    # copies_informations in eval_jobs collection
+    copies_informations = json.loads(request_form["copies_informations"])
+    collection_eval_jobs = db["eval_jobs"]
+    collection_eval_jobs.update_one(
+        {"job_id": job_id},
+        {"$set": {
+            "copies_informations": copies_informations,
         }}
     )
 
