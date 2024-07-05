@@ -1,13 +1,14 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, Input } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TasksService } from 'src/app/services/tasks.service';
 import { UserService } from 'src/app/services/user.service';
 import { SERVER_URL } from 'src/app/utils';
 import { TaskFilesDialogComponent } from '../tasks-history/task-files-dialog/task-files-dialog.component';
 import { TaskShareDialogComponent } from '../tasks-history/task-share-dialog/task-share-dialog.component';
 import { NotificationService } from 'src/app/services/notification.service';
+import { DocumentsService } from 'src/app/services/documents.service';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -16,25 +17,47 @@ import { NotificationService } from 'src/app/services/notification.service';
 })
 export class DashboardPageComponent {
   task: any;
-  taskName: string = 'Tâche';
-  questions: { corrected: number, total: number }[] = [
-    { corrected: 0, total: 150 },
-    { corrected: 10, total: 150 },
-    { corrected: 75, total: 150 }
-  ];
-  averages: string[] = [
-    '0/5',
-    '2.18/3',
-    '3.47/5'
-  ];
+  taskId: string;
+  taskName: string;
+  examsList: Array<any> = [];
+  uniqueFileCount: number = 0;
+  questions: { corrected: number, total: number }[]
+  validatedCounts: { [key: string]: number };
+  maxQuestionIndex: number;
+  averages: number[] = [];
+  nMaxPointsPerQuestion: Map<string, number>;
   constructor(
-    private router: Router, 
+    private router: Router,
+    private route: ActivatedRoute, 
     private tasksService: TasksService, 
     private userService: UserService, 
     private http: HttpClient, 
-    public dialog: MatDialog, 
+    public dialog: MatDialog,
+    private docService: DocumentsService, 
     private notificationService: NotificationService
-  ) { }
+  ) { 
+  }
+
+  async ngOnInit() {
+    this.route.params.subscribe(params => {
+      this.taskId = params['taskId'];
+    });
+    if (this.taskId) {
+      await this.getTask();
+      await this.getDocuments(this.taskId);
+    }
+  }
+
+  async getTask() {
+    this.task = await this.tasksService.getTaskById(this.taskId);
+    this.taskName = this.task.job_name;
+    if (this.task['copies_informations'] && this.task['n_max_points_per_question']) {
+      this.averages = this.computeAverage();
+      console.log("task", this.task);
+    } else {
+      console.error('Missing required task properties: copies_informations or n_max_points_per_question');
+    }
+  }
 
   getTaskInfo() {
     if (this.task.job_status === 'ARCHIVED') {
@@ -44,6 +67,73 @@ export class DashboardPageComponent {
       this.tasksService.setvalidatingTaskId(this.task.job_id);
       this.router.navigate(['/task-validation']);
     }
+  }
+
+  async getDocuments(jobId: string) {
+    try {
+      const formdata: FormData = new FormData();
+      formdata.append('user_id', this.userService.currentUsername);
+      formdata.append('token', this.userService.token);
+      formdata.append('job_id', jobId);
+      const response = await this.http.post<any>(`${SERVER_URL}/documents`, formdata).toPromise();
+      if (response && response.response) {
+        this.examsList = response.response || [];
+        this.uniqueFileCount = this.getUniqueFilenames(this.examsList).length;
+        this.countValidatedByQuestion();
+        this.updateQuestions();
+      } else {
+        console.error('Invalid response format:', response);
+      }
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    }
+  }  
+
+  getUniqueFilenames(examsList: Array<any>): Array<string> {
+    if (!examsList) {
+      console.error('examsList is undefined');
+      return [];
+    }
+  
+    const filenames = examsList.map(doc => doc.filename.replace(/_Q\d+/, ''));
+    return Array.from(new Set(filenames));
+  }
+
+  countValidatedByQuestion() {
+    const validatedCounts: { [key: string]: number } = {};
+
+    this.validatedCounts = {};
+
+    this.examsList.forEach(doc => {
+      if (doc.status === 'VALIDATED') {
+        const questionIndexMatch = doc.filename.match(/_Q(\d+)/);
+        if (questionIndexMatch) {
+          const questionIndex = questionIndexMatch[1];
+          if (!validatedCounts[questionIndex]) {
+            validatedCounts[questionIndex] = 0;
+          }
+          validatedCounts[questionIndex]++;
+        }
+      }
+    });
+
+    this.validatedCounts = validatedCounts;
+  }
+  
+  updateQuestions() {
+    this.questions = [];
+
+    if (!this.validatedCounts) {
+      this.validatedCounts = {};
+    }
+  
+    this.task['n_max_points_per_question'].forEach(([question, _]: [string, number]) => {
+      const questionIndex = question.replace('Q', '');
+      this.questions.push({
+        corrected: this.validatedCounts[questionIndex] || 0,
+        total: this.uniqueFileCount
+      });
+    });
   }
 
   openTaskFilesDialog(jobId: string): void {
@@ -80,15 +170,55 @@ export class DashboardPageComponent {
       });
   }
 
+  computeAverage(): number[] {
+    const copiesInformationsArray = this.task['copies_informations'];
+  
+    const copiesInformations = new Map<string, Map<string, number>>(
+      copiesInformationsArray.map((item: [string, Array<[string, number]>]) => 
+        [item[0], new Map<string, number>(item[1].map(innerItem => [innerItem[0], innerItem[1]]))]
+      )
+    );
+  
+    const nMaxPointsPerQuestionArray = this.task['n_max_points_per_question'];
+    this.nMaxPointsPerQuestion = new Map<string, number>(
+      nMaxPointsPerQuestionArray.map((item: [string, number]) => [item[0], item[1]])
+    );
+    
+    // initializing an object to store the total points and count for each question
+    const totals = new Map<string, { totalPoints: number, count: number }>();
+  
+    copiesInformations.forEach((studentScores) => {
+      studentScores.forEach((score, question) => {
+        if (!totals.has(question)) {
+          totals.set(question, { totalPoints: 0, count: 0 });
+        }
+        const questionTotals = totals.get(question)!;
+        questionTotals.totalPoints += score;
+        questionTotals.count += 1;
+      });
+    });
+  
+    // computing averages
+    const averages: number[] = [];
+  
+    this.nMaxPointsPerQuestion.forEach((_, question) => {
+      const questionTotals = totals.get(question);
+      if (questionTotals) {
+        const average = questionTotals.totalPoints / questionTotals.count;
+        averages.push(Number(average.toFixed(2)));
+      } else {
+        averages.push(0);
+      }
+    });
+  
+    return averages;
+  }
+  
   correctQuestion() {
     console.log('Correction button clicked');
   }
 
   shareQuestion(index: number) {
     console.log(`Share question ${index + 1}`);
-  }
-
-  reroute() {
-    this.router.navigate(['/tasks-history']);
   }
 }

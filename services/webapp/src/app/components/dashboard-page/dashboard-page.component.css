@@ -88,17 +88,3 @@ app-main-menu {
 button:hover {
   background-color: #e0e0e0;
 }
-
-.back-button {
-  position: absolute;
-  top:0;
-  left: 0;
-  bottom: 0;
-  transition: 3s;
-  z-index: 1;
-}
-
-.back-button:hover {
-  background: linear-gradient(to right, rgba(170, 169, 169, 0.326), rgba(255,0,0,0));
-  transition: 3s;
-}

@@ -27,7 +27,7 @@ const routes: Routes = [
         // canActivate: [UserService]
     },
     {
-        path: 'dashboard',
+        path: 'dashboard/:taskId',
         component : DashboardPageComponent,
     },
     {

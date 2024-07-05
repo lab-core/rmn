@@ -14,7 +14,7 @@
         <div class="averages">
           <h3>Moyenne(s)</h3>
           <div *ngFor="let average of averages; let i = index">
-            Q{{ i + 1 }} : {{ average }}
+            Q{{ i + 1 }} : {{ average }}/{{ nMaxPointsPerQuestion.get('Q' + (i + 1)) }}
           </div>
         </div>
         <div class="actions">
@@ -31,4 +31,3 @@
       </div>
   </div>
 </div>
-<button mat-button (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>

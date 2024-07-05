@@ -14,7 +14,7 @@ storage = Storage()
 CURRENT_START_PAGE = 2 # start_page
 
 def calculate_total_expected_pages(n_pages_per_question):
-    return sum(n_pages_per_question.values()) + CURRENT_START_PAGE
+    return sum(n_pages_per_question.values()) + CURRENT_START_PAGE - 1
 
 def calculate_pages(pages_per_question):
     current_start_page = CURRENT_START_PAGE

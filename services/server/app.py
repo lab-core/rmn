@@ -793,6 +793,9 @@ def get_documents():
     request_form = request.form
     job_id = str(request_form["job_id"])
 
+    if not job_id:
+        return Response(response=json.dumps({"Error": "job_id is missing"}), status=400)
+
     #
     db = mongo["RMN"]
     collection = db["job_documents"]
