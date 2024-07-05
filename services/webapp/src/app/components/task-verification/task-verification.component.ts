@@ -141,7 +141,6 @@ export class TaskVerificationComponent implements OnInit {
   async getDocuments() {
     await this.docService.getDocuments(this.tasksService.getvalidatingTaskId());
     this.examsList = this.docService.documentsList;
-    console.log("Exams list", this.examsList)
     this.groupsList = this.docService.groupsList;
     // compute sub exams list if any selected group
     this.getSubExamsList();
@@ -199,7 +198,6 @@ export class TaskVerificationComponent implements OnInit {
     console.log("Copies informations before", this.copiesInformations)
     const fullCopyName = this.getBaseNameWithExtension(this.currentCopyName);
     if (fullCopyName && this.currentScore !== null) {
-      console.log("Current question index", this.currentQuestionIndex)
       if (this.currentScore <= this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
         this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
         this.currentScore = null;
@@ -286,7 +284,6 @@ export class TaskVerificationComponent implements OnInit {
       let exam = this.examsList[copyIndex-1];
       console.log("Change current copy to", copyIndex)
       this.currentQuestionIndex = this.getQuestionIndex(exam["filename"]);
-      console.log("Current file name", exam["filename"])
       this.currentCopyName = this.getBaseNameWithExtension(exam["filename"]);
       this.currentCopy = copyIndex;
       this.disabledValidationcontainer = false;
