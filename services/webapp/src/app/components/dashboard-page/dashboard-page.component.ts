@@ -53,7 +53,6 @@ export class DashboardPageComponent {
     this.taskName = this.task.job_name;
     if (this.task['copies_informations'] && this.task['n_max_points_per_question']) {
       this.averages = this.computeAverage();
-      console.log("task", this.task);
     } else {
       console.error('Missing required task properties: copies_informations or n_max_points_per_question');
     }

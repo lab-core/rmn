@@ -10,12 +10,22 @@
             <mat-icon>visibility_off</mat-icon>
         </div>
         <div class="files-container" [ngClass]="{'hidden': isSidebarHidden}">
-            <!-- <div class="filter-job-container" *ngIf="this.showFilter()">
+            <div class="filter-job-container" *ngIf="this.showFilter()">
               <label>Filtrer par groupe: </label>
               <select (change)="this.loadSubExamsList()" [(ngModel)]="this.group">
                 <option *ngFor="let g of this.groupsList">{{g}}</option>
               </select>
-            </div> -->
+            </div>
+            <div class="filter-job-container">
+                <mat-form-field appearance="fill">
+                    <mat-label>Numéro de la question</mat-label>
+                    <mat-select (selectionChange)="onQuestionIndexChange($event)">
+                        <mat-option *ngFor="let index of questionIndexes" [value]="index">
+                            {{index}}
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
             <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}">
                 <div class="file-container" *ngFor="let exam of this.subExamsList"
                     (click)="changeCurrentCopy(exam.document_index, exam.status)">
@@ -93,10 +103,6 @@
                     </div>
                 </div>
                 <div class="validate-container">
-                    <!-- <button class="validate-button"
-                            (click)="validateCurrentCopy()" [disabled]="this.validating">
-                        <mat-icon>done_outline</mat-icon>
-                    </button> -->
                     <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
                             (click)="validateCurrentCopy()" [disabled]="this.validating">
                         <mat-icon>done_outline</mat-icon>

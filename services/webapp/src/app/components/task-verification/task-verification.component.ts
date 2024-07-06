@@ -11,6 +11,7 @@ import { UserService } from 'src/app/services/user.service';
 import { DocumentsService } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
 import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
+import { MatSelectChange } from '@angular/material/select';
 
 @Component({
   selector: 'app-task-verification',
@@ -63,6 +64,7 @@ export class TaskVerificationComponent implements OnInit {
   matriculeList: Array<any>;
   group: string;
   groupsList: Array<string>;
+  questionIndexes: Array<number | "Tout sélectionner"> = [];
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
@@ -115,6 +117,7 @@ export class TaskVerificationComponent implements OnInit {
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
       this.reroute();
     }
+    this.initializeQuestionIndexes();
   }
 
   ngOnDestroy(): void {
@@ -127,6 +130,23 @@ export class TaskVerificationComponent implements OnInit {
     this.isSidebarHidden = !this.isSidebarHidden;
   }
 
+  initializeQuestionIndexes(): void {
+    this.questionIndexes = ["Tout sélectionner", ...Array.from({ length: this.nMaxPointsPerQuestion.size }, (_, i) => i + 1)];
+  }
+
+  onQuestionIndexChange(event: MatSelectChange): void {
+    this.currentQuestionIndex = event.value;
+    if (event.value === "Tout sélectionner") {
+      this.subExamsList = this.examsList;
+    } else {
+      this.filterExamsByQuestion(event.value);
+    }
+  }
+
+  filterExamsByQuestion(questionIndex: number): void {
+    const questionString = `Q${questionIndex}`;
+    this.subExamsList = this.examsList.filter(exam => exam.filename.includes(questionString));
+  }
 
   setQuestionId(question: string): string {
     return question.replace(/\s/g, '');
