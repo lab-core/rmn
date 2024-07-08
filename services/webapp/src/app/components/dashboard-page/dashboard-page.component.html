@@ -8,13 +8,19 @@
         <div class="questions">
           <h3>Question(s)</h3>
           <div *ngFor="let question of questions; let i = index">
-            Q{{ i + 1 }} : {{ question.corrected }}/{{ question.total }}
+            Q{{ i + 1 }}
+          </div>
+        </div>
+        <div class="questions">
+          <h3>Copie(s)</h3>
+          <div *ngFor="let question of questions; let i = index">
+            {{ question.corrected }}/{{ question.total }} corrigée(s)
           </div>
         </div>
         <div class="averages">
           <h3>Moyenne(s)</h3>
           <div *ngFor="let average of averages; let i = index">
-            Q{{ i + 1 }} : {{ average }}/{{ nMaxPointsPerQuestion.get('Q' + (i + 1)) }}
+            {{ average }} point(s)
           </div>
         </div>
         <div class="actions">

@@ -419,6 +419,7 @@ export class TaskVerificationComponent implements OnInit {
 
 
   async validateCurrentCopy() {
+    await this.addScoreToQuestion();
     if (!this.currentMatriculeSelection) {
         this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
         return;
