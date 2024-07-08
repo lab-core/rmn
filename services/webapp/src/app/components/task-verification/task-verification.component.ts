@@ -141,6 +141,10 @@ export class TaskVerificationComponent implements OnInit {
     } else {
       this.filterExamsByQuestion(event.value);
     }
+    if (this.subExamsList.length > 0) {
+      const firstExam = this.subExamsList[0];
+      this.changeCurrentCopy(firstExam["document_index"], firstExam["status"]);
+    }
   }
 
   filterExamsByQuestion(questionIndex: number): void {
