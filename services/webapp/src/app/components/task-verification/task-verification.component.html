@@ -16,7 +16,7 @@
                 <option *ngFor="let g of this.groupsList">{{g}}</option>
               </select>
             </div>
-            <div class="filter-job-container">
+            <div class="filter-job-container" *ngIf="!this.disabledDropDown">
                 <mat-form-field appearance="fill">
                     <mat-label>Numéro de la question</mat-label>
                     <mat-select (selectionChange)="onQuestionIndexChange($event)">

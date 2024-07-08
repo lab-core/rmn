@@ -10,6 +10,7 @@ import { SERVER_URL } from 'src/app/utils';
 export interface DialogData {
   taskId: string;
   taskName: string;
+  questionIndex?: number;
 }
 @Component({
   selector: 'app-task-share-dialog',
@@ -38,6 +39,9 @@ export class TaskShareDialogComponent implements OnInit {
     const formdata: FormData = new FormData();
     formdata.append('token', this.userService.token);
     formdata.append('job_id', this.data.taskId);
+    if (this.data.questionIndex) {
+      formdata.append('question_index', this.data.questionIndex.toString());
+    }
     this.http.post<any>(`${SERVER_URL}job/share`, formdata).subscribe(
       (data) => {
         let resp = data['response'];

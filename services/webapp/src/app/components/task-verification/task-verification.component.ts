@@ -37,6 +37,7 @@ export class TaskVerificationComponent implements OnInit {
   pdfLoading: boolean = true;
   disabledValidationcontainer = true;
   disabledValidationButton = true;
+  disabledDropDown = false;
 
   validating: boolean = false;
 
@@ -118,6 +119,12 @@ export class TaskVerificationComponent implements OnInit {
       this.reroute();
     }
     this.initializeQuestionIndexes();
+    const questionIndex = this.route.snapshot.queryParams['question_index'];
+    if (questionIndex) {
+      this.currentQuestionIndex = questionIndex;
+      this.onQuestionIndexChange({ value: questionIndex } as MatSelectChange);
+      this.disabledDropDown = true;
+    }
   }
 
   ngOnDestroy(): void {
@@ -446,25 +453,31 @@ export class TaskVerificationComponent implements OnInit {
 
 
   async validateJob() {
-    let uncheckedcopy = 0;
-    this.examsList.forEach((exam: any) => {
-      if (exam["status"] === "TO VALIDATE") {
-        uncheckedcopy += 1;
+    if (!this.disabledDropDown) {
+      let uncheckedcopy = 0;
+      this.examsList.forEach((exam: any) => {
+        if (exam["status"] === "TO VALIDATE") {
+          uncheckedcopy += 1;
+        }
+      });
+  
+      if (uncheckedcopy > 0) {
+        this.openwarningDialog();
+      } else {
+        this.disabledValidationcontainer = true;
+        this.validating = true;
+        let response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
+        if (response === "OK") {
+          this.router.navigate(['/tasks-history']);
+          let message = "La tâche est en cours de finalisation!";
+          this.notificationService.showInfo(message, "Alerte!")
+          // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
+        }
       }
-    });
-
-    if (uncheckedcopy > 0) {
-      this.openwarningDialog();
     } else {
-      this.disabledValidationcontainer = true;
-      this.validating = true;
-      let response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
-      if (response === "OK") {
-        this.router.navigate(['/tasks-history']);
-        let message = "La tâche est en cours de finalisation!";
-        this.notificationService.showInfo(message, "Alerte!")
-        // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
-      }
+      this.router.navigate(['/tasks-history']);
+      let message = "Les copies pour la question " + this.currentQuestionIndex + " ont été corrigées!";
+      this.notificationService.showInfo(message, "Alerte!")
     }
   }
 

@@ -219,5 +219,18 @@ export class DashboardPageComponent {
 
   shareQuestion(index: number) {
     console.log(`Share question ${index + 1}`);
+    let dialogRef = this.dialog.open(TaskShareDialogComponent, {
+      width: '30%',
+      height: '40%',
+      data: {taskId: this.taskId, taskName: this.taskName, questionIndex: index + 1}
+    });
+    dialogRef.afterClosed().subscribe(async result => {
+        if (result === false) {
+          const message = "Une erreur est intervenue lors du partage de la question !";
+          this.notificationService.showError(message, "Erreur!");
+        }
+      }, (error) => {
+        console.error(error);
+      });
   }
 }

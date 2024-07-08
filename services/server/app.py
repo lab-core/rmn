@@ -510,6 +510,13 @@ def share_job(user_id):
         )
     job_id = str(request_form["job_id"])
 
+    if "question_index" not in request_form:
+        return Response(
+            response=json.dumps({"response": f"Error: question_index not provided."}),
+            status=400
+        )
+    question_index = int(request_form["question_index"])
+
     host = request.headers.get('Host')
     if not host:
         return Response(
@@ -533,7 +540,10 @@ def share_job(user_id):
     else:
         token = job["share_token"]
 
-    share_url = f"https://{host}/task-validation/?job={job_id}&token={token}"
+    if question_index:
+        share_url = f"https://{host}/task-validation/?job={job_id}&token={token}&question_index={question_index}"
+    else:
+        share_url = f"https://{host}/task-validation/?job={job_id}&token={token}"
 
     #
     resp = {
