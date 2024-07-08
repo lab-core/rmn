@@ -124,6 +124,14 @@ export class TaskVerificationComponent implements OnInit {
       this.currentQuestionIndex = questionIndex;
       this.onQuestionIndexChange({ value: questionIndex } as MatSelectChange);
       this.disabledDropDown = true;
+    } else {
+      this.route.params.subscribe(params => {
+        const index = params['index'];
+        if (index) {
+          this.currentQuestionIndex = index;
+          this.onQuestionIndexChange({ value: index } as MatSelectChange);
+        }
+      });
     }
   }
 

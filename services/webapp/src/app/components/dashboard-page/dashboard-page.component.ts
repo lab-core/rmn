@@ -153,21 +153,6 @@ export class DashboardPageComponent {
       });
   }
 
-  shareJob(jobId: string, jobName: string): void {
-    let dialogRef = this.dialog.open(TaskShareDialogComponent, {
-      width: '30%',
-      height: '40%',
-      data: {taskId: jobId, taskName: jobName}
-    });
-    dialogRef.afterClosed().subscribe(async result => {
-        if (result === false) {
-          const message = "Une erreur est intervenue lors du partage de la tâche !";
-          this.notificationService.showError(message, "Erreur!");
-        }
-      }, (error) => {
-        console.error(error);
-      });
-  }
 
   computeAverage(): number[] {
     const copiesInformationsArray = this.task['copies_informations'];
@@ -213,12 +198,11 @@ export class DashboardPageComponent {
     return averages;
   }
   
-  correctQuestion() {
-    console.log('Correction button clicked');
+  correctQuestion(index: number) {
+    this.router.navigate([`/task-validation`, this.taskId, index + 1]);
   }
 
   shareQuestion(index: number) {
-    console.log(`Share question ${index + 1}`);
     let dialogRef = this.dialog.open(TaskShareDialogComponent, {
       width: '30%',
       height: '40%',
