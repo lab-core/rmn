@@ -32,7 +32,8 @@ export class TaskVerificationComponent implements OnInit {
     private docService: DocumentsService,
     private ngxService: NgxExtendedPdfViewerService) {}
   
-  isSidebarHidden = false;
+  isSidebarHidden: boolean = false;
+  isIndexProvided: boolean = false;
   pictureLoading: boolean = true;
   pdfLoading: boolean = true;
   disabledValidationcontainer = true;
@@ -119,20 +120,7 @@ export class TaskVerificationComponent implements OnInit {
       this.reroute();
     }
     this.initializeQuestionIndexes();
-    const questionIndex = this.route.snapshot.queryParams['question_index'];
-    if (questionIndex) {
-      this.currentQuestionIndex = questionIndex;
-      this.onQuestionIndexChange({ value: questionIndex } as MatSelectChange);
-      this.disabledDropDown = true;
-    } else {
-      this.route.params.subscribe(params => {
-        const index = params['index'];
-        if (index) {
-          this.currentQuestionIndex = index;
-          this.onQuestionIndexChange({ value: index } as MatSelectChange);
-        }
-      });
-    }
+    this.checkValidationButton();
   }
 
   ngOnDestroy(): void {
@@ -147,6 +135,22 @@ export class TaskVerificationComponent implements OnInit {
 
   initializeQuestionIndexes(): void {
     this.questionIndexes = ["Tout sélectionner", ...Array.from({ length: this.nMaxPointsPerQuestion.size }, (_, i) => i + 1)];
+    // if question index is provided in query params
+    const questionIndex = this.route.snapshot.queryParams['question_index'];
+    if (questionIndex) {
+      this.currentQuestionIndex = questionIndex;
+      this.onQuestionIndexChange({ value: questionIndex } as MatSelectChange);
+      this.disabledDropDown = true;
+      this.isIndexProvided = true;
+    } else {
+      this.route.params.subscribe(params => {
+        const index = params['index'];
+        if (index) {
+          this.currentQuestionIndex = index;
+          this.onQuestionIndexChange({ value: index } as MatSelectChange);
+        }
+      });
+    }
   }
 
   onQuestionIndexChange(event: MatSelectChange): void {
@@ -242,6 +246,7 @@ export class TaskVerificationComponent implements OnInit {
         this.currentScore = null;
       } else {
         this.notificationService.showWarning('Veuillez saisir une note valide.', 'Note invalide');
+        throw new Error('Note invalide');
       }
     } else {
       this.notificationService.showWarning('Veuillez sélectionner un matricule et saisir un note.', 'Matricule manquant ou note invalide');
@@ -419,7 +424,6 @@ export class TaskVerificationComponent implements OnInit {
 
 
   async validateCurrentCopy() {
-    await this.addScoreToQuestion();
     if (!this.currentMatriculeSelection) {
         this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
         return;
@@ -429,12 +433,12 @@ export class TaskVerificationComponent implements OnInit {
     const filename = this.examsList[this.currentIndex()]["filename"];
 
     try {
+        await this.addScoreToQuestion();
         const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
 
         if (editedPdfData) {
             const file = new File([editedPdfData], filename, { type: editedPdfData.type });
             this.getCurrentMatricule();
-            console.log("current copies infos", this.copiesInformations)
             let validationResponse = await this.validationService.validateDocument(
                 this.tasksService.getvalidatingTaskId(),
                 this.currentCopy,
@@ -457,6 +461,7 @@ export class TaskVerificationComponent implements OnInit {
         console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
         this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
     }
+    this.checkValidationButton();
 }
 
 
@@ -617,6 +622,15 @@ export class TaskVerificationComponent implements OnInit {
     return height+"%";
   }
   checkValidationButton(): void {
-    this.disabledValidationButton = !this.job || this.job["job_status"] !== 'VALIDATION';
+    // this.disabledValidationButton = !this.job || this.job["job_status"] !== 'VALIDATION';
+    const disabledValidationButton = this.examsList.some(exam => exam.status !== 'VALIDATED');
+    const questionIndex = this.route.snapshot.queryParams['question_index'];
+  
+    if (!this.disabledDropDown) {
+      this.disabledValidationButton = disabledValidationButton;
+    } else if (questionIndex) {
+      const subExams = this.examsList.filter(exam => exam.filename.includes(`Q${questionIndex}`));
+          this.disabledValidationButton = subExams.some(exam => exam["status"] !== 'VALIDATED');
+    }
   }
 }
