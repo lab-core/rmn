@@ -67,6 +67,7 @@ export class TaskVerificationComponent implements OnInit {
   group: string;
   groupsList: Array<string>;
   questionIndexes: Array<number | "Tout sélectionner"> = [];
+  formattedIndexes: Array<string> = [];
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
@@ -119,6 +120,7 @@ export class TaskVerificationComponent implements OnInit {
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
       this.reroute();
     }
+    this.formattedIndexes = this.generateFormattedIndexes();
     this.initializeQuestionIndexes();
     this.checkValidationButton();
   }
@@ -131,6 +133,21 @@ export class TaskVerificationComponent implements OnInit {
   
   toggleSidebar() {
     this.isSidebarHidden = !this.isSidebarHidden;
+  }
+
+  generateFormattedIndexes(): Array<string> {
+    const formattedIndexes: Array<string> = [];
+    const maxIndex = this.examsList.length;
+
+    for (let i = 1; i <= Math.ceil(maxIndex / 9); i++) {
+        for (let j = 1; j <= 9; j++) {
+            const index = `${i}-${j}`;
+            if ((i - 1) * 9 + j <= maxIndex) {
+                formattedIndexes.push(index);
+            }
+        }
+    }
+    return formattedIndexes;
   }
 
   initializeQuestionIndexes(): void {
@@ -156,19 +173,26 @@ export class TaskVerificationComponent implements OnInit {
   onQuestionIndexChange(event: MatSelectChange): void {
     this.currentQuestionIndex = event.value;
     if (event.value === "Tout sélectionner") {
-      this.subExamsList = this.examsList;
+        this.subExamsList = this.examsList;
+        this.formattedIndexes = this.generateFormattedIndexes();
     } else {
-      this.filterExamsByQuestion(event.value);
+        this.filterExamsByQuestion(event.value);
     }
     if (this.subExamsList.length > 0) {
-      const firstExam = this.subExamsList[0];
-      this.changeCurrentCopy(firstExam["document_index"], firstExam["status"]);
+        const firstExam = this.subExamsList[0];
+        this.changeCurrentCopy(firstExam["document_index"], firstExam["status"]);
     }
   }
+
 
   filterExamsByQuestion(questionIndex: number): void {
     const questionString = `Q${questionIndex}`;
     this.subExamsList = this.examsList.filter(exam => exam.filename.includes(questionString));
+
+    this.formattedIndexes = this.subExamsList.map((_, i) => {
+      const subIndex = (i % this.subExamsList.length) + 1;
+      return `${questionIndex}-${subIndex}`;
+    });
   }
 
   setQuestionId(question: string): string {

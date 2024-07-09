@@ -27,25 +27,25 @@
                 </mat-form-field>
             </div>
             <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}">
-                <div class="file-container" *ngFor="let exam of this.subExamsList"
+                <div class="file-container" *ngFor="let exam of this.subExamsList; let i = index"
                     (click)="changeCurrentCopy(exam.document_index, exam.status)">
                     <div class="disabled-copy" *ngIf="exam.status == 'NOT_READY'">
-                        <strong>{{exam.document_index}}</strong>
+                        <strong>{{formattedIndexes[i]}}</strong>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
                         *ngIf="exam.status == 'VALIDATED'">
-                        <strong>{{exam.document_index}}</strong>
+                        <strong>{{formattedIndexes[i]}}</strong>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
                         *ngIf="exam.status == 'TO VALIDATE'">
-                        <strong>{{exam.document_index}}</strong>
+                        <strong>{{formattedIndexes[i]}}</strong>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
                         *ngIf="exam.status == 'HIGH ACCURACY'">
-                        <strong>{{exam.document_index}}</strong>
+                        <strong>{{formattedIndexes[i]}}</strong>
                     </div>
                 </div>
-            </div>
+            </div>                       
             <div class="validate-job-container" *ngIf="this.loggued()">
                 <button class="validate-job-button" mat-flat-button (click)="validateJob()"
                 [disabled]="this.disabledValidationButton">Finaliser</button>
