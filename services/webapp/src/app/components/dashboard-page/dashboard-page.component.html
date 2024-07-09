@@ -10,20 +10,23 @@
         <div *ngFor="let question of questions; let i = index">
           Q{{ i + 1 }}
         </div>
+        <div>Total</div>
       </div>
       <div class="section">
         <h3>Copies corrigées</h3>
         <div *ngFor="let question of questions; let i = index">
           {{ question.corrected }} / {{ question.total }}
         </div>
+        <div>{{ totalCorrectedCopies }} / {{ uniqueFileCount }}</div>
       </div>
       <div class="section">
         <h3>Moyennes</h3>
         <div *ngFor="let average of averages; let i = index">
           {{ average }} / {{ nMaxPointsPerQuestion.get('Q' + (i + 1)) }} 
         </div>
+        <div>{{ totalAverage.toFixed(2) }} / 9</div>
       </div>
-      <div class="section">
+      <div class="section actions">
         <h3>Actions</h3>
         <div *ngFor="let question of questions; let i = index" class="action-buttons">
           <button class="correct-button" (click)="correctQuestion(i)">

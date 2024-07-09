@@ -191,7 +191,7 @@ export class TaskVerificationComponent implements OnInit {
 
     this.formattedIndexes = this.subExamsList.map((_, i) => {
       const subIndex = (i % this.subExamsList.length) + 1;
-      return `${questionIndex}-${subIndex}`;
+      return `${subIndex}-${questionIndex}`;
     });
   }
 

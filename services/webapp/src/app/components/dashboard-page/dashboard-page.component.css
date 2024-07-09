@@ -31,7 +31,7 @@ app-main-menu {
   -ms-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
   padding: 20px;
   width: 57%;
-  height: 60%; 
+  height: 65%; 
   text-align: center;
   font-size: 2em;
 }
@@ -89,4 +89,16 @@ app-main-menu {
 
 button:hover {
   background-color: #e0e0e0;
+}
+
+.totals {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  font-size: 1em;
+}
+
+.totals div {
+  flex: 1;
+  text-align: center;
 }

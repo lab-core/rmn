@@ -21,11 +21,14 @@ export class DashboardPageComponent {
   taskName: string;
   examsList: Array<any> = [];
   uniqueFileCount: number = 0;
-  questions: { corrected: number, total: number }[]
-  validatedCounts: { [key: string]: number };
+  questions: { corrected: number, total: number }[] = [];
+  validatedCounts: { [key: string]: number } = {};
   maxQuestionIndex: number;
   averages: number[] = [];
   nMaxPointsPerQuestion: Map<string, number>;
+  totalCorrectedCopies: number = 0;
+  totalAverage: number = 0;
+
   constructor(
     private router: Router,
     private route: ActivatedRoute, 
@@ -53,6 +56,7 @@ export class DashboardPageComponent {
     this.taskName = this.task.job_name;
     if (this.task['copies_informations'] && this.task['n_max_points_per_question']) {
       this.averages = this.computeAverage();
+      this.computeTotals();
     } else {
       console.error('Missing required task properties: copies_informations or n_max_points_per_question');
     }
@@ -61,8 +65,7 @@ export class DashboardPageComponent {
   getTaskInfo() {
     if (this.task.job_status === 'ARCHIVED') {
       this.openTaskFilesDialog(this.task.job_id);
-    }
-    else if (this.task.job_status === 'VALIDATION' || this.task.job_status === 'RUN') {
+    } else if (this.task.job_status === 'VALIDATION' || this.task.job_status === 'RUN') {
       this.tasksService.setvalidatingTaskId(this.task.job_id);
       this.router.navigate(['/task-validation']);
     }
@@ -80,6 +83,7 @@ export class DashboardPageComponent {
         this.uniqueFileCount = this.getUniqueFilenames(this.examsList).length;
         this.countValidatedByQuestion();
         this.updateQuestions();
+        this.computeTotals();
       } else {
         console.error('Invalid response format:', response);
       }
@@ -93,7 +97,7 @@ export class DashboardPageComponent {
       console.error('examsList is undefined');
       return [];
     }
-  
+
     const filenames = examsList.map(doc => doc.filename.replace(/_Q\d+/, ''));
     return Array.from(new Set(filenames));
   }
@@ -118,20 +122,67 @@ export class DashboardPageComponent {
 
     this.validatedCounts = validatedCounts;
   }
-  
+
   updateQuestions() {
     this.questions = [];
 
     if (!this.validatedCounts) {
       this.validatedCounts = {};
     }
-  
+
     this.task['n_max_points_per_question'].forEach(([question, _]: [string, number]) => {
       const questionIndex = question.replace('Q', '');
       this.questions.push({
         corrected: this.validatedCounts[questionIndex] || 0,
         total: this.uniqueFileCount
       });
+    });
+  }
+
+  computeTotals() {
+    const fullyCorrectedCopies = this.computeFullyCorrectedCopies();
+    this.totalCorrectedCopies = fullyCorrectedCopies.length;
+
+    let totalPoints = 0;
+    let totalCopies = 0;
+
+    fullyCorrectedCopies.forEach(copy => {
+      let copyPoints = 0;
+      let questionsCount = 0;
+
+      this.task['copies_informations'].forEach(([copyId, questions]) => {
+        if (copyId === copy) {
+          questions.forEach(([question, points]) => {
+            copyPoints += points;
+            questionsCount++;
+          });
+        }
+      });
+
+      if (questionsCount > 0) {
+        totalPoints += copyPoints;
+        totalCopies++;
+      }
+    });
+
+    this.totalAverage = totalCopies > 0 ? totalPoints / (totalCopies * this.nMaxPointsPerQuestion.size) : 0;
+  }
+
+  computeFullyCorrectedCopies(): string[] {
+    const correctedCopiesMap: { [filename: string]: number } = {};
+
+    this.examsList.forEach(doc => {
+      const filename = doc.filename.replace(/_Q\d+/, '');
+      if (!correctedCopiesMap[filename]) {
+        correctedCopiesMap[filename] = 0;
+      }
+      if (doc.status === 'VALIDATED') {
+        correctedCopiesMap[filename]++;
+      }
+    });
+
+    return Object.keys(correctedCopiesMap).filter(filename => {
+      return correctedCopiesMap[filename] === this.task['n_max_points_per_question'].length;
     });
   }
 
@@ -153,24 +204,23 @@ export class DashboardPageComponent {
       });
   }
 
-
   computeAverage(): number[] {
     const copiesInformationsArray = this.task['copies_informations'];
-  
+
     const copiesInformations = new Map<string, Map<string, number>>(
       copiesInformationsArray.map((item: [string, Array<[string, number]>]) => 
         [item[0], new Map<string, number>(item[1].map(innerItem => [innerItem[0], innerItem[1]]))]
       )
     );
-  
+
     const nMaxPointsPerQuestionArray = this.task['n_max_points_per_question'];
     this.nMaxPointsPerQuestion = new Map<string, number>(
       nMaxPointsPerQuestionArray.map((item: [string, number]) => [item[0], item[1]])
     );
-    
+
     // initializing an object to store the total points and count for each question
     const totals = new Map<string, { totalPoints: number, count: number }>();
-  
+
     copiesInformations.forEach((studentScores) => {
       studentScores.forEach((score, question) => {
         if (!totals.has(question)) {
@@ -181,10 +231,10 @@ export class DashboardPageComponent {
         questionTotals.count += 1;
       });
     });
-  
+
     // computing averages
     const averages: number[] = [];
-  
+
     this.nMaxPointsPerQuestion.forEach((_, question) => {
       const questionTotals = totals.get(question);
       if (questionTotals) {
@@ -194,10 +244,10 @@ export class DashboardPageComponent {
         averages.push(0);
       }
     });
-  
+
     return averages;
   }
-  
+
   correctQuestion(index: number) {
     this.router.navigate([`/task-validation`, this.taskId, index + 1]);
   }
@@ -206,15 +256,15 @@ export class DashboardPageComponent {
     let dialogRef = this.dialog.open(TaskShareDialogComponent, {
       width: '30%',
       height: '40%',
-      data: {taskId: this.taskId, taskName: this.taskName, questionIndex: index + 1}
+      data: { taskId: this.taskId, taskName: this.taskName, questionIndex: index + 1 }
     });
     dialogRef.afterClosed().subscribe(async result => {
-        if (result === false) {
-          const message = "Une erreur est intervenue lors du partage de la question !";
-          this.notificationService.showError(message, "Erreur!");
-        }
-      }, (error) => {
+      if (result === false) {
+        const message = "Une erreur est intervenue lors du partage de la question !";
+        this.notificationService.showError(message, "Erreur!");
+      }
+    }, (error) => {
         console.error(error);
-      });
+    });
   }
 }
