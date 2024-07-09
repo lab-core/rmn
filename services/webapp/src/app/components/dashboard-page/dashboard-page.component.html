@@ -1,39 +1,39 @@
 <div class="main-container">
   <app-main-menu></app-main-menu>
   <div class="task-container">
-      <div class="task-header">
-        <h1 (click)="getTaskInfo()">Tableau de bord pour « {{ taskName }} »</h1>
-      </div>
-      <div class="task-content">
-        <div class="questions">
-          <h3>Question(s)</h3>
-          <div *ngFor="let question of questions; let i = index">
-            Q{{ i + 1 }}
-          </div>
-        </div>
-        <div class="questions">
-          <h3>Copie(s)</h3>
-          <div *ngFor="let question of questions; let i = index">
-            {{ question.corrected }}/{{ question.total }} corrigée(s)
-          </div>
-        </div>
-        <div class="averages">
-          <h3>Moyenne(s)</h3>
-          <div *ngFor="let average of averages; let i = index">
-            {{ average }} point(s)
-          </div>
-        </div>
-        <div class="actions">
-          <h3>Action(s)</h3>
-          <div *ngFor="let question of questions; let i = index" class="action-buttons">
-            <button class="correct-button" (click)="correctQuestion(i)">
-              Corriger
-            </button>
-            <button class="correct-button" (click)="shareQuestion(i)">
-              Partager
-            </button>
-          </div>
+    <div class="task-header">
+      <h1 (click)="getTaskInfo()">Tableau de bord pour « {{ taskName }} »</h1>
+    </div>
+    <div class="task-content">
+      <div class="section">
+        <h3>Questions</h3>
+        <div *ngFor="let question of questions; let i = index">
+          Q{{ i + 1 }}
         </div>
       </div>
+      <div class="section">
+        <h3>Copies corrigées</h3>
+        <div *ngFor="let question of questions; let i = index">
+          {{ question.corrected }} / {{ question.total }}
+        </div>
+      </div>
+      <div class="section">
+        <h3>Moyennes</h3>
+        <div *ngFor="let average of averages; let i = index">
+          {{ average }} / {{ nMaxPointsPerQuestion.get('Q' + (i + 1)) }} 
+        </div>
+      </div>
+      <div class="section">
+        <h3>Actions</h3>
+        <div *ngFor="let question of questions; let i = index" class="action-buttons">
+          <button class="correct-button" (click)="correctQuestion(i)">
+            Corriger
+          </button>
+          <button class="correct-button" (click)="shareQuestion(i)">
+            Partager
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
