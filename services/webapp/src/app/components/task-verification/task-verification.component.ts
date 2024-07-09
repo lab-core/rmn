@@ -138,11 +138,13 @@ export class TaskVerificationComponent implements OnInit {
   generateFormattedIndexes(): Array<string> {
     const formattedIndexes: Array<string> = [];
     const maxIndex = this.examsList.length;
-
-    for (let i = 1; i <= Math.ceil(maxIndex / 9); i++) {
-        for (let j = 1; j <= 9; j++) {
-            const index = `${i}-${j}`;
-            if ((i - 1) * 9 + j <= maxIndex) {
+    const questionString = `Q1`;
+    const subExamsListSize = this.examsList.filter(exam => exam.filename.includes(questionString)).length;
+    
+    for (let i = 1; i <= Math.ceil(maxIndex / subExamsListSize); i++) {
+        for (let j = 1; j <= subExamsListSize; j++) {
+            const index = `${j}-${i}`;
+            if ((i - 1) * subExamsListSize + j <= maxIndex) {
                 formattedIndexes.push(index);
             }
         }
