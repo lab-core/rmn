@@ -249,6 +249,7 @@ export class DashboardPageComponent {
   }
 
   correctQuestion(index: number) {
+    this.tasksService.setvalidatingTaskId(this.task.job_id);
     this.router.navigate([`/task-validation`, this.taskId, index + 1]);
   }
 

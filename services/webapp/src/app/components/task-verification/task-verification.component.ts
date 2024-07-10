@@ -313,41 +313,41 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  loadCopyInCanvas() {
-    const formdata: FormData = new FormData();
-    this.userService.addTokens(formdata);
-    formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-    formdata.append('document_index', this.currentCopy.toString());
+  // loadCopyInCanvas() {
+  //   const formdata: FormData = new FormData();
+  //   this.userService.addTokens(formdata);
+  //   formdata.append('job_id', this.tasksService.getvalidatingTaskId());
+  //   formdata.append('document_index', this.currentCopy.toString());
 
-    this.pictureLoading = true;
+  //   this.pictureLoading = true;
 
-    if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
-      this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
-        (data) => {
-          let url = window.URL.createObjectURL(data);
-          let img = new Image();
-          img.src = url;
-          this.pictureLoading = false;
-          img.onload = this.drawImageScaled.bind(null, img);
-        }, (error) => {
-          console.error(error);
-        });
-    }
-  }
+  //   if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
+  //     this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
+  //       (data) => {
+  //         let url = window.URL.createObjectURL(data);
+  //         let img = new Image();
+  //         img.src = url;
+  //         this.pictureLoading = false;
+  //         img.onload = this.drawImageScaled.bind(null, img);
+  //       }, (error) => {
+  //         console.error(error);
+  //       });
+  //   }
+  // }
 
-  drawImageScaled(img) {
+  // drawImageScaled(img) {
 
-    let canvas = document.getElementById('cv') as HTMLCanvasElement;
-    let ctx = canvas.getContext('2d');
+  //   let canvas = document.getElementById('cv') as HTMLCanvasElement;
+  //   let ctx = canvas.getContext('2d');
 
-    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  //   canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  //   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, 0, 0, img.width, img.height,     // source rectangle
-      0, 0, canvas.width, canvas.height); // destination rectangle
-  }
+  //   ctx.imageSmoothingEnabled = false;
+  //   ctx.drawImage(img, 0, 0, img.width, img.height,     // source rectangle
+  //     0, 0, canvas.width, canvas.height); // destination rectangle
+  // }
 
   changeCurrentCopy(copyIndex, status) {
     if (status !== "NOT_READY") {
@@ -432,13 +432,13 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  getCurrentTotal() {
-    this.currentTotal = this.examsList[this.currentIndex()]["total"];
-  }
+  // getCurrentTotal() {
+  //   this.currentTotal = this.examsList[this.currentIndex()]["total"];
+  // }
 
-  getCurrentPredictions() {
-    this.currentPredictions = this.examsList[this.currentIndex()]["subquestion_predictions"];
-  }
+  // getCurrentPredictions() {
+  //   this.currentPredictions = this.examsList[this.currentIndex()]["subquestion_predictions"];
+  // }
 
   getCurrentStatus() {
     this.currentStatus = this.examsList[this.currentIndex()]["status"];
