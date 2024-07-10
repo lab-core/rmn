@@ -18,7 +18,7 @@ RUN pip install -r requirements.txt \
 
 COPY . .
 
-ENV ENVIRONNEMENT=production
+ENV ENVIRONMENT=production
 ENV PYTHONUNBUFFERED=1
 
 CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"]

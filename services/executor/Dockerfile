@@ -4,7 +4,7 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-ENV ENVIRONNEMENT=production
+ENV ENVIRONMENT=production
 
 RUN apt-get update \
     && apt-get install -y python3-pip \

@@ -2,7 +2,11 @@ import os
 import shutil
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
+
+# either service root or project root depending on the environment
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if os.getenv("ENVIRONMENT") != "production":
+    ROOT_DIR = ROOT_DIR.parent.parent
 
 
 def create_tree(file_path):

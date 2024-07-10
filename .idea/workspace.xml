@@ -6,11 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/job_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/job_executor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/utils/clients.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/clients.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/executor/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/Dockerfile" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/executor/utils/storage.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/storage.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/utils/clients.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/utils/clients.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/server/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/Dockerfile" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
