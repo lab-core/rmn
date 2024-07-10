@@ -37,20 +37,20 @@ def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
         print(f"Merged PDF for {base_name} saved at {output_path}")
 
 
-folder_paths = [
-    'storage/documents/4a3eef04-a8cd-43a6-b388-789a711bee39/cover_page',
-    'storage/documents/4a3eef04-a8cd-43a6-b388-789a711bee39/Q1',
-    'storage/documents/4a3eef04-a8cd-43a6-b388-789a711bee39/Q2',
-    'storage/documents/4a3eef04-a8cd-43a6-b388-789a711bee39/Q3',
-    'storage/documents/4a3eef04-a8cd-43a6-b388-789a711bee39/Q4',
-    'storage/documents/4a3eef04-a8cd-43a6-b388-789a711bee39/Q5'
-]
+# folder_paths = [
+#     'storage/cover_pages/3f3c0889-cd70-45e4-9752-8ab26a47a7f5',
+#     'storage/documents/3f3c0889-cd70-45e4-9752-8ab26a47a7f5/Q1',
+#     'storage/documents/3f3c0889-cd70-45e4-9752-8ab26a47a7f5/Q2',
+#     'storage/documents/3f3c0889-cd70-45e4-9752-8ab26a47a7f5/Q3',
+#     'storage/documents/3f3c0889-cd70-45e4-9752-8ab26a47a7f5/Q4',
+#     'storage/documents/3f3c0889-cd70-45e4-9752-8ab26a47a7f5/Q5'
+# ]
 
 
 base_names = [os.path.splitext(file_name)[0].rsplit('_', 1)[0] for file_name in os.listdir(folder_paths[0]) if file_name.lower().endswith('.pdf')]
 
 
-output_folder = 'storage/corrected_copies/4a3eef04-a8cd-43a6-b388-789a711bee39'
+# output_folder = 'storage/corrected_copies/3f3c0889-cd70-45e4-9752-8ab26a47a7f5'
 
 
 # if __name__ == '__main__':
