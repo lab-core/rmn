@@ -4,8 +4,6 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-ENV ENVIRONMENT=production
-
 RUN apt-get update \
     && apt-get install -y python3-pip \
     && apt-get install -y poppler-utils \
@@ -23,5 +21,7 @@ RUN pip3 install -r requirements.txt
 RUN pip uninstall -y PyCrypto && pip install PyCryptodome
 
 COPY . .
+
+ENV ENVIRONMENT=production
 
 CMD ["python3", "-m", "job_executor"]
