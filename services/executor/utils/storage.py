@@ -2,12 +2,13 @@ import os
 import shutil
 from pathlib import Path
 
-# ROOT_DIR = Path(__file__).resolve().parent.parent
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
 
 def create_tree(file_path):
     split = file_path.rsplit(os.sep, 1)
     os.makedirs(split[0], exist_ok=True)
+
 
 # use this method to avoid Invalid cross-device link error
 # https://stackoverflow.com/questions/42392600/oserror-errno-18-invalid-cross-device-link
@@ -16,16 +17,16 @@ def move(old_file, new_file):
     shutil.copy(old_file, new_file)
     os.remove(old_file)
 
+
 class Storage:
-    def __init__(self, storage_path=None):
+    def __init__(self, storage_path=None, use_repo_root=False):
         if storage_path:
             self.path = Path(storage_path)
         elif os.getenv('STORAGE'):
             self.path = Path(os.getenv('STORAGE'))
         else:
-            # ROOT_DIR_PROJECT = ROOT_DIR
-            # self.path = ROOT_DIR_PROJECT.joinpath("storage")
-            self.path = ROOT_DIR.joinpath("storage")
+            root_dir_project = ROOT_DIR.parent.parent if use_repo_root else ROOT_DIR
+            self.path = root_dir_project.joinpath("storage")
         print("Storage path is: ", self.path)
 
     def abs_path(self, r_path):

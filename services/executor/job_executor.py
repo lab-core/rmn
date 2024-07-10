@@ -12,6 +12,7 @@ from zipfile import ZipFile
 from services.executor.utils.split import insert_copies
 
 import os
+import sys
 import re
 import shutil
 import json
@@ -25,10 +26,8 @@ ROOT_DIR = Path(__file__).resolve().parent
 MAX_RETRY = int(os.getenv("MAX_RETRY", "5")) # 5
 MAX_IDLE_TIME = 120 # 120
 
-storage = Storage()
 
-
-def save_number_images(job_id, document_index, questions):
+def save_number_images(storage, job_id, document_index, questions):
     try:
         numbers = [n for n in questions.values()]
 
@@ -55,6 +54,9 @@ if __name__ == "__main__":
 
     # create redis connection
     redis = redis_client()
+
+    # create storage connection (local or NFS)
+    storage = Storage(use_repo_root=len(sys.argv) > 1)
 
     def process(p_job, TMP_DIR):
         job_id = p_job["job_id"]
@@ -180,7 +182,7 @@ if __name__ == "__main__":
 
                         if save_verified_images:
                             save_number_images(
-                                job_id, doc_idx - 1, doc["subquestion_predictions"]
+                                storage, job_id, doc_idx - 1, doc["subquestion_predictions"]
                             )
 
                         matricule = str(doc["matricule"])
@@ -374,7 +376,7 @@ if __name__ == "__main__":
                     }
                 }
             )
-            
+
             # Save notes.csv file to local
             print("COPYING FROM ", storage.abs_path(job_params["notes_file_id"]), " TO ", str(OUTPUT_FOLDER.joinpath("notes.csv")))
             storage.copy_from(job_params["notes_file_id"], str(OUTPUT_FOLDER.joinpath("notes.csv")))
@@ -593,7 +595,7 @@ if __name__ == "__main__":
                         db.eval_jobs_collection().update_one(
                             {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value}}
                         )
-                
+
                         sio.emit(
                             "jobs_status",
                             json.dumps(
