@@ -52,6 +52,10 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
+    cover_page_folder = os.path.join(output_folder, "cover_page")
+    if not os.path.exists(cover_page_folder):
+        os.makedirs(cover_page_folder)
+
     for input_pdf in input_pdfs:
         with open(input_pdf, 'rb') as f:
             reader = PdfReader(f)
@@ -72,6 +76,13 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
                     with open(output_path, 'wb') as output_file:
                         writer.write(output_file)
                     generated_pdfs_per_question[question].append(output_path)
+                
+                # saving the first page as cover page
+                cover_writer = PdfWriter()
+                cover_writer.add_page(reader.pages[0])
+                cover_output_path = os.path.join(cover_page_folder, f"{base_filename}_cover.pdf")
+                with open(cover_output_path, 'wb') as cover_output_file:
+                    cover_writer.write(cover_output_file)
 
     return generated_pdfs_per_question, is_valid, error_messages
 
