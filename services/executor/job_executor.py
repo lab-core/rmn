@@ -9,7 +9,7 @@ from utils.storage import Storage
 from utils.stop_handler import StopHandler
 from utils.clients import redis_client, socketio_client
 from zipfile import ZipFile
-from utils.split_and_merge import insert_copies
+from services.executor.utils.split import insert_copies
 
 import os
 import re
