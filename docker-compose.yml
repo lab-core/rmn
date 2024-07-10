@@ -20,7 +20,7 @@ services:
    # ports:
    #   - "5001:5001"
    environment:
-     - STORAGE: /Executor/storage
+     STORAGE: /Executor/storage
    volumes:
      - ./storage:/Executor/storage
    depends_on:
