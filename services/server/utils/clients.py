@@ -6,12 +6,12 @@ from pymongo import MongoClient
 
 mongodb_user = os.getenv("MONGODB_USER", "adminuser")
 mongodb_pass = os.getenv("MONGODB_PASSWORD", "example")
-mongodb_host = "mongo" if os.getenv("ENVIRONNEMENT") == "production" else "localhost"
+mongodb_host = "mongo" if os.getenv("ENVIRONMENT") == "production" else "localhost"
 mongo_url = f"mongodb://{mongodb_user}:{mongodb_pass}@{mongodb_host}:27017/?retryWrites=true&w=majority"
 
-redis_host = "redis" if os.getenv("ENVIRONNEMENT") == "production" else "localhost"
+redis_host = "redis" if os.getenv("ENVIRONMENT") == "production" else "localhost"
 socketio_host = (
-    "socketio" if os.getenv("ENVIRONNEMENT") == "production" else "localhost"
+    "socketio" if os.getenv("ENVIRONMENT") == "production" else "localhost"
 )
 
 

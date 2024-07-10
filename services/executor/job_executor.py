@@ -19,7 +19,6 @@ import pandas as pd
 import uuid
 import time
 from datetime import datetime, timedelta
-import argparse
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -45,10 +44,6 @@ def save_number_images(storage, job_id, document_index, questions):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog='Executor', description='Job executor')
-    parser.add_argument('-l', '--local', action='store_true')
-    args = parser.parse_args()
-
     # Connect to Mongo
     print("Setting up MongoClient...")
     db = Database()
@@ -60,7 +55,7 @@ if __name__ == "__main__":
     redis = redis_client()
 
     # create storage connection (local or NFS)
-    storage = Storage(use_repo_root=args.local)
+    storage = Storage()
 
     def process(p_job, TMP_DIR):
         job_id = p_job["job_id"]

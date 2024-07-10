@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
 
 def create_tree(file_path):
@@ -19,14 +19,13 @@ def move(old_file, new_file):
 
 
 class Storage:
-    def __init__(self, storage_path=None, use_repo_root=False):
+    def __init__(self, storage_path=None):
         if storage_path:
             self.path = Path(storage_path)
         elif os.getenv('STORAGE'):
             self.path = Path(os.getenv('STORAGE'))
         else:
-            root_dir_project = ROOT_DIR.parent.parent if use_repo_root else ROOT_DIR
-            self.path = root_dir_project.joinpath("storage")
+            self.path = ROOT_DIR.joinpath("storage")
         print("Storage path is: ", self.path)
 
     def abs_path(self, r_path):
