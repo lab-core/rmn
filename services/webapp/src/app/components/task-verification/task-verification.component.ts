@@ -226,7 +226,7 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   async getCopiesInformations() {
-    let exam = this.examsList[this.currentCopy.toString()];
+    let exam = this.examsList[this.currentIndex()];
     this.currentCopyName = exam["filename"];
     await this.docService.getCopiesInformations(this.tasksService.getvalidatingTaskId(), this.currentCopyName);
     this.copiesInformations = this.docService.copiesInformations;
@@ -456,12 +456,12 @@ export class TaskVerificationComponent implements OnInit {
     }
 
     this.examsList[this.currentIndex()]["total"] = this.currentTotal;
-    const filename = this.examsList[this.currentIndex()]["filename"];
+    const currentExam = this.examsList[this.currentIndex()];
+    const filename = currentExam["filename"];
 
     try {
         await this.addScoreToQuestion();
         const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
-
         if (editedPdfData) {
             const file = new File([editedPdfData], filename, { type: editedPdfData.type });
             this.getCurrentMatricule();
