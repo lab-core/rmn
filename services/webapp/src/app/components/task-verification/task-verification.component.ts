@@ -264,7 +264,7 @@ export class TaskVerificationComponent implements OnInit {
   async addScoreToQuestion(): Promise<void> {
     await this.getMaxPointsPerQuestion();
     await this.getCopiesInformations();
-    console.log("Copies informations before", this.copiesInformations)
+  
     const fullCopyName = this.getBaseNameWithExtension(this.currentCopyName);
     if (fullCopyName && this.currentScore !== null) {
       if (this.currentScore <= this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
@@ -277,7 +277,6 @@ export class TaskVerificationComponent implements OnInit {
     } else {
       this.notificationService.showWarning('Veuillez sélectionner un matricule et saisir un note.', 'Matricule manquant ou note invalide');
     }
-    console.log("Copies informations after", this.copiesInformations)
   }
 
   addOrUpdateInnerMap(copieName: string, questionIndex: string, score: number) {

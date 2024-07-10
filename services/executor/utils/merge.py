@@ -53,5 +53,5 @@ base_names = [os.path.splitext(file_name)[0].rsplit('_', 1)[0] for file_name in 
 output_folder = 'storage/corrected_copies/4a3eef04-a8cd-43a6-b388-789a711bee39'
 
 
-if __name__ == '__main__':
-    merge_pdfs_by_base_name(base_names, folder_paths, output_folder)
+# if __name__ == '__main__':
+#     merge_pdfs_by_base_name(base_names, folder_paths, output_folder)

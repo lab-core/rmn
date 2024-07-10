@@ -52,7 +52,8 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    cover_page_folder = os.path.join(output_folder, "cover_page")
+    base_cover_page_path = os.path.dirname(os.path.dirname(output_folder))
+    cover_page_folder = os.path.join(base_cover_page_path, "cover_pages", job_id)
     if not os.path.exists(cover_page_folder):
         os.makedirs(cover_page_folder)
 
@@ -84,7 +85,17 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
                 with open(cover_output_path, 'wb') as cover_output_file:
                     cover_writer.write(cover_output_file)
 
+    # copying the cover_pages folder to the destination
+    cover_page_dest = os.path.join('cover_pages', job_id)
+    if not os.path.exists(storage.abs_path(cover_page_dest)):
+        os.makedirs(storage.abs_path(cover_page_dest))
+    for file in os.listdir(cover_page_folder):
+        src_file = os.path.join(cover_page_folder, file)
+        dst_file = os.path.join(storage.abs_path(cover_page_dest), file)
+        storage.copy_from(src_file, dst_file)
+
     return generated_pdfs_per_question, is_valid, error_messages
+
 
 def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_id):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
