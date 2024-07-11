@@ -22,16 +22,17 @@ class TemplateService() :
                 status=400,
             )
 
-        if "grade_box" not in request_form:
-            return Response(
-                response=json.dumps({"response": f"Error: matricule_box not provided."}),
-                status=400,
-            )
+        # if "grade_box" not in request_form:
+        #     return Response(
+        #         response=json.dumps({"response": f"Error: matricule_box not provided."}),
+        #         status=400,
+        #     )
 
         template_name = request_form['template_name'] if "template_name" in request_form else "Template"
         print(request_form['matricule_box'])
         matricule_box = convert_box_to_list(json.loads(request_form['matricule_box'])) if "matricule_box" in request_form else None
-        grade_box = convert_box_to_list(json.loads(request_form['grade_box'])) if "grade_box" in request_form else None
+        if "grade_box" in request_form:
+            grade_box = convert_box_to_list(json.loads(request_form['grade_box'])) if "grade_box" in request_form else None
 
         print(request.files)
 
@@ -84,9 +85,11 @@ class TemplateService() :
             "template_id": template_id,
             "template_name": str(template_name),
             "matricule_box": matricule_box,
-            "grade_box": grade_box,
             "template_file_id": template_file_id
         }
+
+        if "grade_box" in request_form:
+            template["grade_box"] = grade_box
 
         try:
             collection.insert_one(template)
@@ -210,32 +213,37 @@ class TemplateService() :
 
         return file_send
 
-    def change_template_info(request, db) :
+    def change_template_info(request, db):
         request_form = request.form
 
-
-        # if not request_form.keys() & { "template_id", "template_name", "matricule_box", "grade_box"}:
-        #     return Response(
-        #         response=json.dumps({"response": f"Error: Missing value in request form"}),
-        #         status=400,
-        #     )
+        required_fields = {"template_id", "template_name", "matricule_box"}
+        if not set(request_form.keys()) >= required_fields:
+            return Response(
+                response=json.dumps({"response": "Error: Missing value in request form"}),
+                status=400,
+            )
 
         template_name = request_form['template_name']
         matricule_box = convert_box_to_list(json.loads(request_form['matricule_box']))
-        grade_box = convert_box_to_list(json.loads(request_form['grade_box']))
-
         template_id = str(request_form["template_id"])
+
+        update_fields = {
+            "template_name": template_name,
+            "matricule_box": matricule_box,
+        }
+
+        if "grade_box" in request_form:
+            grade_box = convert_box_to_list(json.loads(request_form['grade_box']))
+            update_fields["grade_box"] = grade_box
 
         collection = db["template"]
 
         collection.update_one(
             {"template_id": template_id},
             {
-                "$set": {
-                    "template_name": template_name,
-                    "matricule_box": matricule_box,
-                    "grade_box": grade_box,
-                }
+                "$set": update_fields
             })
 
         return Response(response=json.dumps({"response": "OK"}), status=200)
+
+

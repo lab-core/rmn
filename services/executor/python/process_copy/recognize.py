@@ -232,20 +232,33 @@ def grade_all(
     paths,
     grades_csv,
     box_matricule_default,
+    box_default,
     job_id,
     user_id,
     template_id,
     dpi=300,
     shape=(8.5, 11),
-):
+    ):
     db = Database()
-    box_list, box_matricule_list = db.get_template_info(template_id)
-    box_matricule = (
-        convert_to_box_config(box_matricule_list)
-        if box_matricule_list is not None
-        else box_matricule_default
-    )
-    box = convert_grade_box_config(box_list)
+    box_list, box_matricule_list = None, None
+    box_matricule = box_matricule_default  
+    box = box_default  
+
+    try:
+        box_list, box_matricule_list = db.get_template_info(template_id)
+        if box_matricule_list is not None:
+            box_matricule = convert_to_box_config(box_matricule_list)
+        if box_list is not None:
+            box = convert_grade_box_config(box_list)
+    except Exception as e:
+        print("ERREUR:", e)
+
+    # debug
+    print("box_matricule_list", box_matricule_list)
+    print("box_list", box_list)
+    print("box_default", box_default)
+    print("box_matricule", box_matricule)
+    print("box", box)
 
     # load csv
     grades_dfs, grades_names = load_csv(grades_csv)
@@ -361,17 +374,17 @@ def grade_all(
             + Style.RESET_ALL
         )
 
-    # add summarry
-    # sumarries = [[] for f in grades_csv]
+    # add summary
+    # summaries = [[] for f in grades_csv]
     # def add_summary(file, grades, mat, numbers, total_matched, id_group, id_img=None, initial_index=2):
-    #     lsum = sumarries[id_group]
+    #     lsum = summaries[id_group]
     #     # rename file
     #     name = "%d: %s" % (len(lsum)+initial_index, file)  # recover id box if provided
     #     if id_img is not None:
-    #         sumarry = create_summary2(id_img, grades, mat, numbers, total_matched, name, dpi)
+    #         summary = create_summary2(id_img, grades, mat, numbers, total_matched, name, dpi)
     #     else:
-    #         sumarry = create_summary(grades, mat, numbers, total_matched, name, dpi)
-    #     lsum.append(sumarry)
+    #         summary = create_summary(grades, mat, numbers, total_matched, name, dpi)
+    #     lsum.append(summary)
     # handler.createSummary(DIRPATH, "notes_summary.pdf")
 
     shutil.rmtree(DIRPATH)

@@ -1,7 +1,20 @@
 <div class="template-editor-container">
     <div class="background">
         <div class="template-container">
-            <ngx-extended-pdf-viewer [src]="templateService.getTemplateUrl()" [zoom]="'page-fit'"></ngx-extended-pdf-viewer> 
+            <ngx-extended-pdf-viewer [src]="templateService.getTemplateUrl()" 
+                [zoom]="'page-fit'"
+                [showDownloadButton]="false"
+                [showFindButton]="false"
+                [showHandToolButton]="false"
+                [showOpenFileButton]="false"
+                [showPagingButtons]="false"
+                [showPresentationModeButton]="false"
+                [showPrintButton]="false"
+                [showRotateButton]="false"
+                [showSecondaryToolbarButton]="false"
+                [showSidebarButton]="false"
+                [showZoomButtons]="false">
+            </ngx-extended-pdf-viewer> 
             <canvas id="cv"></canvas>
             <svg id="svg"
                 (mousedown)="mouseDown($event)" 

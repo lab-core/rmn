@@ -191,7 +191,7 @@ def run_args(args):
             if args.compare:
                 compare_all(args.path, args.grades, config.grade_box[args.grade])
             else:
-                grade_all(args.path, args.grades, config.matricule_box["exam"], args.job_id, args.user_id, args.template_id)
+                grade_all(args.path, args.grades, config.matricule_box["exam"], config.grade_box["exam"], args.job_id, args.user_id, args.template_id)
         except KeyError:
             raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
 

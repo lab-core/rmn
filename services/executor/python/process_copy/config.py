@@ -14,7 +14,7 @@ grade_box = {
         # 'trim': [(0, -1), (1, 2), (2, 2), (3, 3), (4, 2), (5, 3)]
     }
 }
-
+# default coordinates
 matricule_box = {
     "exam": {
         'front': (0.05, 0.85, 0.15, 0.35),

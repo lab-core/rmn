@@ -115,32 +115,36 @@ export class TemplateEditorComponent implements OnInit {
   }
 
   confirm() {
-    if(this.templateName.trim() === ''){
-      this.showNameNotificationError();
-    } else if(this.rectangleService.getQuestionsRectCoords().x1 === null){
-      this.showRectanglesNotificationError();
+    if (this.templateName.trim() === '') {
+        this.showNameNotificationError();
     } else {
-      const formdata: FormData = new FormData();
-      formdata.append('user_id', this.userService.currentUsername);
-      formdata.append('token', this.userService.token);
-      formdata.append('template_name', this.templateName);
-      formdata.append('matricule_box', JSON.stringify(this.rectangleService.getIdentificationRectCoords()));
-      formdata.append('grade_box', JSON.stringify(this.rectangleService.getQuestionsRectCoords()));
-
-      if(!this.templateService.checkEditing()){
-        formdata.append('template_file', this.templateService.getFile());
-        this.http.post<any>(`${SERVER_URL}template`, formdata).subscribe(
-          (data) => {
-            this.router.navigate(['/templates']);
-          });
-      } else {
-        formdata.append('template_id', this.templateService.getTemplateId());
-        this.http.post<any>(`${SERVER_URL}template/modify`, formdata).subscribe(
-          (data) => {
-            this.router.navigate(['/templates']);
-          });
-      }
-      this.rectangleService.resetRects();
+        const formdata: FormData = new FormData();
+        formdata.append('user_id', this.userService.currentUsername);
+        formdata.append('token', this.userService.token);
+        formdata.append('template_name', this.templateName);
+        formdata.append('matricule_box', JSON.stringify(this.rectangleService.getIdentificationRectCoords()));
+        
+        const questionsRectCoords = this.rectangleService.getQuestionsRectCoords();
+        if (questionsRectCoords && questionsRectCoords.x1 != null) {
+            formdata.append('grade_box', JSON.stringify(questionsRectCoords));
+        }
+        
+        if (!this.templateService.checkEditing()) {
+            formdata.append('template_file', this.templateService.getFile());
+            this.http.post<any>(`${SERVER_URL}template`, formdata).subscribe(
+                (data) => {
+                    this.router.navigate(['/templates']);
+                }
+            );
+        } else {
+            formdata.append('template_id', this.templateService.getTemplateId());
+            this.http.post<any>(`${SERVER_URL}template/modify`, formdata).subscribe(
+                (data) => {
+                    this.router.navigate(['/templates']);
+                }
+            );
+        }
+        this.rectangleService.resetRects();
     }
   }
 

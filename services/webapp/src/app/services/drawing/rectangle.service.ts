@@ -162,10 +162,12 @@ export class RectangleService {
 
     let questions = this.getQuestionsRectCoords();
     let questionsCoords = {x1:null, x2:null, y1:null, y2:null};
-    questionsCoords.x1 = questions.x1/100*svgContainerWidth;
-    questionsCoords.x2 = questions.x2/100*svgContainerWidth;
-    questionsCoords.y1 = questions.y1/100*svgContainerHeight;
-    questionsCoords.y2 = questions.y2/100*svgContainerHeight;
+    if (questions != null) {
+      questionsCoords.x1 = questions.x1 / 100 * svgContainerWidth;
+      questionsCoords.x2 = questions.x2 / 100 * svgContainerWidth;
+      questionsCoords.y1 = questions.y1 / 100 * svgContainerHeight;
+      questionsCoords.y2 = questions.y2 / 100 * svgContainerHeight;
+    }
 
     //identification
     let identificationRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect') as SVGGraphicsElement;
@@ -182,10 +184,12 @@ export class RectangleService {
 
     //questions
     let questionsRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect') as SVGGraphicsElement;
-    questionsRect.setAttribute('x', questionsCoords.x1.toString());
-    questionsRect.setAttribute( 'y', questionsCoords.y1.toString());
-    questionsRect.setAttribute( 'width', (questionsCoords.x2 - questionsCoords.x1).toString());
-    questionsRect.setAttribute( 'height', (questionsCoords.y2 - questionsCoords.y1).toString());
+    if (questions != null) {
+      questionsRect.setAttribute('x', questionsCoords.x1.toString());
+      questionsRect.setAttribute( 'y', questionsCoords.y1.toString());
+      questionsRect.setAttribute( 'width', (questionsCoords.x2 - questionsCoords.x1).toString());
+      questionsRect.setAttribute( 'height', (questionsCoords.y2 - questionsCoords.y1).toString());
+    }
     questionsRect.setAttribute( 'fill-opacity', "0.01");
     questionsRect.setAttribute( 'stroke', "#1eff00");
     questionsRect.setAttribute( 'id', "questions");

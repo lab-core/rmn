@@ -158,10 +158,10 @@ class Database:
         template = self.mongo_database["template"].find_one(
             {"template_id": template_id}
         )
-        template_matricule_box = (
-            template["matricule_box"] if "matricule_box" in template else None
-        )
-        return template["grade_box"], template_matricule_box
+        template_matricule_box = template.get("matricule_box", None)
+        template_grade_box = template.get("grade_box", None)
+        return template_grade_box, template_matricule_box
+
 
     def imwrite_png(self, name, img):
         if not os.path.exists("numbers"):
