@@ -244,14 +244,16 @@ def grade_all(
     box_matricule = box_matricule_default  
     box = box_default  
 
-    try:
-        box_list, box_matricule_list = db.get_template_info(template_id)
-        if box_matricule_list is not None:
-            box_matricule = convert_to_box_config(box_matricule_list)
-        if box_list is not None:
-            box = convert_grade_box_config(box_list)
-    except Exception as e:
-        print("ERREUR:", e)
+    box_list, box_matricule_list = db.get_template_info(template_id)
+    if box_matricule_list is not None:
+        box_matricule = convert_to_box_config(box_matricule_list)
+    if box_list is not None:
+        box = convert_grade_box_config(box_list)
+
+    if box_list is None:
+        box_matricule['front'] = box_matricule_default['front']
+        box_matricule['regular'] = tuple(box_matricule_list)
+        # box_matricule['regular'] = (0.55, 0.95, 0.05, 0.13)
 
     # debug
     print("box_matricule_list", box_matricule_list)
