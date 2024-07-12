@@ -61,8 +61,8 @@
                     [showPrintButton]="false"
                     [showOpenFileButton]="false">
                 </ngx-extended-pdf-viewer>
-                <button mat-button (click)="previousCopy()"class="back-button2" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_back_ios</mat-icon></button>
-                <button mat-button (click)="nextCopy()"class="back-button3" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_forward_ios</mat-icon></button>
+                <button mat-button *ngIf="!isSidebarHidden" (click)="previousCopy()"class="back-button2" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_back_ios</mat-icon></button>
+                <button mat-button *ngIf="!isSidebarHidden" (click)="nextCopy()"class="back-button3" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_forward_ios</mat-icon></button>
                 <mat-spinner *ngIf="this.pdfLoading"></mat-spinner>
             </div>
             <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer">
@@ -112,6 +112,6 @@
         </div>
     </div>
 </div>
-<button mat-button *ngIf="this.loggued()" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+<button mat-button *ngIf="this.loggued() && !isSidebarHidden" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
 <div id="overlay" *ngIf="this.validating"></div>
 <mat-spinner class="overlay-spinner" *ngIf="this.validating" color="accent" [diameter]="150"></mat-spinner>

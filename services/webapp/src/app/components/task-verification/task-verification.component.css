@@ -284,7 +284,7 @@
 }
 
 .picture-container {
-    height: 95%;
+    height: 90%;
     width: 85%;
     margin-right: 2.5%;
     margin-left: 5.5%;
@@ -295,11 +295,11 @@
 }
 
 .picture-container.expanded {
-    height: 98.5%;
-    width: 150%;
+    height: 85.5%;
+    width: 350%;
     margin-right: 2.5%;
-    margin-left: 5.5%;
-    margin-top: 3%;
+    margin-left: 2.5%;
+    margin-top: 5%;
     border: 2px solid gray;
     display: flex;
     align-items: center;
