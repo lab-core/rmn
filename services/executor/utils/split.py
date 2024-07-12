@@ -89,10 +89,10 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
     cover_page_dest = os.path.join('cover_pages', job_id)
     if not os.path.exists(storage.abs_path(cover_page_dest)):
         os.makedirs(storage.abs_path(cover_page_dest))
-    for file in os.listdir(cover_page_folder):
-        src_file = os.path.join(cover_page_folder, file)
-        dst_file = os.path.join(storage.abs_path(cover_page_dest), file)
-        storage.copy_from(src_file, dst_file)
+    # for file in os.listdir(cover_page_folder):
+    #     src_file = os.path.join(cover_page_folder, file)
+    #     dst_file = os.path.join(storage.abs_path(cover_page_dest), file)
+    #     storage.copy_from(src_file, dst_file)
 
     return generated_pdfs_per_question, is_valid, error_messages
 
@@ -138,8 +138,8 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
     document_index = 1
     for question, pdf_paths in generated_pdfs.items():
         for pdf_path in pdf_paths:
-            file_path = os.path.join('documents', job_id, question, os.path.basename(pdf_path))
-            storage.copy_from(pdf_path, storage.abs_path(file_path))
+            # file_path = os.path.join('documents', job_id, question, os.path.basename(pdf_path))
+            # storage.copy_from(pdf_path, storage.abs_path(file_path))
             
             file_name = f"documents/{job_id}/{question}/{os.path.basename(pdf_path)}"
             pdf_name = os.path.basename(pdf_path)
