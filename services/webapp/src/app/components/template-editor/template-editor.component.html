@@ -1,8 +1,7 @@
 <div class="template-editor-container">
     <div class="background">
         <div class="template-container">
-            <ngx-extended-pdf-viewer [src]="templateService.getTemplateUrl()" 
-                [zoom]="'page-fit'"
+            <ngx-extended-pdf-viewer [src]="this.templateService.getTemplateUrl()" 
                 [showDownloadButton]="false"
                 [showFindButton]="false"
                 [showHandToolButton]="false"
@@ -56,4 +55,4 @@
         </div>
     </div>
 </div>
-<button mat-button (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+<button mat-button (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>

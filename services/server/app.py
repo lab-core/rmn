@@ -1035,7 +1035,7 @@ def delete_job(job_id):
     except Exception as e:
         print(e)
     try:
-        storage.remove_tree(f"documents/{job_id}")
+        storage.remove_tree(f"cover_pages/{job_id}")
     except Exception as e:
         print(e)
 
