@@ -98,7 +98,7 @@ export class DashboardPageComponent {
       return [];
     }
 
-    const filenames = examsList.map(doc => doc.filename.replace(/_Q\d+/, ''));
+    const filenames = examsList.map(doc => doc.filename.replace(/_Q\d+/, '')).filter(filename => !filename.endsWith('_cover.pdf'));
     return Array.from(new Set(filenames));
   }
 

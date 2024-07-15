@@ -72,9 +72,6 @@
                         <div class="value-input-div">
                             <input id="score" type="number" [(ngModel)]="currentScore" placeholder="Entrer la note" class="note-input"/>
                         </div>
-                        <!-- <div class="button-container">
-                            <button class="add-score-button" (click)="addScoreToQuestion()">Ajouter la note</button>
-                        </div> -->
                     </div>
                     <div class="sub-check-container"
                         *ngFor="let prediction of this.currentPredictions | keyvalue : sortNull; trackBy: trackByIndex;">

@@ -890,7 +890,7 @@ def update_document():
     request_form = request.form
     request_files = request.files
 
-    required_fields = ["job_id", "document_index", "copies_informations", "matricule", "n_max_points_per_question", "status"]
+    required_fields = ["job_id", "document_index", "copies_informations", "n_max_points_per_question", "status"]
     for field in required_fields:
         if field not in request_form:
             return Response(
@@ -906,7 +906,6 @@ def update_document():
 
     job_id = str(request_form["job_id"])
     document_index = int(request_form["document_index"])
-    matricule = str(request_form["matricule"])
     n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
 
     # replacing the previous file by the new one in storage
@@ -928,7 +927,6 @@ def update_document():
     collection.update_one(
         {"job_id": job_id, "document_index": document_index},
         {"$set": {
-            "matricule": matricule,
             "n_max_points_per_question": n_max_points_per_question,
             "status": Document_Status.VALIDATED.value,
         }}

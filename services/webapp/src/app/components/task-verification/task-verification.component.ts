@@ -475,7 +475,7 @@ export class TaskVerificationComponent implements OnInit {
                 this.currentCopy,
                 file,
                 this.copiesInformations,
-                this.currentMatricule,
+                0,
                 this.nMaxPointsPerQuestion,
                 this.currentStatus
             );
