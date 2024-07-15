@@ -50,6 +50,7 @@
                 <button class="validate-job-button" mat-flat-button (click)="validateJob()"
                 [disabled]="this.disabledValidationButton">Finaliser</button>
             </div>
+            <button class="download-zip-button" mat-flat-button (click)="downloadAllFilesAsZip()">Tout télécharger</button>
         </div>
         <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
             <p *ngIf="this.disabledValidationcontainer">Aucune copie n'est prête à être validée.</p>

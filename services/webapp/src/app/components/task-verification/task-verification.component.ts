@@ -12,6 +12,8 @@ import { DocumentsService } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
 import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { MatSelectChange } from '@angular/material/select';
+import * as saveAs from 'file-saver';
+import * as JSZip from 'jszip';
 
 @Component({
   selector: 'app-task-verification',
@@ -272,7 +274,7 @@ export class TaskVerificationComponent implements OnInit {
         this.currentScore = null;
       } else if (this.currentScore > this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
         const excessPoints = this.currentScore - this.nMaxPointsPerQuestion.get(this.currentQuestionIndex);
-        this.notificationService.showWarning(`Vous avez rajouté ${excessPoints} point(s) bonus`, 'Attention !');
+        this.notificationService.showWarning(`Vous avez rajouté ${excessPoints} point(s) bonus`, 'Attention!');
         this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
         this.currentScore = null;
       }else {
@@ -652,6 +654,7 @@ export class TaskVerificationComponent implements OnInit {
     // console.log("height", height+"%")
     return height+"%";
   }
+
   checkValidationButton(): void {
     // this.disabledValidationButton = !this.job || this.job["job_status"] !== 'VALIDATION';
     const disabledValidationButton = this.examsList.some(exam => exam.status !== 'VALIDATED');
@@ -663,5 +666,42 @@ export class TaskVerificationComponent implements OnInit {
       const subExams = this.examsList.filter(exam => exam.filename.includes(`Q${questionIndex}`));
           this.disabledValidationButton = subExams.some(exam => exam["status"] !== 'VALIDATED');
     }
+  }
+
+  async downloadAllFilesAsZip() {
+    this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
+    const zip = new JSZip();
+  
+    for (const exam of this.examsList) {
+      if (exam.status !== 'NOT_READY') {
+        const formdata: FormData = new FormData();
+        this.userService.addTokens(formdata);
+        formdata.append('job_id', this.tasksService.getvalidatingTaskId());
+        formdata.append('document_index', exam.document_index.toString());
+  
+        await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' })
+          .toPromise()
+          .then((data: Blob) => {
+            const fileName = exam.filename;
+            const questionIndex = this.verifyQuestionIndex(exam.filename);
+            const folder = zip.folder(`Question_${questionIndex}`);
+            folder.file(fileName, data);
+          })
+          .catch((error) => {
+            console.error(`Error downloading file ${exam.filename}:`, error);
+          });
+      }
+    }
+  
+    zip.generateAsync({ type: 'blob' })
+      .then((content) => {
+        saveAs(content, `${this.job['job_id']}.zip`);
+      });
+    this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
+  }
+  
+  verifyQuestionIndex(filename: string): string {
+    const match = filename.match(/Q(\d+)/);
+    return match ? match[1] : 'Unknown';
   }
 }

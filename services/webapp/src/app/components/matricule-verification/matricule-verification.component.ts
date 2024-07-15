@@ -206,8 +206,6 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   changeCurrentCopy(copyIndex: string, status: string) {
-    console.log("Current Copy Index:", this.currentCopy);
-    console.log("Clicked Copy Index:", copyIndex);
     if (status !== "NOT_READY") {
         let exam = this.examsList.find((e) => e.document_index === copyIndex);
         console.log("Change current copy to", copyIndex);
@@ -222,7 +220,7 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   changeCurrentExam(examIndex: number) {
-    const exam = this.examsList[examIndex];
+    const exam = this.examsList[examIndex-1];
     if (exam) {
       this.changeCurrentCopy(exam.document_index, exam.status);
     }
