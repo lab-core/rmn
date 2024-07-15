@@ -5,35 +5,33 @@ import { ValidationService } from 'src/app/services/validation.service';
 import { SocketService } from 'src/app/services/socket.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { HttpClient } from '@angular/common/http';
-import { ValidationWarningDialogComponent } from './validation-warning-dialog/validation-warning-dialog.component';
 import { Router, ActivatedRoute } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
 import { DocumentsService } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
 import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { MatSelectChange } from '@angular/material/select';
+import { ValidationWarningDialogComponent } from '../task-verification/validation-warning-dialog/validation-warning-dialog.component';
 
 @Component({
-  selector: 'app-task-verification',
-  templateUrl: './task-verification.component.html',
-  styleUrls: ['./task-verification.component.css']
+  selector: 'app-matricule-verification',
+  templateUrl: './matricule-verification.component.html',
+  styleUrls: ['./matricule-verification.component.css']
 })
-export class TaskVerificationComponent implements OnInit {
+export class MatriculeVerificationComponent implements OnInit {
 
   constructor(private tasksService: TasksService,
-    private validationService: ValidationService,
-    private socketService: SocketService,
-    private notificationService: NotificationService,
-    private http: HttpClient,
-    public dialog: MatDialog,
-    private router: Router,
-    private route: ActivatedRoute,
-    private userService: UserService,
-    private docService: DocumentsService,
-    private ngxService: NgxExtendedPdfViewerService) {}
-  
-  isSidebarHidden: boolean = false;
-  isIndexProvided: boolean = false;
+              private validationService: ValidationService,
+              private socketService: SocketService,
+              private notificationService: NotificationService,
+              private http: HttpClient,
+              public dialog: MatDialog,
+              private router: Router,
+              private route: ActivatedRoute,
+              private userService: UserService,
+              private docService: DocumentsService,
+              private ngxService: NgxExtendedPdfViewerService) {}
+
   pictureLoading: boolean = true;
   pdfLoading: boolean = true;
   disabledValidationcontainer = true;
@@ -44,11 +42,10 @@ export class TaskVerificationComponent implements OnInit {
 
   job: Map<string, any>;
   pdfSrc: string;
-  
+
   copiesInformations: Map<string, Map<string, number>> = new Map();
-  nMaxPointsPerQuestion = new Map<string, number>();
-  initialCopyIndex: number = -1;
-  currentCopy: number = -1;
+  initialCopyIndex: number = 0;
+  currentCopy: number = 0;
   currentCopyName: string;
   currentQuestionIndex: string;
   currentMatricule: number;
@@ -66,8 +63,6 @@ export class TaskVerificationComponent implements OnInit {
   matriculeList: Array<any>;
   group: string;
   groupsList: Array<string>;
-  questionIndexes: Array<number | "Tout sélectionner"> = [];
-  formattedIndexes: Array<string> = [];
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
@@ -89,21 +84,20 @@ export class TaskVerificationComponent implements OnInit {
     if (this.job && this.job["job_id"]) {
       this.getMatriculeList();
       await this.getDocuments();
-      await this.getMaxPointsPerQuestion();
+      this.getSubExamsList();
       if (this.checkForAvailableCopies()) {
         this.nextCopy();
       }
       this.checkValidationButton();
-
+  
       this.socketService.join(this.job["job_id"]);
       this.socketService.getSocket().on('document_ready', async (params: any) => {
         await this.getDocuments();
-        await this.getMaxPointsPerQuestion();
         if (this.disabledValidationcontainer) {
           this.nextCopy();
         }
       });
-
+  
       if (this.userService.token) {
         this.socketService.join(this.userService.currentUsername);
         this.socketService.getSocket().on('jobs_status', async (params: any) => {
@@ -120,109 +114,27 @@ export class TaskVerificationComponent implements OnInit {
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
       this.reroute();
     }
-    this.formattedIndexes = this.generateFormattedIndexes();
-    this.initializeQuestionIndexes();
     this.checkValidationButton();
   }
+  
 
   ngOnDestroy(): void {
     this.socketService.getSocket().off('document_ready');
     this.socketService.getSocket().off('jobs_status');
     this.socketService.disconnectSocket();
   }
-  
-  toggleSidebar() {
-    this.isSidebarHidden = !this.isSidebarHidden;
-  }
-
-  generateFormattedIndexes(): Array<string> {
-    const formattedIndexes: Array<string> = [];
-    const maxIndex = this.examsList.length;
-    const questionString = `Q1`;
-    const subExamsListSize = this.examsList.filter(exam => exam.filename.includes(questionString)).length;
-    
-    for (let i = 1; i <= Math.ceil(maxIndex / subExamsListSize); i++) {
-        for (let j = 1; j <= subExamsListSize; j++) {
-            const index = `${j}-${i}`;
-            if ((i - 1) * subExamsListSize + j <= maxIndex) {
-                formattedIndexes.push(index);
-            }
-        }
-    }
-    return formattedIndexes;
-  }
-
-  initializeQuestionIndexes(): void {
-    this.questionIndexes = ["Tout sélectionner", ...Array.from({ length: this.nMaxPointsPerQuestion.size }, (_, i) => i + 1)];
-    // if question index is provided in query params
-    const questionIndex = this.route.snapshot.queryParams['question_index'];
-    if (questionIndex) {
-      this.currentQuestionIndex = questionIndex;
-      this.onQuestionIndexChange({ value: questionIndex } as MatSelectChange);
-      this.disabledDropDown = true;
-      this.isIndexProvided = true;
-    } else {
-      this.route.params.subscribe(params => {
-        const index = params['index'];
-        if (index) {
-          this.currentQuestionIndex = index;
-          this.onQuestionIndexChange({ value: index } as MatSelectChange);
-        }
-      });
-    }
-  }
-
-  onQuestionIndexChange(event: MatSelectChange): void {
-    this.currentQuestionIndex = event.value;
-    if (event.value === "Tout sélectionner") {
-        this.subExamsList = this.examsList;
-        this.formattedIndexes = this.generateFormattedIndexes();
-    } else {
-        this.filterExamsByQuestion(event.value);
-    }
-    if (this.subExamsList.length > 0) {
-        const firstExam = this.subExamsList[0];
-        this.changeCurrentCopy(firstExam["document_index"], firstExam["status"]);
-    }
-  }
-
-
-  filterExamsByQuestion(questionIndex: number): void {
-    const questionString = `Q${questionIndex}`;
-    this.subExamsList = this.examsList.filter(exam => exam.filename.includes(questionString));
-
-    this.formattedIndexes = this.subExamsList.map((_, i) => {
-      const subIndex = (i % this.subExamsList.length) + 1;
-      return `${subIndex}-${questionIndex}`;
-    });
-  }
-
-  setQuestionId(question: string): string {
-    return question.replace(/\s/g, '');
-  }
-
-  selectText(event): void {
-    // const input = document.getElementById('text-box');
-    // input.focus();
-    event.target.select();
-  }
 
   async getDocuments() {
     await this.docService.getDocuments(this.tasksService.getvalidatingTaskId());
-    this.examsList = this.docService.documentsList;
+    this.examsList = this.docService.coversList;
     this.groupsList = this.docService.groupsList;
     // compute sub exams list if any selected group
     this.getSubExamsList();
     // initialize initialCopyIndex and currentCopy
-    if (this.examsList.length > 0 && this.initialCopyIndex < 0) {
-      this.initialCopyIndex = this.examsList[0].document_index;
-      this.currentCopy = this.initialCopyIndex - 1;
+    if (this.examsList.length > 0) {
+      this.initialCopyIndex = 0;
+      this.currentCopy = this.initialCopyIndex;
     }
-  }
-
-  async getMaxPointsPerQuestion() {
-    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
-    this.nMaxPointsPerQuestion = this.docService.nMaxPointsPerQuestion;
   }
 
   async getCopiesInformations() {
@@ -233,62 +145,31 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   getSubExamsList(): void {
-    console.log("group", this.group)
+    console.log("group", this.group);
     if (this.group) {
       let subExamsList = [];
       this.examsList.forEach((exam: any) => {
         if (exam['group'] == this.group) {
           subExamsList.push(exam);
         }
-      })
+      });
       this.subExamsList = subExamsList;
-      console.log("sub exam list size for group", this.group, subExamsList.length, "/", this.examsList.length)
+      console.log("sub exam list size for group", this.group, subExamsList.length, "/", this.examsList.length);
     } else {
-      console.log("sub exam list is the full list of size", this.examsList.length)
+      console.log("sub exam list is the full list of size", this.examsList.length);
       this.subExamsList = this.examsList;
     }
   }
 
   loadSubExamsList(): void {
     this.getSubExamsList();
-    console.log("Group:", this.group, this.subExamsList.length, "exams")
+    console.log("Group:", this.group, this.subExamsList.length, "exams");
     // if any copy available
     if (this.checkForAvailableCopies()) {
-      this.currentCopy = this.initialCopyIndex - 1;
+      this.currentCopy = this.initialCopyIndex;
       this.nextCopy();
     } else {
       this.disabledValidationcontainer = true;
-    }
-  }
-
-  async addScoreToQuestion(): Promise<void> {
-    await this.getMaxPointsPerQuestion();
-    await this.getCopiesInformations();
-  
-    const fullCopyName = this.getBaseNameWithExtension(this.currentCopyName);
-    if (fullCopyName && this.currentScore !== null) {
-      if (this.currentScore <= this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
-        this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
-        this.currentScore = null;
-      } else {
-        this.notificationService.showWarning('Veuillez saisir une note valide.', 'Note invalide');
-        throw new Error('Note invalide');
-      }
-    } else {
-      this.notificationService.showWarning('Veuillez sélectionner un matricule et saisir un note.', 'Matricule manquant ou note invalide');
-    }
-  }
-
-  addOrUpdateInnerMap(copieName: string, questionIndex: string, score: number) {
-    if (!this.copiesInformations.has(copieName)) {
-        let copieInformations = new Map<string, number>();
-        copieInformations.set(questionIndex, score);
-        this.copiesInformations.set(copieName, copieInformations);
-    } else {
-        let existingMap = this.copiesInformations.get(copieName);
-        if (existingMap) {
-          existingMap.set(questionIndex, score);
-      }
     }
   }
 
@@ -296,82 +177,64 @@ export class TaskVerificationComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-    formdata.append('document_index', this.currentCopy.toString());
-
+    formdata.append('document_index', this.examsList[this.currentCopy].document_index);
+  
     this.pdfLoading = true;
-    if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
+  
+    // find the document in examsList based on the filename (currentIndex)
+    const currentFilename = this.currentIndex();
+    const currentExam = this.examsList.find((exam: any) => exam.filename === currentFilename);
+    console.log("Current Exam: ", currentExam);
+  
+    if (currentExam && currentExam.status !== "NOT_READY") {
       this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
         (data) => {
           let url = window.URL.createObjectURL(data);
           this.pdfSrc = url;
           this.pdfLoading = false;
-          // console.log("Current Exam: ", this.examsList[this.currentIndex()])
+          console.log("PDF loaded successfully for: ", currentFilename);
         }, (error) => {
           console.error(error);
+          this.pdfLoading = false;
         });
+    } else {
+      this.pdfLoading = false;
+      if (!currentExam) {
+        console.error("Document not found for filename:", currentFilename);
+      }
     }
   }
 
-  // loadCopyInCanvas() {
-  //   const formdata: FormData = new FormData();
-  //   this.userService.addTokens(formdata);
-  //   formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-  //   formdata.append('document_index', this.currentCopy.toString());
-
-  //   this.pictureLoading = true;
-
-  //   if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
-  //     this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
-  //       (data) => {
-  //         let url = window.URL.createObjectURL(data);
-  //         let img = new Image();
-  //         img.src = url;
-  //         this.pictureLoading = false;
-  //         img.onload = this.drawImageScaled.bind(null, img);
-  //       }, (error) => {
-  //         console.error(error);
-  //       });
-  //   }
-  // }
-
-  // drawImageScaled(img) {
-
-  //   let canvas = document.getElementById('cv') as HTMLCanvasElement;
-  //   let ctx = canvas.getContext('2d');
-
-  //   canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-
-  //   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  //   ctx.imageSmoothingEnabled = false;
-  //   ctx.drawImage(img, 0, 0, img.width, img.height,     // source rectangle
-  //     0, 0, canvas.width, canvas.height); // destination rectangle
-  // }
-
-  changeCurrentCopy(copyIndex, status) {
+  changeCurrentCopy(copyIndex: string, status: string) {
+    console.log("Current Copy Index:", this.currentCopy);
+    console.log("Clicked Copy Index:", copyIndex);
     if (status !== "NOT_READY") {
-      let exam = this.examsList[copyIndex-1];
-      console.log("Change current copy to", copyIndex)
-      this.currentQuestionIndex = this.getQuestionIndex(exam["filename"]);
-      this.currentCopyName = this.getBaseNameWithExtension(exam["filename"]);
-      this.currentCopy = copyIndex;
-      console.log("Current copy", this.currentCopy);
-      this.disabledValidationcontainer = false;
-      this.loadCopy();
-      this.setChosenColor(status);
+        let exam = this.examsList.find((e) => e.document_index === copyIndex);
+        console.log("Change current copy to", copyIndex);
+        this.currentQuestionIndex = this.getQuestionIndex(copyIndex);
+        this.currentCopyName = exam.filename;
+        this.currentCopy = this.examsList.indexOf(exam);
+        console.log("Current copy", this.currentCopy);
+        this.disabledValidationcontainer = false;
+        this.loadCopy();
+        this.setChosenColor(status);
     }
   }
 
-  changeCurrentExam(examIndex) {
-    this.changeCurrentCopy(this.initialCopyIndex + examIndex, this.examsList[examIndex].status);
+  changeCurrentExam(examIndex: number) {
+    const exam = this.examsList[examIndex];
+    if (exam) {
+      this.changeCurrentCopy(exam.document_index, exam.status);
+    }
+  }
+
+  getExamIndex(exam: any): number {
+    return this.subExamsList.indexOf(exam) + 1;
   }
 
   loadCopy(): void {
     this.loadPdf();
-    // this.loadCopyInCanvas();
     this.getCurrentMatricule();
-    // this.getCurrentTotal();
-    // this.getCurrentPredictions();
     this.getCurrentStatus();
   }
 
@@ -411,15 +274,15 @@ export class TaskVerificationComponent implements OnInit {
     let tempList = JSON.parse(this.job["students_list"]);
     tempList = tempList.map(x => {
       x = { matricule: x['matricule'], nom: x['Nom complet'], identifiant: x['matricule'] + ' - ' + x["Nom complet"] }; return x;
-    })
+    });
     this.matriculeList = tempList;
   }
 
-
   getCurrentMatricule() {
-    let exam = this.examsList[this.currentIndex()];
-    if (exam["status"] !== "NOT_READY") {
-      this.currentMatricule = exam["matricule"];
+    const currentFilename = this.currentIndex();
+    const currentExam = this.examsList.find((exam: any) => exam.filename === currentFilename);
+    if (currentExam && currentExam["status"] !== "NOT_READY") {
+      this.currentMatricule = currentExam["matricule"];
       this.getDuplicatedMatricule();
       const matriculeRow = this.matriculeList.find(
         x => x['matricule'] === String(this.currentMatricule)
@@ -432,65 +295,50 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  // getCurrentTotal() {
-  //   this.currentTotal = this.examsList[this.currentIndex()]["total"];
-  // }
-
-  // getCurrentPredictions() {
-  //   this.currentPredictions = this.examsList[this.currentIndex()]["subquestion_predictions"];
-  // }
-
   getCurrentStatus() {
-    this.currentStatus = this.examsList[this.currentIndex()]["status"];
+    const currentFilename = this.currentIndex();
+    const currentExam = this.examsList.find((exam: any) => exam.filename === currentFilename);
+    if (currentExam) {
+      this.currentStatus = currentExam["status"];
+    } else {
+      console.error("Document not found for filename:", currentFilename);
+    }
   }
 
   setValidatedStatus() {
-    this.examsList[this.currentIndex()]["status"] = "VALIDATED";
+    const currentFilename = this.currentIndex();
+    const currentExam = this.examsList.find((exam: any) => exam.filename === currentFilename);
+
+    if (currentExam) {
+        currentExam.status = "VALIDATED";
+    } else {
+        console.error("Document not found for filename:", currentFilename);
+    }
   }
 
-
-  async validateCurrentCopy() {
-    if (!this.currentMatriculeSelection) {
-        this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
-        return;
-    }
-
-    this.examsList[this.currentIndex()]["total"] = this.currentTotal;
-    const currentExam = this.examsList[this.currentIndex()];
-    const filename = currentExam["filename"];
-
+  async updateMatricule(): Promise<string> {
+    const formdata: FormData = new FormData();
+    formdata.append('job_id', this.job["job_id"]);
+    formdata.append('document_index', this.currentIndex());
+    this.getCurrentMatricule();
+    formdata.append('matricule', this.currentMatricule.toString());
+    formdata.append('user_id', this.userService.currentUsername);
+    formdata.append('token', this.userService.token);
+  
     try {
-        await this.addScoreToQuestion();
-        const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
-        if (editedPdfData) {
-            const file = new File([editedPdfData], filename, { type: editedPdfData.type });
-            this.getCurrentMatricule();
-            let validationResponse = await this.validationService.validateDocument(
-                this.tasksService.getvalidatingTaskId(),
-                this.currentCopy,
-                file,
-                this.copiesInformations,
-                this.currentMatricule,
-                this.nMaxPointsPerQuestion,
-                this.currentStatus
-            );
-
-            if (validationResponse === "OK") {
-                this.setValidatedStatus();
-                this.nextCopy();
-            }
-        } else {
-            console.error('Erreur lors de l\'obtention du document PDF modifié.');
-            this.notificationService.showError('Échec de l\'obtention du document PDF modifié.', 'Erreur de validation');
-        }
+      const response = await this.http.post(`${SERVER_URL}matricule/update`, formdata).toPromise();
+      if (response["response"] === "OK") {
+        this.setValidatedStatus();
+        this.nextCopy();
+      }
+      this.checkValidationButton();
+      return response["response"];
     } catch (error) {
-        console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
-        this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
+      console.error('Erreur lors de la mise à jour du matricule :', error);
+      this.notificationService.showError('Erreur lors de la mise à jour du matricule.', 'Erreur de validation');
+      return 'Error';
     }
-    this.checkValidationButton();
-}
-
-
+  }
 
   async validateJob() {
     if (!this.disabledDropDown) {
@@ -500,7 +348,7 @@ export class TaskVerificationComponent implements OnInit {
           uncheckedcopy += 1;
         }
       });
-  
+
       if (uncheckedcopy > 0) {
         this.openwarningDialog();
       } else {
@@ -525,7 +373,7 @@ export class TaskVerificationComponent implements OnInit {
     let dialogRef = this.dialog.open(ValidationWarningDialogComponent, {
       width: '30%',
       height: '40%',
-    })
+    });
     dialogRef.afterClosed().subscribe(async result => {
         if (result !== undefined && result === true) {
           this.disabledValidationcontainer = true;
@@ -546,7 +394,7 @@ export class TaskVerificationComponent implements OnInit {
 
   changeMatricule(selection): void {
     this.currentMatricule = Number(selection.matricule);
-    let exam = this.examsList[this.currentIndex()];
+    let exam = this.examsList[this.currentCopy];
     exam["total"] = this.currentTotal;
     exam["matricule"] = String(this.currentMatricule);
     this.getDuplicatedMatricule();
@@ -595,8 +443,11 @@ export class TaskVerificationComponent implements OnInit {
     return index;
   }
 
-  currentIndex(): number {
-    return this.currentCopy - this.initialCopyIndex;
+  currentIndex(): string {
+    if (this.examsList && this.examsList[this.currentCopy]) {
+      return this.examsList[this.currentCopy].filename;
+    }
+    return '';
   }
 
   reroute() {
@@ -604,11 +455,11 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   previousCopy(): void {
-    let tempIndex = this.currentIndex() - 1;
+    let tempIndex = this.currentCopy - 1;
     while (tempIndex >= 0 && !this.subExamsList.includes(this.examsList[tempIndex])) {
-      tempIndex --;
+      tempIndex--;
     }
-    console.log("Previous copy", tempIndex)
+    console.log("Previous copy", tempIndex);
     if (tempIndex >= 0) {
       this.changeCurrentExam(tempIndex);
     }
@@ -616,16 +467,16 @@ export class TaskVerificationComponent implements OnInit {
 
   nextCopy(): void {
     let tempIndex = this.nextCopyIndex();
-    console.log("Next copy", tempIndex)
+    console.log("Next copy", tempIndex);
     if (tempIndex < this.examsList.length) {
       this.changeCurrentExam(tempIndex);
     }
   }
 
   nextCopyIndex(): number {
-    let tempIndex = this.currentIndex() + 1;
+    let tempIndex = this.currentCopy + 1;
     while (tempIndex < this.examsList.length && !this.subExamsList.includes(this.examsList[tempIndex])) {
-      tempIndex ++;
+      tempIndex++;
     }
     return tempIndex;
   }
@@ -644,19 +495,18 @@ export class TaskVerificationComponent implements OnInit {
     let height = 80;
     if (!this.loggued()) height += 10;
     if (!this.showFilter()) height += 10;
-    // console.log("height", height+"%")
-    return height+"%";
+    return height + "%";
   }
+
   checkValidationButton(): void {
-    // this.disabledValidationButton = !this.job || this.job["job_status"] !== 'VALIDATION';
     const disabledValidationButton = this.examsList.some(exam => exam.status !== 'VALIDATED');
     const questionIndex = this.route.snapshot.queryParams['question_index'];
-  
+
     if (!this.disabledDropDown) {
       this.disabledValidationButton = disabledValidationButton;
     } else if (questionIndex) {
       const subExams = this.examsList.filter(exam => exam.filename.includes(`Q${questionIndex}`));
-          this.disabledValidationButton = subExams.some(exam => exam["status"] !== 'VALIDATED');
+      this.disabledValidationButton = subExams.some(exam => exam["status"] !== 'VALIDATED');
     }
   }
 }

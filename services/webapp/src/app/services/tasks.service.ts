@@ -83,7 +83,6 @@ export class TasksService {
     const formdata: FormData = new FormData();
     formdata.append('job_id', jobId);
     this.userService.addTokens(formdata);
-
     const data = await this.http.post<any>(`${SERVER_URL}job`, formdata).toPromise();
     return data['response'];
   }

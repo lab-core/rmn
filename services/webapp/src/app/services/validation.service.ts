@@ -15,7 +15,7 @@ export class ValidationService {
     private userService: UserService
   ) { }
 
-  async validateDocument(jobId, validatingCopy, file, copiesInformations, registration, nMaxPointsPerQuestion, status) {
+  async validateDocument(jobId, validatingCopy, file, copiesInformations, registration, nMaxPointsPerQuestion = new Map(), status) {
     const formData: FormData = new FormData();
     this.userService.addTokens(formData);
     formData.append('job_id', jobId);
@@ -25,20 +25,26 @@ export class ValidationService {
         Array.from(copiesInformations.entries()).map(([key, value]) => [key, Array.from(value.entries())])
     );
     formData.append('copies_informations', serializedCopiesInformations);
-    const serializedNMaxPointsPerQuestion = JSON.stringify(Array.from(nMaxPointsPerQuestion.entries()));
-    formData.append('n_max_points_per_question', serializedNMaxPointsPerQuestion);
+    
+    // only append n_max_points_per_question if provided
+    if (nMaxPointsPerQuestion && nMaxPointsPerQuestion.size > 0) {
+        const serializedNMaxPointsPerQuestion = JSON.stringify(Array.from(nMaxPointsPerQuestion.entries()));
+        formData.append('n_max_points_per_question', serializedNMaxPointsPerQuestion);
+    }
+    
     formData.append('matricule', registration);
     formData.append('status', status);
 
     let response;
     try {
-      const promise = await this.http.post<any>(`${SERVER_URL}documents/update`, formData).toPromise();
-      response = promise['response'];
+        const promise = await this.http.post<any>(`${SERVER_URL}documents/update`, formData).toPromise();
+        response = promise['response'];
     } catch (error) {
-      console.error(error);
+        console.error(error);
     }
     return response;
-  }
+}
+
 
 
   async validateJob(jobId, moodle_ind) {

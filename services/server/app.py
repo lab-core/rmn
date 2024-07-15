@@ -795,6 +795,39 @@ def get_info_zip(user_id):
     #
     return Response(response=json.dumps({"response": resp}), status=200)
 
+@app.route("/matricule/update", methods=["POST"])
+@cross_origin()
+@verify_share_token()
+def update_matricule():
+    request_form = request.form
+    print("RECEIVED FORM DATA:", request_form)  
+
+    required_fields = ["job_id", "document_index", "matricule"]
+    for field in required_fields:
+        if field not in request_form:
+            return Response(
+                response=json.dumps({"response": f"Error: {field} not provided."}),
+                status=400,
+            )
+    print("REQUEST FORM: ", request_form)
+    job_id = str(request_form["job_id"])
+    document_index = request_form["document_index"]
+    matricule = str(request_form["matricule"])
+    print("MATRICULE: ", matricule)
+    db = mongo["RMN"]
+    collection = db["job_documents"]
+
+    collection.update_one(
+        {"job_id": job_id, "document_index": document_index},
+        {"$set": {
+            "matricule": matricule,
+            "status": Document_Status.VALIDATED.value
+            }
+        },
+    )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
 
 @app.route("/documents", methods=["POST"])
 @cross_origin()
@@ -908,44 +941,54 @@ def download_document():
 
     if "document_index" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: document_index not provided."}),
+            response=json.dumps({"response": "Error: document_index not provided."}),
             status=400,
         )
 
-    #
     job_id = str(request_form["job_id"])
-    document_index = int(request_form["document_index"])
+    document_index = request_form["document_index"]
 
-    #
     db = mongo["RMN"]
     document_collection = db["job_documents"]
 
-    #
-    document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})
-    if document_file is None:
-        return Response(
-            response=json.dumps({"response": f"No document found!"}),
-            status=404,
-        )
+    if document_index.isdigit():
+        document_index = int(document_index)
+        document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})
+        if document_file is None:
+            return Response(
+                response=json.dumps({"response": "No document found!"}),
+                status=404,
+            )
+
+        file_id = str(document_file["image_id"])
+        storage.copy_from(file_id, file_id)
+        file_path = file_id
+    else:
+        document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})
+        if document_file is None:
+            return Response(
+                response=json.dumps({"response": "No document found!"}),
+                status=404,
+            )
+
+        file_id = str(document_file["image_id"])
+        file_path = os.path.join('cover_pages', job_id, file_id)
+        storage.copy_from(file_path, file_path)
 
     print("document_file: ", document_file)
-    # Save file to local
-    file_id = str(document_file["image_id"])
-    storage.copy_from(file_id, file_id)
-    file_send = send_file(file_id)
+    file_send = send_file(file_path)
 
     time.sleep(0.1)
 
     @after_this_request
     def add_close_action(response):
         try:
-            os.remove(file_id)
+            os.remove(file_path)
         except Exception as e:
             print(e)
         return response
 
     return file_send
-
 
 @app.route("/job/validate", methods=["POST"])
 @cross_origin()

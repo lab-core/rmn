@@ -10,6 +10,7 @@ export class DocumentsService {
 
   jobId: string;
   documentsList: Array<any>;
+  coversList: Array<any> = [];
   groupsList: Array<string>;
   nMaxPointsPerQuestion = new Map<string, number>();
   copiesInformations = new Map<string, Map<string, number>>();
@@ -26,9 +27,13 @@ export class DocumentsService {
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}documents`, formdata).toPromise();
       let tempDocumentsList = promise['response'];
-      // filter out documents that do not have a numeric document_index
+      // filter out documents that have a numeric document_index
       this.documentsList = tempDocumentsList.filter((exam: any) => {
         return typeof exam.document_index === 'number' && !isNaN(exam.document_index);
+      });
+      // filter documents to include only those with filenames ending in _cover.pdf
+      this.coversList = tempDocumentsList.filter((exam: any) => {
+        return /_cover\.pdf$/.test(exam.document_index);
       });
       // fetch groups if any
       this.documentsList.forEach((exam: any) => {

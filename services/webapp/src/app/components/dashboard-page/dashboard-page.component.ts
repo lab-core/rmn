@@ -253,6 +253,11 @@ export class DashboardPageComponent {
     this.router.navigate([`/task-validation`, this.taskId, index + 1]);
   }
 
+  verifyMatricules() {
+    this.tasksService.setvalidatingTaskId(this.task.job_id);
+    this.router.navigate([`/matricule-validation`]);
+  }
+
   shareQuestion(index: number) {
     let dialogRef = this.dialog.open(TaskShareDialogComponent, {
       width: '30%',

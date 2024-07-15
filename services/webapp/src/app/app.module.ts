@@ -45,6 +45,7 @@ import { TaskShareDialogComponent } from "./components/tasks-history/task-share-
 import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
 import { TaskRetryDialogComponent } from './components/tasks-history/task-retry-dialog/task-retry-dialog.component';
 import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
+import { MatriculeVerificationComponent } from './components/matricule-verification/matricule-verification.component';
 
 @NgModule({
   declarations: [
@@ -69,6 +70,7 @@ import { DashboardPageComponent } from './components/dashboard-page/dashboard-pa
     NewExamCorrectionComponent,
     TaskRetryDialogComponent,
     DashboardPageComponent,
+    MatriculeVerificationComponent,
   ],
   imports: [
     BrowserModule,
