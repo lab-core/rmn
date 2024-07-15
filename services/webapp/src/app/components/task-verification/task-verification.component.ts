@@ -270,12 +270,17 @@ export class TaskVerificationComponent implements OnInit {
       if (this.currentScore <= this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
         this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
         this.currentScore = null;
-      } else {
+      } else if (this.currentScore > this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
+        const excessPoints = this.currentScore - this.nMaxPointsPerQuestion.get(this.currentQuestionIndex);
+        this.notificationService.showWarning(`Vous avez rajouté ${excessPoints} point(s) bonus`, 'Attention !');
+        this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
+        this.currentScore = null;
+      }else {
         this.notificationService.showWarning('Veuillez saisir une note valide.', 'Note invalide');
         throw new Error('Note invalide');
       }
     } else {
-      this.notificationService.showWarning('Veuillez sélectionner un matricule et saisir un note.', 'Matricule manquant ou note invalide');
+      this.notificationService.showWarning('Veuillez saisir une note.', 'Note invalide');
     }
   }
 

@@ -91,9 +91,7 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
     if not os.path.exists(storage.abs_path(cover_page_dest)):
         os.makedirs(storage.abs_path(cover_page_dest))
     for file in os.listdir(cover_page_folder):
-        print("FILE", file)
         original_pdf_name = re.sub(r'_cover\.pdf$', '.pdf', file)
-        print("ORIGINAL PDF NAME", original_pdf_name)
         doc  = db.get_document(job_id, original_pdf_name)
         db.insert_document(
             job_id=job_id,

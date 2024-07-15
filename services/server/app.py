@@ -1,3 +1,4 @@
+import re
 from service.template_service import TemplateService
 from service.user_service import UserService, Role
 from flask import Flask, request, Response, json, send_file, after_this_request
@@ -800,7 +801,6 @@ def get_info_zip(user_id):
 @verify_share_token()
 def update_matricule():
     request_form = request.form
-    print("RECEIVED FORM DATA:", request_form)  
 
     required_fields = ["job_id", "document_index", "matricule"]
     for field in required_fields:
@@ -809,25 +809,40 @@ def update_matricule():
                 response=json.dumps({"response": f"Error: {field} not provided."}),
                 status=400,
             )
-    print("REQUEST FORM: ", request_form)
+
     job_id = str(request_form["job_id"])
     document_index = request_form["document_index"]
     matricule = str(request_form["matricule"])
-    print("MATRICULE: ", matricule)
+
+    # extract the prefix from the document index
+    prefix_match = re.match(r'^(.+?)(_Q\d+|_cover)?\.pdf$', os.path.basename(document_index))
+    if not prefix_match:
+        return Response(
+            response=json.dumps({"response": "Error: Invalid document index format."}),
+            status=400,
+        )
+    
+    prefix = prefix_match.group(1)
+
     db = mongo["RMN"]
     collection = db["job_documents"]
 
-    collection.update_one(
-        {"job_id": job_id, "document_index": document_index},
-        {"$set": {
-            "matricule": matricule,
-            "status": Document_Status.VALIDATED.value
-            }
-        },
-    )
+    # scan all documents within the job and update the ones that match the prefix
+    documents_to_update = collection.find({"job_id": job_id})
+    
+    for document in documents_to_update:
+        document_basename = os.path.basename(document["filename"])
+        if document_basename.startswith(prefix):
+            update_data = {"matricule": matricule}
+            if document_basename.endswith("_cover.pdf"):
+                update_data["status"] = Document_Status.VALIDATED.value
+
+            collection.update_one(
+                {"_id": document["_id"]},
+                {"$set": update_data}
+            )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
-
 
 @app.route("/documents", methods=["POST"])
 @cross_origin()

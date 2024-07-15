@@ -340,32 +340,24 @@ export class MatriculeVerificationComponent implements OnInit {
     }
   }
 
-  async validateJob() {
-    if (!this.disabledDropDown) {
-      let uncheckedcopy = 0;
-      this.examsList.forEach((exam: any) => {
-        if (exam["status"] === "TO VALIDATE") {
-          uncheckedcopy += 1;
-        }
-      });
-
-      if (uncheckedcopy > 0) {
-        this.openwarningDialog();
-      } else {
-        this.disabledValidationcontainer = true;
-        this.validating = true;
-        let response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
-        if (response === "OK") {
-          this.router.navigate(['/tasks-history']);
-          let message = "La tâche est en cours de finalisation!";
-          this.notificationService.showInfo(message, "Alerte!")
-          // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
-        }
+  async validateMatricules() {
+    let uncheckedcopy = 0;
+    this.examsList.forEach((exam: any) => {
+      if (exam["status"] === "TO VALIDATE") {
+        uncheckedcopy += 1;
       }
+    });
+
+    if (uncheckedcopy > 0) {
+      this.openwarningDialog();
     } else {
+      this.disabledValidationcontainer = true;
+      this.validating = true;
       this.router.navigate(['/tasks-history']);
-      let message = "Les copies pour la question " + this.currentQuestionIndex + " ont été corrigées!";
+      let message = "Les matricules ont été validés avec succès!";
       this.notificationService.showInfo(message, "Alerte!")
+      // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
+   
     }
   }
 

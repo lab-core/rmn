@@ -68,21 +68,6 @@
             <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer">
                 <div class="check-list-container">
                     <div class="sub-check-container">
-                        <h3>Matricule</h3>
-                        <div class="value-input-div">
-                            <ng-select id="matricule" [items]="this.matriculeList" bindLabel="identifiant"
-                                [multiple]="false" [searchable]="true" [clearable]="false" [closeOnSelect]="true"
-                                [virtualScroll]="false" appendTo="app-task-verification"
-                                [(ngModel)]="this.currentMatriculeSelection"
-                                (change)="this.changeMatricule(this.currentMatriculeSelection)"
-                                [disabled]="this.validating">
-                            </ng-select>
-                        </div>
-                        <!-- <div *ngIf="this.currentMatriculeWarning" class="alert">
-                          Utilisé par plusieurs copies: {{this.currentMatriculeWarning}}.
-                        </div> -->
-                    </div>
-                    <div class="sub-check-container">
                         <h3>Note (/{{nMaxPointsPerQuestion.get(currentQuestionIndex)}})</h3>
                         <div class="value-input-div">
                             <input id="score" type="number" [(ngModel)]="currentScore" placeholder="Entrer la note" class="note-input"/>

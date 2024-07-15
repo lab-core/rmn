@@ -5,9 +5,8 @@ import { UserService } from 'src/app/services/user.service';
 import { TasksService } from 'src/app/services/tasks.service';
 import { SERVER_URL } from 'src/app/utils';
 import { NotificationService } from 'src/app/services/notification.service';
-import {FormBuilder, Validators} from '@angular/forms';
+import { FormBuilder, Validators } from '@angular/forms';
 import * as saveAs from 'file-saver';
-
 
 //DropBox API
 declare function dropboxFiles(): void;
@@ -16,7 +15,6 @@ declare function dropboxCSV(): void;
 //OneDrive API
 declare function onedrivePicker(): void;
 declare function onedrivePickerCSV(): void;
-
 
 @Component({
   selector: 'app-new-exam-correction',
@@ -30,21 +28,19 @@ export class NewExamCorrectionComponent implements OnInit {
   secondFormGroup: any;
   thirdFormGroup: any;
   fourthFormGroup: any;
-  // fifthFormGroup = this._formBuilder.group({
-  //   fourthCtrl: ['', Validators.required],
-  // })
   isLinear = true;
 
   copiesName: string = "";
   csvName: string = "";
   templates: Array<Map<string, string>>;
-  selectedTemplate: string = ""
+  selectedTemplate: string = "";
   disabled: boolean = false;
   uploading: boolean = false;
 
   nQuestions: number = 0;
   nPagesPerQuestion = new Map<string, number>();
   nMaxPointsPerQuestion = new Map<string, number>();
+  nBonusPerQuestion = new Map<string, number>(); 
   questionKeys: string[] = [];
   taskName: string = "Tâche";
 
@@ -75,7 +71,7 @@ export class NewExamCorrectionComponent implements OnInit {
     });
     this.fourthFormGroup = this._formBuilder.group({
       fourthCtrl: ['', Validators.required],
-    })
+    });
   }
 
   async ngOnInit(): Promise<void> {
@@ -85,10 +81,12 @@ export class NewExamCorrectionComponent implements OnInit {
   updateQuestionsCount() {
     this.nPagesPerQuestion.clear();
     this.nMaxPointsPerQuestion.clear();
+    this.nBonusPerQuestion.clear(); 
     this.questionKeys = [];
     for (let i = 1; i <= this.nQuestions; i++) {
       this.nPagesPerQuestion.set(`Q${i}`, 1);
       this.nMaxPointsPerQuestion.set(`Q${i}`, 1);
+      this.nBonusPerQuestion.set(`Q${i}`, 0);
       this.questionKeys.push(`Q${i}`);
     }
   }
@@ -103,7 +101,13 @@ export class NewExamCorrectionComponent implements OnInit {
     const inputElement = event.target as HTMLInputElement;
     const maxPoints = parseInt(inputElement.value, 10);
     this.nMaxPointsPerQuestion.set(key, maxPoints);
-  }  
+  }
+
+  updateBonusPoints(key: string, event: Event) {
+    const inputElement = event.target as HTMLInputElement;
+    const bonusPoints = parseInt(inputElement.value, 10);
+    this.nBonusPerQuestion.set(key, bonusPoints);
+  }
 
   updateSuffix(event: KeyboardEvent) {
     let regex = new RegExp("^[a-zA-ZÀ-ÿ0-9\-\_\ ]+$");
@@ -126,8 +130,6 @@ export class NewExamCorrectionComponent implements OnInit {
     this.latexFrontPageName = file.name;
     this.latexFrontPage = file;
   }
-
-
 
   getDropBoxUpload() {
     if (this.copiesName != "") {
@@ -159,7 +161,6 @@ export class NewExamCorrectionComponent implements OnInit {
     onedrivePicker();
   }
 
-
   getDropBoxUploadCSV() {
     if (this.csvName != "") {
       this.csv = null;
@@ -190,7 +191,6 @@ export class NewExamCorrectionComponent implements OnInit {
     onedrivePickerCSV();
   }
 
-
   async getTemplates() {
     const formdata: FormData = new FormData();
     formdata.append('user_id', this.userService.currentUsername);
@@ -199,9 +199,9 @@ export class NewExamCorrectionComponent implements OnInit {
       (data) => {
         this.templates = data['response'];
         if (this.templates.length === 0) {
-          this.notifyService.showWarning( "Veuillez créer un template avant de commencer une correction.", "Avertissement");
+          this.notifyService.showWarning("Veuillez créer un template avant de commencer une correction.", "Avertissement");
           this.disabled = true;
-        }else{
+        } else {
           this.selectedTemplate = this.templates[0]['template_id'];
         }
       });
@@ -227,7 +227,6 @@ export class NewExamCorrectionComponent implements OnInit {
     document.getElementById("files-upload-label").setAttribute("value", this.copiesName);
     document.getElementById("files-upload-label").innerHTML = this.copiesName;
     this.copies = file;
-    // document.getElementById("number-page-container").style.display = (this.copiesName.endsWith('.zip')) ? 'none' : 'block';
   }
 
   CsvFileEvent(fileInput: Event) {
@@ -250,7 +249,6 @@ export class NewExamCorrectionComponent implements OnInit {
     document.getElementById("csv-upload-label").setAttribute("value", this.csvName);
     document.getElementById("csv-upload-label").innerHTML = this.csvName;
     this.csv = file;
-
   }
 
   checkDisabled(): boolean {
@@ -262,12 +260,11 @@ export class NewExamCorrectionComponent implements OnInit {
 
     if (this.copiesName === "" && dropboxInput === null && onedriveInput === null) {
       return true;
-    }  else if (this.csvName === "" && dropboxInputCSV === null && onedriveInputCSV === null) {
+    } else if (this.csvName === "" && dropboxInputCSV === null && onedriveInputCSV === null) {
       return true;
     } else if (this.taskName === "") {
       return true;
-    }
-    else {
+    } else {
       return false;
     }
   }
@@ -293,17 +290,17 @@ export class NewExamCorrectionComponent implements OnInit {
   }
 
   getUploadState1() {
-    if(this.uploading === true && this.tasksService.getUploadPart1State() === true){
+    if (this.uploading === true && this.tasksService.getUploadPart1State() === true) {
       return true;
-    }else{
+    } else {
       return false;
     }
   }
 
   getUploadState2() {
-    if(this.uploading === true && this.tasksService.getUploadPart2State() === true){
+    if (this.uploading === true && this.tasksService.getUploadPart2State() === true) {
       return true;
-    }else{
+    } else {
       return false;
     }
   }
@@ -330,7 +327,7 @@ export class NewExamCorrectionComponent implements OnInit {
 
   createPresentation() {
     if (this.checkDisabledPresentation()) {
-      this.notifyService.showError("Assurez-vous de complêter toutes les étapes!", "ERREUR")
+      this.notifyService.showError("Assurez-vous de complêter toutes les étapes!", "ERREUR");
     } else {
       this.disabled = true;
       // post request
@@ -352,16 +349,15 @@ export class NewExamCorrectionComponent implements OnInit {
           this.disabled = false;
         },
         (error) => {
-          this.notifyService.showError(error.message, "ERREUR")
+          this.notifyService.showError(error.message, "ERREUR");
           this.disabled = false;
         });
-
     }
   }
 
   async createTask() {
     if (this.checkDisabled()) {
-      this.notifyService.showError("Assurez-vous de complêter toutes les étapes!", "ERREUR")
+      this.notifyService.showError("Assurez-vous de complêter toutes les étapes!", "ERREUR");
     } else {
       this.uploading = true;
       await this.convertDownloadableFile();
@@ -375,5 +371,4 @@ export class NewExamCorrectionComponent implements OnInit {
   reroute() {
     this.router.navigate(['/main-menu']);
   }
-
 }
