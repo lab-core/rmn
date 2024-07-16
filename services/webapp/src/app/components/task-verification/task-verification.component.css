@@ -156,6 +156,23 @@
     margin: 2%;
 }
 
+.upload-container {
+    text-align: center;
+  }
+  
+  .drop-zone {
+    margin-top: 20px;
+    border: 2px dashed #ccc;
+    padding: 20px;
+    cursor: pointer;
+  }
+  
+  .drop-zone p {
+    margin: 0;
+    color: #aaa;
+  }
+  
+
 .validated-copy {
     width: 100%;
     height: 100%;

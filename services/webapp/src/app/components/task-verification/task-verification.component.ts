@@ -689,6 +689,7 @@ export class TaskVerificationComponent implements OnInit {
           })
           .catch((error) => {
             console.error(`Error downloading file ${exam.filename}:`, error);
+            this.notificationService.showError(`Erreur lors du téléchargement du fichier ${exam.filename}`, 'Erreur de téléchargement');
           });
       }
     }
@@ -704,4 +705,44 @@ export class TaskVerificationComponent implements OnInit {
     const match = filename.match(/Q(\d+)/);
     return match ? match[1] : 'Unknown';
   }
+
+  onFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.uploadZipFile(file);
+    }
+  }
+
+  onDrop(event: DragEvent) {
+    event.preventDefault();
+    const file = event.dataTransfer?.files[0];
+    if (file) {
+      this.uploadZipFile(file);
+    }
+  }
+
+  onDragOver(event: DragEvent) {
+    event.preventDefault();
+  }
+
+  async uploadZipFile(file: File) {
+    const jobId = this.tasksService.getvalidatingTaskId();
+    const formData = new FormData();
+    formData.append('job_id', jobId);
+    formData.append('file', file);
+
+    this.userService.addTokens(formData);
+
+    await this.http.post(`${SERVER_URL}/documents/replace`, formData)
+      .toPromise()
+      .then((response) => {
+        console.log('Files replaced successfully', response);
+        this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succes');
+      })
+      .catch((error) => {
+        console.error('Error replacing files:', error);
+        this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
+      });
+  }
 }
+

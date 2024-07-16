@@ -51,6 +51,13 @@
                 [disabled]="this.disabledValidationButton">Finaliser</button>
             </div>
             <button class="download-zip-button" mat-flat-button (click)="downloadAllFilesAsZip()">Tout télécharger</button>
+            <div class="upload-container">
+                <button class="replace-zip-button" mat-flat-button (click)="fileInput.click()">Tout téléverser</button>
+                <input #fileInput type="file" accept=".zip" (change)="onFileSelected($event)" style="display: none;">
+                <div class="drop-zone" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
+                  <p>Déposez votre fichier zip ici</p>
+                </div>
+              </div>
         </div>
         <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
             <p *ngIf="this.disabledValidationcontainer">Aucune copie n'est prête à être validée.</p>

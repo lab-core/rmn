@@ -20,6 +20,7 @@ import os
 import json
 import shutil
 import time
+import tempfile
 from functools import wraps
 
 
@@ -945,6 +946,53 @@ def update_document():
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
+@app.route("/documents/replace", methods=["POST"])
+@cross_origin()
+@verify_share_token()
+def replace_document():
+    request_form = request.form
+    request_files = request.files
+
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400,
+        )
+
+    if "file" not in request_files:
+        return Response(
+            response=json.dumps({"response": "Error: file not provided."}),
+            status=400,
+        )
+
+    job_id = str(request_form["job_id"])
+
+    file = request_files["file"]
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        temp_file.write(file.read())
+        temp_file.flush()
+
+        with ZipFile(temp_file.name, 'r') as zip_file:
+            for file_info in zip_file.infolist():
+                if file_info.filename.endswith(".pdf"):
+                    extracted_path = zip_file.extract(file_info, path=TEMP_FOLDER)  
+            
+                    # extracting question number from the filename
+                    question_number = re.search(r'_Q(\d+)\.pdf', file_info.filename)
+                    if question_number:
+                        question_folder = f"Q{question_number.group(1)}"
+
+                        storage_path = os.path.join('documents', job_id, question_folder, os.path.basename(file_info.filename))
+                        final_destination = storage.abs_path(storage_path)  
+
+                        if not os.path.exists(os.path.dirname(final_destination)):
+                            os.makedirs(os.path.dirname(final_destination), exist_ok=True)
+
+                        # moving the extracted file to the final destination
+                        shutil.move(extracted_path, final_destination)
+                        print("Moved to:", final_destination)  
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
 
 @app.route("/document/download", methods=["POST"])
 @cross_origin()
