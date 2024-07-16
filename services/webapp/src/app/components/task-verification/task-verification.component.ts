@@ -55,6 +55,7 @@ export class TaskVerificationComponent implements OnInit {
   currentCopy: number = -1;
   currentCopyName: string;
   currentQuestionIndex: string;
+  index: string;
   currentMatricule: number;
   currentScore: number | null;
   currentTotal: number;
@@ -188,6 +189,7 @@ export class TaskVerificationComponent implements OnInit {
         const firstExam = this.subExamsList[0];
         this.changeCurrentCopy(firstExam["document_index"], firstExam["status"]);
     }
+    this.index = `Q${event.value}`;
   }
 
 
@@ -321,42 +323,6 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  // loadCopyInCanvas() {
-  //   const formdata: FormData = new FormData();
-  //   this.userService.addTokens(formdata);
-  //   formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-  //   formdata.append('document_index', this.currentCopy.toString());
-
-  //   this.pictureLoading = true;
-
-  //   if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
-  //     this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
-  //       (data) => {
-  //         let url = window.URL.createObjectURL(data);
-  //         let img = new Image();
-  //         img.src = url;
-  //         this.pictureLoading = false;
-  //         img.onload = this.drawImageScaled.bind(null, img);
-  //       }, (error) => {
-  //         console.error(error);
-  //       });
-  //   }
-  // }
-
-  // drawImageScaled(img) {
-
-  //   let canvas = document.getElementById('cv') as HTMLCanvasElement;
-  //   let ctx = canvas.getContext('2d');
-
-  //   canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-
-  //   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  //   ctx.imageSmoothingEnabled = false;
-  //   ctx.drawImage(img, 0, 0, img.width, img.height,     // source rectangle
-  //     0, 0, canvas.width, canvas.height); // destination rectangle
-  // }
-
   changeCurrentCopy(copyIndex, status) {
     if (status !== "NOT_READY") {
       let exam = this.examsList[copyIndex-1];
@@ -377,10 +343,7 @@ export class TaskVerificationComponent implements OnInit {
 
   loadCopy(): void {
     this.loadPdf();
-    // this.loadCopyInCanvas();
     this.getCurrentMatricule();
-    // this.getCurrentTotal();
-    // this.getCurrentPredictions();
     this.getCurrentStatus();
   }
 
@@ -440,14 +403,6 @@ export class TaskVerificationComponent implements OnInit {
       }
     }
   }
-
-  // getCurrentTotal() {
-  //   this.currentTotal = this.examsList[this.currentIndex()]["total"];
-  // }
-
-  // getCurrentPredictions() {
-  //   this.currentPredictions = this.examsList[this.currentIndex()]["subquestion_predictions"];
-  // }
 
   getCurrentStatus() {
     this.currentStatus = this.examsList[this.currentIndex()]["status"];
@@ -713,11 +668,17 @@ export class TaskVerificationComponent implements OnInit {
       const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
       zip.file(`Q${questionIndex}.pdf`, blob);
     }
+
+    console.log("this.index", this.index)
   
+    const zipName = this.index && this.index !== "Tout sélectionner"
+    ? `${this.job['job_name']}_${this.index}.zip`
+    : `${this.job['job_name']}.zip`;
+
     zip.generateAsync({ type: 'blob' })
-      .then((content) => {
-        saveAs(content, `${this.job['job_name']}.zip`);
-      });
+        .then((content) => {
+            saveAs(content, zipName);
+        });
   
     this.hasDownloadedZip = true;
     this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
