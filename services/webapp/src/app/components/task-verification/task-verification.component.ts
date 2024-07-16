@@ -14,6 +14,7 @@ import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { MatSelectChange } from '@angular/material/select';
 import * as saveAs from 'file-saver';
 import * as JSZip from 'jszip';
+import { PDFDocument } from 'pdf-lib';
 
 @Component({
   selector: 'app-task-verification',
@@ -676,6 +677,7 @@ export class TaskVerificationComponent implements OnInit {
   async downloadAllFilesAsZip() {
     this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
     const zip = new JSZip();
+    const mergedDocs: { [key: string]: PDFDocument } = {};
   
     for (const exam of this.subExamsList) {
       if (exam["status"] !== 'NOT_READY') {
@@ -686,11 +688,18 @@ export class TaskVerificationComponent implements OnInit {
   
         await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' })
           .toPromise()
-          .then((data: Blob) => {
+          .then(async (data: Blob) => {
+            const arrayBuffer = await data.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
             const fileName = exam["filename"];
             const questionIndex = this.verifyQuestionIndex(fileName);
-            const folder = zip.folder(`Question_${questionIndex}`);
-            folder.file(fileName, data);
+            if (!mergedDocs[questionIndex]) {
+              mergedDocs[questionIndex] = await PDFDocument.create();
+            }
+            const copiedPages = await mergedDocs[questionIndex].copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach((page) => {
+              mergedDocs[questionIndex].addPage(page);
+            });
           })
           .catch((error) => {
             console.error(`Error downloading file ${exam["filename"]}:`, error);
@@ -699,10 +708,17 @@ export class TaskVerificationComponent implements OnInit {
       }
     }
   
+    for (const questionIndex of Object.keys(mergedDocs)) {
+      const mergedPdfBytes = await mergedDocs[questionIndex].save();
+      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+      zip.file(`Q${questionIndex}.pdf`, blob);
+    }
+  
     zip.generateAsync({ type: 'blob' })
       .then((content) => {
-        saveAs(content, `${this.job['job_id']}.zip`);
+        saveAs(content, `${this.job['job_name']}.zip`);
       });
+  
     this.hasDownloadedZip = true;
     this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
   }
@@ -733,23 +749,63 @@ export class TaskVerificationComponent implements OnInit {
 
   async uploadZipFile(file: File) {
     const jobId = this.tasksService.getvalidatingTaskId();
-    const formData = new FormData();
-    formData.append('job_id', jobId);
-    formData.append('file', file);
-
-    this.userService.addTokens(formData);
-
-    await this.http.post(`${SERVER_URL}/documents/replace`, formData)
-      .toPromise()
-      .then((response) => {
-        console.log('Files replaced successfully', response);
-        this.hasUploadedZip = true;
-        this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succes');
-      })
-      .catch((error) => {
-        console.error('Error replacing files:', error);
-        this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
-      });
+    const nPagesPerQuestionArray = this.job["n_pages_per_question"];
+    const nPagesPerQuestion = new Map<string, number>(nPagesPerQuestionArray);
+    const zip = new JSZip();
+    
+    try {
+      const zipContent = await JSZip.loadAsync(file);
+      const mergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
+  
+      for (const mergedFile of mergedFiles) {
+        const pdfData = await zipContent.file(mergedFile).async('arraybuffer');
+        const pdfDoc = await PDFDocument.load(pdfData);
+  
+        const questionIndex = this.verifyQuestionIndex(mergedFile);
+        const originalDocs = this.subExamsList.filter(exam => exam["filename"].includes(`Q${questionIndex}`));
+        const pagesPerQuestion = nPagesPerQuestion.get(`Q${questionIndex}`) || 1;
+  
+        let startPage = 0;
+        for (const originalDoc of originalDocs) {
+          const singlePagePdf = await PDFDocument.create();
+          const endPage = startPage + pagesPerQuestion;
+          const copiedPages = await singlePagePdf.copyPages(pdfDoc, Array.from({ length: pagesPerQuestion }, (_, k) => startPage + k));
+          copiedPages.forEach((page) => {
+            singlePagePdf.addPage(page);
+          });
+  
+          const pdfBytes = await singlePagePdf.save();
+          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          const fileName = originalDoc["filename"];
+          zip.file(fileName, blob);
+  
+          startPage = endPage;
+        }
+      }
+  
+      const finalZipBlob = await zip.generateAsync({ type: 'blob' });
+      const finalZipFile = new File([finalZipBlob], 'split_documents.zip', { type: 'application/zip' });
+  
+      const uploadFormData = new FormData();
+      this.userService.addTokens(uploadFormData);
+      uploadFormData.append('job_id', jobId);
+      uploadFormData.append('file', finalZipFile);
+  
+      await this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData).toPromise()
+        .then((response) => {
+          console.log('Files replaced successfully', response);
+          this.hasUploadedZip = true;
+          this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succès');
+        })
+        .catch((error) => {
+          console.error('Error replacing files:', error);
+          this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
+        });
+  
+    } catch (error) {
+      console.error('Error processing zip file:', error);
+      this.notificationService.showError('Erreur lors du traitement du fichier zip', 'Erreur');
+    }
   }
 }
 

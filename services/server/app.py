@@ -491,7 +491,8 @@ def get_job():
         "students_list": job["students_list"],
         "job_infos": job["job_infos"],
         "n_max_points_per_question": job["n_max_points_per_question"],
-        "copies_informations": job.get("copies_informations", [])
+        "copies_informations": job.get("copies_informations", []),
+        "n_pages_per_question": job["n_pages_per_question"],
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
