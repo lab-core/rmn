@@ -38,9 +38,12 @@ export class NewExamCorrectionComponent implements OnInit {
   uploading: boolean = false;
 
   nQuestions: number = 0;
+  totalPages: number = 0;
+  totalPoints: number = 0;
+  totalBonus: number = 0;
   nPagesPerQuestion = new Map<string, number>();
   nMaxPointsPerQuestion = new Map<string, number>();
-  nBonusPerQuestion = new Map<string, number>(); 
+  bonusEnabled: { [key: string]: boolean } = {};
   questionKeys: string[] = [];
   taskName: string = "Tâche";
 
@@ -78,16 +81,26 @@ export class NewExamCorrectionComponent implements OnInit {
     this.getTemplates();
   }
 
+  updateTotals() {
+    this.totalPages = 0;
+    this.totalPoints = 0;
+    this.totalBonus = 0;
+    this.questionKeys.forEach(key => {
+      this.totalPages += this.nPagesPerQuestion.get(key) || 0;
+      this.totalPoints += this.nMaxPointsPerQuestion.get(key) || 0;
+    });
+  }
+
   updateQuestionsCount() {
     this.nPagesPerQuestion.clear();
     this.nMaxPointsPerQuestion.clear();
-    this.nBonusPerQuestion.clear(); 
     this.questionKeys = [];
+    this.bonusEnabled = {};
     for (let i = 1; i <= this.nQuestions; i++) {
       this.nPagesPerQuestion.set(`Q${i}`, 1);
       this.nMaxPointsPerQuestion.set(`Q${i}`, 1);
-      this.nBonusPerQuestion.set(`Q${i}`, 0);
       this.questionKeys.push(`Q${i}`);
+      this.bonusEnabled[`Q${i}`] = false;
     }
   }
 
@@ -95,18 +108,19 @@ export class NewExamCorrectionComponent implements OnInit {
     const inputElement = event.target as HTMLInputElement;
     const pageCount = parseInt(inputElement.value, 10);
     this.nPagesPerQuestion.set(key, pageCount);
+    this.updateTotals();
   }
 
   updateMaxPoints(key: string, event: Event) {
     const inputElement = event.target as HTMLInputElement;
     const maxPoints = parseInt(inputElement.value, 10);
     this.nMaxPointsPerQuestion.set(key, maxPoints);
+    this.updateTotals();
   }
 
-  updateBonusPoints(key: string, event: Event) {
-    const inputElement = event.target as HTMLInputElement;
-    const bonusPoints = parseInt(inputElement.value, 10);
-    this.nBonusPerQuestion.set(key, bonusPoints);
+  toggleBonus(key: string) {
+    this.bonusEnabled[key] = !this.bonusEnabled[key];
+    this.updateTotals();
   }
 
   updateSuffix(event: KeyboardEvent) {

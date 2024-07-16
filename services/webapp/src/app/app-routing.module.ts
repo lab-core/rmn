@@ -61,6 +61,11 @@ const routes: Routes = [
         component: MatriculeVerificationComponent,
         // canActivateChild: [UserService]
     },
+    {
+        path: 'matricule-validation/:job_id',
+        component: MatriculeVerificationComponent,
+        // canActivateChild: [UserService]
+    },
     // {
     //     path: 'presentation-page',
     //     component : PresentationPageComponent,

@@ -3,8 +3,7 @@
     <div class="background">
         <mat-horizontal-stepper #stepper class="stepper_horizontal">
             <mat-step [stepControl]="firstFormGroup" label="Nommer la tâche">
-                <div class="breaker">
-                </div>
+                <div class="breaker"></div>
                 <form [formGroup]="firstFormGroup">
                     <div class="steps-container">
                         <mat-form-field style="margin-bottom: -1.25em" appearance="outline">
@@ -39,37 +38,41 @@
                     <span id="files-upload-label"></span>
                     <div class="pages-number-div">
                         <div class="number-pages-container" id="number-page-container">
-                            <h3><u>Nombre de questions</u></h3>
-                            <input [(ngModel)]="this.nQuestions" [ngModelOptions]="{standalone: true}"
-                                (change)="updateQuestionsCount()" type="number" min="1" step="1" required>
+                          <h3><u>Nombre de questions</u></h3>
+                          <input [(ngModel)]="this.nQuestions" [ngModelOptions]="{standalone: true}"
+                                 (change)="updateQuestionsCount()" type="number" min="1" step="1" required>
                         </div>
                         <table class="questions-table">
-                            <thead>
-                                <tr>
-                                    <th>Questions</th>
-                                    <th>Nombre de pages</th>
-                                    <th>Nombre de points</th>
-                                    <th>Bonus</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr *ngFor="let key of questionKeys; let i = index">
-                                    <td>{{ key }}</td>
-                                    <td>
-                                        <input (change)="updatePageCount(key, $event)" type="number" min="1" step="1"
-                                            required>
-                                    </td>
-                                    <td>
-                                        <input (change)="updateMaxPoints(key, $event)" type="number" min="1" step="1"
-                                            required>
-                                    </td>
-                                    <td>
-                                        <input (change)="updateBonusPoints(key, $event)" type="number" min="0" step="1">
-                                    </td>
-                                </tr>
-                            </tbody>
+                          <thead>
+                            <tr>
+                              <th>Questions</th>
+                              <th>Nombre de pages</th>
+                              <th>Nombre de points</th>
+                              <th>Bonus</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let key of questionKeys">
+                              <td>{{ key }}</td>
+                              <td>
+                                <input (change)="updatePageCount(key, $event)" type="number" min="1" step="1" required>
+                              </td>
+                              <td>
+                                <input (change)="updateMaxPoints(key, $event)" type="number" min="1" step="1" required>
+                              </td>
+                              <td>
+                                <input type="checkbox" [(ngModel)]="bonusEnabled[key]" [ngModelOptions]="{standalone: true}" (change)="toggleBonus(key)">
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Total</td>
+                              <td>{{ totalPages }}</td>
+                              <td>{{ totalPoints }}</td>
+                              <td></td>
+                            </tr>
+                          </tbody>
                         </table>
-                    </div>
+                      </div>
                     <div class="next-button">
                         <button mat-button matStepperPrevious>Retour</button>
                         <button mat-button matStepperNext>Suivant</button>

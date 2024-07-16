@@ -845,6 +845,59 @@ def update_matricule():
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
+@app.route("/matricule/share", methods=["POST"])
+@cross_origin()
+@verify_share_token()
+def share_matricule_verification():
+    # Define db and collection used
+    db = mongo["RMN"]
+    collection = db["eval_jobs"]
+
+    request_form = request.form
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": f"Error: job_id not provided."}),
+            status=400
+        )
+    job_id = str(request_form["job_id"])
+
+    if "user_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": f"Error: user_id not provided."}),
+            status=400
+        )
+    user_id = str(request_form["user_id"])
+
+    host = request.headers.get('Host')
+    if not host:
+        return Response(
+            response=json.dumps({"response": f"Error: Host is not defined in the headers."}),
+            status=400
+        )
+
+    job = collection.find_one({"job_id": job_id, "user_id": user_id})
+    if job is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=400
+        )
+
+    if "share_token" not in job:
+        token = str(uuid.uuid4())
+        collection.update_one(
+            {"job_id": job_id},
+            {"$set": {"share_token": token}})
+    else:
+        token = job["share_token"]
+
+    share_url = f"https://{host}/matricule-validation/?job={job_id}&token={token}"
+
+    resp = {
+        "job_id": job["job_id"],
+        "share_url": share_url
+    }
+    return Response(response=json.dumps({"response": resp}), status=200)
+
 @app.route("/documents", methods=["POST"])
 @cross_origin()
 @verify_share_token()

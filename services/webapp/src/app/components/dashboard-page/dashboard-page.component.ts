@@ -255,14 +255,14 @@ export class DashboardPageComponent {
 
   verifyMatricules() {
     this.tasksService.setvalidatingTaskId(this.task.job_id);
-    this.router.navigate([`/matricule-validation`]);
+    this.router.navigate([`/matricule-validation`, this.taskId]);
   }
 
   shareQuestion(index: number) {
     let dialogRef = this.dialog.open(TaskShareDialogComponent, {
       width: '30%',
       height: '40%',
-      data: { taskId: this.taskId, taskName: this.taskName, questionIndex: index + 1 }
+      data: { taskId: this.taskId, taskName: this.taskName, shareType: 'job' }
     });
     dialogRef.afterClosed().subscribe(async result => {
       if (result === false) {
@@ -270,7 +270,25 @@ export class DashboardPageComponent {
         this.notificationService.showError(message, "Erreur!");
       }
     }, (error) => {
-        console.error(error);
+      console.error(error);
     });
   }
+  
+  shareTask() {
+    let dialogRef = this.dialog.open(TaskShareDialogComponent, {
+      width: '30%',
+      height: '40%',
+      data: { taskId: this.taskId, taskName: this.taskName, shareType: 'matricule' }
+    });
+    dialogRef.afterClosed().subscribe(async result => {
+      if (result === false) {
+        const message = "Une erreur est intervenue lors du partage de la tâche !";
+        this.notificationService.showError(message, "Erreur!");
+      }
+    }, (error) => {
+      console.error(error);
+    });
+  }
+  
+  
 }

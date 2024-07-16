@@ -86,7 +86,9 @@ export class MatriculeVerificationComponent implements OnInit {
       await this.getDocuments();
       this.getSubExamsList();
       if (this.checkForAvailableCopies()) {
-        this.nextCopy();
+        this.initialCopyIndex = 0;
+        this.currentCopy = this.initialCopyIndex;
+        this.changeCurrentExam(this.currentCopy); 
       }
       this.checkValidationButton();
   
@@ -220,7 +222,7 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   changeCurrentExam(examIndex: number) {
-    const exam = this.examsList[examIndex-1];
+    const exam = this.examsList[examIndex];
     if (exam) {
       this.changeCurrentCopy(exam.document_index, exam.status);
     }
@@ -441,7 +443,7 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   reroute() {
-    this.router.navigate(['/tasks-history']);
+    this.router.navigate(['/dashboard', this.job["job_id"]]);
   }
 
   previousCopy(): void {

@@ -464,8 +464,7 @@ export class TaskVerificationComponent implements OnInit {
     }
 
     if (this.hasDownloadedZip && !this.hasUploadedZip) {
-      this.notificationService.showWarning('Veuillez vous assurer que tous les fichiers sont téléchargés et mis en ligne correctement avant de valider.', 'Erreur de validation');
-      return;
+      this.notificationService.showWarning("Vous n'avez téléversé aucun nouveaux fichiers.", 'Attention!');
     }
 
     this.examsList[this.currentIndex()]["total"] = this.currentTotal;
@@ -521,14 +520,14 @@ export class TaskVerificationComponent implements OnInit {
         this.validating = true;
         let response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
         if (response === "OK") {
-          this.router.navigate(['/tasks-history']);
+          this.router.navigate(['/dashboard', this.job["job_id"]]);
           let message = "La tâche est en cours de finalisation!";
           this.notificationService.showInfo(message, "Alerte!")
           // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
         }
       }
     } else {
-      this.router.navigate(['/tasks-history']);
+      this.router.navigate(['/dashboard', this.job["job_id"]]);
       let message = "Les copies pour la question " + this.currentQuestionIndex + " ont été corrigées!";
       this.notificationService.showInfo(message, "Alerte!")
     }
@@ -546,7 +545,7 @@ export class TaskVerificationComponent implements OnInit {
           let response = await this.validationService.validateJob(
             this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
           if (response === "OK") {
-            this.router.navigate(['/tasks-history']);
+            this.router.navigate(['/dashboard', this.job["job_id"]]);
             const message = "La tâche est en cours de finalisation!";
             this.notificationService.showInfo(message, "Alerte!")
             // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
@@ -613,7 +612,7 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   reroute() {
-    this.router.navigate(['/tasks-history']);
+    this.router.navigate(['/dashboard', this.job["job_id"]]);
   }
 
   previousCopy(): void {
