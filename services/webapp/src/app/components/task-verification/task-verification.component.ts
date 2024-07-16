@@ -41,8 +41,9 @@ export class TaskVerificationComponent implements OnInit {
   disabledValidationcontainer = true;
   disabledValidationButton = true;
   disabledDropDown = false;
-
   validating: boolean = false;
+  hasDownloadedZip: boolean = false;
+  hasUploadedZip: boolean = false;
 
   job: Map<string, any>;
   pdfSrc: string;
@@ -462,6 +463,11 @@ export class TaskVerificationComponent implements OnInit {
         return;
     }
 
+    if (this.hasDownloadedZip && !this.hasUploadedZip) {
+      this.notificationService.showWarning('Veuillez vous assurer que tous les fichiers sont téléchargés et mis en ligne correctement avant de valider.', 'Erreur de validation');
+      return;
+    }
+
     this.examsList[this.currentIndex()]["total"] = this.currentTotal;
     const currentExam = this.examsList[this.currentIndex()];
     const filename = currentExam["filename"];
@@ -672,24 +678,24 @@ export class TaskVerificationComponent implements OnInit {
     this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
     const zip = new JSZip();
   
-    for (const exam of this.examsList) {
-      if (exam.status !== 'NOT_READY') {
+    for (const exam of this.subExamsList) {
+      if (exam["status"] !== 'NOT_READY') {
         const formdata: FormData = new FormData();
         this.userService.addTokens(formdata);
         formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-        formdata.append('document_index', exam.document_index.toString());
+        formdata.append('document_index', exam["document_index"].toString());
   
         await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' })
           .toPromise()
           .then((data: Blob) => {
-            const fileName = exam.filename;
-            const questionIndex = this.verifyQuestionIndex(exam.filename);
+            const fileName = exam["filename"];
+            const questionIndex = this.verifyQuestionIndex(fileName);
             const folder = zip.folder(`Question_${questionIndex}`);
             folder.file(fileName, data);
           })
           .catch((error) => {
-            console.error(`Error downloading file ${exam.filename}:`, error);
-            this.notificationService.showError(`Erreur lors du téléchargement du fichier ${exam.filename}`, 'Erreur de téléchargement');
+            console.error(`Error downloading file ${exam["filename"]}:`, error);
+            this.notificationService.showError(`Erreur lors du téléchargement du fichier ${exam["filename"]}`, 'Erreur de téléchargement');
           });
       }
     }
@@ -698,6 +704,7 @@ export class TaskVerificationComponent implements OnInit {
       .then((content) => {
         saveAs(content, `${this.job['job_id']}.zip`);
       });
+    this.hasDownloadedZip = true;
     this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
   }
   
@@ -737,6 +744,7 @@ export class TaskVerificationComponent implements OnInit {
       .toPromise()
       .then((response) => {
         console.log('Files replaced successfully', response);
+        this.hasUploadedZip = true;
         this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succes');
       })
       .catch((error) => {
