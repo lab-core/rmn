@@ -178,68 +178,49 @@ def change_password(user_id):
 def evaluate(user_id):
     request_form = request.form
 
-    if "template_id" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: template_id not provided."}),
-            status=400,
-        )
+    required_fields = [
+        "front_template_id",
+        "regular_template_id",
+        "n_pages_per_question",
+        "n_max_points_per_question",
+        "job_name",
+        "front_template_name",
+        "regular_template_name"
+    ]
 
-    # if "nb_pages" not in request_form:
-    #     return Response(
-    #         response=json.dumps({"response": f"Error: nb_pages not provided."}),
-    #         status=400,
-    #     )
-    
-    if "n_pages_per_question" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: n_pages_per_question not provided."}),
-            status=400,
-        )
-    
-    if "n_max_points_per_question" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: n_max_points_per_question not provided."}),
-            status=400,
-        )
-
-    if "job_name" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: job_name not provided."}),
-            status=400,
-        )
-
-    if "template_name" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: template_name not provided."}),
-            status=400,
-        )
+    for field in required_fields:
+        if field not in request_form:
+            return Response(
+                response=json.dumps({"response": f"Error: {field} not provided."}),
+                status=400,
+            )
 
     if not request.files:
         return Response(
-            response=json.dumps({"response": f"Error: No files provided."}),
+            response=json.dumps({"response": "Error: No files provided."}),
             status=400,
         )
 
-    if "notes_csv_file" not in request.files:
-        return Response(
-            response=json.dumps({"response": f"Error: Notes csv file not provided."}),
-            status=400,
-        )
+    required_files = [
+        "notes_csv_file",
+        "zip_file"
+    ]
 
-    if "zip_file" not in request.files:
-        return Response(
-            response=json.dumps({"response": f"Error: Zip file not provided."}),
-            status=400,
-        )
+    for file_field in required_files:
+        if file_field not in request.files:
+            return Response(
+                response=json.dumps({"response": f"Error: {file_field} not provided."}),
+                status=400,
+            )
 
-    template_id = str(request_form["template_id"])
-    template_name = str(request_form["template_name"])
+    front_template_id = str(request_form["front_template_id"])
+    regular_template_id = str(request_form["regular_template_id"])
+    front_template_name = str(request_form["front_template_name"])
+    regular_template_name = str(request_form["regular_template_name"])
     job_name = str(request_form["job_name"])
-    # nb_pages = int(request_form["nb_pages"])
     n_pages_per_question = json.loads(request_form["n_pages_per_question"])
     n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
 
-    # Define db and collection used
     db = mongo["RMN"]
     collection = db["eval_jobs"]
 
@@ -255,8 +236,10 @@ def evaluate(user_id):
         "job_id": job_id,
         "job_name": job_name,
         "user_id": user_id,
-        "template_id": template_id,
-        "template_name": template_name,
+        "front_template_id": front_template_id,
+        "regular_template_id": regular_template_id,
+        "front_template_name": front_template_name,
+        "regular_template_name": regular_template_name,
         "queued_time": datetime.utcnow(),
         "job_status": Job_Status.QUEUED.value,
         "retry": 0,
@@ -293,7 +276,7 @@ def evaluate(user_id):
 
     except Exception as e:
         print(e)
-        return Response(response=f"Error: Failed to download files.", status=900)
+        return Response(response=f"Error: Failed to download files.", status=500)
 
     # Create SocketIO connection
     sio = socketio_client()
@@ -423,11 +406,13 @@ def get_jobs(user_id):
     resp = [
         {
             "job_id": job["job_id"],
-            "template_id": job["template_id"],
+            "front_template_id": job["front_template_id"],
+            "regular_template_id": job["regular_template_id"],
             "queued_time": str(job["queued_time"]),
             "job_status": job["job_status"],
             "job_name": job["job_name"],
-            "template_name": job["template_name"]
+            "front_template_name": job["front_template_name"],
+            "regular_template_name": job["regular_template_name"]
         }
         for job in jobs
     ]
@@ -483,11 +468,13 @@ def get_job():
     #
     resp = {
         "job_id": job["job_id"],
-        "template_id": job["template_id"],
+        "front_template_id": job["front_template_id"],
+        "regular_template_id": job["regular_template_id"],
         "queued_time": str(job["queued_time"]),
         "job_status": job["job_status"],
         "job_name": job["job_name"],
-        "template_name": job["template_name"],
+        "front_template_name": job["front_template_name"],
+        "regular_template_name": job["regular_template_name"],
         "students_list": job["students_list"],
         "job_infos": job["job_infos"],
         "n_max_points_per_question": job["n_max_points_per_question"],

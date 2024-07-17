@@ -27,7 +27,6 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { AppComponent } from './components/app/app.component';
 import { LoginPageComponent } from './components/login-page/login-page.component';
 import { MainMenuComponent } from './components/main-menu/main-menu.component';
-import { NewCorrectionComponent } from './components/new-correction/new-correction.component';
 import { TasksHistoryComponent } from './components/tasks-history/tasks-history.component';
 import { TaskFilesDialogComponent } from './components/tasks-history/task-files-dialog/task-files-dialog.component';
 import { UserProfileComponent } from './components/user-profile/user-profile.component';
@@ -52,7 +51,6 @@ import { MatriculeVerificationComponent } from './components/matricule-verificat
     AppComponent,
     LoginPageComponent,
     MainMenuComponent,
-    NewCorrectionComponent,
     TasksHistoryComponent,
     TaskFilesDialogComponent,
     TaskShareDialogComponent,

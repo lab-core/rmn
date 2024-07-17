@@ -103,18 +103,20 @@ export class TasksService {
     }
   }
 
-  addTask(copies, csv, template_id, n_pages_per_question, n_max_points_per_question, taskName, template_name) {
+  addTask(copies, csv, front_template_id, regular_template_id, n_pages_per_question, n_max_points_per_question, taskName, front_template_name, regular_template_name) {
     const formdata: FormData = new FormData();
     formdata.append('user_id', this.userService.currentUsername);
     formdata.append('token', this.userService.token);
-    formdata.append('template_id', template_id);
+    formdata.append('front_template_id', front_template_id);
+    formdata.append('regular_template_id', regular_template_id);
     formdata.append('zip_file', copies);
     formdata.append('notes_csv_file', csv);
     // formdata.append('nb_pages', number_pages.toString());
     formdata.append('n_pages_per_question', JSON.stringify(Array.from(n_pages_per_question.entries())));
     formdata.append('n_max_points_per_question', JSON.stringify(Array.from(n_max_points_per_question.entries())));
     formdata.append('job_name', taskName);
-    formdata.append('template_name', template_name);
+    formdata.append('front_template_name', front_template_name);
+    formdata.append('regular_template_name', regular_template_name);
 
     this.percentDone = 0;
 

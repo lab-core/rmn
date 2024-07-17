@@ -216,13 +216,21 @@ def find_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
         wf.write(csvf)
 
 
-def convert_to_box_config(list_matricule_box):
+def convert_to_front_box_config(list_matricule_box):
+    rounded_list_matricule_box = [round(x, 2) for x in list_matricule_box]
     return {
-        "front": tuple(list_matricule_box),
+        "front": tuple(rounded_list_matricule_box),
         "separate_box": True,
         "regular": (0.55, 0.95, 0.05, 0.13),
     }
 
+def convert_to_regular_box_config(list_matricule_box):
+    rounded_list_matricule_box = [round(x, 2) for x in list_matricule_box]
+    return {
+        "front": (0.05, 0.85, 0.15, 0.35),
+        "separate_box": True,
+        "regular": tuple(rounded_list_matricule_box),
+    }
 
 def convert_grade_box_config(list_grade_box):
     return {"grade": tuple(list_grade_box)}
@@ -235,29 +243,35 @@ def grade_all(
     box_default,
     job_id,
     user_id,
-    template_id,
+    front_template_id,
+    regular_template_id,
     dpi=300,
     shape=(8.5, 11),
     ):
     db = Database()
     box_list, box_matricule_list = None, None
-    box_matricule = box_matricule_default  
+    regular_box_matricule = box_matricule_default  
+    front_box_matricule = box_matricule_default
+    box_matricule = box_matricule_default
     box = box_default  
 
-    box_list, box_matricule_list = db.get_template_info(template_id)
+    box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
+    print("box_list", box_list)
+    print("box_matricule_list", box_matricule_list)
+    print("regular_box_matricule_list", regular_box_matricule_list)
+
+    if regular_box_matricule_list is not None:
+        regular_box_matricule = convert_to_regular_box_config(regular_box_matricule_list)
     if box_matricule_list is not None:
-        box_matricule = convert_to_box_config(box_matricule_list)
+        front_box_matricule = convert_to_front_box_config(box_matricule_list)
     if box_list is not None:
         box = convert_grade_box_config(box_list)
-
-    # box_matricule['front'] = (0.05, 0.85, 0.15, 0.35)    
-
-    if box_list is None:
-        box_matricule['front'] = box_matricule_default['front']
-        box_matricule['regular'] = tuple(round(num, 2) for num in box_matricule_list)
-        # box_matricule['regular'] = (0.55, 0.95, 0.05, 0.13)
+   
+    box_matricule['front'] = front_box_matricule['front']
+    box_matricule['regular'] = regular_box_matricule['regular']
 
     # debug
+    print("---------------------------------DEBUG---------------------------------")
     print("box_matricule_list", box_matricule_list)
     print("box_list", box_list)
     print("box_default", box_default)
@@ -853,20 +867,20 @@ def find_matricule(
                     distri[d] = p
         return True
 
-    # # # find the id box
-    # cropped = fetch_box(grays[0], front_box)
-    # cnts, hierarchy = cv2.findContours(
-    #     find_edges(cropped, thick=0), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-    # )
-    # cnts = imutils.grab_contours((cnts, hierarchy))
-    # imwrite_contours("rgray", cropped, cnts, thick=5)
-    # # Find the biggest contour for the front box
-    # pos, biggest_c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
-    # id_box = get_image_from_contour(cropped, biggest_c)
-    # for cnt in biggest_children(cnts, hierarchy, pos):
-    #     cnt_cropped = get_image_from_contour(cropped, cnt)
-    #     if find_digits(cnt_cropped, True):
-    #         break
+    # find the id box
+    cropped = fetch_box(grays[0], front_box)
+    cnts, hierarchy = cv2.findContours(
+        find_edges(cropped, thick=0), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+    )
+    cnts = imutils.grab_contours((cnts, hierarchy))
+    imwrite_contours("rgray", cropped, cnts, thick=5)
+    # Find the biggest contour for the front box
+    pos, biggest_c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
+    id_box = get_image_from_contour(cropped, biggest_c)
+    for cnt in biggest_children(cnts, hierarchy, pos):
+        cnt_cropped = get_image_from_contour(cropped, cnt)
+        if find_digits(cnt_cropped, True):
+            break
 
     # try to find a matricule on the next page
     if regular_box != None:

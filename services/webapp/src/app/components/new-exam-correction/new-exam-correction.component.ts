@@ -33,7 +33,8 @@ export class NewExamCorrectionComponent implements OnInit {
   copiesName: string = "";
   csvName: string = "";
   templates: Array<Map<string, string>>;
-  selectedTemplate: string = "";
+  selectedFrontTemplate: string = "";
+  selectedRegularTemplate: string = "";
   disabled: boolean = false;
   uploading: boolean = false;
 
@@ -216,7 +217,8 @@ export class NewExamCorrectionComponent implements OnInit {
           this.notifyService.showWarning("Veuillez créer un template avant de commencer une correction.", "Avertissement");
           this.disabled = true;
         } else {
-          this.selectedTemplate = this.templates[0]['template_id'];
+          this.selectedFrontTemplate = this.templates[0]['template_id'];
+          this.selectedRegularTemplate = this.templates[0]['template_id'];
         }
       });
   }
@@ -376,9 +378,10 @@ export class NewExamCorrectionComponent implements OnInit {
       this.uploading = true;
       await this.convertDownloadableFile();
       await this.convertDownloadableCSV();
-      let template_name = this.templates.find(template => template['template_id'] == this.selectedTemplate)['template_name'];
+      let front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
+      let regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
 
-      this.tasksService.addTask(this.copies, this.csv, this.selectedTemplate, this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.taskName, template_name);
+      this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate, this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.taskName, front_template_name, regular_template_name);
     }
   }
 
