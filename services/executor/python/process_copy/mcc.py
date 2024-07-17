@@ -329,10 +329,6 @@ def zipdirbatch(path, archive="moodle", batch=None):
 def create_front_page(
     latex_file, name, matricule, latex_input_file=None, tmp_dir="tmp/"
 ):
-    tmp_dir = os.path.abspath(tmp_dir)
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
-
     # define default input file
     if latex_input_file is None:
         latex_input_file = os.path.join(tmp_dir, Latex.input_file)
@@ -342,6 +338,15 @@ def create_front_page(
     input_data = Latex.input_content % (no_accent_name, matricule)
     with open(latex_input_file, "w") as f:
         f.write(input_data)
+
+    # compile latex file
+    return create_tex_pdf(latex_file, tmp_dir)
+
+
+def create_tex_pdf(latex_file, tmp_dir="tmp/"):
+    tmp_dir = os.path.abspath(tmp_dir)
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
 
     # compile latex file
     current = os.getcwd()
