@@ -28,7 +28,6 @@ export class DashboardPageComponent {
   nMaxPointsPerQuestion: Map<string, number>;
   bonusEnabledMap = new Map<string, boolean>();
   totalCorrectedCopies: number = 0;
-  // totalAverage: number = 0;
   totalPoints: number = 0;
   totalCopies: number = 0;
   maxPossiblePoints: number = 0;
@@ -179,13 +178,9 @@ export class DashboardPageComponent {
       }
     });
   
-    console.log('totalPoints:', totalPoints);
-    console.log('totalCopies:', totalCopies);
-    console.log('maxPossiblePoints:', maxPossiblePoints);
     this.totalPoints = totalPoints;
     this.totalCopies = totalCopies;
     this.maxPossiblePoints = maxPossiblePoints;
-    // this.totalAverage = totalCopies > 0 ? totalPoints / (totalCopies * maxPossiblePoints) : 0;
   }
 
   computeFullyCorrectedCopies(): string[] {

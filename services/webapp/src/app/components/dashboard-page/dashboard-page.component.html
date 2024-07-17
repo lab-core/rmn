@@ -8,7 +8,12 @@
       <div class="section">
         <h3>Questions</h3>
         <div *ngFor="let question of questions; let i = index">
-          Q{{ i + 1 }}
+          <div *ngIf="bonusEnabledMap.get('Q' + (i + 1))">
+            Q{{ i + 1 }} (Bonus)
+          </div>
+          <div *ngIf="!bonusEnabledMap.get('Q' + (i + 1))">
+            Q{{ i + 1 }}
+          </div>
         </div>
         <div>Total</div>
       </div>
