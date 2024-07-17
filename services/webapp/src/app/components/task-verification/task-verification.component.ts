@@ -51,6 +51,7 @@ export class TaskVerificationComponent implements OnInit {
   
   copiesInformations: Map<string, Map<string, number>> = new Map();
   nMaxPointsPerQuestion = new Map<string, number>();
+  bonusEnabledMap = new Map<string, boolean>();
   initialCopyIndex: number = -1;
   currentCopy: number = -1;
   currentCopyName: string;
@@ -95,6 +96,7 @@ export class TaskVerificationComponent implements OnInit {
       this.getMatriculeList();
       await this.getDocuments();
       await this.getMaxPointsPerQuestion();
+      await this.getBonusEnabledMap();
       if (this.checkForAvailableCopies()) {
         this.nextCopy();
       }
@@ -104,6 +106,7 @@ export class TaskVerificationComponent implements OnInit {
       this.socketService.getSocket().on('document_ready', async (params: any) => {
         await this.getDocuments();
         await this.getMaxPointsPerQuestion();
+        await this.getBonusEnabledMap();
         if (this.disabledValidationcontainer) {
           this.nextCopy();
         }
@@ -231,10 +234,16 @@ export class TaskVerificationComponent implements OnInit {
     this.nMaxPointsPerQuestion = this.docService.nMaxPointsPerQuestion;
   }
 
+  async getBonusEnabledMap() {
+    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
+    this.bonusEnabledMap = this.docService.bonusEnabledMap;
+    console.log("Bonus enabled map", this.bonusEnabledMap)
+  }
+
   async getCopiesInformations() {
     let exam = this.examsList[this.currentIndex()];
     this.currentCopyName = exam["filename"];
-    await this.docService.getCopiesInformations(this.tasksService.getvalidatingTaskId(), this.currentCopyName);
+    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
     this.copiesInformations = this.docService.copiesInformations;
   }
 
@@ -281,7 +290,7 @@ export class TaskVerificationComponent implements OnInit {
         this.notificationService.showWarning(`Vous avez rajouté ${excessPoints} point(s) bonus`, 'Attention!');
         this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
         this.currentScore = null;
-      }else {
+      } else if (!this.bonusEnabledMap.get(this.currentQuestionIndex)) {
         this.notificationService.showWarning('Veuillez saisir une note valide.', 'Note invalide');
         throw new Error('Note invalide');
       }
@@ -341,11 +350,20 @@ export class TaskVerificationComponent implements OnInit {
     this.changeCurrentCopy(this.initialCopyIndex + examIndex, this.examsList[examIndex].status);
   }
 
-  loadCopy(): void {
+  async loadCopy(): Promise<void> {
     this.loadPdf();
     this.getCurrentMatricule();
     this.getCurrentStatus();
+    await this.verifyIfQuestionIsBonus();
   }
+
+  async verifyIfQuestionIsBonus(): Promise<void> {
+    if (this.bonusEnabledMap.get(this.currentQuestionIndex)) {
+      this.currentScore = 0;
+      await this.addScoreToQuestion();
+      this.notificationService.showInfo('Cette question est une question bonus. Sa note initiale est 0.', 'Information');
+    }
+  }  
 
   setChosenColor(status: string): void {
     if(status === "TO VALIDATE") {

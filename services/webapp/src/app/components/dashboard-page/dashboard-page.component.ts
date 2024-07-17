@@ -26,8 +26,12 @@ export class DashboardPageComponent {
   maxQuestionIndex: number;
   averages: number[] = [];
   nMaxPointsPerQuestion: Map<string, number>;
+  bonusEnabledMap = new Map<string, boolean>();
   totalCorrectedCopies: number = 0;
-  totalAverage: number = 0;
+  // totalAverage: number = 0;
+  totalPoints: number = 0;
+  totalCopies: number = 0;
+  maxPossiblePoints: number = 0;
 
   constructor(
     private router: Router,
@@ -140,32 +144,48 @@ export class DashboardPageComponent {
   }
 
   computeTotals() {
+    const bonusEnabledArray = this.task['bonus_enabled_map'];
+    this.bonusEnabledMap = new Map<string, boolean>(
+      bonusEnabledArray.map((item: [string, boolean]) => [item[0], item[1]])
+    );
     const fullyCorrectedCopies = this.computeFullyCorrectedCopies();
     this.totalCorrectedCopies = fullyCorrectedCopies.length;
-
+  
     let totalPoints = 0;
     let totalCopies = 0;
-
+    let maxPossiblePoints = 0;
+  
+    // compute the maximum possible points excluding bonus questions
+    this.nMaxPointsPerQuestion.forEach((maxPoints, question) => {
+      if (!this.bonusEnabledMap.get(question)) {
+        maxPossiblePoints += maxPoints;
+      }
+    });
+  
     fullyCorrectedCopies.forEach(copy => {
       let copyPoints = 0;
-      let questionsCount = 0;
-
+  
       this.task['copies_informations'].forEach(([copyId, questions]) => {
         if (copyId === copy) {
           questions.forEach(([question, points]) => {
             copyPoints += points;
-            questionsCount++;
           });
         }
       });
-
-      if (questionsCount > 0) {
+  
+      if (maxPossiblePoints > 0) {
         totalPoints += copyPoints;
         totalCopies++;
       }
     });
-
-    this.totalAverage = totalCopies > 0 ? totalPoints / (totalCopies * this.nMaxPointsPerQuestion.size) : 0;
+  
+    console.log('totalPoints:', totalPoints);
+    console.log('totalCopies:', totalCopies);
+    console.log('maxPossiblePoints:', maxPossiblePoints);
+    this.totalPoints = totalPoints;
+    this.totalCopies = totalCopies;
+    this.maxPossiblePoints = maxPossiblePoints;
+    // this.totalAverage = totalCopies > 0 ? totalPoints / (totalCopies * maxPossiblePoints) : 0;
   }
 
   computeFullyCorrectedCopies(): string[] {

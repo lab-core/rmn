@@ -44,7 +44,7 @@ export class NewExamCorrectionComponent implements OnInit {
   totalBonus: number = 0;
   nPagesPerQuestion = new Map<string, number>();
   nMaxPointsPerQuestion = new Map<string, number>();
-  bonusEnabled: { [key: string]: boolean } = {};
+  bonusEnabledMap = new Map<string, boolean>();
   questionKeys: string[] = [];
   taskName: string = "Tâche";
 
@@ -96,12 +96,12 @@ export class NewExamCorrectionComponent implements OnInit {
     this.nPagesPerQuestion.clear();
     this.nMaxPointsPerQuestion.clear();
     this.questionKeys = [];
-    this.bonusEnabled = {};
+    this.bonusEnabledMap.clear();
     for (let i = 1; i <= this.nQuestions; i++) {
       this.nPagesPerQuestion.set(`Q${i}`, 1);
       this.nMaxPointsPerQuestion.set(`Q${i}`, 1);
       this.questionKeys.push(`Q${i}`);
-      this.bonusEnabled[`Q${i}`] = false;
+      this.bonusEnabledMap.set(`Q${i}`, false);
     }
   }
 
@@ -120,8 +120,8 @@ export class NewExamCorrectionComponent implements OnInit {
   }
 
   toggleBonus(key: string) {
-    this.bonusEnabled[key] = !this.bonusEnabled[key];
-    this.updateTotals();
+    const currentValue = this.bonusEnabledMap.get(key) || false;
+    this.bonusEnabledMap.set(key, !currentValue);
   }
 
   updateSuffix(event: KeyboardEvent) {
@@ -380,8 +380,8 @@ export class NewExamCorrectionComponent implements OnInit {
       await this.convertDownloadableCSV();
       let front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
       let regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
-
-      this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate, this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.taskName, front_template_name, regular_template_name);
+      console.log("bonusEnabledMap", this.bonusEnabledMap);
+      this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate, this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName, front_template_name, regular_template_name);
     }
   }
 

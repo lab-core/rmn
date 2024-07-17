@@ -24,7 +24,7 @@
         <div *ngFor="let average of averages; let i = index">
           {{ average }} / {{ nMaxPointsPerQuestion.get('Q' + (i + 1)) }} 
         </div>
-        <div>{{ totalAverage.toFixed(2) }} / 9</div>
+        <div>{{ totalPoints /  totalCopies}}  / {{ (maxPossiblePoints) }} </div>
       </div>
       <div class="section actions">
         <h3>Actions</h3>

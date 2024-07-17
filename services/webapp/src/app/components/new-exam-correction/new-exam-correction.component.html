@@ -61,7 +61,7 @@
                                 <input (change)="updateMaxPoints(key, $event)" type="number" min="1" step="1" required>
                               </td>
                               <td>
-                                <input type="checkbox" [(ngModel)]="bonusEnabled[key]" [ngModelOptions]="{standalone: true}" (change)="toggleBonus(key)">
+                                <input type="checkbox" [(ngModel)]="bonusEnabledMap[key]" [ngModelOptions]="{standalone: true}" (change)="toggleBonus(key)">
                               </td>
                             </tr>
                             <tr>

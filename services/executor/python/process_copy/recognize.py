@@ -256,9 +256,6 @@ def grade_all(
     box = box_default  
 
     box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
-    print("box_list", box_list)
-    print("box_matricule_list", box_matricule_list)
-    print("regular_box_matricule_list", regular_box_matricule_list)
 
     if regular_box_matricule_list is not None:
         regular_box_matricule = convert_to_regular_box_config(regular_box_matricule_list)

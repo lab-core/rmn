@@ -183,6 +183,7 @@ def evaluate(user_id):
         "regular_template_id",
         "n_pages_per_question",
         "n_max_points_per_question",
+        "bonus_enabled_map",
         "job_name",
         "front_template_name",
         "regular_template_name"
@@ -220,6 +221,7 @@ def evaluate(user_id):
     job_name = str(request_form["job_name"])
     n_pages_per_question = json.loads(request_form["n_pages_per_question"])
     n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
+    bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
 
     db = mongo["RMN"]
     collection = db["eval_jobs"]
@@ -247,6 +249,7 @@ def evaluate(user_id):
         "zip_file_id": zip_file_id,
         "n_pages_per_question": n_pages_per_question,
         "n_max_points_per_question": n_max_points_per_question,
+        "bonus_enabled_map": bonus_enabled_map,
         "students_list": []
     }
 
@@ -480,6 +483,7 @@ def get_job():
         "n_max_points_per_question": job["n_max_points_per_question"],
         "copies_informations": job.get("copies_informations", []),
         "n_pages_per_question": job["n_pages_per_question"],
+        "bonus_enabled_map": job["bonus_enabled_map"]
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
