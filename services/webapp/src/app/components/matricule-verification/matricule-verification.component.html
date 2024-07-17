@@ -3,83 +3,76 @@
 </div>
 <div class="task-verification-container">
     <div class="background">
-        <div *ngIf="isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
-            <mat-icon>visibility</mat-icon>
-        </div>
-        <div *ngIf="!isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
-            <mat-icon>visibility_off</mat-icon>
-        </div>
-        <div class="files-container" [ngClass]="{'hidden': isSidebarHidden}">
+        <div class="files-container">
             <div class="filter-job-container" *ngIf="this.showFilter()">
               <label>Filtrer par groupe: </label>
               <select (change)="this.loadSubExamsList()" [(ngModel)]="this.group">
                 <option *ngFor="let g of this.groupsList">{{g}}</option>
               </select>
             </div>
-            <div class="filter-job-container" *ngIf="!this.disabledDropDown">
-                <mat-form-field appearance="fill">
-                    <mat-label>Numéro de la question</mat-label>
-                    <mat-select (selectionChange)="onQuestionIndexChange($event)">
-                        <mat-option *ngFor="let index of questionIndexes" [value]="index">
-                            {{index}}
-                        </mat-option>
-                    </mat-select>
-                </mat-form-field>
-            </div>
             <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}">
-                <div class="file-container" *ngFor="let exam of this.subExamsList; let i = index"
+                <div class="file-container" *ngFor="let exam of this.examsList; let i = index"
                     (click)="changeCurrentCopy(exam.document_index, exam.status)">
                     <div class="disabled-copy" *ngIf="exam.status == 'NOT_READY'">
-                        <strong>{{formattedIndexes[i]}}</strong>
+                        <strong>{{i + 1}}</strong>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
                         *ngIf="exam.status == 'VALIDATED'">
-                        <strong>{{formattedIndexes[i]}}</strong>
+                        <strong>{{i + 1}}</strong>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
                         *ngIf="exam.status == 'TO VALIDATE'">
-                        <strong>{{formattedIndexes[i]}}</strong>
+                        <strong>{{i + 1}}</strong>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
                         *ngIf="exam.status == 'HIGH ACCURACY'">
-                        <strong>{{formattedIndexes[i]}}</strong>
+                        <strong>{{i + 1}}</strong>
                     </div>
                 </div>
             </div>                       
             <div class="validate-job-container" *ngIf="this.loggued()">
-                <button class="validate-job-button" mat-flat-button (click)="validateJob()"
+                <button class="validate-job-button" mat-flat-button (click)="validateMatricules()"
                 [disabled]="this.disabledValidationButton">Finaliser</button>
             </div>
-            <button class="download-zip-button" mat-flat-button (click)="downloadAllFilesAsZip()">Tout télécharger</button>
-            <div class="upload-container">
-                <button class="replace-zip-button" mat-flat-button (click)="fileInput.click()">Tout téléverser</button>
-                <input #fileInput type="file" accept=".zip" (change)="onFileSelected($event)" style="display: none;">
-                <div class="drop-zone" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
-                  <p>Déposez votre fichier zip ici</p>
-                </div>
-              </div>
         </div>
-        <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
+        <div class="validation-container">
             <p *ngIf="this.disabledValidationcontainer">Aucune copie n'est prête à être validée.</p>
-            <div class="picture-container" *ngIf="!this.disabledValidationcontainer" [ngClass]="{'expanded': isSidebarHidden}">
+            <div class="picture-container" *ngIf="!this.disabledValidationcontainer">
                 <ngx-extended-pdf-viewer *ngIf="!this.pdfLoading"
                     [src]="this.pdfSrc" 
                     [language]="'fr'"
                     [showDownloadButton]="false"
+                    [showFindButton]="false"
+                    [showHandToolButton]="false"
+                    [showOpenFileButton]="false"
+                    [showPagingButtons]="false"
+                    [showPresentationModeButton]="false"
                     [showPrintButton]="false"
-                    [showOpenFileButton]="false">
+                    [showRotateButton]="false"
+                    [showSecondaryToolbarButton]="false"
+                    [showSidebarButton]="false"
+                    [showZoomButtons]="false">
                 </ngx-extended-pdf-viewer>
-                <button mat-button *ngIf="!isSidebarHidden" (click)="previousCopy()"class="back-button2" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_back_ios</mat-icon></button>
-                <button mat-button *ngIf="!isSidebarHidden" (click)="nextCopy()"class="back-button3" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_forward_ios</mat-icon></button>
+                <button mat-button (click)="previousCopy()"class="back-button2"><mat-icon>arrow_back_ios</mat-icon></button>
+                <button mat-button (click)="nextCopy()"class="back-button3"><mat-icon>arrow_forward_ios</mat-icon></button>
                 <mat-spinner *ngIf="this.pdfLoading"></mat-spinner>
             </div>
             <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer">
                 <div class="check-list-container">
                     <div class="sub-check-container">
-                        <h3>Note (/{{nMaxPointsPerQuestion.get(currentQuestionIndex)}})</h3>
+                        <h3>Matricule</h3>
                         <div class="value-input-div">
-                            <input id="score" type="number" [(ngModel)]="currentScore" placeholder="Entrer la note" class="note-input"/>
+                            <ng-select id="matricule" [items]="matriculeList" bindLabel="identifiant"
+                                [multiple]="false" [searchable]="true" [clearable]="false" [closeOnSelect]="true"
+                                [virtualScroll]="false" appendTo="app-matricule-verification"
+                                [(ngModel)]="currentMatriculeSelection"
+                                (change)="changeMatricule(currentMatriculeSelection)"
+                                [disabled]="validating">
+                            </ng-select>
                         </div>
+                        <!-- <div *ngIf="this.currentMatriculeWarning" class="alert">
+                          Utilisé par plusieurs copies: {{this.currentMatriculeWarning}}.
+                        </div> -->
                     </div>
                     <div class="sub-check-container"
                         *ngFor="let prediction of this.currentPredictions | keyvalue : sortNull; trackBy: trackByIndex;">
@@ -94,7 +87,7 @@
                 </div>
                 <div class="validate-container">
                     <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                            (click)="validateCurrentCopy()" [disabled]="this.validating">
+                            (click)="updateMatricule()" [disabled]="this.validating">
                         <mat-icon>done_outline</mat-icon>
                     </button>
                 </div>
@@ -102,6 +95,6 @@
         </div>
     </div>
 </div>
-<button mat-button *ngIf="this.loggued() && !isSidebarHidden" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+<button mat-button *ngIf="this.loggued()" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
 <div id="overlay" *ngIf="this.validating"></div>
 <mat-spinner class="overlay-spinner" *ngIf="this.validating" color="accent" [diameter]="150"></mat-spinner>

@@ -415,38 +415,34 @@ mat-spinner {
     margin-bottom: 20px;
   }
 
-.questions-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.question-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
+.questions-table {
     width: 100%;
-    max-width: 600px;
+    border-collapse: collapse;
+    margin-top: 20px;
 }
 
-.question-column {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 10px;
+.questions-table th, .questions-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.questions-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.questions-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.questions-table tr:hover {
+    background-color: #ddd;
+}
+
+.questions-table td input {
     width: 100%;
-    max-width: 600px;
 }
 
-.question-row label {
-    margin-right: 10px;
-    flex: 1;
-}
-
-.question-row input {
-    flex: 0 0 50%;
-    width: 50%;
-}
 
   

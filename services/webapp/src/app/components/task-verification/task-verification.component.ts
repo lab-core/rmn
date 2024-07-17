@@ -12,6 +12,9 @@ import { DocumentsService } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
 import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { MatSelectChange } from '@angular/material/select';
+import * as saveAs from 'file-saver';
+import * as JSZip from 'jszip';
+import { PDFDocument } from 'pdf-lib';
 
 @Component({
   selector: 'app-task-verification',
@@ -39,8 +42,9 @@ export class TaskVerificationComponent implements OnInit {
   disabledValidationcontainer = true;
   disabledValidationButton = true;
   disabledDropDown = false;
-
   validating: boolean = false;
+  hasDownloadedZip: boolean = false;
+  hasUploadedZip: boolean = false;
 
   job: Map<string, any>;
   pdfSrc: string;
@@ -51,6 +55,7 @@ export class TaskVerificationComponent implements OnInit {
   currentCopy: number = -1;
   currentCopyName: string;
   currentQuestionIndex: string;
+  index: string;
   currentMatricule: number;
   currentScore: number | null;
   currentTotal: number;
@@ -184,6 +189,7 @@ export class TaskVerificationComponent implements OnInit {
         const firstExam = this.subExamsList[0];
         this.changeCurrentCopy(firstExam["document_index"], firstExam["status"]);
     }
+    this.index = `Q${event.value}`;
   }
 
 
@@ -270,12 +276,17 @@ export class TaskVerificationComponent implements OnInit {
       if (this.currentScore <= this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
         this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
         this.currentScore = null;
-      } else {
+      } else if (this.currentScore > this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
+        const excessPoints = this.currentScore - this.nMaxPointsPerQuestion.get(this.currentQuestionIndex);
+        this.notificationService.showWarning(`Vous avez rajouté ${excessPoints} point(s) bonus`, 'Attention!');
+        this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
+        this.currentScore = null;
+      }else {
         this.notificationService.showWarning('Veuillez saisir une note valide.', 'Note invalide');
         throw new Error('Note invalide');
       }
     } else {
-      this.notificationService.showWarning('Veuillez sélectionner un matricule et saisir un note.', 'Matricule manquant ou note invalide');
+      this.notificationService.showWarning('Veuillez saisir une note.', 'Note invalide');
     }
   }
 
@@ -312,42 +323,6 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  // loadCopyInCanvas() {
-  //   const formdata: FormData = new FormData();
-  //   this.userService.addTokens(formdata);
-  //   formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-  //   formdata.append('document_index', this.currentCopy.toString());
-
-  //   this.pictureLoading = true;
-
-  //   if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
-  //     this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
-  //       (data) => {
-  //         let url = window.URL.createObjectURL(data);
-  //         let img = new Image();
-  //         img.src = url;
-  //         this.pictureLoading = false;
-  //         img.onload = this.drawImageScaled.bind(null, img);
-  //       }, (error) => {
-  //         console.error(error);
-  //       });
-  //   }
-  // }
-
-  // drawImageScaled(img) {
-
-  //   let canvas = document.getElementById('cv') as HTMLCanvasElement;
-  //   let ctx = canvas.getContext('2d');
-
-  //   canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-
-  //   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  //   ctx.imageSmoothingEnabled = false;
-  //   ctx.drawImage(img, 0, 0, img.width, img.height,     // source rectangle
-  //     0, 0, canvas.width, canvas.height); // destination rectangle
-  // }
-
   changeCurrentCopy(copyIndex, status) {
     if (status !== "NOT_READY") {
       let exam = this.examsList[copyIndex-1];
@@ -355,6 +330,7 @@ export class TaskVerificationComponent implements OnInit {
       this.currentQuestionIndex = this.getQuestionIndex(exam["filename"]);
       this.currentCopyName = this.getBaseNameWithExtension(exam["filename"]);
       this.currentCopy = copyIndex;
+      console.log("Current copy", this.currentCopy);
       this.disabledValidationcontainer = false;
       this.loadCopy();
       this.setChosenColor(status);
@@ -367,10 +343,7 @@ export class TaskVerificationComponent implements OnInit {
 
   loadCopy(): void {
     this.loadPdf();
-    // this.loadCopyInCanvas();
     this.getCurrentMatricule();
-    // this.getCurrentTotal();
-    // this.getCurrentPredictions();
     this.getCurrentStatus();
   }
 
@@ -431,14 +404,6 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  // getCurrentTotal() {
-  //   this.currentTotal = this.examsList[this.currentIndex()]["total"];
-  // }
-
-  // getCurrentPredictions() {
-  //   this.currentPredictions = this.examsList[this.currentIndex()]["subquestion_predictions"];
-  // }
-
   getCurrentStatus() {
     this.currentStatus = this.examsList[this.currentIndex()]["status"];
   }
@@ -452,6 +417,10 @@ export class TaskVerificationComponent implements OnInit {
     if (!this.currentMatriculeSelection) {
         this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
         return;
+    }
+
+    if (this.hasDownloadedZip && !this.hasUploadedZip) {
+      this.notificationService.showWarning("Vous n'avez téléversé aucun nouveaux fichiers.", 'Attention!');
     }
 
     this.examsList[this.currentIndex()]["total"] = this.currentTotal;
@@ -469,7 +438,7 @@ export class TaskVerificationComponent implements OnInit {
                 this.currentCopy,
                 file,
                 this.copiesInformations,
-                this.currentMatricule,
+                0,
                 this.nMaxPointsPerQuestion,
                 this.currentStatus
             );
@@ -507,14 +476,14 @@ export class TaskVerificationComponent implements OnInit {
         this.validating = true;
         let response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
         if (response === "OK") {
-          this.router.navigate(['/tasks-history']);
+          this.router.navigate(['/dashboard', this.job["job_id"]]);
           let message = "La tâche est en cours de finalisation!";
           this.notificationService.showInfo(message, "Alerte!")
           // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
         }
       }
     } else {
-      this.router.navigate(['/tasks-history']);
+      this.router.navigate(['/dashboard', this.job["job_id"]]);
       let message = "Les copies pour la question " + this.currentQuestionIndex + " ont été corrigées!";
       this.notificationService.showInfo(message, "Alerte!")
     }
@@ -532,7 +501,7 @@ export class TaskVerificationComponent implements OnInit {
           let response = await this.validationService.validateJob(
             this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
           if (response === "OK") {
-            this.router.navigate(['/tasks-history']);
+            this.router.navigate(['/dashboard', this.job["job_id"]]);
             const message = "La tâche est en cours de finalisation!";
             this.notificationService.showInfo(message, "Alerte!")
             // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
@@ -599,7 +568,7 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   reroute() {
-    this.router.navigate(['/tasks-history']);
+    this.router.navigate(['/dashboard', this.job["job_id"]]);
   }
 
   previousCopy(): void {
@@ -646,6 +615,7 @@ export class TaskVerificationComponent implements OnInit {
     // console.log("height", height+"%")
     return height+"%";
   }
+
   checkValidationButton(): void {
     // this.disabledValidationButton = !this.job || this.job["job_status"] !== 'VALIDATION';
     const disabledValidationButton = this.examsList.some(exam => exam.status !== 'VALIDATED');
@@ -658,4 +628,145 @@ export class TaskVerificationComponent implements OnInit {
           this.disabledValidationButton = subExams.some(exam => exam["status"] !== 'VALIDATED');
     }
   }
+
+  async downloadAllFilesAsZip() {
+    this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
+    const zip = new JSZip();
+    const mergedDocs: { [key: string]: PDFDocument } = {};
+  
+    for (const exam of this.subExamsList) {
+      if (exam["status"] !== 'NOT_READY') {
+        const formdata: FormData = new FormData();
+        this.userService.addTokens(formdata);
+        formdata.append('job_id', this.tasksService.getvalidatingTaskId());
+        formdata.append('document_index', exam["document_index"].toString());
+  
+        await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' })
+          .toPromise()
+          .then(async (data: Blob) => {
+            const arrayBuffer = await data.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+            const fileName = exam["filename"];
+            const questionIndex = this.verifyQuestionIndex(fileName);
+            if (!mergedDocs[questionIndex]) {
+              mergedDocs[questionIndex] = await PDFDocument.create();
+            }
+            const copiedPages = await mergedDocs[questionIndex].copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach((page) => {
+              mergedDocs[questionIndex].addPage(page);
+            });
+          })
+          .catch((error) => {
+            console.error(`Error downloading file ${exam["filename"]}:`, error);
+            this.notificationService.showError(`Erreur lors du téléchargement du fichier ${exam["filename"]}`, 'Erreur de téléchargement');
+          });
+      }
+    }
+  
+    for (const questionIndex of Object.keys(mergedDocs)) {
+      const mergedPdfBytes = await mergedDocs[questionIndex].save();
+      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+      zip.file(`Q${questionIndex}.pdf`, blob);
+    }
+
+    console.log("this.index", this.index)
+  
+    const zipName = this.index && this.index !== "Tout sélectionner"
+    ? `${this.job['job_name']}_${this.index}.zip`
+    : `${this.job['job_name']}.zip`;
+
+    zip.generateAsync({ type: 'blob' })
+        .then((content) => {
+            saveAs(content, zipName);
+        });
+  
+    this.hasDownloadedZip = true;
+    this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
+  }
+  
+  verifyQuestionIndex(filename: string): string {
+    const match = filename.match(/Q(\d+)/);
+    return match ? match[1] : 'Unknown';
+  }
+
+  onFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.uploadZipFile(file);
+    }
+  }
+
+  onDrop(event: DragEvent) {
+    event.preventDefault();
+    const file = event.dataTransfer?.files[0];
+    if (file) {
+      this.uploadZipFile(file);
+    }
+  }
+
+  onDragOver(event: DragEvent) {
+    event.preventDefault();
+  }
+
+  async uploadZipFile(file: File) {
+    const jobId = this.tasksService.getvalidatingTaskId();
+    const nPagesPerQuestionArray = this.job["n_pages_per_question"];
+    const nPagesPerQuestion = new Map<string, number>(nPagesPerQuestionArray);
+    const zip = new JSZip();
+    
+    try {
+      const zipContent = await JSZip.loadAsync(file);
+      const mergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
+  
+      for (const mergedFile of mergedFiles) {
+        const pdfData = await zipContent.file(mergedFile).async('arraybuffer');
+        const pdfDoc = await PDFDocument.load(pdfData);
+  
+        const questionIndex = this.verifyQuestionIndex(mergedFile);
+        const originalDocs = this.subExamsList.filter(exam => exam["filename"].includes(`Q${questionIndex}`));
+        const pagesPerQuestion = nPagesPerQuestion.get(`Q${questionIndex}`) || 1;
+  
+        let startPage = 0;
+        for (const originalDoc of originalDocs) {
+          const singlePagePdf = await PDFDocument.create();
+          const endPage = startPage + pagesPerQuestion;
+          const copiedPages = await singlePagePdf.copyPages(pdfDoc, Array.from({ length: pagesPerQuestion }, (_, k) => startPage + k));
+          copiedPages.forEach((page) => {
+            singlePagePdf.addPage(page);
+          });
+  
+          const pdfBytes = await singlePagePdf.save();
+          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          const fileName = originalDoc["filename"];
+          zip.file(fileName, blob);
+  
+          startPage = endPage;
+        }
+      }
+  
+      const finalZipBlob = await zip.generateAsync({ type: 'blob' });
+      const finalZipFile = new File([finalZipBlob], 'split_documents.zip', { type: 'application/zip' });
+  
+      const uploadFormData = new FormData();
+      this.userService.addTokens(uploadFormData);
+      uploadFormData.append('job_id', jobId);
+      uploadFormData.append('file', finalZipFile);
+  
+      await this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData).toPromise()
+        .then((response) => {
+          console.log('Files replaced successfully', response);
+          this.hasUploadedZip = true;
+          this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succès');
+        })
+        .catch((error) => {
+          console.error('Error replacing files:', error);
+          this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
+        });
+  
+    } catch (error) {
+      console.error('Error processing zip file:', error);
+      this.notificationService.showError('Erreur lors du traitement du fichier zip', 'Erreur');
+    }
+  }
 }
+

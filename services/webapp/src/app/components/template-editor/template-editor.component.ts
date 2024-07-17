@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { AfterViewInit, Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { TemplateService } from 'src/app/services/template.service';
 import { RectangleService } from 'src/app/services/drawing/rectangle.service';
@@ -14,9 +14,7 @@ import { SERVER_URL } from 'src/app/utils';
   templateUrl: './template-editor.component.html',
   styleUrls: ['./template-editor.component.css']
 })
-export class TemplateEditorComponent implements OnInit {
-
-  pdfSrc: string;
+export class TemplateEditorComponent implements OnInit, AfterViewInit {
 
   templateName: string = 'Template';
   toolType: string = 'rectangle';
@@ -48,6 +46,10 @@ export class TemplateEditorComponent implements OnInit {
     const file = event.target.files[0];
     this.templateService.setFile(file);
     await this.templateService.createNewTemplate(file);
+  }
+
+  ngAfterViewInit(): void {
+    (<HTMLElement>document.querySelector('#viewerContainer')).style.overflowY = "hidden";
   }
 
   onToolChange(value){

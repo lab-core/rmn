@@ -250,9 +250,11 @@ def grade_all(
     if box_list is not None:
         box = convert_grade_box_config(box_list)
 
+    # box_matricule['front'] = (0.05, 0.85, 0.15, 0.35)    
+
     if box_list is None:
         box_matricule['front'] = box_matricule_default['front']
-        box_matricule['regular'] = tuple(box_matricule_list)
+        box_matricule['regular'] = tuple(round(num, 2) for num in box_matricule_list)
         # box_matricule['regular'] = (0.55, 0.95, 0.05, 0.13)
 
     # debug
@@ -602,7 +604,7 @@ def grade_files(
             # Check there were no grades existing
             if not numbers or len(numbers) < 1:
                 if max_nb_questions:
-                    numbers = [0] * (max_nb_questions + 1)
+                    numbers = [0] * (int(max_nb_questions) + 1)
                 else:
                     # come back later when max_nb_questions found
                     numbers = [0]
@@ -792,6 +794,7 @@ def find_matricule(
     grays, front_box, regular_box, classifier, grades_dfs=[], separate_box=True
 ):
     possible_digits = [{} for i in range(len_mat)]
+    id_box = None
 
     def find_digits(gray_box, split=False):
         try:
@@ -850,23 +853,24 @@ def find_matricule(
                     distri[d] = p
         return True
 
-    # find the id box
-    cropped = fetch_box(grays[0], front_box)
-    cnts, hierarchy = cv2.findContours(
-        find_edges(cropped, thick=0), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-    )
-    cnts = imutils.grab_contours((cnts, hierarchy))
-    imwrite_contours("rgray", cropped, cnts, thick=5)
-    # Find the biggest contour for the front box
-    pos, biggest_c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
-    id_box = get_image_from_contour(cropped, biggest_c)
-    for cnt in biggest_children(cnts, hierarchy, pos):
-        cnt_cropped = get_image_from_contour(cropped, cnt)
-        if find_digits(cnt_cropped, True):
-            break
+    # # # find the id box
+    # cropped = fetch_box(grays[0], front_box)
+    # cnts, hierarchy = cv2.findContours(
+    #     find_edges(cropped, thick=0), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+    # )
+    # cnts = imutils.grab_contours((cnts, hierarchy))
+    # imwrite_contours("rgray", cropped, cnts, thick=5)
+    # # Find the biggest contour for the front box
+    # pos, biggest_c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
+    # id_box = get_image_from_contour(cropped, biggest_c)
+    # for cnt in biggest_children(cnts, hierarchy, pos):
+    #     cnt_cropped = get_image_from_contour(cropped, cnt)
+    #     if find_digits(cnt_cropped, True):
+    #         break
 
     # try to find a matricule on the next page
     if regular_box != None:
+        print("Trying to find matricule on the next page...")
         for gray in grays[1:]:
             cropped = fetch_box(gray, regular_box)
             # mgray = find_edges(cropped, thick=3, line_on_original=True, max_gap=5, min_lenth=150)

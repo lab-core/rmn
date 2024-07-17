@@ -13,6 +13,7 @@ import { UserGuideComponent } from './components/user-guide/user-guide.component
 import { UserService } from './services/user.service';
 import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
 import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
+import { MatriculeVerificationComponent } from './components/matricule-verification/matricule-verification.component';
 
 
 // This is my case
@@ -53,6 +54,16 @@ const routes: Routes = [
     {
         path: 'task-validation/:job_id/:index',
         component : TaskVerificationComponent,
+        // canActivateChild: [UserService]
+    },
+    {
+        path: 'matricule-validation',
+        component: MatriculeVerificationComponent,
+        // canActivateChild: [UserService]
+    },
+    {
+        path: 'matricule-validation/:job_id',
+        component: MatriculeVerificationComponent,
         // canActivateChild: [UserService]
     },
     // {

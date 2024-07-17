@@ -85,14 +85,25 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
                 with open(cover_output_path, 'wb') as cover_output_file:
                     cover_writer.write(cover_output_file)
 
-    # copying the cover_pages folder to the destination
+    # inserting the cover_pages into the database
+    db = Database()
     cover_page_dest = os.path.join('cover_pages', job_id)
     if not os.path.exists(storage.abs_path(cover_page_dest)):
         os.makedirs(storage.abs_path(cover_page_dest))
-    # for file in os.listdir(cover_page_folder):
-    #     src_file = os.path.join(cover_page_folder, file)
-    #     dst_file = os.path.join(storage.abs_path(cover_page_dest), file)
-    #     storage.copy_from(src_file, dst_file)
+    for file in os.listdir(cover_page_folder):
+        original_pdf_name = re.sub(r'_cover\.pdf$', '.pdf', file)
+        doc  = db.get_document(job_id, original_pdf_name)
+        db.insert_document(
+            job_id=job_id,
+            doc_index=file,
+            subquestion_pred=[], 
+            total=0,
+            image_id=file,
+            status=Document_Status.TO_VALIDATE,  
+            matricule=doc["matricule"],
+            time=0,
+            filename=file
+        )
 
     return generated_pdfs_per_question, is_valid, error_messages
 

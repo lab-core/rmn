@@ -42,6 +42,7 @@ export class RectangleService {
 
   setIdentificationRectCoords(rectCoords): void  {
     this.identificationRectCoords = rectCoords; 
+    console.log("identificationCoords", this.identificationRectCoords);
   }
 
   setquestionsRectCoords(rectCoords): void  {

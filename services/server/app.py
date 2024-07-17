@@ -1,3 +1,4 @@
+import re
 from service.template_service import TemplateService
 from service.user_service import UserService, Role
 from flask import Flask, request, Response, json, send_file, after_this_request
@@ -19,6 +20,7 @@ import os
 import json
 import shutil
 import time
+import tempfile
 from functools import wraps
 
 
@@ -489,7 +491,8 @@ def get_job():
         "students_list": job["students_list"],
         "job_infos": job["job_infos"],
         "n_max_points_per_question": job["n_max_points_per_question"],
-        "copies_informations": job.get("copies_informations", [])
+        "copies_informations": job.get("copies_informations", []),
+        "n_pages_per_question": job["n_pages_per_question"],
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
@@ -795,6 +798,106 @@ def get_info_zip(user_id):
     #
     return Response(response=json.dumps({"response": resp}), status=200)
 
+@app.route("/matricule/update", methods=["POST"])
+@cross_origin()
+@verify_share_token()
+def update_matricule():
+    request_form = request.form
+
+    required_fields = ["job_id", "document_index", "matricule"]
+    for field in required_fields:
+        if field not in request_form:
+            return Response(
+                response=json.dumps({"response": f"Error: {field} not provided."}),
+                status=400,
+            )
+
+    job_id = str(request_form["job_id"])
+    document_index = request_form["document_index"]
+    matricule = str(request_form["matricule"])
+
+    # extract the prefix from the document index
+    prefix_match = re.match(r'^(.+?)(_Q\d+|_cover)?\.pdf$', os.path.basename(document_index))
+    if not prefix_match:
+        return Response(
+            response=json.dumps({"response": "Error: Invalid document index format."}),
+            status=400,
+        )
+    
+    prefix = prefix_match.group(1)
+
+    db = mongo["RMN"]
+    collection = db["job_documents"]
+
+    # scan all documents within the job and update the ones that match the prefix
+    documents_to_update = collection.find({"job_id": job_id})
+    
+    for document in documents_to_update:
+        document_basename = os.path.basename(document["filename"])
+        if document_basename.startswith(prefix):
+            update_data = {"matricule": matricule}
+            if document_basename.endswith("_cover.pdf"):
+                update_data["status"] = Document_Status.VALIDATED.value
+
+            collection.update_one(
+                {"_id": document["_id"]},
+                {"$set": update_data}
+            )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
+@app.route("/matricule/share", methods=["POST"])
+@cross_origin()
+@verify_share_token()
+def share_matricule_verification():
+    # Define db and collection used
+    db = mongo["RMN"]
+    collection = db["eval_jobs"]
+
+    request_form = request.form
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": f"Error: job_id not provided."}),
+            status=400
+        )
+    job_id = str(request_form["job_id"])
+
+    if "user_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": f"Error: user_id not provided."}),
+            status=400
+        )
+    user_id = str(request_form["user_id"])
+
+    host = request.headers.get('Host')
+    if not host:
+        return Response(
+            response=json.dumps({"response": f"Error: Host is not defined in the headers."}),
+            status=400
+        )
+
+    job = collection.find_one({"job_id": job_id, "user_id": user_id})
+    if job is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=400
+        )
+
+    if "share_token" not in job:
+        token = str(uuid.uuid4())
+        collection.update_one(
+            {"job_id": job_id},
+            {"$set": {"share_token": token}})
+    else:
+        token = job["share_token"]
+
+    share_url = f"https://{host}/matricule-validation/?job={job_id}&token={token}"
+
+    resp = {
+        "job_id": job["job_id"],
+        "share_url": share_url
+    }
+    return Response(response=json.dumps({"response": resp}), status=200)
 
 @app.route("/documents", methods=["POST"])
 @cross_origin()
@@ -842,7 +945,7 @@ def update_document():
     request_form = request.form
     request_files = request.files
 
-    required_fields = ["job_id", "document_index", "copies_informations", "matricule", "n_max_points_per_question", "status"]
+    required_fields = ["job_id", "document_index", "copies_informations", "n_max_points_per_question", "status"]
     for field in required_fields:
         if field not in request_form:
             return Response(
@@ -858,7 +961,6 @@ def update_document():
 
     job_id = str(request_form["job_id"])
     document_index = int(request_form["document_index"])
-    matricule = str(request_form["matricule"])
     n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
 
     # replacing the previous file by the new one in storage
@@ -880,7 +982,6 @@ def update_document():
     collection.update_one(
         {"job_id": job_id, "document_index": document_index},
         {"$set": {
-            "matricule": matricule,
             "n_max_points_per_question": n_max_points_per_question,
             "status": Document_Status.VALIDATED.value,
         }}
@@ -899,6 +1000,53 @@ def update_document():
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
+@app.route("/documents/replace", methods=["POST"])
+@cross_origin()
+@verify_share_token()
+def replace_document():
+    request_form = request.form
+    request_files = request.files
+
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400,
+        )
+
+    if "file" not in request_files:
+        return Response(
+            response=json.dumps({"response": "Error: file not provided."}),
+            status=400,
+        )
+
+    job_id = str(request_form["job_id"])
+
+    file = request_files["file"]
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        temp_file.write(file.read())
+        temp_file.flush()
+
+        with ZipFile(temp_file.name, 'r') as zip_file:
+            for file_info in zip_file.infolist():
+                if file_info.filename.endswith(".pdf"):
+                    extracted_path = zip_file.extract(file_info, path=TEMP_FOLDER)  
+            
+                    # extracting question number from the filename
+                    question_number = re.search(r'_Q(\d+)\.pdf', file_info.filename)
+                    if question_number:
+                        question_folder = f"Q{question_number.group(1)}"
+
+                        storage_path = os.path.join('documents', job_id, question_folder, os.path.basename(file_info.filename))
+                        final_destination = storage.abs_path(storage_path)  
+
+                        if not os.path.exists(os.path.dirname(final_destination)):
+                            os.makedirs(os.path.dirname(final_destination), exist_ok=True)
+
+                        # moving the extracted file to the final destination
+                        shutil.move(extracted_path, final_destination)
+                        print("Moved to:", final_destination)  
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
 
 @app.route("/document/download", methods=["POST"])
 @cross_origin()
@@ -908,44 +1056,54 @@ def download_document():
 
     if "document_index" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: document_index not provided."}),
+            response=json.dumps({"response": "Error: document_index not provided."}),
             status=400,
         )
 
-    #
     job_id = str(request_form["job_id"])
-    document_index = int(request_form["document_index"])
+    document_index = request_form["document_index"]
 
-    #
     db = mongo["RMN"]
     document_collection = db["job_documents"]
 
-    #
-    document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})
-    if document_file is None:
-        return Response(
-            response=json.dumps({"response": f"No document found!"}),
-            status=404,
-        )
+    if document_index.isdigit():
+        document_index = int(document_index)
+        document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})
+        if document_file is None:
+            return Response(
+                response=json.dumps({"response": "No document found!"}),
+                status=404,
+            )
+
+        file_id = str(document_file["image_id"])
+        storage.copy_from(file_id, file_id)
+        file_path = file_id
+    else:
+        document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})
+        if document_file is None:
+            return Response(
+                response=json.dumps({"response": "No document found!"}),
+                status=404,
+            )
+
+        file_id = str(document_file["image_id"])
+        file_path = os.path.join('cover_pages', job_id, file_id)
+        storage.copy_from(file_path, file_path)
 
     print("document_file: ", document_file)
-    # Save file to local
-    file_id = str(document_file["image_id"])
-    storage.copy_from(file_id, file_id)
-    file_send = send_file(file_id)
+    file_send = send_file(file_path)
 
     time.sleep(0.1)
 
     @after_this_request
     def add_close_action(response):
         try:
-            os.remove(file_id)
+            os.remove(file_path)
         except Exception as e:
             print(e)
         return response
 
     return file_send
-
 
 @app.route("/job/validate", methods=["POST"])
 @cross_origin()
@@ -1035,7 +1193,7 @@ def delete_job(job_id):
     except Exception as e:
         print(e)
     try:
-        storage.remove_tree(f"documents/{job_id}")
+        storage.remove_tree(f"cover_pages/{job_id}")
     except Exception as e:
         print(e)
 

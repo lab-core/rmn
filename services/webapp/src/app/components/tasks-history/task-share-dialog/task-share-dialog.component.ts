@@ -10,8 +10,9 @@ import { SERVER_URL } from 'src/app/utils';
 export interface DialogData {
   taskId: string;
   taskName: string;
-  questionIndex?: number;
+  shareType: 'job' | 'matricule';
 }
+
 @Component({
   selector: 'app-task-share-dialog',
   templateUrl: './task-share-dialog.component.html',
@@ -23,26 +24,29 @@ export class TaskShareDialogComponent implements OnInit {
   shareUrl: string;
   groupsList: Array<string>;
   group: string;
+
   constructor(
     public dialogRef: MatDialogRef<TaskShareDialogComponent>,
-    private notifyService : NotificationService,
+    private notifyService: NotificationService,
     private userService: UserService,
     private docService: DocumentsService,
     private http: HttpClient,
     private clipboard: Clipboard,
-    @Inject(MAT_DIALOG_DATA) public data: DialogData) {
+    @Inject(MAT_DIALOG_DATA) public data: DialogData
+  ) {
     this.groupsList = [""];
     this.group = "";
   }
 
   ngOnInit(): void {
     const formdata: FormData = new FormData();
+    formdata.append('user_id', this.userService.currentUsername);
     formdata.append('token', this.userService.token);
     formdata.append('job_id', this.data.taskId);
-    if (this.data.questionIndex) {
-      formdata.append('question_index', this.data.questionIndex.toString());
-    }
-    this.http.post<any>(`${SERVER_URL}job/share`, formdata).subscribe(
+    
+    const shareEndpoint = this.data.shareType === 'matricule' ? 'matricule/share' : 'job/share';
+    
+    this.http.post<any>(`${SERVER_URL}/${shareEndpoint}`, formdata).subscribe(
       (data) => {
         let resp = data['response'];
         if (resp.share_url) {
@@ -62,16 +66,16 @@ export class TaskShareDialogComponent implements OnInit {
 
   getUrl(): void {
     this.url = this.shareUrl;
-    if (this.group) this.url += "&group="+encodeURIComponent(this.group);
+    if (this.group) this.url += "&group=" + encodeURIComponent(this.group);
   }
 
   unshare(): void {
     const formdata: FormData = new FormData();
     formdata.append('token', this.userService.token);
     formdata.append('job_id', this.data.taskId);
-    this.http.post<any>(`${SERVER_URL}job/unshare`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}/job/unshare`, formdata).subscribe(
       (data) => {
-        this.close(data['response'] == "OK");
+        this.close(data['response'] === "OK");
       }, (error) => {
         console.error(error);
       });
@@ -82,8 +86,8 @@ export class TaskShareDialogComponent implements OnInit {
     this.close(true);
   }
 
-  close(r: any): void {
-    this.dialogRef.close(r);
+  close(result: any): void {
+    this.dialogRef.close(result);
   }
 
   copyUrl() {
