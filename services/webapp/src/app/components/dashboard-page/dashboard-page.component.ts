@@ -30,6 +30,7 @@ export class DashboardPageComponent {
   totalCorrectedCopies: number = 0;
   totalPoints: number = 0;
   totalCopies: number = 0;
+  totalMean: number = 0;
   maxPossiblePoints: number = 0;
 
   constructor(
@@ -180,6 +181,7 @@ export class DashboardPageComponent {
   
     this.totalPoints = totalPoints;
     this.totalCopies = totalCopies;
+    this.totalMean = totalCopies > 0 ? totalPoints / totalCopies : 0;
     this.maxPossiblePoints = maxPossiblePoints;
   }
 

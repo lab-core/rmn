@@ -158,14 +158,14 @@ class Database:
         front_template = self.mongo_database["template"].find_one(
             {"template_id": front_template_id}
         )
-        print("front_template", front_template)
+       
         front_template_matricule_box = front_template.get("matricule_box", None)
         front_template_grade_box = front_template.get("grade_box", None)
 
         regular_template = self.mongo_database["template"].find_one(
             {"template_id": regular_template_id}
         )
-        print("regular_template", regular_template)
+     
         regular_template_matricule_box = regular_template.get("matricule_box", None)
 
         return front_template_grade_box, front_template_matricule_box, regular_template_matricule_box
