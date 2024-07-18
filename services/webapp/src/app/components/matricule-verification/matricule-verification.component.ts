@@ -142,7 +142,7 @@ export class MatriculeVerificationComponent implements OnInit {
   async getCopiesInformations() {
     let exam = this.examsList[this.currentIndex()];
     this.currentCopyName = exam["filename"];
-    await this.docService.getCopiesInformations(this.tasksService.getvalidatingTaskId(), this.currentCopyName);
+    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
     this.copiesInformations = this.docService.copiesInformations;
   }
 

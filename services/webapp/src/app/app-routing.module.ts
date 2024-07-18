@@ -2,7 +2,6 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { LoginPageComponent } from './components/login-page/login-page.component';
 import { MainMenuComponent } from './components/main-menu/main-menu.component';
-import { NewCorrectionComponent } from './components/new-correction/new-correction.component';
 import { TasksHistoryComponent } from './components/tasks-history/tasks-history.component';
 import { TemplatesPageComponent } from './components/templates-page/templates-page.component';
 import { TemplateEditorComponent } from './components/template-editor/template-editor.component';
@@ -30,11 +29,6 @@ const routes: Routes = [
     {
         path: 'dashboard/:taskId',
         component : DashboardPageComponent,
-    },
-    {
-        path: 'new-correction',
-        component : NewCorrectionComponent,
-        // canActivate: [UserService]
     },
     {
         path: 'templates',

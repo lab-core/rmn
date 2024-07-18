@@ -61,7 +61,7 @@
                                 <input (change)="updateMaxPoints(key, $event)" type="number" min="1" step="1" required>
                               </td>
                               <td>
-                                <input type="checkbox" [(ngModel)]="bonusEnabled[key]" [ngModelOptions]="{standalone: true}" (change)="toggleBonus(key)">
+                                <input type="checkbox" [(ngModel)]="bonusEnabledMap[key]" [ngModelOptions]="{standalone: true}" (change)="toggleBonus(key)">
                               </td>
                             </tr>
                             <tr>
@@ -110,14 +110,22 @@
                 <form [formGroup]="fourthFormGroup">
                     <div class="steps-container">
                         <mat-form-field appearance="fill">
-                            <mat-label>Choisir gabarit</mat-label>
-                            <mat-select [(value)]="selectedTemplate" [disabled]="this.uploading">
+                            <mat-label>Gabarit pour page de garde</mat-label>
+                            <mat-select [(value)]="selectedFrontTemplate" [disabled]="this.uploading">
                                 <mat-option *ngFor="let template of templates" [value]="template.template_id">
                                     {{template.template_name}}
                                 </mat-option>
                             </mat-select>
                         </mat-form-field>
-                    </div>
+                        <mat-form-field appearance="fill">
+                            <mat-label>Gabarit pour page régulière</mat-label>
+                            <mat-select [(value)]="selectedRegularTemplate" [disabled]="this.uploading">
+                                <mat-option *ngFor="let template of templates" [value]="template.template_id">
+                                    {{template.template_name}}
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>    
                     <div class="next-button">
                         <button mat-button matStepperPrevious>Retour</button>
                         <button mat-flat-button color="accent" (click)="createTask()" [disabled]="this.uploading"

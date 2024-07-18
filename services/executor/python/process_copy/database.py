@@ -154,13 +154,21 @@ class Database:
 
         shutil.rmtree(os.path.join("numbers"))
 
-    def get_template_info(self, template_id):
-        template = self.mongo_database["template"].find_one(
-            {"template_id": template_id}
+    def get_templates_info(self, front_template_id, regular_template_id):
+        front_template = self.mongo_database["template"].find_one(
+            {"template_id": front_template_id}
         )
-        template_matricule_box = template.get("matricule_box", None)
-        template_grade_box = template.get("grade_box", None)
-        return template_grade_box, template_matricule_box
+       
+        front_template_matricule_box = front_template.get("matricule_box", None)
+        front_template_grade_box = front_template.get("grade_box", None)
+
+        regular_template = self.mongo_database["template"].find_one(
+            {"template_id": regular_template_id}
+        )
+     
+        regular_template_matricule_box = regular_template.get("matricule_box", None)
+
+        return front_template_grade_box, front_template_matricule_box, regular_template_matricule_box
 
 
     def imwrite_png(self, name, img):

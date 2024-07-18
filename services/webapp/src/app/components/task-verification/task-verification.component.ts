@@ -51,6 +51,7 @@ export class TaskVerificationComponent implements OnInit {
   
   copiesInformations: Map<string, Map<string, number>> = new Map();
   nMaxPointsPerQuestion = new Map<string, number>();
+  bonusEnabledMap = new Map<string, boolean>();
   initialCopyIndex: number = -1;
   currentCopy: number = -1;
   currentCopyName: string;
@@ -74,6 +75,8 @@ export class TaskVerificationComponent implements OnInit {
   questionIndexes: Array<number | "Tout sélectionner"> = [];
   formattedIndexes: Array<string> = [];
 
+  maxCopiesPerPdf: number = 9;
+
   async ngOnInit(): Promise<any> {
     // fetch query entries
     let token = this.route.snapshot.queryParams['token'];
@@ -95,6 +98,7 @@ export class TaskVerificationComponent implements OnInit {
       this.getMatriculeList();
       await this.getDocuments();
       await this.getMaxPointsPerQuestion();
+      await this.getBonusEnabledMap();
       if (this.checkForAvailableCopies()) {
         this.nextCopy();
       }
@@ -104,6 +108,7 @@ export class TaskVerificationComponent implements OnInit {
       this.socketService.getSocket().on('document_ready', async (params: any) => {
         await this.getDocuments();
         await this.getMaxPointsPerQuestion();
+        await this.getBonusEnabledMap();
         if (this.disabledValidationcontainer) {
           this.nextCopy();
         }
@@ -231,10 +236,16 @@ export class TaskVerificationComponent implements OnInit {
     this.nMaxPointsPerQuestion = this.docService.nMaxPointsPerQuestion;
   }
 
+  async getBonusEnabledMap() {
+    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
+    this.bonusEnabledMap = this.docService.bonusEnabledMap;
+    console.log("Bonus enabled map", this.bonusEnabledMap)
+  }
+
   async getCopiesInformations() {
     let exam = this.examsList[this.currentIndex()];
     this.currentCopyName = exam["filename"];
-    await this.docService.getCopiesInformations(this.tasksService.getvalidatingTaskId(), this.currentCopyName);
+    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
     this.copiesInformations = this.docService.copiesInformations;
   }
 
@@ -281,7 +292,7 @@ export class TaskVerificationComponent implements OnInit {
         this.notificationService.showWarning(`Vous avez rajouté ${excessPoints} point(s) bonus`, 'Attention!');
         this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
         this.currentScore = null;
-      }else {
+      } else if (!this.bonusEnabledMap.get(this.currentQuestionIndex)) {
         this.notificationService.showWarning('Veuillez saisir une note valide.', 'Note invalide');
         throw new Error('Note invalide');
       }
@@ -341,11 +352,20 @@ export class TaskVerificationComponent implements OnInit {
     this.changeCurrentCopy(this.initialCopyIndex + examIndex, this.examsList[examIndex].status);
   }
 
-  loadCopy(): void {
+  async loadCopy(): Promise<void> {
     this.loadPdf();
     this.getCurrentMatricule();
     this.getCurrentStatus();
+    await this.verifyIfQuestionIsBonus();
   }
+
+  async verifyIfQuestionIsBonus(): Promise<void> {
+    if (this.bonusEnabledMap.get(this.currentQuestionIndex)) {
+      this.currentScore = 0;
+      await this.addScoreToQuestion();
+      this.notificationService.showInfo('Cette question est une question bonus. Sa note initiale est 0.', 'Information');
+    }
+  }  
 
   setChosenColor(status: string): void {
     if(status === "TO VALIDATE") {
@@ -632,58 +652,84 @@ export class TaskVerificationComponent implements OnInit {
   async downloadAllFilesAsZip() {
     this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
     const zip = new JSZip();
-    const mergedDocs: { [key: string]: PDFDocument } = {};
-  
+    const mergedDocs: { [key: string]: PDFDocument[] } = {};
+
     for (const exam of this.subExamsList) {
-      if (exam["status"] !== 'NOT_READY') {
-        const formdata: FormData = new FormData();
-        this.userService.addTokens(formdata);
-        formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-        formdata.append('document_index', exam["document_index"].toString());
-  
-        await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' })
-          .toPromise()
-          .then(async (data: Blob) => {
-            const arrayBuffer = await data.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            const fileName = exam["filename"];
-            const questionIndex = this.verifyQuestionIndex(fileName);
-            if (!mergedDocs[questionIndex]) {
-              mergedDocs[questionIndex] = await PDFDocument.create();
-            }
-            const copiedPages = await mergedDocs[questionIndex].copyPages(pdfDoc, pdfDoc.getPageIndices());
-            copiedPages.forEach((page) => {
-              mergedDocs[questionIndex].addPage(page);
-            });
-          })
-          .catch((error) => {
-            console.error(`Error downloading file ${exam["filename"]}:`, error);
-            this.notificationService.showError(`Erreur lors du téléchargement du fichier ${exam["filename"]}`, 'Erreur de téléchargement');
-          });
-      }
-    }
-  
-    for (const questionIndex of Object.keys(mergedDocs)) {
-      const mergedPdfBytes = await mergedDocs[questionIndex].save();
-      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-      zip.file(`Q${questionIndex}.pdf`, blob);
+        if (exam["status"] !== 'NOT_READY') {
+            const formdata: FormData = new FormData();
+            this.userService.addTokens(formdata);
+            formdata.append('job_id', this.tasksService.getvalidatingTaskId());
+            formdata.append('document_index', exam["document_index"].toString());
+
+            await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' })
+                .toPromise()
+                .then(async (data: Blob) => {
+                    const arrayBuffer = await data.arrayBuffer();
+                    const pdfDoc = await PDFDocument.load(arrayBuffer);
+                    const fileName = exam["filename"];
+                    const questionIndex = this.verifyQuestionIndex(fileName);
+
+                    if (!mergedDocs[questionIndex]) {
+                        mergedDocs[questionIndex] = [await PDFDocument.create(), await PDFDocument.create()];
+                    }
+
+                    let firstDoc = mergedDocs[questionIndex][0];
+                    let secondDoc = mergedDocs[questionIndex][1];
+
+                    if (firstDoc.getPageCount() < this.maxCopiesPerPdf * pdfDoc.getPageCount()) {
+                        const remainingPages = this.maxCopiesPerPdf * pdfDoc.getPageCount() - firstDoc.getPageCount();
+                        const pagesToCopy = pdfDoc.getPageIndices().slice(0, remainingPages);
+                        const remainingPagesToSecondDoc = pdfDoc.getPageIndices().slice(remainingPages);
+                        
+                        const copiedPagesToFirst = await firstDoc.copyPages(pdfDoc, pagesToCopy);
+                        copiedPagesToFirst.forEach((page) => {
+                            firstDoc.addPage(page);
+                        });
+
+                        const copiedPagesToSecond = await secondDoc.copyPages(pdfDoc, remainingPagesToSecondDoc);
+                        copiedPagesToSecond.forEach((page) => {
+                            secondDoc.addPage(page);
+                        });
+
+                    } else {
+                        const copiedPages = await secondDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                        copiedPages.forEach((page) => {
+                            secondDoc.addPage(page);
+                        });
+                    }
+
+                })
+                .catch((error) => {
+                    console.error(`Error downloading file ${exam["filename"]}:`, error);
+                    this.notificationService.showError(`Erreur lors du téléchargement du fichier ${exam["filename"]}`, 'Erreur de téléchargement');
+                });
+        }
     }
 
-    console.log("this.index", this.index)
-  
-    const zipName = this.index && this.index !== "Tout sélectionner"
-    ? `${this.job['job_name']}_${this.index}.zip`
-    : `${this.job['job_name']}.zip`;
+    for (const questionIndex of Object.keys(mergedDocs)) {
+        for (let i = 0; i < mergedDocs[questionIndex].length; i++) {
+            const doc = mergedDocs[questionIndex][i];
+            if (doc.getPageCount() > 0) {
+                const mergedPdfBytes = await doc.save();
+                const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+                zip.file(`Q${questionIndex}${i > 0 ? `_${i}` : ''}.pdf`, blob);
+            }
+        }
+    }
+
+    const zipName = this.index && this.index !== "QTout sélectionner"
+        ? `${this.job['job_name']}_${this.index}.zip`
+        : `${this.job['job_name']}.zip`;
 
     zip.generateAsync({ type: 'blob' })
         .then((content) => {
             saveAs(content, zipName);
         });
-  
+
     this.hasDownloadedZip = true;
     this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
   }
-  
+
   verifyQuestionIndex(filename: string): string {
     const match = filename.match(/Q(\d+)/);
     return match ? match[1] : 'Unknown';
@@ -715,57 +761,90 @@ export class TaskVerificationComponent implements OnInit {
     const zip = new JSZip();
     
     try {
-      const zipContent = await JSZip.loadAsync(file);
-      const mergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
-  
-      for (const mergedFile of mergedFiles) {
-        const pdfData = await zipContent.file(mergedFile).async('arraybuffer');
-        const pdfDoc = await PDFDocument.load(pdfData);
-  
-        const questionIndex = this.verifyQuestionIndex(mergedFile);
-        const originalDocs = this.subExamsList.filter(exam => exam["filename"].includes(`Q${questionIndex}`));
-        const pagesPerQuestion = nPagesPerQuestion.get(`Q${questionIndex}`) || 1;
-  
-        let startPage = 0;
-        for (const originalDoc of originalDocs) {
-          const singlePagePdf = await PDFDocument.create();
-          const endPage = startPage + pagesPerQuestion;
-          const copiedPages = await singlePagePdf.copyPages(pdfDoc, Array.from({ length: pagesPerQuestion }, (_, k) => startPage + k));
-          copiedPages.forEach((page) => {
-            singlePagePdf.addPage(page);
-          });
-  
-          const pdfBytes = await singlePagePdf.save();
-          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-          const fileName = originalDoc["filename"];
-          zip.file(fileName, blob);
-  
-          startPage = endPage;
+        const zipContent = await JSZip.loadAsync(file);
+        const mergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
+        const mergedPDFDocs = {};
+
+        // loading and merge PDFs based on their question indices
+        for (const mergedFile of mergedFiles) {
+            try {
+                const pdfData = await zipContent.file(mergedFile).async('arraybuffer');
+                const pdfDoc = await PDFDocument.load(pdfData);
+                const questionIndex = this.verifyQuestionIndex(mergedFile);
+
+                if (!mergedPDFDocs[questionIndex]) {
+                    mergedPDFDocs[questionIndex] = await PDFDocument.create();
+                }
+
+                const totalPageCount = pdfDoc.getPageCount();
+                console.log(`The document ${mergedFile} has ${totalPageCount} pages.`);
+
+                const copiedPages = await mergedPDFDocs[questionIndex].copyPages(pdfDoc, pdfDoc.getPageIndices());
+                copiedPages.forEach((page) => {
+                    mergedPDFDocs[questionIndex].addPage(page);
+                });
+            } catch (pdfError) {
+                console.error(`Error processing merged file: ${mergedFile}`, pdfError);
+            }
         }
-      }
-  
-      const finalZipBlob = await zip.generateAsync({ type: 'blob' });
-      const finalZipFile = new File([finalZipBlob], 'split_documents.zip', { type: 'application/zip' });
-  
-      const uploadFormData = new FormData();
-      this.userService.addTokens(uploadFormData);
-      uploadFormData.append('job_id', jobId);
-      uploadFormData.append('file', finalZipFile);
-  
-      await this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData).toPromise()
-        .then((response) => {
-          console.log('Files replaced successfully', response);
-          this.hasUploadedZip = true;
-          this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succès');
-        })
-        .catch((error) => {
-          console.error('Error replacing files:', error);
-          this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
-        });
-  
-    } catch (error) {
-      console.error('Error processing zip file:', error);
-      this.notificationService.showError('Erreur lors du traitement du fichier zip', 'Erreur');
+
+        // processing each question index and replace the original documents
+        for (const questionIndex of Object.keys(mergedPDFDocs)) {
+            const mergedDoc = mergedPDFDocs[questionIndex];
+            const totalPageCount = mergedDoc.getPageCount();
+            const originalDocs = this.subExamsList.filter(exam => exam["filename"].includes(`Q${questionIndex}`));
+            const pagesPerQuestion = nPagesPerQuestion.get(`Q${questionIndex}`) || 1;
+
+            let startPage = 0;
+            for (const originalDoc of originalDocs) {
+                try {
+                    const singlePagePdf = await PDFDocument.create();
+                    const endPage = startPage + pagesPerQuestion;
+
+                    if (totalPageCount < endPage) {
+                        console.warn(`The merged document for Q${questionIndex} does not have enough pages for ${originalDoc["filename"]}. Required: ${endPage}, available: ${totalPageCount}.`);
+                        break;
+                    }
+
+                    const copiedPages = await singlePagePdf.copyPages(mergedDoc, Array.from({ length: pagesPerQuestion }, (_, k) => startPage + k));
+                    copiedPages.forEach((page) => {
+                        singlePagePdf.addPage(page);
+                    });
+
+                    const pdfBytes = await singlePagePdf.save();
+                    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                    const fileName = originalDoc["filename"];
+                    zip.file(fileName, blob);
+
+                    startPage = endPage;
+                } catch (innerError) {
+                    console.error(`Error processing original document: ${originalDoc["filename"]}`, innerError);
+                }
+            }
+        }
+
+        const finalZipBlob = await zip.generateAsync({ type: 'blob' });
+        const finalZipFile = new File([finalZipBlob], 'split_documents.zip', { type: 'application/zip' });
+
+        const uploadFormData = new FormData();
+        this.userService.addTokens(uploadFormData);
+        uploadFormData.append('job_id', jobId);
+        uploadFormData.append('file', finalZipFile);
+
+        await this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData).toPromise()
+            .then((response) => {
+                console.log('Files replaced successfully', response);
+                this.hasUploadedZip = true;
+                this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succès');
+            })
+            .catch((uploadError) => {
+                console.error('Error replacing files:', uploadError);
+                this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
+            });
+
+    } catch (zipError) {
+        console.error('Error processing zip file:', zipError);
+        this.notificationService.showError('Erreur lors du traitement du fichier zip', 'Erreur');
     }
   }
 }

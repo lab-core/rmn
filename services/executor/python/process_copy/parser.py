@@ -67,7 +67,8 @@ parser.add_argument('-t', '--train', default=False, action='store_true', help='t
 parser.add_argument('-j', '--job_id', type=str, help='Id of the job.')
 
 parser.add_argument('-u', '--user_id', type=str, help='Id of the user.')
-parser.add_argument('-v', '--template_id', type=str, help='Id of the template to use.')
+parser.add_argument('-v', '--front_template_id', type=str, help='Id of the template to use for front page.')
+parser.add_argument('-w', '--regular_template_id', type=str, help='Id of the template to use for regular page.')
 
 
 def check_path(path):
@@ -191,7 +192,7 @@ def run_args(args):
             if args.compare:
                 compare_all(args.path, args.grades, config.grade_box[args.grade])
             else:
-                grade_all(args.path, args.grades, config.matricule_box["exam"], config.grade_box["exam"], args.job_id, args.user_id, args.template_id)
+                grade_all(args.path, args.grades, config.matricule_box["exam"], config.grade_box["exam"], args.job_id, args.user_id, args.front_template_id, args.regular_template_id)
         except KeyError:
             raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
 

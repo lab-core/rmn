@@ -14,6 +14,7 @@ export class DocumentsService {
   groupsList: Array<string>;
   nMaxPointsPerQuestion = new Map<string, number>();
   copiesInformations = new Map<string, Map<string, number>>();
+  bonusEnabledMap = new Map<string, boolean>();
 
   constructor(private http: HttpClient,
               private userService: UserService) { }
@@ -54,38 +55,47 @@ export class DocumentsService {
     const formdata: FormData = new FormData();
     formdata.append('job_id', jobId);
     this.userService.addTokens(formdata);
-
+  
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}job`, formdata).toPromise();
-      let jobInfos = promise['response'];
-      // fetch n_max_points_per_question and copies_informations
-      const nMaxPointsPerQuestionArray = jobInfos['n_max_points_per_question'];
+      if (!promise || !promise['response']) {
+        throw new Error("Invalid response from server");
+      }
+  
+      let job = promise['response'];
+  
+      // fetch n_max_points_per_question
+      if (!job['n_max_points_per_question']) {
+        throw new Error("n_max_points_per_question is undefined");
+      }
+      const nMaxPointsPerQuestionArray = job['n_max_points_per_question'];
       this.nMaxPointsPerQuestion = new Map<string, number>(
         nMaxPointsPerQuestionArray.map((item: [string, number]) => [item[0], item[1]])
       );
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  async getCopiesInformations(jobId: string, filename: string) {
-    const formdata: FormData = new FormData();
-    formdata.append('job_id', jobId);
-    this.userService.addTokens(formdata);
-
-    try {
-      const promise = await this.http.post<any>(`${SERVER_URL}job`, formdata).toPromise();
-      let job = promise['response'];
+  
+      // fetch copies_informations
+      if (!job['copies_informations']) {
+        throw new Error("copies_informations is undefined");
+      }
       const copiesInformationsArray = job['copies_informations'];
-
       this.copiesInformations = new Map<string, Map<string, number>>(
-        copiesInformationsArray.map((item: [string, Array<[string, number]>]) => 
+        copiesInformationsArray.map((item: [string, Array<[string, number]>]) =>
           [item[0], new Map<string, number>(item[1].map(innerItem => [innerItem[0], innerItem[1]]))]
         )
       );
+  
+      // fetch bonus_enabled_map
+      if (!job['bonus_enabled_map']) {
+        throw new Error("bonus_enabled_map is undefined");
+      }
+      const bonusEnabledMapArray = job['bonus_enabled_map'];
+      this.bonusEnabledMap = new Map<string, boolean>(
+        bonusEnabledMapArray.map((item: [string, boolean]) => [item[0], item[1]])
+      );
+  
     } catch (error) {
-      console.error(error);
+      console.error('Error in getJobInfos:', error);
     }
   }
-
+  
 }
