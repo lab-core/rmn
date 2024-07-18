@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-latex_line = "{} & {} & \\includegraphics[width=\\widthratio \\textwidth]{{{}}}"
+latex_line = "{} & {:.2f} & \\includegraphics[width=\\widthratio \\textwidth]{{{}}}"
 n_latex_line = latex_line
 latex_line += " \\\\ \\hline"
 
@@ -94,9 +94,12 @@ if __name__ == "__main__":
     import numpy as np
     # Generate some notes for 100 copies and 2 questions
     np.random.seed(10)
-    all_notes = np.array([np.random.randint(low=0, high=11, size=100), np.random.randint(low=2, high=8, size=100)])
+    all_notes = np.array([np.random.randint(low=2, high=11, size=100), np.random.randint(low=0, high=8, size=100)])
     f_boxplots = create_all_boxplots(all_notes)
     fpdf = create_stats_latex("George", 2, [all_notes[0][0], all_notes[1][0]], 20, f_boxplots)
+
+    averages = np.average(all_notes, axis=1)
+    fpdf = create_stats_latex("Moyennes", 2, averages, 20, f_boxplots)
 
     # f_boxplot = Path("tex").resolve().joinpath("boxplot.png")
     # fpdf = create_stats_latex("George", 1, [5], 10, [f_boxplot, f_boxplot])
