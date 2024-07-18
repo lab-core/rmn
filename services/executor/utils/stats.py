@@ -2,6 +2,8 @@ from pathlib import Path
 import os
 import unidecode
 import subprocess
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 latex_line = "{} & {} & \\includegraphics[width=\\widthratio \\textwidth]{{{}}}"
@@ -13,9 +15,7 @@ def create_stats_latex(nom, n_questions, notes, total, boxplots, latex_dir="tex"
     """
     width_plot_ratio = percentage of the width of the page to be used by the boxplot
     """
-    TMP_DIR = Path(tmp_dir).resolve()
-    if not TMP_DIR.is_dir():
-        os.makedirs(tmp_dir)
+    TMP_DIR = makedir_path(tmp_dir)
 
     with open(TMP_DIR.joinpath("data.tex"), "w") as f:
         # remove ascents
@@ -54,7 +54,54 @@ def create_tex_pdf(latex_file, tmp_dir, latex_cmd="pdflatex"):
     return fpdf
 
 
+def create_boxplot(notes, title, tmp_dir="tmp"):
+    # Create a horizontal boxplot
+    sns.boxplot(x=notes, orient='h')
+
+    # Add labels and title
+    plt.xlabel('Note')
+    plt.title(title)
+
+    # Show the plot
+    TMP_DIR = makedir_path(tmp_dir)
+    f_boxplot = TMP_DIR.joinpath(title+".png")
+    plt.savefig(f_boxplot)  # save the figure
+    plt.clf()  # clear the figure
+    return f_boxplot
+
+
+def create_all_boxplots(all_notes, tmp_dir="tmp"):
+    """
+    all_notes: it's a 2D numpy array that contains an array with all the notes for each question
+    """
+    # Iterate through each question and create its associated boxplot
+    f_boxplots = [create_boxplot(notes, "Q%d" % (q+1), tmp_dir) for q, notes in enumerate(all_notes)]
+
+    # create the final boxplot for the total
+    f_boxplots.append(create_boxplot(sum(all_notes), "Total", tmp_dir))
+
+    return f_boxplots
+
+
+def makedir_path(dir_name):
+    DIR = Path(dir_name).resolve()
+    if not DIR.is_dir():
+        os.makedirs(dir_name)
+    return DIR
+
+
 if __name__ == "__main__":
-    f_boxplot = Path("tex").resolve().joinpath("boxplot.png")
-    fpdf = create_stats_latex("George", 1, [5], 10, [f_boxplot, f_boxplot])
+    import numpy as np
+    # Generate some notes for 100 copies and 2 questions
+    np.random.seed(10)
+    all_notes = np.array([np.random.randint(low=0, high=11, size=100), np.random.randint(low=2, high=8, size=100)])
+    f_boxplots = create_all_boxplots(all_notes)
+    fpdf = create_stats_latex("George", 2, [all_notes[0][0], all_notes[1][0]], 20, f_boxplots)
+
+    # f_boxplot = Path("tex").resolve().joinpath("boxplot.png")
+    # fpdf = create_stats_latex("George", 1, [5], 10, [f_boxplot, f_boxplot])
+
     print("Pdf %s created" % fpdf)
+
+    # remove tmp folder once the boxplots are not used anymore
+    # os.remove('tmp')
