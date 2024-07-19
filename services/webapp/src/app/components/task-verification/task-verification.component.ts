@@ -74,8 +74,8 @@ export class TaskVerificationComponent implements OnInit {
   groupsList: Array<string>;
   questionIndexes: Array<number | "Tout sélectionner"> = [];
   formattedIndexes: Array<string> = [];
-
-  maxCopiesPerPdf: number = 9;
+  // default max copies per pdf value
+  maxCopiesPerPdf: number = 40;
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
