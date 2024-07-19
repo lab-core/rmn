@@ -377,7 +377,6 @@ if __name__ == "__main__":
             )
 
             # Save notes.csv file to local
-            print("COPYING FROM ", storage.abs_path(job_params["notes_file_id"]), " TO ", str(OUTPUT_FOLDER.joinpath("notes.csv")))
             storage.copy_from(job_params["notes_file_id"], str(OUTPUT_FOLDER.joinpath("notes.csv")))
             # Save zip file to local
             storage.copy_from(job_params["zip_file_id"], str(OUTPUT_FOLDER.joinpath("content.zip")))

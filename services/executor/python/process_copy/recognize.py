@@ -268,12 +268,12 @@ def grade_all(
     box_matricule['regular'] = regular_box_matricule['regular']
 
     # debug
-    print("---------------------------------DEBUG---------------------------------")
-    print("box_matricule_list", box_matricule_list)
-    print("box_list", box_list)
-    print("box_default", box_default)
-    print("box_matricule", box_matricule)
-    print("box", box)
+    # print("---------------------------------DEBUG---------------------------------")
+    # print("box_matricule_list", box_matricule_list)
+    # print("box_list", box_list)
+    # print("box_default", box_default)
+    # print("box_matricule", box_matricule)
+    # print("box", box)
 
     # load csv
     grades_dfs, grades_names = load_csv(grades_csv)
@@ -640,6 +640,7 @@ def grade_files(
                 else Document_Status.TO_VALIDATE
             )
             # numbers[:-1] = try_fix_n_questions(max_nb_questions, numbers[:-1])
+
             subquestions = {
                 f"Question {index_sub + 1}": sub
                 for index_sub, sub in enumerate(numbers[:-1])
@@ -648,7 +649,6 @@ def grade_files(
 
             exec_time = time.time() - start_time
             
-            #TODO: update document with right data
             if not db.update_document(
                 job_id,
                 filename,
