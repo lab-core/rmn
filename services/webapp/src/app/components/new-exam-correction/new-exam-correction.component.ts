@@ -87,8 +87,10 @@ export class NewExamCorrectionComponent implements OnInit {
     this.totalPoints = 0;
     this.totalBonus = 0;
     this.questionKeys.forEach(key => {
-      this.totalPages += this.nPagesPerQuestion.get(key) || 0;
-      this.totalPoints += this.nMaxPointsPerQuestion.get(key) || 0;
+      if (!this.bonusEnabledMap.get(key)) {
+        this.totalPages += this.nPagesPerQuestion.get(key) || 0;
+        this.totalPoints += this.nMaxPointsPerQuestion.get(key) || 0;
+      }
     });
   }
 
@@ -122,6 +124,7 @@ export class NewExamCorrectionComponent implements OnInit {
   toggleBonus(key: string) {
     const currentValue = this.bonusEnabledMap.get(key) || false;
     this.bonusEnabledMap.set(key, !currentValue);
+    this.updateTotals();
   }
 
   updateSuffix(event: KeyboardEvent) {
