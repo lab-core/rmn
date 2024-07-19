@@ -66,3 +66,5 @@ Werkzeug==2.2.2
 wrapt==1.14.1
 wsproto==1.2.0
 PyPDF2==2.12.1
+seaborn==0.13.0
+matplotlib==3.8.0
