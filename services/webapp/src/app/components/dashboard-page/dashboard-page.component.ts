@@ -52,6 +52,8 @@ export class DashboardPageComponent {
     if (this.taskId) {
       await this.getTask();
       await this.getDocuments(this.taskId);
+    } else {
+      this.router.navigate(['/tasks-history']);
     }
   }
 

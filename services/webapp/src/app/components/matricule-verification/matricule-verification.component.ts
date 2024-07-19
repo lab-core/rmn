@@ -114,7 +114,7 @@ export class MatriculeVerificationComponent implements OnInit {
     } else {
       // reroute page
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
-      this.reroute();
+      this.router.navigate(['/tasks-history']);
     }
     this.checkValidationButton();
   }
