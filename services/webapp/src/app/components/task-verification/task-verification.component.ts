@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, OnInit, Output, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';
@@ -15,6 +15,7 @@ import { MatSelectChange } from '@angular/material/select';
 import * as saveAs from 'file-saver';
 import * as JSZip from 'jszip';
 import { PDFDocument } from 'pdf-lib';
+
 
 @Component({
   selector: 'app-task-verification',
@@ -34,7 +35,7 @@ export class TaskVerificationComponent implements OnInit {
     private userService: UserService,
     private docService: DocumentsService,
     private ngxService: NgxExtendedPdfViewerService) {}
-  
+
   isSidebarHidden: boolean = false;
   isIndexProvided: boolean = false;
   pictureLoading: boolean = true;
@@ -48,7 +49,8 @@ export class TaskVerificationComponent implements OnInit {
 
   job: Map<string, any>;
   pdfSrc: string;
-  
+  zoomSetting: any;
+
   copiesInformations: Map<string, Map<string, number>> = new Map();
   nMaxPointsPerQuestion = new Map<string, number>();
   bonusEnabledMap = new Map<string, boolean>();
@@ -140,7 +142,36 @@ export class TaskVerificationComponent implements OnInit {
     this.socketService.getSocket().off('jobs_status');
     this.socketService.disconnectSocket();
   }
-  
+
+  @HostListener('document:keydown.enter', ['$event'])
+  onKeydownHandler(event: KeyboardEvent) {
+    this.validateCurrentCopy();
+  }
+
+  undoChange(e: any){
+    const undoEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      charCode: 0,
+      keyCode: 90,
+      code: "KeyZ",
+      composed: true,
+      key: 'z',
+      shiftKey: false,
+      altKey: false,
+      ctrlKey: true,
+      metaKey: false,
+      repeat: false,
+      location: KeyboardEvent.DOM_KEY_LOCATION_STANDARD,
+    });
+
+    document.body.dispatchEvent(undoEvent);
+  }
+
+  public redo(): void{
+     document.execCommand('redo');
+  }
+
   toggleSidebar() {
     this.isSidebarHidden = !this.isSidebarHidden;
   }
@@ -150,7 +181,7 @@ export class TaskVerificationComponent implements OnInit {
     const maxIndex = this.examsList.length;
     const questionString = `Q1`;
     const subExamsListSize = this.examsList.filter(exam => exam.filename.includes(questionString)).length;
-    
+
     for (let i = 1; i <= Math.ceil(maxIndex / subExamsListSize); i++) {
         for (let j = 1; j <= subExamsListSize; j++) {
             const index = `${j}-${i}`;
@@ -278,10 +309,10 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  async addScoreToQuestion(): Promise<void> {
+  async addScoreToQuestion(): Promise<boolean> {
     await this.getMaxPointsPerQuestion();
     await this.getCopiesInformations();
-  
+
     const fullCopyName = this.getBaseNameWithExtension(this.currentCopyName);
     if (fullCopyName && this.currentScore !== null) {
       if (this.currentScore <= this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
@@ -298,7 +329,9 @@ export class TaskVerificationComponent implements OnInit {
       }
     } else {
       this.notificationService.showWarning('Veuillez saisir une note.', 'Note invalide');
+      return false;
     }
+    return true;
   }
 
   addOrUpdateInnerMap(copieName: string, questionIndex: string, score: number) {
@@ -365,7 +398,7 @@ export class TaskVerificationComponent implements OnInit {
       await this.addScoreToQuestion();
       this.notificationService.showInfo('Cette question est une question bonus. Sa note initiale est 0.', 'Information');
     }
-  }  
+  }
 
   setChosenColor(status: string): void {
     if(status === "TO VALIDATE") {
@@ -443,9 +476,10 @@ export class TaskVerificationComponent implements OnInit {
     const filename = currentExam["filename"];
 
     try {
-        await this.addScoreToQuestion();
-        const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
-        if (editedPdfData) {
+        const scoreAdded = await this.addScoreToQuestion();
+        if (scoreAdded) {
+          const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
+          if (editedPdfData) {
             const file = new File([editedPdfData], filename, { type: editedPdfData.type });
             let validationResponse = await this.validationService.validateDocument(
                 this.tasksService.getvalidatingTaskId(),
@@ -461,10 +495,11 @@ export class TaskVerificationComponent implements OnInit {
                 this.setValidatedStatus();
                 this.nextCopy();
             }
-        } else {
-            console.error('Erreur lors de l\'obtention du document PDF modifié.');
-            this.notificationService.showError('Échec de l\'obtention du document PDF modifié.', 'Erreur de validation');
-        }
+          } else {
+              console.error('Erreur lors de l\'obtention du document PDF modifié.');
+              this.notificationService.showError('Échec de l\'obtention du document PDF modifié.', 'Erreur de validation');
+          }
+      }
     } catch (error) {
         console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
         this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
@@ -482,7 +517,7 @@ export class TaskVerificationComponent implements OnInit {
           uncheckedcopy += 1;
         }
       });
-  
+
       if (uncheckedcopy > 0) {
         this.openwarningDialog();
       } else {
@@ -634,7 +669,7 @@ export class TaskVerificationComponent implements OnInit {
     // this.disabledValidationButton = !this.job || this.job["job_status"] !== 'VALIDATION';
     const disabledValidationButton = this.examsList.some(exam => exam.status !== 'VALIDATED');
     const questionIndex = this.route.snapshot.queryParams['question_index'];
-  
+
     if (!this.disabledDropDown) {
       this.disabledValidationButton = disabledValidationButton;
     } else if (questionIndex) {
@@ -674,7 +709,7 @@ export class TaskVerificationComponent implements OnInit {
                         const remainingPages = this.maxCopiesPerPdf * pdfDoc.getPageCount() - firstDoc.getPageCount();
                         const pagesToCopy = pdfDoc.getPageIndices().slice(0, remainingPages);
                         const remainingPagesToSecondDoc = pdfDoc.getPageIndices().slice(remainingPages);
-                        
+
                         const copiedPagesToFirst = await firstDoc.copyPages(pdfDoc, pagesToCopy);
                         copiedPagesToFirst.forEach((page) => {
                             firstDoc.addPage(page);
@@ -753,7 +788,7 @@ export class TaskVerificationComponent implements OnInit {
     const nPagesPerQuestionArray = this.job["n_pages_per_question"];
     const nPagesPerQuestion = new Map<string, number>(nPagesPerQuestionArray);
     const zip = new JSZip();
-    
+
     try {
         const zipContent = await JSZip.loadAsync(file);
         const mergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
@@ -842,4 +877,3 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 }
-

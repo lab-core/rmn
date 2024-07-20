@@ -1,14 +1,6 @@
-<div class="page-count" *ngIf="!this.pictureLoading || !this.disabledValidationcontainer">
-    {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
-</div>
+<div class="main-container">
 <div class="task-verification-container">
     <div class="background">
-        <div *ngIf="isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
-            <mat-icon>visibility</mat-icon>
-        </div>
-        <div *ngIf="!isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
-            <mat-icon>visibility_off</mat-icon>
-        </div>
         <div class="files-container" [ngClass]="{'hidden': isSidebarHidden}">
             <div class="filter-job-container" *ngIf="this.showFilter()">
               <label>Filtrer par groupe: </label>
@@ -45,7 +37,7 @@
                         <strong>{{formattedIndexes[i]}}</strong>
                     </div>
                 </div>
-            </div>                       
+            </div>
             <div class="validate-job-container" *ngIf="this.loggued()">
                 <button class="validate-job-button" mat-flat-button (click)="validateJob()"
                 [disabled]="this.disabledValidationButton">Finaliser</button>
@@ -54,7 +46,7 @@
             <div class="max-copies-container">
                 <label for="maxCopies">Nombre max de copies par pdf</label>
                 <input id="maxCopies" type="number" [(ngModel)]="maxCopiesPerPdf" placeholder="Nombre max de copies par pdf">
-            </div>            
+            </div>
             <div class="upload-container">
                 <button class="replace-zip-button" mat-flat-button (click)="fileInput.click()">Tout téléverser</button>
                 <input #fileInput type="file" accept=".zip" (change)="onFileSelected($event)" style="display: none;">
@@ -64,49 +56,72 @@
               </div>
         </div>
         <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
+          <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer">
+            <div *ngIf="isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
+                <mat-icon>visibility</mat-icon>
+            </div>
+            <div *ngIf="!isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
+                <mat-icon>visibility_off</mat-icon>
+            </div>
+              <div class="check-list-container">
+                  <div class="sub-check-container">
+                      <h3>Note (/{{nMaxPointsPerQuestion.get(currentQuestionIndex)}})</h3>
+                      <div class="value-input-div">
+                          <input id="score" type="number" [(ngModel)]="currentScore" placeholder="Entrer la note" class="note-input"/>
+                      </div>
+                  </div>
+                  <div class="sub-check-container"
+                      *ngFor="let prediction of this.currentPredictions | keyvalue : sortNull; trackBy: trackByIndex;">
+                      <h3>{{prediction.key}}</h3>
+                      <div class="value-input-div">
+                          <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(prediction.key)"
+                              id="text-box" [(ngModel)]="prediction.value"
+                              (input)="this.updateTotal(prediction.key, prediction.value)" step=any
+                              [disabled]="this.validating">
+                      </div>
+                  </div>
+              </div>
+              <div class="validate-container">
+                  <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
+                          (click)="validateCurrentCopy()" [disabled]="this.validating">
+                      <mat-icon>done_outline</mat-icon>
+                  </button>
+              </div>
+          </div>
             <p *ngIf="this.disabledValidationcontainer">Aucune copie n'est prête à être validée.</p>
             <div class="picture-container" *ngIf="!this.disabledValidationcontainer" [ngClass]="{'expanded': isSidebarHidden}">
                 <ngx-extended-pdf-viewer *ngIf="!this.pdfLoading"
-                    [src]="this.pdfSrc" 
+                    [src]="this.pdfSrc"
                     [language]="'fr'"
                     [showDownloadButton]="false"
                     [showPrintButton]="false"
                     [showOpenFileButton]="false"
                     [showHandToolButton]="false"
-                    [textLayered]="false">
+                    [handTool]="false"
+                    [textLayered]="false"
+                    [defaultZoomValue]="page-width"
+                    [(zoom)]="zoomSetting">
+                    <pdf-shy-button
+                      [cssClass]="'always-visible' | responsiveCSSClass"
+                      class="Undo"
+                      title="Undo"
+                      primaryToolbarId="undo"
+                      [order]="1"
+                      [closeOnClick]="true"
+                      (click)="undoChange($event)"
+                      image="<svg xmlns='http://www.w3.org/2000/svg' height='20' width='20' viewBox='0 0 512 512'><path fill='#747474' path d='M205 34.8c11.5 5.1 19 16.6 19 29.2v64H336c97.2 0 176 78.8 176 176c0 113.3-81.5 163.9-100.2 174.1c-2.5 1.4-5.3 1.9-8.1 1.9c-10.9 0-19.7-8.9-19.7-19.7c0-7.5 4.3-14.4 9.8-19.5c9.4-8.8 22.2-26.4 22.2-56.7c0-53-43-96-96-96H224v64c0 12.6-7.4 24.1-19 29.2s-25 3-34.4-5.4l-160-144C3.9 225.7 0 217.1 0 208s3.9-17.7 10.6-23.8l160-144c9.4-8.5 22.9-10.6 34.4-5.4z'/></svg>"
+                    ></pdf-shy-button>
                 </ngx-extended-pdf-viewer>
                 <button mat-button *ngIf="!isSidebarHidden" (click)="previousCopy()"class="back-button2" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_back_ios</mat-icon></button>
                 <button mat-button *ngIf="!isSidebarHidden" (click)="nextCopy()"class="back-button3" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_forward_ios</mat-icon></button>
                 <mat-spinner *ngIf="this.pdfLoading"></mat-spinner>
             </div>
-            <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer">
-                <div class="check-list-container">
-                    <div class="sub-check-container">
-                        <h3>Note (/{{nMaxPointsPerQuestion.get(currentQuestionIndex)}})</h3>
-                        <div class="value-input-div">
-                            <input id="score" type="number" [(ngModel)]="currentScore" placeholder="Entrer la note" class="note-input"/>
-                        </div>
-                    </div>
-                    <div class="sub-check-container"
-                        *ngFor="let prediction of this.currentPredictions | keyvalue : sortNull; trackBy: trackByIndex;">
-                        <h3>{{prediction.key}}</h3>
-                        <div class="value-input-div">
-                            <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(prediction.key)"
-                                id="text-box" [(ngModel)]="prediction.value"
-                                (input)="this.updateTotal(prediction.key, prediction.value)" step=any
-                                [disabled]="this.validating">
-                        </div>
-                    </div>
-                </div>
-                <div class="validate-container">
-                    <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                            (click)="validateCurrentCopy()" [disabled]="this.validating">
-                        <mat-icon>done_outline</mat-icon>
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
+</div>
+<div class="page-count" *ngIf="!this.pictureLoading || !this.disabledValidationcontainer">
+    {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
+</div>
 </div>
 <button mat-button *ngIf="this.loggued() && !isSidebarHidden" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
 <div id="overlay" *ngIf="this.validating"></div>

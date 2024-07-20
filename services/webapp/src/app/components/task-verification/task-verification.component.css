@@ -1,6 +1,13 @@
+.main-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .task-verification-container {
     width: 100%;
-    height: 100%;
+    height: 98%;
     background-image: url("~src/assets/background-gradient.png");
     background-position: center;
     background-repeat: no-repeat;
@@ -31,7 +38,6 @@
     padding: 12px 20px;
     box-sizing: border-box;
     width: 100%;
-    margin-bottom: 10px;
 }
 
 .back-button {
@@ -50,24 +56,17 @@
 
 .background {
     width: 100%;
-    height: 90%;
+    height: 100%;
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
-    margin-top: 5%;
+    margin-top: 2%;
     z-index: 1;
 }
 
-.hidden {
-    transform: translateX(-200%);
-}
-
 .sidebar-toggle-button {
-    position: absolute;
-    top: 15px;
-    left: 15px;
     color: black;
     border: none;
     padding: 10px;
@@ -76,7 +75,7 @@
 }
 
 .sidebar-toggle-button mat-icon {
-    font-size: 40px; 
+    font-size: 40px;
     width: 40px;
     height: 40px;
 }
@@ -89,7 +88,7 @@
     background-color: white;
     width: 16%;
     height: 100%;
-    margin-bottom: 5%;
+    margin-bottom: 2%;
     margin-right: 1%;
     border-radius: 5%/1%;
     border: 2px solid black;
@@ -102,6 +101,12 @@
     -webkit-box-shadow: 0 5px 10px 0px rgb(0 0 0 / 70%);
     -o-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
     -ms-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
+}
+
+.files-container.hidden {
+    visibility: hidden;
+    transform: translateY(-100%);
+    width: 0%;
 }
 
 .filter-job-container {
@@ -202,19 +207,20 @@
 .upload-container {
     text-align: center;
   }
-  
+
   .drop-zone {
     margin-top: 20px;
+    margin-bottom: 10px;
     border: 2px dashed #ccc;
-    padding: 20px;
+    padding: 15px;
     cursor: pointer;
   }
-  
+
   .drop-zone p {
     margin: 0;
     color: #aaa;
   }
-  
+
 
 .validated-copy {
     width: 100%;
@@ -306,9 +312,9 @@
     background-color: white;
     width: 70%;
     height: 100%;
-    margin-bottom: 5%;
+    margin-bottom: 2%;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
@@ -328,38 +334,42 @@
 
 .validation-container.expanded {
     background-color: transparent;
-    width: 130%;
-    height: 110%;
-    margin-right: 5%;
-    margin-bottom: 6%;
+    width: 100%;
+    height: 100%;
+    margin-right: 2%;
+    margin-left: 2%;
+    margin-bottom: 0%;
+    margin-top: -2%;
     border-radius: 0px;
-    border: none; 
-    box-shadow: none; 
-    -moz-box-shadow: none; 
-    -webkit-box-shadow: none; 
-    -o-box-shadow: none; 
-    -ms-box-shadow: none; 
+    border: none;
+    box-shadow: none;
+    -moz-box-shadow: none;
+    -webkit-box-shadow: none;
+    -o-box-shadow: none;
+    -ms-box-shadow: none;
 }
 
 .picture-container {
     height: 90%;
-    width: 85%;
+    width: 90%;
     margin-right: 2.5%;
-    margin-left: 5.5%;
+    margin-left: 2.5%;
     border: 2px solid gray;
     display: flex;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
 }
 
 .picture-container.expanded {
-    height: 85.5%;
-    width: 350%;
+    height: 100%;
+    width: 95%;
     margin-right: 2.5%;
     margin-left: 2.5%;
-    margin-top: 5%;
+    margin-top: 0%;
     border: 2px solid gray;
     display: flex;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
 }
@@ -370,37 +380,40 @@
 }
 
 .validation-check-container {
-    height: 90%;
-    width: 30%;
+    height: 8%;
+    width: 90%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
     justify-content: space-between;
 }
 
 .check-list-container {
-    width: 70%;
-    height: 90%;
+    width: 100%;
+    height: 98%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     flex-wrap: nowrap;
+    align-items: center;
+    text-align: center;
 }
 
 .sub-check-container {
-    min-height: 10%;
-    max-height: 10%;
-    width: 90%;
-    margin-left: 25%;
-    margin-right: 25%;
+    width: 100%;
+    margin-left: 5%;
+    margin-right: 5%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     flex-wrap: nowrap;
-    margin-top: 5%;
+    align-items: center;
+    text-align: center;
 }
 
 .value-input-div {
-    width: 70%;
+    width: 50%;
     height: 100%;
-    margin-right: 15%;
+    margin-left: 5%;
+    margin-right: 20%;
 }
 
 .alert {
@@ -409,29 +422,28 @@
 
 input[type=number] {
     width: 100%;
-    padding: 12px 20px;
+    padding: 10px 15px;
     box-sizing: border-box;
     -moz-appearance: textfield;
 }
 
 .validate-container {
-    width: 100%;
-    height: 10%;
+    width: 20%;
+    height: 80%;
+    margin-top: 1%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     flex-wrap: nowrap;
-    text-align: center;
-    align-items: center;
-    justify-content: center;
+    justify-content: right;
 }
 
 .validate-button {
-    width: 50%;
-    height: 70%;
+    aspect-ratio: 1.5 / 1;
+    height: 80%;
     border-radius: 24%/48%;
     border: 2px solid black;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     flex-wrap: nowrap;
     text-align: center;
     align-items: center;
@@ -451,7 +463,7 @@ input[type=number] {
 }
 
 .validate-button>mat-icon {
-    transform: scale(1.5, 1.5);
+    transform: scale(1.1, 1.1);
 }
 
 .validate-button:hover {
@@ -502,11 +514,9 @@ ngx-extended-pdf-viewer {
 }
 
 .page-count {
-    position: absolute;
-    top: 93.5%;
-    left: 52%;
-    margin-right: -50%;
-    transform: translate(-50%, -50%);
+    margin-left: 48%;
+    margin-bottom: 1%;
+    align-items: center;
 }
 
 .back-button2 {
@@ -534,8 +544,8 @@ ngx-extended-pdf-viewer {
 .back-button3 {
     position: absolute;
     top: 55%;
-    left: 76.5%;
-    margin-right: 35%;
+    left: 92.5%;
+    margin-right: 7.5%;
     transform: translate(-50%, -50%);
     height: 70%;
     width: 1%;
