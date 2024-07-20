@@ -67,7 +67,7 @@
                   <div class="sub-check-container">
                       <h3>Note (/{{nMaxPointsPerQuestion.get(currentQuestionIndex)}})</h3>
                       <div class="value-input-div">
-                          <input id="score" type="number" [(ngModel)]="currentScore" placeholder="Entrer la note" class="note-input"/>
+                        <input id="score" type="number" [(ngModel)]="currentScore" (ngModelChange)="saveCurrentScore()" placeholder="Entrer la note" class="note-input"/>
                       </div>
                   </div>
                   <div class="sub-check-container"

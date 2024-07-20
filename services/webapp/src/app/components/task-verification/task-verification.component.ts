@@ -83,6 +83,7 @@ export class TaskVerificationComponent implements OnInit {
   formattedIndexes: Array<string> = [];
   // default max copies per pdf value
   maxCopiesPerPdf: number = 40;
+  currentScoresMap: Map<number, number> = new Map();
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
@@ -206,6 +207,11 @@ export class TaskVerificationComponent implements OnInit {
         }
     }
     return formattedIndexes;
+  }
+
+  saveCurrentScore(): void {
+    // Save the current score to the map with the current copy as the key
+    this.currentScoresMap.set(this.currentCopy, this.currentScore);
   }
 
   initializeQuestionIndexes(): void {
@@ -386,6 +392,9 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   changeCurrentCopy(copyIndex, status) {
+    if (this.currentScore !== null) {
+      this.saveCurrentScore();
+    }
     if (status !== "NOT_READY") {
       let exam = this.examsList[copyIndex-1];
       console.log("Change current copy to", copyIndex)
@@ -394,6 +403,7 @@ export class TaskVerificationComponent implements OnInit {
       this.currentCopy = copyIndex;
       console.log("Current copy", this.currentCopy);
       this.disabledValidationcontainer = false;
+      this.currentScore = this.currentScoresMap.get(this.currentCopy) || null;
       this.loadCopy();
       this.setChosenColor(status);
     }
@@ -411,7 +421,7 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   async verifyIfQuestionIsBonus(): Promise<void> {
-    if (this.bonusEnabledMap.get(this.currentQuestionIndex)) {
+    if (this.currentScore == null && this.bonusEnabledMap.get(this.currentQuestionIndex)) {
       this.currentScore = 0;
       await this.addScoreToQuestion();
       this.notificationService.showInfo('Cette question est une question bonus. Sa note initiale est 0.', 'Information');
