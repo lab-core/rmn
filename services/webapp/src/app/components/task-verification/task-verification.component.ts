@@ -434,11 +434,6 @@ export class TaskVerificationComponent implements OnInit {
 
 
   async validateCurrentCopy() {
-    if (!this.currentMatriculeSelection) {
-        this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
-        return;
-    }
-
     if (this.hasDownloadedZip && !this.hasUploadedZip) {
       this.notificationService.showWarning("Vous n'avez téléversé aucun nouveaux fichiers.", 'Attention!');
     }
@@ -452,7 +447,6 @@ export class TaskVerificationComponent implements OnInit {
         const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
         if (editedPdfData) {
             const file = new File([editedPdfData], filename, { type: editedPdfData.type });
-            this.getCurrentMatricule();
             let validationResponse = await this.validationService.validateDocument(
                 this.tasksService.getvalidatingTaskId(),
                 this.currentCopy,
