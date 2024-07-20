@@ -317,6 +317,11 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   async updateMatricule(): Promise<string> {
+    if (!this.currentMatriculeSelection) {
+      this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
+      return;
+    }
+    this.getCurrentMatricule();
     const formdata: FormData = new FormData();
     formdata.append('job_id', this.job["job_id"]);
     formdata.append('document_index', this.currentIndex());
