@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-latex_line = "{} & {:.2f} & \\includegraphics[width=\\widthratio \\textwidth]{{{}}}"
+latex_line = "{} & {} & {:.2f} & \\includegraphics[width=\\widthratio \\textwidth]{{{}}}"
 n_latex_line = latex_line
 latex_line += " \\\\ \\hline"
 
 
-def create_stats_latex(nom, n_questions, notes, total, boxplots, latex_dir="tex", width_plot_ratio=0.5, tmp_dir="tmp"):
+def create_stats_latex(nom, index, n_questions, all_notes, total, boxplots, latex_dir="tex", width_plot_ratio=0.5, tmp_dir="tmp"):
     """
     width_plot_ratio = percentage of the width of the page to be used by the boxplot
     """
@@ -23,10 +23,14 @@ def create_stats_latex(nom, n_questions, notes, total, boxplots, latex_dir="tex"
         f.write("\\renewcommand{\\nom}{%s}\n" % u_nom)
         f.write("\\renewcommand{\\widthratio}{%.2f}\n" % width_plot_ratio)
 
+    averages = np.average(all_notes, axis=1)
     with open(TMP_DIR.joinpath("stats.tex"), "w") as f:
         for i in range(n_questions):
-            f.write(latex_line.format(i+1, notes[i], boxplots[i])+"\n")
-        f.write(n_latex_line.format("Total (/ %d)" % total, sum(notes), boxplots[-1])+"\n")
+            f.write(latex_line.format(i+1, all_notes[i][index] if index is not None else "",
+                                      averages[i], boxplots[i])+"\n")
+        f.write(n_latex_line.format("Total (/ %d)" % total,
+                                    sum(notes[index] for notes in all_notes) if index is not None else "",
+                                    sum(averages), boxplots[-1])+"\n")
 
     TEX_DIR = Path(latex_dir).resolve()
     fpdf = create_tex_pdf(TEX_DIR.joinpath("main.tex"), TMP_DIR)
@@ -56,6 +60,9 @@ def create_tex_pdf(latex_file, tmp_dir, latex_cmd="pdflatex"):
 
 def create_boxplot(notes, title, tmp_dir="tmp"):
     # Create a horizontal boxplot
+    plt.figure(figsize=(6, 2))
+    sns.set_style('darkgrid')
+    sns.set_palette('Set2')
     sns.boxplot(x=notes, orient='h')
 
     # Add labels and title
@@ -96,10 +103,9 @@ if __name__ == "__main__":
     np.random.seed(10)
     all_notes = np.array([np.random.randint(low=2, high=11, size=100), np.random.randint(low=0, high=8, size=100)])
     f_boxplots = create_all_boxplots(all_notes)
-    fpdf = create_stats_latex("George", 2, [all_notes[0][0], all_notes[1][0]], 20, f_boxplots)
+    fpdf = create_stats_latex("George", 0, 2, all_notes, 20, f_boxplots)
 
-    averages = np.average(all_notes, axis=1)
-    fpdf = create_stats_latex("Moyennes", 2, averages, 20, f_boxplots)
+    fpdf = create_stats_latex("Moyennes", None, 2, all_notes, 20, f_boxplots)
 
     # f_boxplot = Path("tex").resolve().joinpath("boxplot.png")
     # fpdf = create_stats_latex("George", 1, [5], 10, [f_boxplot, f_boxplot])

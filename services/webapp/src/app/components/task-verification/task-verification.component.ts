@@ -10,7 +10,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
 import { DocumentsService } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
-import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
+import { NgxExtendedPdfViewerService,  pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
 import { MatSelectChange } from '@angular/material/select';
 import * as saveAs from 'file-saver';
 import * as JSZip from 'jszip';
@@ -34,7 +34,11 @@ export class TaskVerificationComponent implements OnInit {
     private route: ActivatedRoute,
     private userService: UserService,
     private docService: DocumentsService,
-    private ngxService: NgxExtendedPdfViewerService) {}
+    private ngxService: NgxExtendedPdfViewerService) {
+      pdfDefaultOptions.doubleTapZoomsInHandMode = false;
+      pdfDefaultOptions.doubleTapZoomsInTextSelectionMode = false;
+      pdfDefaultOptions.doubleTapResetsZoomOnSecondDoubleTap = false;
+    }
 
   isSidebarHidden: boolean = false;
   isIndexProvided: boolean = false;
@@ -50,6 +54,7 @@ export class TaskVerificationComponent implements OnInit {
   job: Map<string, any>;
   pdfSrc: string;
   zoomSetting: any;
+  pdfViewerInitialized: boolean = false;
 
   copiesInformations: Map<string, Map<string, number>> = new Map();
   nMaxPointsPerQuestion = new Map<string, number>();
@@ -94,6 +99,7 @@ export class TaskVerificationComponent implements OnInit {
       this.group = "";
     }
     this.groupsList = [this.group];
+
     // fetch job and documents
     this.job = await this.tasksService.getTask();
     if (this.job && this.job["job_id"]) {
@@ -146,6 +152,15 @@ export class TaskVerificationComponent implements OnInit {
   @HostListener('document:keydown.enter', ['$event'])
   onKeydownHandler(event: KeyboardEvent) {
     this.validateCurrentCopy();
+  }
+
+  initializePdfViewer(): void {
+    if (!this.pdfViewerInitialized &&
+        this.ngxService.ngxExtendedPdfViewerInitialized) {
+      this.ngxService.editorInkColor = 'red';
+      this.ngxService.editorInkThickness = 2;
+      this.pdfViewerInitialized = true;
+    }
   }
 
   undoChange(e: any){
@@ -360,6 +375,9 @@ export class TaskVerificationComponent implements OnInit {
           let url = window.URL.createObjectURL(data);
           this.pdfSrc = url;
           this.pdfLoading = false;
+          // initialize pdf viewer options
+          const component = this;
+          setTimeout(function(){ component.initializePdfViewer(); }, 2000);
           // console.log("Current Exam: ", this.examsList[this.currentIndex()])
         }, (error) => {
           console.error(error);
