@@ -209,9 +209,17 @@ export class TaskVerificationComponent implements OnInit {
     return formattedIndexes;
   }
 
-  saveCurrentScore(): void {
-    // Save the current score to the map with the current copy as the key
-    this.currentScoresMap.set(this.currentCopy, this.currentScore);
+  async saveCurrentScore(): Promise<void> {
+    await this.getCopiesInformations();
+    const fullCopyName = this.getBaseNameWithExtension(this.currentCopyName);
+    const questionMap = this.copiesInformations.get(fullCopyName);
+   
+    if (questionMap && questionMap.has(this.currentQuestionIndex)) {
+      this.currentScore = questionMap.get(this.currentQuestionIndex);
+      this.currentScoresMap.set(this.currentCopy, this.currentScore);
+    } else {
+      this.currentScoresMap.set(this.currentCopy, this.currentScore);
+    }
   }
 
   initializeQuestionIndexes(): void {
@@ -291,7 +299,6 @@ export class TaskVerificationComponent implements OnInit {
   async getBonusEnabledMap() {
     await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
     this.bonusEnabledMap = this.docService.bonusEnabledMap;
-    console.log("Bonus enabled map", this.bonusEnabledMap)
   }
 
   async getCopiesInformations() {
@@ -391,10 +398,7 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  changeCurrentCopy(copyIndex, status) {
-    if (this.currentScore !== null) {
-      this.saveCurrentScore();
-    }
+  async changeCurrentCopy(copyIndex, status) {
     if (status !== "NOT_READY") {
       let exam = this.examsList[copyIndex-1];
       console.log("Change current copy to", copyIndex)
@@ -403,9 +407,12 @@ export class TaskVerificationComponent implements OnInit {
       this.currentCopy = copyIndex;
       console.log("Current copy", this.currentCopy);
       this.disabledValidationcontainer = false;
-      this.currentScore = this.currentScoresMap.get(this.currentCopy) || null;
       this.loadCopy();
       this.setChosenColor(status);
+      this.currentScore = this.currentScoresMap.get(this.currentCopy) || null;
+      await this.saveCurrentScore();
+      await this.verifyIfQuestionIsBonus();
+
     }
   }
 
@@ -417,7 +424,6 @@ export class TaskVerificationComponent implements OnInit {
     this.loadPdf();
     this.getCurrentMatricule();
     this.getCurrentStatus();
-    await this.verifyIfQuestionIsBonus();
   }
 
   async verifyIfQuestionIsBonus(): Promise<void> {
@@ -427,6 +433,7 @@ export class TaskVerificationComponent implements OnInit {
       this.notificationService.showInfo('Cette question est une question bonus. Sa note initiale est 0.', 'Information');
     }
   }
+  
 
   setChosenColor(status: string): void {
     if(status === "TO VALIDATE") {
