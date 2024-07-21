@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, OnInit, Output, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';
@@ -88,10 +88,10 @@ export class MatriculeVerificationComponent implements OnInit {
       if (this.checkForAvailableCopies()) {
         this.initialCopyIndex = 0;
         this.currentCopy = this.initialCopyIndex;
-        this.changeCurrentExam(this.currentCopy); 
+        this.changeCurrentExam(this.currentCopy);
       }
       this.checkValidationButton();
-  
+
       this.socketService.join(this.job["job_id"]);
       this.socketService.getSocket().on('document_ready', async (params: any) => {
         await this.getDocuments();
@@ -99,7 +99,7 @@ export class MatriculeVerificationComponent implements OnInit {
           this.nextCopy();
         }
       });
-  
+
       if (this.userService.token) {
         this.socketService.join(this.userService.currentUsername);
         this.socketService.getSocket().on('jobs_status', async (params: any) => {
@@ -118,12 +118,17 @@ export class MatriculeVerificationComponent implements OnInit {
     }
     this.checkValidationButton();
   }
-  
+
 
   ngOnDestroy(): void {
     this.socketService.getSocket().off('document_ready');
     this.socketService.getSocket().off('jobs_status');
     this.socketService.disconnectSocket();
+  }
+
+  @HostListener('document:keydown.enter', ['$event'])
+  onKeydownHandler(event: KeyboardEvent) {
+    this.updateMatricule();
   }
 
   async getDocuments() {
@@ -180,14 +185,14 @@ export class MatriculeVerificationComponent implements OnInit {
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.tasksService.getvalidatingTaskId());
     formdata.append('document_index', this.examsList[this.currentCopy].document_index);
-  
+
     this.pdfLoading = true;
-  
+
     // find the document in examsList based on the filename (currentIndex)
     const currentFilename = this.currentIndex();
     const currentExam = this.examsList.find((exam: any) => exam.filename === currentFilename);
     console.log("Current Exam: ", currentExam);
-  
+
     if (currentExam && currentExam.status !== "NOT_READY") {
       this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
         (data) => {
@@ -329,7 +334,7 @@ export class MatriculeVerificationComponent implements OnInit {
     formdata.append('matricule', this.currentMatricule.toString());
     formdata.append('user_id', this.userService.currentUsername);
     formdata.append('token', this.userService.token);
-  
+
     try {
       const response = await this.http.post(`${SERVER_URL}matricule/update`, formdata).toPromise();
       if (response["response"] === "OK") {
@@ -362,7 +367,7 @@ export class MatriculeVerificationComponent implements OnInit {
       let message = "Les matricules ont été validés avec succès!";
       this.notificationService.showInfo(message, "Alerte!")
       // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
-   
+
     }
   }
 

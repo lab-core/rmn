@@ -727,34 +727,19 @@ export class TaskVerificationComponent implements OnInit {
                     const questionIndex = this.verifyQuestionIndex(fileName);
 
                     if (!mergedDocs[questionIndex]) {
-                        mergedDocs[questionIndex] = [await PDFDocument.create(), await PDFDocument.create()];
+                        mergedDocs[questionIndex] = [await PDFDocument.create()];
                     }
 
-                    let firstDoc = mergedDocs[questionIndex][0];
-                    let secondDoc = mergedDocs[questionIndex][1];
-
-                    if (firstDoc.getPageCount() < this.maxCopiesPerPdf * pdfDoc.getPageCount()) {
-                        const remainingPages = this.maxCopiesPerPdf * pdfDoc.getPageCount() - firstDoc.getPageCount();
-                        const pagesToCopy = pdfDoc.getPageIndices().slice(0, remainingPages);
-                        const remainingPagesToSecondDoc = pdfDoc.getPageIndices().slice(remainingPages);
-
-                        const copiedPagesToFirst = await firstDoc.copyPages(pdfDoc, pagesToCopy);
-                        copiedPagesToFirst.forEach((page) => {
-                            firstDoc.addPage(page);
-                        });
-
-                        const copiedPagesToSecond = await secondDoc.copyPages(pdfDoc, remainingPagesToSecondDoc);
-                        copiedPagesToSecond.forEach((page) => {
-                            secondDoc.addPage(page);
-                        });
-
-                    } else {
-                        const copiedPages = await secondDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
-                        copiedPages.forEach((page) => {
-                            secondDoc.addPage(page);
-                        });
+                    let cDoc = mergedDocs[questionIndex][mergedDocs[questionIndex].length - 1];
+                    if (cDoc.getPageCount() >= this.maxCopiesPerPdf * pdfDoc.getPageCount()) {
+                      cDoc = await PDFDocument.create();
+                      mergedDocs[questionIndex].push(cDoc);
                     }
 
+                    const copiedPages = await cDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                    copiedPages.forEach((page) => {
+                        cDoc.addPage(page);
+                    });
                 })
                 .catch((error) => {
                     console.error(`Error downloading file ${exam["filename"]}:`, error);

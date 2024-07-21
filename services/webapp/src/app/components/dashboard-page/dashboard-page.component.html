@@ -2,7 +2,7 @@
   <app-main-menu></app-main-menu>
   <div class="task-container">
     <div class="task-header">
-      <h1 (click)="getTaskInfo()">Tableau de bord pour « {{ taskName }} »</h1>
+      <h1 (click)="getTaskInfo()">{{ taskName }}</h1>
     </div>
     <div class="task-content">
       <table>
@@ -25,7 +25,7 @@
               </div>
             </td>
             <td>{{ question.corrected }} / {{ question.total }}</td>
-            <td>{{ averages[i] }} / {{ nMaxPointsPerQuestion.get('Q' + (i + 1)) }}</td>
+            <td>{{ averages[i] | number:'1.2-2' }} / {{ nMaxPointsPerQuestion.get('Q' + (i + 1)) }}</td>
             <td class="action-buttons">
               <button class="correct-button" (click)="correctQuestion(i)">Corriger</button>
               <button class="correct-button" (click)="shareQuestion(i)">Partager</button>
@@ -34,7 +34,7 @@
           <tr>
             <td>Total</td>
             <td>{{ totalCorrectedCopies }} / {{ uniqueFileCount }}</td>
-            <td>{{ totalMean }} / {{ maxPossiblePoints }}</td>
+            <td>{{ totalMean | number:'1.2-2' }} / {{ maxPossiblePoints }}</td>
             <td class="action-buttons">
               <button class="correct-button" (click)="verifyMatricules()">Verifier les matricules</button>
               <button class="correct-button" (click)="shareTask()">Partager</button>
