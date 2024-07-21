@@ -5,51 +5,43 @@
       <h1 (click)="getTaskInfo()">Tableau de bord pour « {{ taskName }} »</h1>
     </div>
     <div class="task-content">
-      <div class="section">
-        <h3>Questions</h3>
-        <div *ngFor="let question of questions; let i = index">
-          <div *ngIf="bonusEnabledMap.get('Q' + (i + 1))">
-            Q{{ i + 1 }} (Bonus)
-          </div>
-          <div *ngIf="!bonusEnabledMap.get('Q' + (i + 1))">
-            Q{{ i + 1 }}
-          </div>
-        </div>
-        <div>Total</div>
-      </div>
-      <div class="section">
-        <h3>Copies corrigées</h3>
-        <div *ngFor="let question of questions; let i = index">
-          {{ question.corrected }} / {{ question.total }}
-        </div>
-        <div>{{ totalCorrectedCopies }} / {{ uniqueFileCount }}</div>
-      </div>
-      <div class="section">
-        <h3>Moyennes</h3>
-        <div *ngFor="let average of averages; let i = index">
-          {{ average }} / {{ nMaxPointsPerQuestion.get('Q' + (i + 1)) }} 
-        </div>
-        <div>{{ totalMean }}  / {{ (maxPossiblePoints) }} </div>
-      </div>
-      <div class="section actions">
-        <h3>Actions</h3>
-        <div *ngFor="let question of questions; let i = index" class="action-buttons">
-          <button class="correct-button" (click)="correctQuestion(i)">
-            Corriger
-          </button>
-          <button class="correct-button" (click)="shareQuestion(i)">
-            Partager
-          </button>
-        </div>
-        <div class="action-buttons">
-          <button class="correct-button" (click)="verifyMatricules()">
-            Verifier les matricules
-          </button>
-          <button class="correct-button" (click)="shareTask()">
-            Partager
-          </button>
-        </div>
-      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Questions</th>
+            <th>Copies corrigées</th>
+            <th>Moyennes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let question of questions; let i = index">
+            <td>
+              <div *ngIf="bonusEnabledMap.get('Q' + (i + 1))">
+                Q{{ i + 1 }} (Bonus)
+              </div>
+              <div *ngIf="!bonusEnabledMap.get('Q' + (i + 1))">
+                Q{{ i + 1 }}
+              </div>
+            </td>
+            <td>{{ question.corrected }} / {{ question.total }}</td>
+            <td>{{ averages[i] }} / {{ nMaxPointsPerQuestion.get('Q' + (i + 1)) }}</td>
+            <td class="action-buttons">
+              <button class="correct-button" (click)="correctQuestion(i)">Corriger</button>
+              <button class="correct-button" (click)="shareQuestion(i)">Partager</button>
+            </td>
+          </tr>
+          <tr>
+            <td>Total</td>
+            <td>{{ totalCorrectedCopies }} / {{ uniqueFileCount }}</td>
+            <td>{{ totalMean }} / {{ maxPossiblePoints }}</td>
+            <td class="action-buttons">
+              <button class="correct-button" (click)="verifyMatricules()">Verifier les matricules</button>
+              <button class="correct-button" (click)="shareTask()">Partager</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
