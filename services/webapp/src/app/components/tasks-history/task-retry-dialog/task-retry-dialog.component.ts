@@ -118,7 +118,10 @@ export class TaskRetryDialogComponent implements OnInit {
     const formData = new FormData();
     formData.append('token', this.userService.token);
     formData.append('job_id', job_id);
-
+    this.filenames.forEach((filename, index) => {
+      formData.append(`incorrect_files[${index}]`, filename);
+    });
+    console.log("FILENAMES", this.filenames);
     const requestURL = `${SERVER_URL}job/ignore`;
     this.http.post(requestURL, formData).subscribe(
         (data) => {

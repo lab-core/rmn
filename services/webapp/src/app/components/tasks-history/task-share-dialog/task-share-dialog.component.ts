@@ -11,6 +11,7 @@ export interface DialogData {
   taskId: string;
   taskName: string;
   shareType: 'job' | 'matricule';
+  questionIndex?: number;
 }
 
 @Component({
@@ -43,10 +44,13 @@ export class TaskShareDialogComponent implements OnInit {
     formdata.append('user_id', this.userService.currentUsername);
     formdata.append('token', this.userService.token);
     formdata.append('job_id', this.data.taskId);
+    if (this.data.questionIndex) {
+      formdata.append('question_index', this.data.questionIndex.toString());
+    }
     
     const shareEndpoint = this.data.shareType === 'matricule' ? 'matricule/share' : 'job/share';
     
-    this.http.post<any>(`${SERVER_URL}/${shareEndpoint}`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}${shareEndpoint}`, formdata).subscribe(
       (data) => {
         let resp = data['response'];
         if (resp.share_url) {

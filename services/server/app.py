@@ -598,6 +598,18 @@ def ignore_job(user_id):
             },
     )
 
+    collection_documents = db["job_documents"]
+
+    incorrect_files = []
+    for key in request_form.keys():
+        if key.startswith('incorrect_files'):
+            incorrect_files.append(request_form[key])
+   
+    # delete documents with filenames in incorrect_files
+    
+    for filename in incorrect_files:
+        collection_documents.delete_many({"job_id": job_id, "filename": filename})
+
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 @app.route("/job/continue", methods=["POST"])
