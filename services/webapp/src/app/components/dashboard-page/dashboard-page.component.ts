@@ -281,7 +281,7 @@ export class DashboardPageComponent {
     let dialogRef = this.dialog.open(TaskShareDialogComponent, {
       width: '30%',
       height: '40%',
-      data: { taskId: this.taskId, taskName: this.taskName, shareType: 'job' }
+      data: { taskId: this.taskId, taskName: this.taskName, shareType: 'job', questionIndex: index + 1 }
     });
     dialogRef.afterClosed().subscribe(async result => {
       if (result === false) {
