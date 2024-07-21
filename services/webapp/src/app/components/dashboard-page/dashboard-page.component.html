@@ -42,6 +42,9 @@
           </tr>
         </tbody>
       </table>
+      <div class="validate-job-container" *ngIf="this.loggued()">
+        <button class="validate-job-button" mat-flat-button (click)="validateJob()">Finaliser</button>
+      </div>
     </div>
   </div>
 </div>

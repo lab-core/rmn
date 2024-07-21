@@ -9,6 +9,8 @@ import { TaskFilesDialogComponent } from '../tasks-history/task-files-dialog/tas
 import { TaskShareDialogComponent } from '../tasks-history/task-share-dialog/task-share-dialog.component';
 import { NotificationService } from 'src/app/services/notification.service';
 import { DocumentsService } from 'src/app/services/documents.service';
+import { ValidationService } from 'src/app/services/validation.service';
+import { ValidationWarningDialogComponent } from '../task-verification/validation-warning-dialog/validation-warning-dialog.component';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -32,6 +34,7 @@ export class DashboardPageComponent {
   totalCopies: number = 0;
   totalMean: number = 0;
   maxPossiblePoints: number = 0;
+  validating: boolean = false;
 
   constructor(
     private router: Router,
@@ -41,7 +44,8 @@ export class DashboardPageComponent {
     private http: HttpClient, 
     public dialog: MatDialog,
     private docService: DocumentsService, 
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private validationService: ValidationService
   ) { 
   }
 
@@ -55,6 +59,10 @@ export class DashboardPageComponent {
     } else {
       this.router.navigate(['/tasks-history']);
     }
+  }
+
+  loggued(): boolean {
+    return this.userService.loggued();
   }
 
   async getTask() {
@@ -308,6 +316,55 @@ export class DashboardPageComponent {
       console.error(error);
     });
   }
-  
-  
+
+  openwarningDialog(): void {
+    let dialogRef = this.dialog.open(ValidationWarningDialogComponent, {
+      width: '30%',
+      height: '40%',
+    });
+    dialogRef.afterClosed().subscribe(async result => {
+        if (result !== undefined && result === true) {
+          this.validating = true;
+          let response = await this.validationService.validateJob(
+            this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
+          if (response === "OK") {
+            this.router.navigate(['/tasks-history']);
+            const message = "La tâche est en cours de finalisation!";
+            this.notificationService.showInfo(message, "Alerte!")
+            // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
+          }
+        }
+      }, (error) => {
+        console.error(error);
+      });
+  }
+
+  async validateJob() {
+    let uncheckedcopy = 0;
+    let uncheckedMatricules = 0;
+    this.examsList.forEach((exam: any) => {
+      if (exam["status"] === "TO VALIDATE") {
+        uncheckedcopy += 1;
+      }
+      if (exam["filename"].includes("_cover.pdf") && exam["status"] === "TO VALIDATE") {
+        uncheckedMatricules += 1;
+      }
+    });
+
+    if (uncheckedMatricules > 0) {
+      this.notificationService.showError("Veuillez valider les matricules avant de valider la tâche!", "Erreur!");
+    } else if (uncheckedcopy > 0) {
+      this.notificationService.showError("Veuillez valider toutes les copies avant de valider la tâche!", "Erreur!");
+    } else {
+      this.validating = true;
+      let response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
+      if (response === "OK") {
+        this.router.navigate(['/tasks-history']);
+        let message = "La tâche est en cours de finalisation!";
+        this.notificationService.showInfo(message, "Alerte!")
+        // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
+      }
+    }
+  }
+
 }

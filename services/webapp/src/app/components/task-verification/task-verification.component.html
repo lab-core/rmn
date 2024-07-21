@@ -38,10 +38,6 @@
                     </div>
                 </div>
             </div>
-            <div class="validate-job-container" *ngIf="this.loggued()">
-                <button class="validate-job-button" mat-flat-button (click)="validateJob()"
-                [disabled]="this.disabledValidationButton">Finaliser</button>
-            </div>
             <button class="download-zip-button" mat-flat-button (click)="downloadAllFilesAsZip()">Tout télécharger</button>
             <div class="max-copies-container">
                 <label for="maxCopies">Nombre max de copies par pdf</label>

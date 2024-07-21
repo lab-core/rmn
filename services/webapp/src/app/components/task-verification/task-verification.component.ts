@@ -540,60 +540,6 @@ export class TaskVerificationComponent implements OnInit {
         this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
     }
     this.checkValidationButton();
-}
-
-
-
-  async validateJob() {
-    if (!this.disabledDropDown) {
-      let uncheckedcopy = 0;
-      this.examsList.forEach((exam: any) => {
-        if (exam["status"] === "TO VALIDATE") {
-          uncheckedcopy += 1;
-        }
-      });
-
-      if (uncheckedcopy > 0) {
-        this.openwarningDialog();
-      } else {
-        this.disabledValidationcontainer = true;
-        this.validating = true;
-        let response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
-        if (response === "OK") {
-          this.router.navigate(['/dashboard', this.job["job_id"]]);
-          let message = "La tâche est en cours de finalisation!";
-          this.notificationService.showInfo(message, "Alerte!")
-          // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
-        }
-      }
-    } else {
-      this.router.navigate(['/dashboard', this.job["job_id"]]);
-      let message = "Les copies pour la question " + this.currentQuestionIndex + " ont été corrigées!";
-      this.notificationService.showInfo(message, "Alerte!")
-    }
-  }
-
-  openwarningDialog(): void {
-    let dialogRef = this.dialog.open(ValidationWarningDialogComponent, {
-      width: '30%',
-      height: '40%',
-    })
-    dialogRef.afterClosed().subscribe(async result => {
-        if (result !== undefined && result === true) {
-          this.disabledValidationcontainer = true;
-          this.validating = true;
-          let response = await this.validationService.validateJob(
-            this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
-          if (response === "OK") {
-            this.router.navigate(['/dashboard', this.job["job_id"]]);
-            const message = "La tâche est en cours de finalisation!";
-            this.notificationService.showInfo(message, "Alerte!")
-            // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
-          }
-        }
-      }, (error) => {
-        console.error(error);
-      });
   }
 
   changeMatricule(selection): void {
