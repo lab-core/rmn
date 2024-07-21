@@ -159,9 +159,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   initializePdfViewer(): void {
     if (!this.pdfViewerInitialized &&
-        this.ngxService.ngxExtendedPdfViewerInitialized) {
-      this.ngxService.editorInkColor = 'red';  // #FF0000
+        this.ngxService?.ngxExtendedPdfViewerInitialized) {
+      this.ngxService.editorInkColor = '#FF0000';
       this.ngxService.editorInkThickness = 2;
+      this.ngxService.editorFontColor = '#FF0000';
+      this.ngxService.editorFontSize = 14;
       this.pdfViewerInitialized = true;
     }
   }
@@ -391,6 +393,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           this.pdfSrc = url;
           this.pdfLoading = false;
           this.pdfModified = false;
+          // initialize pdf viewer options
+          if (!this.pdfViewerInitialized)
+           setTimeout(() => { this.initializePdfViewer(); }, 1000);
           // console.log("Current Exam: ", this.examsList[this.currentIndex()])
         }, (error) => {
           console.error(error);
@@ -399,7 +404,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async pdfLoaded(e) {
-    this.initializePdfViewer();
     const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
     if (editedPdfData) this.pdfSize = editedPdfData.size;
   }
