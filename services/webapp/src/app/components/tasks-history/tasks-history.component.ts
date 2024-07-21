@@ -269,7 +269,7 @@ export class TasksHistoryComponent implements OnInit {
   }
 
   goToDashBoard(task: any) {
-    if ((task.job_status === 'VALIDATION' || task.job_status === 'RUN') && task) {
+    if ((task.job_status === 'VALIDATION') && task) {
       this.router.navigate(['/dashboard', task.job_id]);
     }
   }
