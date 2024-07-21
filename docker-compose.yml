@@ -15,12 +15,12 @@ services:
       - "27017:27017"
   executor:
    build: ./services/executor
-  #  command: bash -c "while true; do echo hello; sleep 2; done"
+#   command: bash -c "while true; do echo hello; sleep 2; done"
    restart: always
    # ports:
    #   - "5001:5001"
-   # environment:
-   #   STORAGE: /Executor/storage
+   environment:
+     STORAGE: /Executor/storage
    volumes:
      - ./storage:/Executor/storage
    depends_on:

@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, OnInit, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, OnInit, OnDestroy, Output, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';
@@ -22,7 +22,7 @@ import { PDFDocument } from 'pdf-lib';
   templateUrl: './task-verification.component.html',
   styleUrls: ['./task-verification.component.css']
 })
-export class TaskVerificationComponent implements OnInit {
+export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   constructor(private tasksService: TasksService,
     private validationService: ValidationService,
@@ -44,6 +44,7 @@ export class TaskVerificationComponent implements OnInit {
   isIndexProvided: boolean = false;
   pictureLoading: boolean = true;
   pdfLoading: boolean = true;
+  pdfModified: boolean = false;
   disabledValidationcontainer = true;
   disabledValidationButton = true;
   disabledDropDown = false;
@@ -53,6 +54,7 @@ export class TaskVerificationComponent implements OnInit {
 
   job: Map<string, any>;
   pdfSrc: string;
+  pdfSize: number = 0;
   zoomSetting: any;
   pdfViewerInitialized: boolean = false;
 
@@ -144,7 +146,7 @@ export class TaskVerificationComponent implements OnInit {
     this.checkValidationButton();
   }
 
-  ngOnDestroy(): void {
+  async ngOnDestroy(): Promise<any> {
     this.socketService.getSocket().off('document_ready');
     this.socketService.getSocket().off('jobs_status');
     this.socketService.disconnectSocket();
@@ -158,7 +160,7 @@ export class TaskVerificationComponent implements OnInit {
   initializePdfViewer(): void {
     if (!this.pdfViewerInitialized &&
         this.ngxService.ngxExtendedPdfViewerInitialized) {
-      this.ngxService.editorInkColor = 'red';
+      this.ngxService.editorInkColor = 'red';  // #FF0000
       this.ngxService.editorInkThickness = 2;
       this.pdfViewerInitialized = true;
     }
@@ -213,7 +215,7 @@ export class TaskVerificationComponent implements OnInit {
     await this.getCopiesInformations();
     const fullCopyName = this.getBaseNameWithExtension(this.currentCopyName);
     const questionMap = this.copiesInformations.get(fullCopyName);
-   
+
     if (questionMap && questionMap.has(this.currentQuestionIndex)) {
       this.currentScore = questionMap.get(this.currentQuestionIndex);
       this.currentScoresMap.set(this.currentCopy, this.currentScore);
@@ -338,11 +340,10 @@ export class TaskVerificationComponent implements OnInit {
   }
 
   async addScoreToQuestion(): Promise<boolean> {
-    await this.getMaxPointsPerQuestion();
-    await this.getCopiesInformations();
-
     const fullCopyName = this.getBaseNameWithExtension(this.currentCopyName);
     if (fullCopyName && this.currentScore !== null) {
+      await this.getMaxPointsPerQuestion();
+      await this.getCopiesInformations();
       if (this.currentScore <= this.nMaxPointsPerQuestion.get(this.currentQuestionIndex) && this.currentScore >= 0) {
         this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
         this.currentScore = null;
@@ -375,11 +376,12 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
-  loadPdf(): void {
+  loadPdf(version: number = undefined): void {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.tasksService.getvalidatingTaskId());
     formdata.append('document_index', this.currentCopy.toString());
+    if (version !== undefined) formdata.append('document_version', version.toString());
 
     this.pdfLoading = true;
     if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
@@ -388,9 +390,7 @@ export class TaskVerificationComponent implements OnInit {
           let url = window.URL.createObjectURL(data);
           this.pdfSrc = url;
           this.pdfLoading = false;
-          // initialize pdf viewer options
-          const component = this;
-          setTimeout(function(){ component.initializePdfViewer(); }, 2000);
+          this.pdfModified = false;
           // console.log("Current Exam: ", this.examsList[this.currentIndex()])
         }, (error) => {
           console.error(error);
@@ -398,21 +398,32 @@ export class TaskVerificationComponent implements OnInit {
     }
   }
 
+  async pdfLoaded(e) {
+    this.initializePdfViewer();
+    const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
+    if (editedPdfData) this.pdfSize = editedPdfData.size;
+  }
+
+  async annotationEdited(e) {
+    this.pdfModified = true;
+  }
+
   async changeCurrentCopy(copyIndex, status) {
     if (status !== "NOT_READY") {
-      let exam = this.examsList[copyIndex-1];
-      console.log("Change current copy to", copyIndex)
-      this.currentQuestionIndex = this.getQuestionIndex(exam["filename"]);
-      this.currentCopyName = this.getBaseNameWithExtension(exam["filename"]);
-      this.currentCopy = copyIndex;
-      console.log("Current copy", this.currentCopy);
-      this.disabledValidationcontainer = false;
-      this.loadCopy();
-      this.setChosenColor(status);
-      this.currentScore = this.currentScoresMap.get(this.currentCopy) || null;
-      await this.saveCurrentScore();
-      await this.verifyIfQuestionIsBonus();
-
+      if (await this.saveCurrentCopy()) {
+        let exam = this.examsList[copyIndex-1];
+        console.log("Change current copy to", copyIndex)
+        this.currentQuestionIndex = this.getQuestionIndex(exam["filename"]);
+        this.currentCopyName = this.getBaseNameWithExtension(exam["filename"]);
+        this.currentCopy = copyIndex;
+        console.log("Current copy", this.currentCopy);
+        this.disabledValidationcontainer = false;
+        await this.loadCopy();
+        this.setChosenColor(status);
+        this.currentScore = this.currentScoresMap.get(this.currentCopy) || null;
+        await this.saveCurrentScore();
+        await this.verifyIfQuestionIsBonus();
+      }
     }
   }
 
@@ -433,7 +444,7 @@ export class TaskVerificationComponent implements OnInit {
       this.notificationService.showInfo('Cette question est une question bonus. Sa note initiale est 0.', 'Information');
     }
   }
-  
+
 
   setChosenColor(status: string): void {
     if(status === "TO VALIDATE") {
@@ -506,40 +517,102 @@ export class TaskVerificationComponent implements OnInit {
       this.notificationService.showWarning("Vous n'avez téléversé aucun nouveaux fichiers.", 'Attention!');
     }
 
-    this.examsList[this.currentIndex()]["total"] = this.currentTotal;
-    const currentExam = this.examsList[this.currentIndex()];
-    const filename = currentExam["filename"];
-
     try {
+        this.examsList[this.currentIndex()]["total"] = this.currentTotal;
         const scoreAdded = await this.addScoreToQuestion();
-        if (scoreAdded) {
-          const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
-          if (editedPdfData) {
-            const file = new File([editedPdfData], filename, { type: editedPdfData.type });
-            let validationResponse = await this.validationService.validateDocument(
-                this.tasksService.getvalidatingTaskId(),
-                this.currentCopy,
-                file,
-                this.copiesInformations,
-                0,
-                this.nMaxPointsPerQuestion,
-                this.currentStatus
-            );
-
-            if (validationResponse === "OK") {
-                this.setValidatedStatus();
-                this.nextCopy();
-            }
-          } else {
-              console.error('Erreur lors de l\'obtention du document PDF modifié.');
-              this.notificationService.showError('Échec de l\'obtention du document PDF modifié.', 'Erreur de validation');
-          }
-      }
+        if (scoreAdded && await this.saveCurrentCopy()) {
+            this.setValidatedStatus();
+            this.nextCopy();
+        }
     } catch (error) {
         console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
         this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
     }
     this.checkValidationButton();
+}
+
+  async saveCurrentCopy() {
+    const currentExam = this.examsList[this.currentIndex()];
+    if (currentExam) {
+      const filename = currentExam["filename"];
+      const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
+      if (editedPdfData) {
+        // if file not modified, stop here and return true
+        if (editedPdfData.size === this.pdfSize && !this.pdfModified)
+          return true;
+        const file = new File([editedPdfData], filename, { type: editedPdfData.type });
+        let validationResponse = await this.validationService.validateDocument(
+            this.tasksService.getvalidatingTaskId(),
+            this.currentCopy,
+            file,
+            this.copiesInformations,
+            0,
+            this.nMaxPointsPerQuestion,
+            this.currentStatus
+        );
+
+        console.log('Save current copy and obtained response:', validationResponse);
+
+        return (validationResponse === "OK");
+      } else {
+          console.error('Erreur lors de l\'obtention du document PDF modifié.');
+          this.notificationService.showError('Échec de la sauvegarde du document PDF modifié.', 'Erreur de validation');
+          return false;
+      }
+    }
+    return true;  // nothing to do -> true
+  }
+
+  async validateJob() {
+    if (!this.disabledDropDown) {
+      let uncheckedcopy = 0;
+      this.examsList.forEach((exam: any) => {
+        if (exam["status"] === "TO VALIDATE") {
+          uncheckedcopy += 1;
+        }
+      });
+
+      if (uncheckedcopy > 0) {
+        this.openwarningDialog();
+      } else {
+        this.disabledValidationcontainer = true;
+        this.validating = true;
+        let response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
+        if (response === "OK") {
+          this.router.navigate(['/dashboard', this.job["job_id"]]);
+          let message = "La tâche est en cours de finalisation!";
+          this.notificationService.showInfo(message, "Alerte!")
+          // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
+        }
+      }
+    } else {
+      this.router.navigate(['/dashboard', this.job["job_id"]]);
+      let message = "Les copies pour la question " + this.currentQuestionIndex + " ont été corrigées!";
+      this.notificationService.showInfo(message, "Alerte!")
+    }
+  }
+
+  openwarningDialog(): void {
+    let dialogRef = this.dialog.open(ValidationWarningDialogComponent, {
+      width: '30%',
+      height: '40%',
+    })
+    dialogRef.afterClosed().subscribe(async result => {
+        if (result !== undefined && result === true) {
+          this.disabledValidationcontainer = true;
+          this.validating = true;
+          let response = await this.validationService.validateJob(
+            this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
+          if (response === "OK") {
+            this.router.navigate(['/dashboard', this.job["job_id"]]);
+            const message = "La tâche est en cours de finalisation!";
+            this.notificationService.showInfo(message, "Alerte!")
+            // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
+          }
+        }
+      }, (error) => {
+        console.error(error);
+      });
   }
 
   changeMatricule(selection): void {
@@ -597,7 +670,8 @@ export class TaskVerificationComponent implements OnInit {
     return this.currentCopy - this.initialCopyIndex;
   }
 
-  reroute() {
+  async reroute() {
+    await this.saveCurrentCopy();
     this.router.navigate(['/dashboard', this.job["job_id"]]);
   }
 

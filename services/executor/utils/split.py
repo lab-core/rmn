@@ -92,7 +92,7 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
         os.makedirs(storage.abs_path(cover_page_dest))
     for file in os.listdir(cover_page_folder):
         original_pdf_name = re.sub(r'_cover\.pdf$', '.pdf', file)
-        doc  = db.get_document(job_id, original_pdf_name)
+        doc = db.get_document(job_id, original_pdf_name)
         db.insert_document(
             job_id=job_id,
             doc_index=file,
@@ -122,6 +122,7 @@ def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_
     shutil.rmtree(temp_folder)
     return generated_pdfs, is_valid, error_messages
 
+
 def process_path(zip_folder, job_id, n_pages_per_question):
     root_path = Path(__file__).resolve().parent.parent
     documents_path = root_path.joinpath('storage', 'documents', job_id)
@@ -141,6 +142,7 @@ def process_path(zip_folder, job_id, n_pages_per_question):
     generated_pdfs, is_valid, error_messages = process_zip(zip_file_path, temp_path, documents_path, n_pages_per_question, job_id)
     return generated_pdfs, is_valid, error_messages
 
+
 def insert_copies(zip_folder, job_id, n_pages_per_question):
     db = Database()
 
@@ -155,7 +157,7 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
             file_name = f"documents/{job_id}/{question}/{os.path.basename(pdf_path)}"
             pdf_name = os.path.basename(pdf_path)
             original_pdf_name = re.sub(r'_Q\d+', '', pdf_name)
-            doc  = db.get_document(job_id, original_pdf_name)
+            doc = db.get_document(job_id, original_pdf_name)
 
             db.insert_document(
                 job_id=job_id,

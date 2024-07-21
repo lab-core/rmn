@@ -97,8 +97,8 @@ def find_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
 
     # loading our CNN model
-    from keras.models import load_model
-    classifier = load_model("digit_recognizer.h5")
+    import tensorflow as tf
+    classifier = tf.keras.model.load_model("digit_recognizer.h5")
 
     # load csv
     grades_dfs, grades_names = load_csv(grades_csv)
@@ -239,33 +239,13 @@ def convert_grade_box_config(list_grade_box):
 def grade_all(
     paths,
     grades_csv,
-    box_matricule_default,
-    box_default,
+    box_matricule,
+    box,
     job_id,
     user_id,
-    front_template_id,
-    regular_template_id,
     dpi=300,
-    shape=(8.5, 11),
-    ):
+    shape=(8.5, 11)):
     db = Database()
-    box_list, box_matricule_list = None, None
-    regular_box_matricule = box_matricule_default  
-    front_box_matricule = box_matricule_default
-    box_matricule = box_matricule_default
-    box = box_default  
-
-    box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
-
-    if regular_box_matricule_list is not None:
-        regular_box_matricule = convert_to_regular_box_config(regular_box_matricule_list)
-    if box_matricule_list is not None:
-        front_box_matricule = convert_to_front_box_config(box_matricule_list)
-    if box_list is not None:
-        box = convert_grade_box_config(box_list)
-   
-    box_matricule['front'] = front_box_matricule['front']
-    box_matricule['regular'] = regular_box_matricule['regular']
 
     # debug
     # print("---------------------------------DEBUG---------------------------------")

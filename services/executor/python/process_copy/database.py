@@ -1,6 +1,6 @@
 import os
 import shutil
-from datetime import datetime
+import datetime as dt
 import cv2
 from utils.utils import Document_Status, Job_Status
 from utils.storage import Storage, ROOT_DIR
@@ -121,7 +121,7 @@ class Database:
         self.eval_jobs_collection().update_one(
             {"job_id": job_id},
             {"$set": {
-                "alive_time": datetime.utcnow(),
+                "alive_time": dt.datetime.now(dt.UTC),
                 "max_questions": max_nb_question
             }}
         )
@@ -133,7 +133,7 @@ class Database:
             {
                 "$set": {
                     "job_status": Job_Status.RUN.value,
-                    "alive_time": datetime.utcnow(),
+                    "alive_time": dt.datetime.now(dt.UTC),
                     "students_list": students_list
                 }
             }

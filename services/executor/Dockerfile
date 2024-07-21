@@ -1,24 +1,21 @@
 # syntax=docker/dockerfile:1
 
-FROM ubuntu:22.04
+FROM python:3.12
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
-    && apt-get install -y python3-pip \
     && apt-get install -y poppler-utils \
-    && apt-get install -y build-essential \
-    && apt-get install -y python3-dev \
-    && apt-get install -y python3-opencv \
-    && pip3 install --upgrade pip
+    && apt install -y texlive-latex-recommended \
+    && apt-get install -y texlive-lang-french\
+    && apt-get install -y libhdf5-dev \
+    && pip install --upgrade pip
 
 WORKDIR /Executor
 
 COPY ./requirements.txt ./requirements.txt
 
-RUN pip3 install -r requirements.txt
-
-RUN pip uninstall -y PyCrypto && pip install PyCryptodome
+RUN pip install -r requirements.txt
 
 COPY . .
 

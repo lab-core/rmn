@@ -114,7 +114,9 @@
                     [handTool]="false"
                     [textLayered]="false"
                     [defaultZoomValue]="page-width"
-                    [(zoom)]="zoomSetting">
+                    [(zoom)]="zoomSetting"
+                    (pdfLoaded)="pdfLoaded($event)"
+                    (annotationEditorEvent)="annotationEdited($event)">
                     <pdf-shy-button
                       [cssClass]="'always-visible' | responsiveCSSClass"
                       class="Undo"

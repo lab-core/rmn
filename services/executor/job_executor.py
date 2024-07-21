@@ -1,5 +1,5 @@
 from pathlib import Path
-from python.process_copy.parser import parse_run_args
+from python.process_copy.parser import parse_run_args, grade_box, matricule_box
 from python.process_copy.recognize import get_date
 from python.process_copy.config import MoodleFields as MF
 from python.process_copy.mcc import group_label
@@ -18,12 +18,19 @@ import json
 import pandas as pd
 import uuid
 import time
-from datetime import datetime, timedelta
+import datetime as dt
 
 
 ROOT_DIR = Path(__file__).resolve().parent
 MAX_RETRY = int(os.getenv("MAX_RETRY", "5")) # 5
-MAX_IDLE_TIME = 120 # 120
+MAX_IDLE_TIME = 120  # 120
+
+
+# override print
+old_print = print
+def timestamped_print(*args, **kwargs):
+  old_print(dt.datetime.now(), *args, **kwargs)
+print = timestamped_print
 
 
 def save_number_images(storage, job_id, document_index, questions):
@@ -114,14 +121,14 @@ if __name__ == "__main__":
 
             #
             print(f"Col: {df.columns}")
-            dt = get_date()
+            date = get_date()
             for document_index, doc in enumerate(docs):
                 mat = str(doc["matricule"])
                 if mat in df.index.values:
                     for key in doc["subquestion_predictions"].keys():
                         df.loc[mat, key] = doc["subquestion_predictions"][key]
                     df.loc[mat, MF.grade] = doc["total"]
-                    df.loc[mat, MF.mdate] = dt
+                    df.loc[mat, MF.mdate] = date
             df.to_csv(csv_file_path, mode="w+")
 
             #
@@ -371,7 +378,7 @@ if __name__ == "__main__":
                 {
                     "$set": {
                         "job_status": Job_Status.RUN.value,
-                        "alive_time": datetime.utcnow()
+                        "alive_time": dt.datetime.now(dt.UTC)
                     }
                 }
             )
@@ -384,6 +391,16 @@ if __name__ == "__main__":
             with ZipFile(str(OUTPUT_FOLDER.joinpath("content.zip")), 'r') as zip_ref:
                 zip_ref.extractall(EXTRACT_FOLDER)
 
+            # fetch the user-defined boxes
+            box_list, box_matricule_list, regular_box_matricule_list = \
+                db.get_templates_info(job_params["front_template_id"],
+                                      job_params["regular_template_id"])
+            if regular_box_matricule_list is not None:
+                matricule_box['exam']['regular'] = tuple([round(x, 2) for x in regular_box_matricule_list])
+            if box_matricule_list is not None:
+                matricule_box['exam']['front'] = tuple([round(x, 2) for x in box_matricule_list])
+            if box_list is not None:
+                grade_box['exam']['grade'] = tuple([round(x, 2) for x in box_list])
 
             args = [
                 str(EXTRACT_FOLDER),
@@ -393,15 +410,10 @@ if __name__ == "__main__":
                 "exam",
                 "--grades",
                 str(OUTPUT_FOLDER.joinpath("notes.csv")),
-                "-e",
                 "--job_id",
                 job_id,
                 "--user_id",
                 user_id,
-                "--front_template_id",
-                job_params["front_template_id"],
-                "--regular_template_id",
-                job_params["regular_template_id"],
                 "--export",
                 "--batch",
                 "500",
@@ -579,7 +591,7 @@ if __name__ == "__main__":
                 while True:
                     print("Check idle running jobs")
                     # search idle jobs
-                    max_alive = datetime.utcnow() - timedelta(seconds=MAX_IDLE_TIME)
+                    max_alive = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=MAX_IDLE_TIME)
                     jobs = db.eval_jobs_collection().find({
                         "job_status": Job_Status.RUN.value,
                         "alive_time": {"$lt": max_alive}
@@ -650,7 +662,7 @@ if __name__ == "__main__":
                     all_jobs_idle = False
                     for j in jobs:
                         job_id = j["job_id"]
-                        alive_t = alive_times.get(job_id, datetime.utcnow())
+                        alive_t = alive_times.get(job_id, dt.datetime.now(dt.UTC))
                         # check if alive_time has increased, and thus job is alived
                         if j["alive_time"] > alive_t:
                             all_jobs_idle = False
