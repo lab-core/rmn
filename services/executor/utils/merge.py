@@ -42,7 +42,7 @@ def process_merge(job_id):
     eval_jobs_collection = db.eval_jobs_collection()
     eval_job = eval_jobs_collection.find_one({"job_id": job_id})
     n_max_points_per_question = eval_job["n_max_points_per_question"]
-    question_indexes = n_max_points_per_question.keys()
+    question_indexes = [item[0] for item in n_max_points_per_question]
     question_indexes.sort()
 
     folder_paths = [f'storage/cover_pages/{job_id}']
