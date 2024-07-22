@@ -96,9 +96,27 @@ def get_max_question(max_grade, max_nb_questions):
 def find_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
 
+    # box_list, box_matricule_list = None, None
+    # regular_box_matricule = box_matricule_default  
+    # front_box_matricule = box_matricule_default
+    # box_matricule = box_matricule_default
+    # box = box_default  
+
+    # box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
+
+    # if regular_box_matricule_list is not None:
+    #     regular_box_matricule = convert_to_regular_box_config(regular_box_matricule_list)
+    # if box_matricule_list is not None:
+    #     front_box_matricule = convert_to_front_box_config(box_matricule_list)
+    # if box_list is not None:
+    #     box = convert_grade_box_config(box_list)
+   
+    # box_matricule['front'] = front_box_matricule['front']
+    # box_matricule['regular'] = regular_box_matricule['regular']
+
     # loading our CNN model
-    import tensorflow as tf
-    classifier = tf.keras.model.load_model("digit_recognizer.h5")
+    from keras.models import load_model
+    classifier = load_model("digit_recognizer.h5")
 
     # load csv
     grades_dfs, grades_names = load_csv(grades_csv)
@@ -239,13 +257,33 @@ def convert_grade_box_config(list_grade_box):
 def grade_all(
     paths,
     grades_csv,
-    box_matricule,
-    box,
+    box_matricule_default,
+    box_default,
     job_id,
     user_id,
+    front_template_id,
+    regular_template_id,
     dpi=300,
-    shape=(8.5, 11)):
+    shape=(8.5, 11),
+    ):
     db = Database()
+    box_list, box_matricule_list = None, None
+    regular_box_matricule = box_matricule_default  
+    front_box_matricule = box_matricule_default
+    box_matricule = box_matricule_default
+    box = box_default  
+
+    box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
+
+    if regular_box_matricule_list is not None:
+        regular_box_matricule = convert_to_regular_box_config(regular_box_matricule_list)
+    if box_matricule_list is not None:
+        front_box_matricule = convert_to_front_box_config(box_matricule_list)
+    if box_list is not None:
+        box = convert_grade_box_config(box_list)
+   
+    box_matricule['front'] = front_box_matricule['front']
+    box_matricule['regular'] = regular_box_matricule['regular']
 
     # debug
     # print("---------------------------------DEBUG---------------------------------")
@@ -714,6 +752,72 @@ def grade_files(
 
     return doc_index
 
+def add_grades(numbers, pdf_path, box, trim=None, add_border=False, shape=(8.5, 11), grade_ratio=0.5):
+    grays = gray_images(pdf_path, [0], straighten=False, shape=shape)
+    img = convert_from_path(pdf_path, dpi=300, first_page=0, last_page=1)[0]
+    np_img=np.array(img)
+    x0 = int(box[0] * np_img.shape[1])
+    y0 = int(box[2] * np_img.shape[0])
+    original_shape=np_img.shape
+    cv2.resize(np_img, shape, interpolation=cv2.INTER_LINEAR)
+    if grays is None:
+        print(Fore.RED + "%s: No valid pdf" % pdf_path + Style.RESET_ALL)
+        return False
+    gray = grays[0]
+    # total_matched, numbers, grades, number_images, boxes = grade(
+    #     gray,
+    #     box["grade"],
+    #     classifier=classifier,
+    #     trim=trim,
+    #     max_grade=max_grade,
+    #     max_question=max_question
+    # )
+
+
+    def find_right_boxes(box, retry=5):
+        cropped = fetch_box(gray, box)
+        print(f"box: {box}")
+        print(f"cropped: {cropped}")
+        boxes = find_grade_boxes(cropped, add_border, thick=0)
+        print(f"Number of boxes : {len(boxes)}")
+
+        if len(boxes) != len(numbers):
+            print("The number of boxes found is different from the number of grades")
+            if retry > 0:
+                print("Retry grading", retry)
+                box2 = (box[0]-.01, box[0]+.01, box[0]-.01, box[0]+.01)
+                return find_right_boxes(box2, retry-1)
+            return False, cropped, [], boxes
+
+        number_images = []
+        font_scale = None
+        for i, b in enumerate(boxes):
+            (x, y, w, h) = cv2.boundingRect(b)
+            if h <= 10 or w <= 10:
+                print("An invalid box number has been found (too small or too thin)")
+                if retry > 0:
+                    print("Retry grading", retry)
+                    box2 = (box[0]-.01, box[0]+.01, box[0]-.01, box[0]+.01)
+                    return find_right_boxes(box2, retry-1)
+                return False, cropped, number_images, boxes
+
+            thickness = 2
+            size, _ = cv2.getTextSize(numbers[i], cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
+            nw, nh = size
+            if font_scale is None:
+                font_scale=grade_ratio/max(nh/h, nw/w)
+            x_anchor=int(x + (w-nw*font_scale)/2)
+            y_anchor=int(y + (h+nh*font_scale)/2)
+            color = (0, 0, 255)
+            cv2.putText(np_img, numbers[i], (x0 + x_anchor, y0 + y_anchor), cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+            box_img = cropped[y + 5: y + h - 5, x + 5: x + w - 5]
+            # imwrite_png('test', np_img)
+
+        return True, cropped, number_images, boxes
+
+    find_right_boxes(box)
+    cv2.resize(np_img, original_shape[:2], interpolation=cv2.INTER_LINEAR)
+    imwrite_png('intermediate_image', np_img, False)
 
 def compare_all(paths, grades_csv, box, dpi=300, shape=(8.5, 11)):
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
@@ -1374,7 +1478,10 @@ def find_grade_boxes(cropped, add_border=False, max_diff=50, thick=5):
     ref = None
     horizontal = None
     imwrite_contours("cropped_boxes", cropped2, ccnts, thick=thick + 1)
+    # ic=0
     for c in sorted(ccnts, key=cv2.contourArea, reverse=True):
+        # imwrite_contours("cropped_boxes_%d" %ic, cropped2, [c], thick=thick + 1)
+        # ic+=1
         (x, y, w, h) = cv2.boundingRect(c)
         # set the reference box
         if ref is None:
@@ -1444,7 +1551,7 @@ def find_grade_boxes(cropped, add_border=False, max_diff=50, thick=5):
             prev = x + w if horizontal else y + h
         boxes = boxes2
     imwrite_contours(
-        "cropped_boxes", cropped2, boxes, thick=2 * (thick + 1), padding=-thick - 1
+        "cropped_boxes2", cropped2, boxes, thick=2 * (thick + 1), padding=-thick - 1
     )
     return boxes
 

@@ -4,6 +4,8 @@ from python.process_copy.recognize import get_date
 from python.process_copy.config import MoodleFields as MF
 from python.process_copy.mcc import group_label
 from python.process_copy.database import Database
+from python.process_copy.add_grades import process_writing
+from utils.merge import process_merge
 from utils.utils import Job_Status, Document_Status
 from utils.storage import Storage
 from utils.stop_handler import StopHandler
@@ -85,6 +87,14 @@ if __name__ == "__main__":
                 {"job_id": job_id},
                 {"$set": {"job_status": Job_Status.FINALIZING.value}}
             )
+
+            # adding grades
+            print("Adding grades...")
+            process_writing(job_id)
+
+            # merging copies
+            print("Merging copies...")
+            process_merge(job_id)
 
             #
             user = db.users_collection().find_one({"username": user_id})
