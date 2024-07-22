@@ -1,5 +1,6 @@
 import os
 from PyPDF2 import PdfReader, PdfWriter
+from python.process_copy.database import Database
 
 def find_files_with_base_name(base_name, folder_paths, suffix):
     pdf_paths = []
@@ -36,22 +37,19 @@ def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
             writer.write(output_file)
         print(f"Merged PDF for {base_name} saved at {output_path}")
 
+def process_merge(job_id):
+    db = Database()
+    eval_jobs_collection = db.eval_jobs_collection()
+    eval_job = eval_jobs_collection.find_one({"job_id": job_id})
+    n_max_points_per_question = eval_job["n_max_points_per_question"]
+    question_indexes = n_max_points_per_question.keys()
 
-# folder_paths = [
-#     'storage/cover_pages/3f3c0889-cd70-45e4-9752-8ab26a47a7f5',
-#     'storage/documents/3f3c0889-cd70-45e4-9752-8ab26a47a7f5/Q1',
-#     'storage/documents/3f3c0889-cd70-45e4-9752-8ab26a47a7f5/Q2',
-#     'storage/documents/3f3c0889-cd70-45e4-9752-8ab26a47a7f5/Q3',
-#     'storage/documents/3f3c0889-cd70-45e4-9752-8ab26a47a7f5/Q4',
-#     'storage/documents/3f3c0889-cd70-45e4-9752-8ab26a47a7f5/Q5'
-# ]
+    folder_paths = [f'storage/cover_pages/{job_id}']
+    for question_index in question_indexes:
+        folder_paths.append(f'storage/documents/{job_id}/{question_index}')
 
+    base_names = [os.path.splitext(file_name)[0].rsplit('_', 1)[0] for file_name in os.listdir(folder_paths[0]) if file_name.lower().endswith('.pdf')]
 
-base_names = [os.path.splitext(file_name)[0].rsplit('_', 1)[0] for file_name in os.listdir(folder_paths[0]) if file_name.lower().endswith('.pdf')]
+    output_folder = f'storage/corrected_copies/{job_id}'
 
-
-# output_folder = 'storage/corrected_copies/3f3c0889-cd70-45e4-9752-8ab26a47a7f5'
-
-
-# if __name__ == '__main__':
-#     merge_pdfs_by_base_name(base_names, folder_paths, output_folder)
+    merge_pdfs_by_base_name(base_names, folder_paths, output_folder)

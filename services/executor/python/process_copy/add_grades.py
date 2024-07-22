@@ -1,58 +1,44 @@
-import cv2
-from pdf2image import convert_from_path
 import img2pdf
-import numpy as np
 import os
-import sys
+from process_copy.database import Database
 from process_copy.recognize import add_grades
 
-input_pdf_path = '../../../../storage/cover_pages/front_box.pdf'
-output_pdf_path = '../../storage/cover_pages/output_pdf_with_numbers.pdf'
-intermediate_image_path = '../../images/intermediate_image.png'
+INTERMEDIATE_IMAGE_PATH = 'rmn/services/executor/images/intermediate_image.png'
 
-shape=(8.5, 11)
-dpi=300
-shape = (int(dpi * shape[0]), int(dpi * shape[1]))
 
-numbers = ['5', '8', '7', '9', '6', '35']
-add_grades(numbers, input_pdf_path, (0.8, .95, 0.2, 0.55), add_border=False, shape=shape)
+def process_writing(job_id, box_grades):
+    box_grades = (0.8, .95, 0.2, 0.55)
+    shape=(8.5, 11)
+    dpi=300
+    shape = (int(dpi * shape[0]), int(dpi * shape[1]))
 
-# image = convert_from_path(intermediate_image_path)
-#
-# image = np.array(images[0])
-#
-# image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    db = Database()
+    documents_collection = db.documents_collection()
+    documents = documents_collection.find({"job_id": job_id})
+    
+    filenames = []
+    for document in documents:
+        document_basename = os.path.basename(document["filename"])
+        if document_basename.endswith("_cover.pdf"):
+            filenames.append(document_basename)
 
-# positions = [
-#     (1500, 550),
-#     (1500, 620),
-#     (1500, 700),
-#     (1500, 780),
-#     (1500, 860),
-#     (1500, 940),
-#     (1500, 1020)
-# ]
+    eval_jobs_collection = db.eval_jobs_collection()
+    eval_job = eval_jobs_collection.find_one({"job_id": job_id})
+    copies_information = eval_job["copies_information"]
 
-# font = cv2.FONT_HERSHEY_SIMPLEX
-# font_scale = 1
-# color = (0, 0, 255)
-# thickness = 2
-#
-# for pos, num in zip(positions, numbers):
-#     cv2.putText(image, num, pos, font, font_scale, color, thickness)
-#
-# cv2.imwrite(intermediate_image_path, image)
+    for filename in filenames:
+        base_filename = filename.replace('_cover.pdf', '.pdf')
+        copyDict = copies_information.get(base_filename)
+        input_pdf_path = f'rmn/storage/documents/{job_id}/{filename}'
+        numbers = copyDict.values()
 
-# Open the image file in binary mode and convert it to PDF
-with open(intermediate_image_path, "rb") as image_file:
-    image_data = image_file.read()
-    pdf_bytes = img2pdf.convert(image_data)
+        add_grades(numbers, input_pdf_path, box_grades, add_border=False, shape=shape)
 
-# Write the PDF bytes to the output file
-with open(output_pdf_path, "wb") as f:
-    f.write(pdf_bytes)
+        with open(INTERMEDIATE_IMAGE_PATH, "rb") as image_file:
+            image_data = image_file.read()
+            pdf_bytes = img2pdf.convert(image_data)
 
-# Clean up intermediate image file
-# os.remove(intermediate_image_path)
+        with open(input_pdf_path, "wb") as f:
+            f.write(pdf_bytes)
 
-print(f"Processed PDF saved as {output_pdf_path}")
+        print(f"Modified PDF saved as {input_pdf_path}")
