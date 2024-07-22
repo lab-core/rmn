@@ -1,10 +1,29 @@
 import img2pdf
 import os
 from process_copy.database import Database
-from process_copy.recognize import add_grades, convert_to_front_box_config
+from process_copy.recognize import add_grades
 
 INTERMEDIATE_IMAGE_PATH = 'rmn/services/executor/images/intermediate_image.png'
 
+
+def convert_to_front_box_config(list_matricule_box):
+    rounded_list_matricule_box = [round(x, 2) for x in list_matricule_box]
+    return {
+        "front": tuple(rounded_list_matricule_box),
+        "separate_box": True,
+        "regular": (0.55, 0.95, 0.05, 0.13),
+    }
+
+def convert_to_regular_box_config(list_matricule_box):
+    rounded_list_matricule_box = [round(x, 2) for x in list_matricule_box]
+    return {
+        "front": (0.05, 0.85, 0.15, 0.35),
+        "separate_box": True,
+        "regular": tuple(rounded_list_matricule_box),
+    }
+
+def convert_grade_box_config(list_grade_box):
+    return {"grade": tuple(list_grade_box)}
 
 def process_writing(job_id):
     box_list, box_matricule_list, regular_box_matricule_list = None, None, None

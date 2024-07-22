@@ -1058,13 +1058,19 @@ def replace_document():
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
+def version_basename(filename):
+    version_dir = os.path.join(os.path.dirname(filename), "versions")
+    version_name = os.path.basename(filename).rsplit(".", 1)[0]
+    return os.path.join(version_dir, version_name)
+
+
 def save_new_version(filename, version=None):
-    basename = filename.rsplit(".", 1)[0]
-    all_versions = glob.glob(basename+"-*.pdf")
+    version_base = version_basename(filename)
+    all_versions = glob.glob(version_base+"-*.pdf")
 
     # create backup of the file if version does not already exist
     if version is None or version >= len(all_versions):
-        shutil.copy(filename, basename + "-%d.pdf" % len(all_versions))
+        shutil.copy(filename, version_base + "-%d.pdf" % len(all_versions))
 
 
 @app.route("/document/download", methods=["POST"])
@@ -1097,8 +1103,14 @@ def download_document():
         file_id = str(document_file["image_id"])
         # add the right version if requested
         if "document_version" in request_form:
-            file_id = file_id.rsplit(".", 1)[0]+"-%s.pdf" % request_form["document_version"]
-        storage.copy_from(file_id, file_id)
+            try:
+                version_name = version_basename(file_id) + "-%s.pdf" % request_form["document_version"]
+                storage.copy_from(version_name, file_id)
+            except ValueError:
+                # if cannot find this version use default one
+                storage.copy_from(file_id, file_id)
+        else:
+            storage.copy_from(file_id, file_id)
         file_path = file_id
     else:
         document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})

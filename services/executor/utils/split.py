@@ -77,8 +77,10 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
                     with open(output_path, 'wb') as output_file:
                         writer.write(output_file)
                     # save first backup
-                    backup = output_path.rsplit(".", 1)[0] + "-0.pdf"
-                    shutil.copy(output_path, backup)
+                    backup_dir = os.path.join(os.path.dirname(output_path), "versions")
+                    os.makedirs(backup_dir, exist_ok=True)
+                    backup_name = os.path.basename(output_path).rsplit(".", 1)[0] + "-0.pdf"
+                    shutil.copy(output_path, os.path.join(backup_dir, backup_name))
                     generated_pdfs_per_question[question].append(output_path)
                 
                 # saving the first page as cover page

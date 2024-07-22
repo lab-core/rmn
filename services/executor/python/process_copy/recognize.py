@@ -234,64 +234,16 @@ def find_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
         wf.write(csvf)
 
 
-def convert_to_front_box_config(list_matricule_box):
-    rounded_list_matricule_box = [round(x, 2) for x in list_matricule_box]
-    return {
-        "front": tuple(rounded_list_matricule_box),
-        "separate_box": True,
-        "regular": (0.55, 0.95, 0.05, 0.13),
-    }
-
-def convert_to_regular_box_config(list_matricule_box):
-    rounded_list_matricule_box = [round(x, 2) for x in list_matricule_box]
-    return {
-        "front": (0.05, 0.85, 0.15, 0.35),
-        "separate_box": True,
-        "regular": tuple(rounded_list_matricule_box),
-    }
-
-def convert_grade_box_config(list_grade_box):
-    return {"grade": tuple(list_grade_box)}
-
-
 def grade_all(
     paths,
     grades_csv,
-    box_matricule_default,
-    box_default,
+    box_matricule,
+    box,
     job_id,
     user_id,
-    front_template_id,
-    regular_template_id,
     dpi=300,
-    shape=(8.5, 11),
-    ):
+    shape=(8.5, 11)):
     db = Database()
-    box_list, box_matricule_list = None, None
-    regular_box_matricule = box_matricule_default  
-    front_box_matricule = box_matricule_default
-    box_matricule = box_matricule_default
-    box = box_default  
-
-    box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
-
-    if regular_box_matricule_list is not None:
-        regular_box_matricule = convert_to_regular_box_config(regular_box_matricule_list)
-    if box_matricule_list is not None:
-        front_box_matricule = convert_to_front_box_config(box_matricule_list)
-    if box_list is not None:
-        box = convert_grade_box_config(box_list)
-   
-    box_matricule['front'] = front_box_matricule['front']
-    box_matricule['regular'] = regular_box_matricule['regular']
-
-    # debug
-    # print("---------------------------------DEBUG---------------------------------")
-    # print("box_matricule_list", box_matricule_list)
-    # print("box_list", box_list)
-    # print("box_default", box_default)
-    # print("box_matricule", box_matricule)
-    # print("box", box)
 
     # load csv
     grades_dfs, grades_names = load_csv(grades_csv)
