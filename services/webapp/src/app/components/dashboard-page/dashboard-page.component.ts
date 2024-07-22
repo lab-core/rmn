@@ -317,29 +317,33 @@ export class DashboardPageComponent {
     });
   }
 
-  openwarningDialog(): void {
-    let dialogRef = this.dialog.open(ValidationWarningDialogComponent, {
-      width: '30%',
-      height: '40%',
-    });
-    dialogRef.afterClosed().subscribe(async result => {
-        if (result !== undefined && result === true) {
-          this.validating = true;
-          let response = await this.validationService.validateJob(
-            this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
-          if (response === "OK") {
-            this.router.navigate(['/tasks-history']);
-            const message = "La tâche est en cours de finalisation!";
-            this.notificationService.showInfo(message, "Alerte!")
-            // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
-          }
-        }
-      }, (error) => {
-        console.error(error);
-      });
-  }
-
   async validateJob() {
+    // workaround to grade all the copies at once
+    const copiesInformations = {'asgqwasvbnrydh.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'eqghqrafdz.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'ghnfdbxfdc.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'knm__vqead .pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'mdh xgvc.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'mffytdhgc.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'mtodjhisnjrbifs.pdf': {'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'wqref bw g.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'wvdzcs.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}}
+    const formData: FormData = new FormData();
+    this.userService.addTokens(formData);
+    formData.append('job_id', this.task.job_id);
+    const serializedCopiesInformations = JSON.stringify(
+      Object.entries(copiesInformations).map(([key, value]) => [key, Object.entries(value)])
+    );
+    formData.append('copies_informations', serializedCopiesInformations);
+
+    let response;
+    try {
+        const promise = await this.http.post<any>(`${SERVER_URL}documents/grade_all`, formData).toPromise();
+        response = promise['response'];
+        console.log(response);
+    } catch (error) {
+        console.error(error);
+    }
+
+    // workaround to validate all the copies at once
+    this.examsList.forEach((exam: any) => {
+      if (exam["status"] === "TO VALIDATE") {
+        exam["status"] = "VALIDATED";
+      }
+    });
+    
     let uncheckedcopy = 0;
     let uncheckedMatricules = 0;
     this.examsList.forEach((exam: any) => {

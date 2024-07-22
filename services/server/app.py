@@ -1008,6 +1008,39 @@ def update_document():
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
+@app.route("/documents/grade_all", methods=["POST"])
+@cross_origin()
+@verify_share_token()
+def grade_all_documents():
+    request_form = request.form
+
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400,
+        )
+    
+    if "copies_informations" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: copies_informations not provided."}),
+            status=400,
+        )
+
+    job_id = str(request_form["job_id"])
+
+    db = mongo["RMN"]
+
+    copies_informations = json.loads(request_form["copies_informations"])
+    collection_eval_jobs = db["eval_jobs"]
+    collection_eval_jobs.update_one(
+        {"job_id": job_id},
+        {"$set": {
+            "copies_informations": copies_informations,
+        }}
+    )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
 @app.route("/documents/replace", methods=["POST"])
 @cross_origin()
 @verify_share_token()
