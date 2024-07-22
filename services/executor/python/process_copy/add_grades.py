@@ -1,12 +1,13 @@
 import img2pdf
 import os
 from process_copy.database import Database
-from process_copy.recognize import add_grades
+from process_copy.recognize import add_grades, convert_to_front_box_config
 
 INTERMEDIATE_IMAGE_PATH = 'rmn/services/executor/images/intermediate_image.png'
 
 
-def process_writing(job_id, box_grades):
+def process_writing(job_id):
+    box_list, box_matricule_list, regular_box_matricule_list = None, None, None
     box_grades = (0.8, .95, 0.2, 0.55)
     shape=(8.5, 11)
     dpi=300
@@ -15,7 +16,14 @@ def process_writing(job_id, box_grades):
     db = Database()
     documents_collection = db.documents_collection()
     documents = documents_collection.find({"job_id": job_id})
-    
+
+    front_template_id = eval_job["front_template_id"]
+    regular_template_id = eval_job["regular_template_id"]
+    box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
+    if box_matricule_list is not None:
+        front_box_matricule = convert_to_front_box_config(box_matricule_list)
+        box_grades = front_box_matricule['front']
+
     filenames = []
     for document in documents:
         document_basename = os.path.basename(document["filename"])
