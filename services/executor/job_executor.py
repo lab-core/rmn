@@ -82,12 +82,6 @@ if __name__ == "__main__":
         stopH = StopHandler(db.eval_jobs_collection(), job_id)
 
         if job["job_status"] == Job_Status.VALIDATION.value:
-            # Set Job status to VALIDATION
-            db.eval_jobs_collection().update_one(
-                {"job_id": job_id},
-                {"$set": {"job_status": Job_Status.FINALIZING.value}}
-            )
-
             # adding grades
             print("Adding grades...")
             process_writing(job_id)
@@ -95,6 +89,12 @@ if __name__ == "__main__":
             # merging copies
             print("Merging copies...")
             process_merge(job_id)
+
+            # Set Job status to VALIDATION
+            db.eval_jobs_collection().update_one(
+                {"job_id": job_id},
+                {"$set": {"job_status": Job_Status.FINALIZING.value}}
+            )
 
             #
             user = db.users_collection().find_one({"username": user_id})

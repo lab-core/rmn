@@ -48,11 +48,13 @@ from process_copy.config import MoodleFields as MF
 from process_copy.mcc import get_name, load_csv, group_label
 from process_copy.preview import PreviewHandler
 from process_copy.database import Database
+from utils.storage import Storage
 from utils.utils import Document_Status, Job_Status
 from utils.clients import socketio_client
 
 
 DIRPATH = Path(__file__).resolve().parent.joinpath("documents")
+storage = Storage()
 
 allowed_decimals = ["0", "25", "5", "75"]
 allowed_decimals_part = [.25, .5, .75]
@@ -734,7 +736,7 @@ def add_grades(numbers, pdf_path, box, trim=None, add_border=False, shape=(8.5, 
         print(f"Number of boxes : {len(boxes)}")
 
         if len(boxes) != len(numbers):
-            print("The number of boxes found is different from the number of grades")
+            print(f'The number of boxes ({len(boxes)}) found is different from the number of grades ({len(numbers)})')
             if retry > 0:
                 print("Retry grading", retry)
                 box2 = (box[0]-.01, box[0]+.01, box[0]-.01, box[0]+.01)
@@ -754,14 +756,15 @@ def add_grades(numbers, pdf_path, box, trim=None, add_border=False, shape=(8.5, 
                 return False, cropped, number_images, boxes
 
             thickness = 2
-            size, _ = cv2.getTextSize(numbers[i], cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
+            number_text = str(numbers[i])
+            size, _ = cv2.getTextSize(number_text, cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
             nw, nh = size
             if font_scale is None:
                 font_scale=grade_ratio/max(nh/h, nw/w)
             x_anchor=int(x + (w-nw*font_scale)/2)
             y_anchor=int(y + (h+nh*font_scale)/2)
             color = (0, 0, 255)
-            cv2.putText(np_img, numbers[i], (x0 + x_anchor, y0 + y_anchor), cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+            cv2.putText(np_img, number_text, (x0 + x_anchor, y0 + y_anchor), cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
             box_img = cropped[y + 5: y + h - 5, x + 5: x + w - 5]
             # imwrite_png('test', np_img)
 
@@ -769,7 +772,7 @@ def add_grades(numbers, pdf_path, box, trim=None, add_border=False, shape=(8.5, 
 
     find_right_boxes(box)
     cv2.resize(np_img, original_shape[:2], interpolation=cv2.INTER_LINEAR)
-    imwrite_png('intermediate_image', np_img, False)
+    imwrite_png_storage('intermediate_image', np_img, False)
 
 def compare_all(paths, grades_csv, box, dpi=300, shape=(8.5, 11)):
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
@@ -1700,7 +1703,16 @@ def imwrite_png(name, img, ignore=(sys.gettrace() is None)):
     if not os.path.exists("images"):
         os.mkdir("images")
     cv2.imwrite("images/%s.png" % name, img)
-
+    
+def imwrite_png_storage(name, img, ignore=(sys.gettrace() is None)):
+    if ignore:
+        return
+    if img.shape[0] == 0 or img.shape[1] == 0:
+        return
+    img_dir = storage.abs_path(f'temp')
+    img_path = os.path.join(img_dir, name)
+    os.makedirs(img_dir, exist_ok=True)
+    cv2.imwrite(f"{img_path}.png", img)
 
 def get_blank_page(h=ph, w=pw, dim=None):
     if dim:

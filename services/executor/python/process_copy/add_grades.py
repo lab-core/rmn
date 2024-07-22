@@ -1,9 +1,12 @@
 import img2pdf
+import fitz
 import os
 from process_copy.database import Database
 from process_copy.recognize import add_grades
+from utils.storage import Storage
 
-INTERMEDIATE_IMAGE_PATH = 'rmn/services/executor/images/intermediate_image.png'
+storage = Storage()
+INTERMEDIATE_IMAGE_PATH = os.path.join(storage.abs_path(f'temp'), 'intermediate_image.png')
 
 
 def convert_to_front_box_config(list_matricule_box):
@@ -36,13 +39,6 @@ def process_writing(job_id):
     documents_collection = db.documents_collection()
     documents = documents_collection.find({"job_id": job_id})
 
-    front_template_id = eval_job["front_template_id"]
-    regular_template_id = eval_job["regular_template_id"]
-    box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
-    if box_matricule_list is not None:
-        front_box_matricule = convert_to_front_box_config(box_matricule_list)
-        box_grades = front_box_matricule['front']
-
     filenames = []
     for document in documents:
         document_basename = os.path.basename(document["filename"])
@@ -51,21 +47,44 @@ def process_writing(job_id):
 
     eval_jobs_collection = db.eval_jobs_collection()
     eval_job = eval_jobs_collection.find_one({"job_id": job_id})
-    copies_information = eval_job["copies_information"]
+
+    front_template_id = eval_job["front_template_id"]
+    regular_template_id = eval_job["regular_template_id"]
+    box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
+    if box_matricule_list is not None:
+        front_box_matricule = convert_to_front_box_config(box_matricule_list)
+        box_grades = front_box_matricule['front']
+
+    copies_informations = eval_job["copies_informations"]
+    copies_info_dict = {item[0]: item[1] for item in copies_informations}
 
     for filename in filenames:
         base_filename = filename.replace('_cover.pdf', '.pdf')
-        copyDict = copies_information.get(base_filename)
-        input_pdf_path = f'rmn/storage/documents/{job_id}/{filename}'
-        numbers = copyDict.values()
+        copyDict = copies_info_dict.get(base_filename)
 
-        add_grades(numbers, input_pdf_path, box_grades, add_border=False, shape=shape)
+        input_pdf_path = os.path.join(storage.abs_path(f'cover_pages/{job_id}'), filename)
+        numbers = [grade[1] for grade in copyDict]
+        total = sum(numbers)
+        numbers.append(total)
+
+        box_grades=(0.8, 0.95, 0.2, 0.55)
+     
+        try:
+            original_pdf = fitz.open(input_pdf_path)
+            page = original_pdf.load_page(0) 
+            pdf_width, pdf_height = page.rect.width, page.rect.height
+
+            add_grades(numbers, input_pdf_path, box_grades, add_border=False, shape=shape)
+        except Exception as e:
+            print(f"Error while adding grades to {input_pdf_path}: {e}")
 
         with open(INTERMEDIATE_IMAGE_PATH, "rb") as image_file:
             image_data = image_file.read()
-            pdf_bytes = img2pdf.convert(image_data)
+            pdf_bytes = img2pdf.convert(image_data, x=pdf_width, y=pdf_height)
 
         with open(input_pdf_path, "wb") as f:
             f.write(pdf_bytes)
 
         print(f"Modified PDF saved as {input_pdf_path}")
+
+        os.remove(INTERMEDIATE_IMAGE_PATH)
