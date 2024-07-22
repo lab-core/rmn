@@ -1,3 +1,4 @@
+import glob
 import re
 from service.template_service import TemplateService
 from service.user_service import UserService, Role
@@ -968,7 +969,8 @@ def update_document():
 
     # replacing the previous file by the new one in storage
     file = request_files["file"]
-    file_name = secure_filename(file.filename)
+    # file_name = secure_filename(file.filename)
+    file_name = file.filename
 
     last_underscore_index = file_name.rfind('_')
     extension_index = file_name.rfind('.pdf')
@@ -976,7 +978,10 @@ def update_document():
     
     file_path = os.path.join('documents', job_id, question_index, file_name)
     print("file path ", storage.abs_path(file_path))
-    file.save(storage.abs_path(file_path))
+    # save with default name as well as the latest version
+    abs_filename = storage.abs_path(file_path)
+    file.save(abs_filename)
+    save_new_version(abs_filename)
 
     # update the database
     db = mongo["RMN"]
@@ -1047,9 +1052,20 @@ def replace_document():
 
                         # moving the extracted file to the final destination
                         shutil.move(extracted_path, final_destination)
-                        print("Moved to:", final_destination)  
+                        print("Moved to:", final_destination)
+                        save_new_version(final_destination)
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+def save_new_version(filename, version=None):
+    basename = filename.rsplit(".", 1)[0]
+    all_versions = glob.glob(basename+"-*.pdf")
+
+    # create backup of the file if version does not already exist
+    if version is None or version >= len(all_versions):
+        shutil.copy(filename, basename + "-%d.pdf" % len(all_versions))
+
 
 @app.route("/document/download", methods=["POST"])
 @cross_origin()
@@ -1079,6 +1095,9 @@ def download_document():
             )
 
         file_id = str(document_file["image_id"])
+        # add the right version if requested
+        if "document_version" in request_form:
+            file_id = file_id.rsplit(".", 1)[0]+"-%s.pdf" % request_form["document_version"]
         storage.copy_from(file_id, file_id)
         file_path = file_id
     else:

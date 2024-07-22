@@ -76,6 +76,9 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
                     output_path = os.path.join(question_folder, f"{base_filename}_{question}.pdf")
                     with open(output_path, 'wb') as output_file:
                         writer.write(output_file)
+                    # save first backup
+                    backup = output_path.rsplit(".", 1)[0] + "-0.pdf"
+                    shutil.copy(output_path, backup)
                     generated_pdfs_per_question[question].append(output_path)
                 
                 # saving the first page as cover page
@@ -124,11 +127,10 @@ def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_
 
 
 def process_path(zip_folder, job_id, n_pages_per_question):
-    root_path = Path(__file__).resolve().parent.parent
-    documents_path = root_path.joinpath('storage', 'documents', job_id)
+    documents_path = Path(storage.abs_path('documents')).resolve().joinpath(job_id)
 
     zip_path = Path(storage.abs_path(zip_folder))
-    zip_files = glob.glob(str(zip_path / '*.zip'))
+    zip_files = glob.glob(os.path.join(zip_path, '%s.zip' % job_id))
     
     if not zip_files:
         raise FileNotFoundError("No ZIP file found in specified folder.")
