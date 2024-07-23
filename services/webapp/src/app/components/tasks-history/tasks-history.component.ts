@@ -258,18 +258,11 @@ export class TasksHistoryComponent implements OnInit {
       });
   }
 
-  getTaskInfo(task: any) {
+  goToDashBoard(task: any) {
     if (task.job_status === 'ARCHIVED') {
       this.openTaskFilesDialog(task.job_id);
     }
-    else if (task.job_status === 'VALIDATION' || task.job_status === 'RUN') {
-      this.tasksService.setvalidatingTaskId(task.job_id);
-      this.router.navigate(['/task-validation']);
-    }
-  }
-
-  goToDashBoard(task: any) {
-    if ((task.job_status === 'VALIDATION') && task) {
+    else if ((task.job_status === 'VALIDATION') && task) {
       this.router.navigate(['/dashboard', task.job_id]);
     }
   }

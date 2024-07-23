@@ -115,6 +115,17 @@ if __name__ == "__main__":
             )
             validated_copies_folder_path.mkdir(exist_ok=True)
 
+            # Path to corrected copies
+            corrected_copies_path = os.path.join(storage.abs_path('corrected_copies'), job_id)
+
+            # Replace original copies with corrected copies in the validate/copies folder
+            if os.path.exists(corrected_copies_path):
+                for file_name in os.listdir(corrected_copies_path):
+                    full_file_name = os.path.join(corrected_copies_path, file_name)
+                    if os.path.isfile(full_file_name):
+                        shutil.copy(full_file_name, validated_copies_folder_path)
+                        shutil.copy(full_file_name, tmp_copies_folder_path)
+
             # Save file to local
             csv_file_path = str(VALIDATE_FOLDER.joinpath('notes.csv'))
             storage.copy_from(notes_csv_file_id, csv_file_path)
@@ -129,20 +140,24 @@ if __name__ == "__main__":
             #
             docs = db.documents_collection().find({"job_id": job_id})
             eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
-            copies_informations = {item[0]: item[1] for item in eval_job["copies_informations"]}
+            copies_informations = eval_job["copies_informations"]
+            copies_info_dict = {item[0]: item[1] for item in copies_informations}
 
             print(f"Col: {df.columns}")
             date = get_date()
 
+            print("docs", docs)
             for document_index, doc in enumerate(docs):
                 if doc["filename"].endswith('_cover.pdf'):
                     mat = str(doc["matricule"])
+                    print("mat", mat)
                     if mat in df.index.values:
-                        filename_base = doc["filename"].replace('_cover.pdf', '')  
-                        if filename_base in copies_informations:
-                            for question, score in copies_informations[filename_base].items():
-                                df.loc[mat, question] = score
-                            total_score = sum(copies_informations[filename_base].values())
+                        filename_base = doc["filename"].replace('_cover.pdf', '.pdf')  
+                        print("filename_base", filename_base)
+                        if filename_base in copies_info_dict:
+                            scores = copies_info_dict[filename_base]
+                            total_score = sum(sublist[1] for sublist in scores)
+                            print("TOTAL SCORE FOR ", filename_base, ":", total_score)
                             df.loc[mat, MF.grade] = total_score
                             df.loc[mat, MF.mdate] = date
 
@@ -162,6 +177,7 @@ if __name__ == "__main__":
             all_copies_folder_path = validated_copies_folder_path.joinpath("all")
             all_copies_folder_path.mkdir(exist_ok=True)
             print("All folder:", str(all_copies_folder_path))
+
             for i, id in enumerate(moodle_zip_id_list):
                 # moodle_i
                 moodle_folder_name = f"moodle_{i}"
@@ -174,9 +190,9 @@ if __name__ == "__main__":
                 file_p = str(VALIDATE_FOLDER.joinpath(moodle_filename))
                 storage.copy_from(id, file_p)
                 # validated_tmp_folder/copies/[1.pdf, 2.pdf]
-                with ZipFile(file_p, 'r') as zip_ref:
-                    zip_ref.extractall(tmp_copies_folder_path)
-                curr_moodle_folder_path = tmp_copies_folder_path
+                # with ZipFile(file_p, 'r') as zip_ref:
+                #     zip_ref.extractall(tmp_copies_folder_path)
+                curr_moodle_folder_path = os.path.join(storage.abs_path('corrected_copies'), job_id)
 
                 if len(os.listdir(str(curr_moodle_folder_path))) == 0:
                     continue
@@ -224,6 +240,7 @@ if __name__ == "__main__":
                             nom = nom_complet
                             prenom = ""
 
+                        print("moodle_ind", moodle_ind)
                         if moodle_ind:
                             # create folder
                             identifiant = df.at[matricule, MF.id]
