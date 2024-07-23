@@ -128,17 +128,24 @@ if __name__ == "__main__":
 
             #
             docs = db.documents_collection().find({"job_id": job_id})
+            eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
+            copies_informations = {item[0]: item[1] for item in eval_job["copies_informations"]}
 
-            #
             print(f"Col: {df.columns}")
             date = get_date()
+
             for document_index, doc in enumerate(docs):
-                mat = str(doc["matricule"])
-                if mat in df.index.values:
-                    for key in doc["subquestion_predictions"].keys():
-                        df.loc[mat, key] = doc["subquestion_predictions"][key]
-                    df.loc[mat, MF.grade] = doc["total"]
-                    df.loc[mat, MF.mdate] = date
+                if doc["filename"].endswith('_cover.pdf'):
+                    mat = str(doc["matricule"])
+                    if mat in df.index.values:
+                        filename_base = doc["filename"].replace('_cover.pdf', '')  
+                        if filename_base in copies_informations:
+                            for question, score in copies_informations[filename_base].items():
+                                df.loc[mat, question] = score
+                            total_score = sum(copies_informations[filename_base].values())
+                            df.loc[mat, MF.grade] = total_score
+                            df.loc[mat, MF.mdate] = date
+
             df.to_csv(csv_file_path, mode="w+")
 
             #
@@ -196,10 +203,10 @@ if __name__ == "__main__":
 
                         start_time = time.time()
 
-                        if save_verified_images:
-                            save_number_images(
-                                storage, job_id, doc_idx - 1, doc["subquestion_predictions"]
-                            )
+                        # if save_verified_images:
+                        #     save_number_images(
+                        #         storage, job_id, doc_idx - 1, doc["subquestion_predictions"]
+                        #     )
 
                         matricule = str(doc["matricule"])
                         try:
@@ -349,17 +356,17 @@ if __name__ == "__main__":
                 )
 
             # delete preview image
-            print("Clean documents and unverified_numbers")
-            docs = db.documents_collection().find({"job_id": job_id})
-            for doc in docs:
-                # delete unverified numbers for job
-                document_index = doc["document_index"] - 1
-                for image_index in range(len(doc["subquestion_predictions"].keys())):
-                    try:
-                        storage.remove(os.path.normpath(
-                            f"unverified_numbers{os.sep}{job_id}{os.sep}{document_index}{os.sep}{image_index}.png"))
-                    except:
-                        continue
+            # print("Clean documents and unverified_numbers")
+            # docs = db.documents_collection().find({"job_id": job_id})
+            # for doc in docs:
+            #     # delete unverified numbers for job
+            #     document_index = doc["document_index"] - 1
+            #     for image_index in range(len(doc["subquestion_predictions"].keys())):
+            #         try:
+            #             storage.remove(os.path.normpath(
+            #                 f"unverified_numbers{os.sep}{job_id}{os.sep}{document_index}{os.sep}{image_index}.png"))
+            #         except:
+            #             continue
 
             try:
                 storage.remove_tree(os.path.normpath(f"documents{os.sep}{job_id}"))

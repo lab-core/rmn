@@ -68,19 +68,15 @@ def process_writing(job_id):
         numbers.append(total)
 
         box_grades=(0.8, 0.95, 0.2, 0.55)
-     
-        try:
-            original_pdf = fitz.open(input_pdf_path)
-            page = original_pdf.load_page(0) 
-            pdf_width, pdf_height = page.rect.width, page.rect.height
 
+        try:
             add_grades(numbers, input_pdf_path, box_grades, add_border=False, shape=shape)
         except Exception as e:
             print(f"Error while adding grades to {input_pdf_path}: {e}")
 
         with open(INTERMEDIATE_IMAGE_PATH, "rb") as image_file:
             image_data = image_file.read()
-            pdf_bytes = img2pdf.convert(image_data, x=pdf_width, y=pdf_height)
+            pdf_bytes = img2pdf.convert(image_data, pagesize=(img2pdf.in_to_pt(8.5), img2pdf.in_to_pt(11))) 
 
         with open(input_pdf_path, "wb") as f:
             f.write(pdf_bytes)
