@@ -1,9 +1,11 @@
 from pathlib import Path
 import os
+import shutil
 import unidecode
 import subprocess
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
 
 latex_line = "{} & {} & {:.2f} & \\includegraphics[width=\\widthratio \\textwidth]{{{}}}"
@@ -96,21 +98,32 @@ def makedir_path(dir_name):
         os.makedirs(dir_name)
     return DIR
 
+def remove_non_pdfs(directory):
+    for filename in os.listdir(directory):
+        if not filename.endswith('.pdf'):
+            file_path = os.path.join(directory, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f'Failed to delete {file_path}. Reason: {e}')
 
-if __name__ == "__main__":
-    import numpy as np
-    # Generate some notes for 100 copies and 2 questions
-    np.random.seed(10)
-    all_notes = np.array([np.random.randint(low=2, high=11, size=100), np.random.randint(low=0, high=8, size=100)])
-    f_boxplots = create_all_boxplots(all_notes)
-    fpdf = create_stats_latex("George", 0, 2, all_notes, 20, f_boxplots)
+# if __name__ == "__main__":
+#     import numpy as np
+#     # Generate some notes for 100 copies and 2 questions
+#     np.random.seed(10)
+#     all_notes = np.array([np.random.randint(low=2, high=11, size=100), np.random.randint(low=0, high=8, size=100)])
+#     f_boxplots = create_all_boxplots(all_notes)
+#     fpdf = create_stats_latex("George", 0, 2, all_notes, 20, f_boxplots)
 
-    fpdf = create_stats_latex("Moyennes", None, 2, all_notes, 20, f_boxplots)
+#     fpdf = create_stats_latex("Moyennes", None, 2, all_notes, 20, f_boxplots)
 
-    # f_boxplot = Path("tex").resolve().joinpath("boxplot.png")
-    # fpdf = create_stats_latex("George", 1, [5], 10, [f_boxplot, f_boxplot])
+#     # f_boxplot = Path("tex").resolve().joinpath("boxplot.png")
+#     # fpdf = create_stats_latex("George", 1, [5], 10, [f_boxplot, f_boxplot])
 
-    print("Pdf %s created" % fpdf)
+#     print("Pdf %s created" % fpdf)
 
-    # remove tmp folder once the boxplots are not used anymore
-    # os.remove('tmp')
+#     # remove tmp folder once the boxplots are not used anymore
+#     # os.remove('tmp')

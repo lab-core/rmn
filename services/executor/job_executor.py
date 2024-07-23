@@ -1,10 +1,13 @@
 from pathlib import Path
+
+import numpy as np
 from python.process_copy.parser import parse_run_args, grade_box, matricule_box
 from python.process_copy.recognize import get_date
 from python.process_copy.config import MoodleFields as MF
 from python.process_copy.mcc import group_label
 from python.process_copy.database import Database
 from python.process_copy.add_grades import process_writing
+from utils.stats import create_all_boxplots, create_stats_latex, remove_non_pdfs
 from utils.merge import process_merge
 from utils.utils import Job_Status, Document_Status
 from utils.storage import Storage
@@ -21,6 +24,7 @@ import pandas as pd
 import uuid
 import time
 import datetime as dt
+import numpy as np
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -260,6 +264,19 @@ if __name__ == "__main__":
 
                                 # transfert file to folder
                                 shutil.copy(str(file), str(m_dest))
+
+                                # adding stats file
+                                filename = os.path.basename(file)
+                                if filename in copies_info_dict:
+                                    scores = copies_info_dict[filename]
+                                    all_notes = np.array([sublist[1] for sublist in scores]).reshape(-1, 1)
+                                    score_total = sum(sublist[1] for sublist in scores)
+                                    f_boxplots = create_all_boxplots(all_notes)
+                                    n_questions = len(scores)
+                                    print("all_notes", all_notes, "score_total", score_total, "n_questions", n_questions)
+                                    fpdf = create_stats_latex(nom_complet, 0, n_questions, all_notes, score_total, f_boxplots, tmp_dir=m_folder)
+                                    print("Stats for ", nom_complet, "created: ", fpdf)
+                                    remove_non_pdfs(m_folder)
 
                         copies_path = all_copies_folder_path
                         if l_group:
