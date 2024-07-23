@@ -30,7 +30,6 @@ class Storage:
             self.path = Path(os.getenv('STORAGE'))
         else:
             self.path = ROOT_DIR.joinpath("storage")
-        print("Storage path is: ", self.path)
 
     def abs_path(self, r_path):
         abs_p = os.path.join(str(self.path), r_path)

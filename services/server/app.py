@@ -1263,6 +1263,14 @@ def delete_job(job_id):
         storage.remove_tree(f"cover_pages/{job_id}")
     except Exception as e:
         print(e)
+    try:
+        storage.remove_tree(f"corrected_copies/{job_id}")
+    except Exception as e:
+        print(e)
+    try:
+        storage.remove_tree(f"incorrect_files/{job_id}")
+    except Exception as e:
+        print(e)    
 
     #
     db = mongo["RMN"]
