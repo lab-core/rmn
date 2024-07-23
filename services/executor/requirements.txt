@@ -95,4 +95,4 @@ Werkzeug==3.0.3
 wrapt==1.16.0
 wsproto==1.2.0
 zipp==3.19.2
-img2pdf==0.5.1
+fpdf==1.7.2

@@ -1,5 +1,5 @@
-import img2pdf
-import fitz
+from fpdf import FPDF
+from PIL import Image
 import os
 from process_copy.database import Database
 from process_copy.recognize import add_grades
@@ -74,12 +74,15 @@ def process_writing(job_id):
         except Exception as e:
             print(f"Error while adding grades to {input_pdf_path}: {e}")
 
-        with open(INTERMEDIATE_IMAGE_PATH, "rb") as image_file:
-            image_data = image_file.read()
-            pdf_bytes = img2pdf.convert(image_data, pagesize=(img2pdf.in_to_pt(8.5), img2pdf.in_to_pt(11))) 
+        pdf_width = 8.5 * 72
+        pdf_height = 11 * 72
 
-        with open(input_pdf_path, "wb") as f:
-            f.write(pdf_bytes)
+        pdf = FPDF(unit="pt", format=[pdf_width, pdf_height])
+        pdf.add_page()
+
+        pdf.image(INTERMEDIATE_IMAGE_PATH, 0, 0, pdf_width, pdf_height)
+
+        pdf.output(input_pdf_path)
 
         print(f"Modified PDF saved as {input_pdf_path}")
 

@@ -771,7 +771,7 @@ def add_grades(numbers, pdf_path, box, trim=None, add_border=False, shape=(8.5, 
         return True, cropped, number_images, boxes
 
     find_right_boxes(box)
-    cv2.resize(np_img, original_shape[:2], interpolation=cv2.INTER_LINEAR)
+    cv2.resize(np_img, (original_shape[1], original_shape[0]), interpolation=cv2.INTER_LINEAR)
     imwrite_png_storage('intermediate_image', np_img, False)
 
 def compare_all(paths, grades_csv, box, dpi=300, shape=(8.5, 11)):
