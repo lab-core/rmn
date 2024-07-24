@@ -6,14 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/job_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/job_executor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/service/template_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/service/template_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/template-editor/template-editor.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/template-editor/template-editor.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/new-template-dialog/new-template-dialog.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/new-template-dialog/new-template-dialog.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/new-template-dialog/new-template-dialog.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/new-template-dialog/new-template-dialog.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/new-template-dialog/new-template-dialog.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/new-template-dialog/new-template-dialog.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/templates-page.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/templates-page.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/template.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/services/template.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -201,12 +194,12 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/executor/utils/stats.py</url>
-          <line>128</line>
+          <line>126</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/executor/utils/stats.py</url>
-          <line>120</line>
+          <line>118</line>
           <option name="timeStamp" value="12" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -221,7 +214,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/server/app.py</url>
-          <line>1100</line>
+          <line>1104</line>
           <option name="timeStamp" value="25" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -236,7 +229,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
-          <line>783</line>
+          <line>807</line>
           <option name="timeStamp" value="76" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">

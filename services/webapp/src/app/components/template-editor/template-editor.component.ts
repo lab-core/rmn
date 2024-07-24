@@ -35,11 +35,15 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
      }
 
   ngOnInit(): void {
-    if (this.templateService.checkEditing()){
-      this.templateName = this.templateService.getTemplateName();
-      this.rectangleService.initExistingRects();
+    if (!this.templateService.getTemplateUrl()) {
+      this.reroute();
+    } else {
+      if (this.templateService.checkEditing()){
+        this.templateName = this.templateService.getTemplateName();
+        this.rectangleService.initExistingRects();
+      }
+      this.rectangleService.init();
     }
-    this.rectangleService.init();
   }
 
   async onFileSelected(event: any) {
