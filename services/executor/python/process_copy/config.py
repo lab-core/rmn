@@ -9,7 +9,7 @@ grade_box = {
         # 'trim': [(-1, 3)]  # i, n: n number of digits to remove at the end of the ith box
     },
     "exam": {
-        'grade': (0.8, .95, 0.2, 0.55),
+        'grade': (0.82, .96, 0.15, 0.55),
         # i, n: n number of digits to remove at the end of the ith box. -1 means to trim everything
         # 'trim': [(0, -1), (1, 2), (2, 2), (3, 3), (4, 2), (5, 3)]
     }

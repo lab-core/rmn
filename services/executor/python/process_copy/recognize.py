@@ -905,7 +905,7 @@ def find_matricule(
         return True
 
     # find the id box
-    biggest_c = find_matricule_box_contours(grays[0], front_box, find_digits, True)
+    biggest_c, ret = find_matricule_box_contours(grays[0], front_box, find_digits, True)
 
     # try to find a matricule on the next page
     if regular_box != None:
@@ -958,7 +958,7 @@ def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False
         return None, callback(cropped, None)
 
 
-def write_matricule_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False):
+def write_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False, matricule=True):
     # create a gray copy of the image
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # fetch only the part in the box
@@ -1013,7 +1013,15 @@ def write_matricule_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_c
 
         return True
 
-    return find_matricule_box_contours(gray, box, draw_contour, biggest_child)
+    if matricule:
+        return find_matricule_box_contours(gray, box, draw_contour, biggest_child)
+
+    cropped = fetch_box(gray, box)
+    cnts = find_grade_boxes(cropped, False, thick=1)
+    for c in cnts:
+        draw_contour_on_img(b_x, b_y, c)
+        imwrite_png("rendered", img)
+    return None, True
 
 
 def try_fix_n_questions(max_nb_questions, predictions):
@@ -1492,14 +1500,19 @@ def find_grade_boxes(cropped, add_border=False, max_diff=50, thick=5):
         find_edges(cropped2, thick=thick), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
     )
     cnts = imutils.grab_contours((cnts, hierarchy))
-    imwrite_contours("cropped_all_boxes", cropped2, cnts, thick=thick + 1)
+    imwrite_contours("cropped_all_boxes", cropped2, cnts, thick=thick+2)
 
     # check if any contour
     if not cnts:
         return []
 
     # keep only the children of the biggest contour
-    pos, c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
+    areas = [cv2.contourArea(cnt) for cnt in cnts]
+    areas = []
+    for cnt in cnts:
+        (x, y, w, h) = cv2.boundingRect(cnt)
+        areas.append(w*h)
+    pos, c = max(enumerate(cnts), key=lambda cnt: areas[cnt[0]])
     imwrite_png("main_cropped", get_image_from_contour(cropped, c))
     ccnts = biggest_children(cnts, hierarchy, pos)
 
