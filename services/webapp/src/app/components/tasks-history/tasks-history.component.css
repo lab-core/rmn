@@ -75,10 +75,8 @@ app-main-menu {
     margin: auto;
 }
 
-/* for filter */
 .filter {
     margin-left: 40%;
-    margin-top: 10%;
     z-index: 1;
 }
 mat-form-field {
@@ -86,7 +84,20 @@ mat-form-field {
     width: 30%;
     font-size: 16px;
 }
-/***************/
+
+@media screen and (min-width: 1024px) and (max-width: 1366px) {
+    .filter {
+        margin-top: 20%;
+    }
+}
+
+
+@media screen and (max-width: 1023px), (min-width: 1367px) {
+    .filter {
+        margin-top: 10%;
+    }
+}
+
 
 td, th {
     width: 17.75%;
