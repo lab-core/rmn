@@ -319,7 +319,7 @@ export class DashboardPageComponent {
 
   async validateJob() {
     // workaround to grade all the copies at once
-    const copiesInformations = {'asgqwasvbnrydh.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'eqghqrafdz.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'ghnfdbxfdc.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'knm__vqead .pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'mdh xgvc.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'mffytdhgc.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'mtodjhisnjrbifs.pdf': {'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'wqref bw g.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'wvdzcs.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}}
+    const copiesInformations = {'asgqwasvbnrydh.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'eqghqrafdz.pdf':{'Q1': 8, 'Q2': 8, 'Q3': 8, 'Q4': 8, 'Q5': 8}, 'ghnfdbxfdc.pdf':{'Q1': 3, 'Q2': 5, 'Q3': 1, 'Q4': 2, 'Q5': 4}, 'knm__vqead .pdf':{'Q1': 1, 'Q2': 1, 'Q3': 3, 'Q4': 7, 'Q5': 2}, 'mdh xgvc.pdf':{'Q1': 6, 'Q2': 8, 'Q3': 4, 'Q4': 4, 'Q5': 5}, 'mffytdhgc.pdf':{'Q1': 2, 'Q2': 2, 'Q3': 5, 'Q4': 9, 'Q5': 8}, 'mtodjhisnjrbifs.pdf': {'Q1': 1, 'Q2': 6, 'Q3': 9, 'Q4': 4, 'Q5': 1}, 'wqref bw g.pdf':{'Q1': 7, 'Q2': 7, 'Q3': 8, 'Q4': 6, 'Q5': 7}, 'wvdzcs.pdf':{'Q1': 5, 'Q2': 9, 'Q3': 0, 'Q4': 6, 'Q5': 5}}
     const formData: FormData = new FormData();
     this.userService.addTokens(formData);
     formData.append('job_id', this.task.job_id);

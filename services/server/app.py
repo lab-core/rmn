@@ -187,7 +187,8 @@ def evaluate(user_id):
         "bonus_enabled_map",
         "job_name",
         "front_template_name",
-        "regular_template_name"
+        "regular_template_name",
+        "statistics_for_students"
     ]
 
     for field in required_fields:
@@ -220,9 +221,11 @@ def evaluate(user_id):
     front_template_name = str(request_form["front_template_name"])
     regular_template_name = str(request_form["regular_template_name"])
     job_name = str(request_form["job_name"])
+    statistics_for_students = str(request_form["statistics_for_students"])
     n_pages_per_question = json.loads(request_form["n_pages_per_question"])
     n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
     bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
+
 
     db = mongo["RMN"]
     collection = db["eval_jobs"]
@@ -251,7 +254,8 @@ def evaluate(user_id):
         "n_pages_per_question": n_pages_per_question,
         "n_max_points_per_question": n_max_points_per_question,
         "bonus_enabled_map": bonus_enabled_map,
-        "students_list": []
+        "students_list": [],
+        "statistics_for_students": statistics_for_students
     }
 
     try:
