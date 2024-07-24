@@ -1,8 +1,19 @@
+import os
+import re
+import shutil
+import json
+import pandas as pd
+import uuid
+import time
+import datetime as dt
+import numpy as np, cv2
+import img2pdf
+from pdf2image import convert_from_path
 from pathlib import Path
 
-import numpy as np
+
 from python.process_copy.parser import parse_run_args, grade_box, matricule_box
-from python.process_copy.recognize import get_date
+from python.process_copy.recognize import get_date, write_box_contours, imwrite_png
 from python.process_copy.config import MoodleFields as MF
 from python.process_copy.mcc import group_label
 from python.process_copy.database import Database
@@ -15,16 +26,6 @@ from utils.stop_handler import StopHandler
 from utils.clients import redis_client, socketio_client
 from zipfile import ZipFile
 from utils.split import insert_copies
-
-import os
-import re
-import shutil
-import json
-import pandas as pd
-import uuid
-import time
-import datetime as dt
-import numpy as np
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -56,6 +57,112 @@ def save_number_images(storage, job_id, document_index, questions):
         print(e)
 
 
+def check_for_idle_jobs_to_requeue(db, sio):
+    alive_times = {}
+    collection_check = db.get_collection("check")
+    try:
+        if collection_check.count_documents({}) == 0:
+            collection_check.insert_one({'locked': True})
+            locked = True
+        else:
+            res = collection_check.update_one({'locked': False}, {'$set': {'locked': True}})
+            locked = res.matched_count > 0
+
+        if locked:
+            while True:
+                print("Check idle running jobs")
+                # search idle jobs
+                max_alive = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=MAX_IDLE_TIME)
+                jobs = db.eval_jobs_collection().find({
+                    "job_status": Job_Status.RUN.value,
+                    "alive_time": {"$lt": max_alive}
+                })
+
+                job = db.eval_jobs_collection().find_one({
+                    "job_status": Job_Status.IGNORED.value,
+                })
+                if job:
+                    # Set Job status from IGNORED to VALIDATION
+                    job_id = job["job_id"]
+                    user_id = job["user_id"]
+                    db.eval_jobs_collection().update_one(
+                        {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value}}
+                    )
+
+                    sio.emit(
+                        "jobs_status",
+                        json.dumps(
+                            {
+                                "job_id": job_id,
+                                "status": Job_Status.VALIDATION.value,
+                                "user_id": user_id,
+                            }
+                        ),
+                    )
+                    print(
+                        f"Ignoring incorrect files and setting job status of job ${job_id} from IGNORED to VALIDATION")
+
+                job = db.eval_jobs_collection().find_one({
+                    "job_status": Job_Status.CORRECTED.value,
+                })
+                if job:
+                    job_id = job["job_id"]
+                    # restart process
+                    WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{job_id}")
+                    WORK_TMP_DIR.mkdir(exist_ok=True)
+                    print(f"Restarting process...")
+                    process(job, WORK_TMP_DIR)
+
+                # requeue old idle jobs
+                old_idle_jobs = False
+                for j in jobs:
+                    def requeue(c_status, n_status):
+                        print("Resubmit job", j["job_id"])
+                        # change status to ensure that a job is not resubmitted several times
+                        res = db.eval_jobs_collection().update_one(
+                            {"job_id": j["job_id"], "job_status": c_status},
+                            {"$inc": {"retry": 1}, "$set": {"job_status": n_status}}
+                        )
+                        if res.matched_count > 0:
+                            redis.lpush("job_queue", json.dumps({"job_id": j["job_id"]}))
+
+                    if j["job_status"] == Job_Status.RUN.value:
+                        requeue(Job_Status.RUN.value, Job_Status.QUEUED.value)
+                    else:
+                        requeue(Job_Status.FINALIZING.value, Job_Status.VALIDATION.value)
+                    old_idle_jobs = True
+
+                # continue if idle jobs
+                if old_idle_jobs:
+                    break
+
+                # check if all running jobs are idle. If yes, sleep, otherwise break
+                print("Check alive running jobs")
+
+                jobs = db.eval_jobs_collection().find({
+                    "job_status": Job_Status.RUN.value
+                })
+                all_jobs_idle = False
+                for j in jobs:
+                    job_id = j["job_id"]
+                    alive_t = alive_times.get(job_id, dt.datetime.now(dt.UTC))
+                    # check if alive_time has increased, and thus job is alived
+                    if j["alive_time"] > alive_t:
+                        all_jobs_idle = False
+                        break
+                    all_jobs_idle = True
+                    alive_times[job_id] = j["alive_time"]
+                # if one job alive -> stop
+                if not all_jobs_idle:
+                    print("All jobs are not idle.")
+                    break
+                # otherwise, sleep
+                print("Sleep before checking again running jobs.")
+                time.sleep(5)
+    finally:
+        collection_check.update_one({'locked': True}, {'$set': {'locked': False}})
+
+
 if __name__ == "__main__":
     # Connect to Mongo
     print("Setting up MongoClient...")
@@ -69,6 +176,63 @@ if __name__ == "__main__":
 
     # create storage connection (local or NFS)
     storage = Storage()
+
+    def process_template(temp_id, WORK_TMP_DIR):
+        template = db.get_collection("template").find_one({"template_id": temp_id})
+        if not template:
+            raise KeyError(f"Template {temp_id} not found in mongodb.")
+
+        template_file = str(WORK_TMP_DIR.joinpath(template["template_file_id"]))
+        storage.copy_from(template["template_file_id"], template_file)
+        img = convert_from_path(template_file, dpi=300)[0]
+
+        def draw_boxes_on_template(box, np_img, mat):
+            box = tuple([round(x, 2) for x in box])
+            np_img2 = np.copy(np_img)
+            b, r = write_box_contours(np_img2, box, matricule=mat)
+            if not r and mat:
+                np_img2 = np.copy(np_img)
+                write_box_contours(np_img2, box, matricule=mat, biggest_child=True)
+            return np_img2
+
+        # fetch the user-defined boxes
+        np_img = np.array(img)
+        matricule_box = template.get("matricule_box", None)
+        if matricule_box:
+            np_img = draw_boxes_on_template(matricule_box, np_img, True)
+        grade_box = template.get("grade_box", None)
+        if grade_box:
+            np_img = draw_boxes_on_template(grade_box, np_img, False)
+
+        cv2.imwrite(WORK_TMP_DIR.joinpath("rendered.png"), np_img)
+        layout = img2pdf.get_fixed_dpi_layout_fun((300, 300))
+
+        rendered_pdf = template["template_file_id"].rsplit(".", 1)[0] + "-rendered.pdf"
+        tmp_rendered = str(WORK_TMP_DIR.joinpath(rendered_pdf))
+        with open(tmp_rendered, "wb") as f:
+            f.write(img2pdf.convert(str(WORK_TMP_DIR.joinpath("rendered.png")), layout_fun=layout))
+
+        storage.move_to(tmp_rendered, rendered_pdf)
+        try:
+            # update doc
+            db.get_collection("template").update_one(
+                {"template_id": temp_id},
+                {"$set": {"template_rendered_file_id": rendered_pdf}})
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
+
+        sio.emit(
+            "template_rendered",
+            json.dumps(
+                {
+                    "template_id": temp_id,
+                    "status": "Template %s has been updated" % template["template_name"],
+                    "user_id": template["user_id"],
+                }
+            ),
+        )
+
 
     def process(p_job, TMP_DIR):
         job_id = p_job["job_id"]
@@ -611,13 +775,16 @@ if __name__ == "__main__":
             job = json.loads(job)
 
             # create tmp work dir
-            job_id = job["job_id"]
-            WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{job_id}")
+            jid = job["template_id"] if "template_id" in job else job["job_id"]
+            WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{jid}")
             WORK_TMP_DIR.mkdir(exist_ok=True)
 
             # process job
             try:
-                process(job, WORK_TMP_DIR)
+                if "template_id" in job:
+                    process_template(jid, WORK_TMP_DIR)
+                else:
+                    process(job, WORK_TMP_DIR)
             except Exception as e:
                 print("Caught an error while processing job:")
                 print(e)
@@ -627,108 +794,7 @@ if __name__ == "__main__":
             shutil.rmtree(WORK_TMP_DIR)
 
         # check if any job is idle and dangling
-        alive_times = {}
-        collection_check = db.get_collection("check")
-        try:
-            locked = False
-            if collection_check.count_documents({}) == 0:
-                collection_check.insert_one({'locked': True})
-                locked = True
-            else:
-                res = collection_check.update_one({'locked': False}, {'$set': {'locked': True}})
-                locked = res.matched_count > 0
-
-            if locked:
-                while True:
-                    print("Check idle running jobs")
-                    # search idle jobs
-                    max_alive = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=MAX_IDLE_TIME)
-                    jobs = db.eval_jobs_collection().find({
-                        "job_status": Job_Status.RUN.value,
-                        "alive_time": {"$lt": max_alive}
-                    })
-
-                    job = db.eval_jobs_collection().find_one({
-                        "job_status": Job_Status.IGNORED.value,
-                    })
-                    if job:
-                        # Set Job status from IGNORED to VALIDATION
-                        job_id = job["job_id"]
-                        user_id = job["user_id"]
-                        db.eval_jobs_collection().update_one(
-                            {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value}}
-                        )
-
-                        sio.emit(
-                            "jobs_status",
-                            json.dumps(
-                                {
-                                    "job_id": job_id,
-                                    "status": Job_Status.VALIDATION.value,
-                                    "user_id": user_id,
-                                }
-                            ),
-                        )
-                        print(f"Ignoring incorrect files and setting job status of job ${job_id} from IGNORED to VALIDATION")
-
-                    job = db.eval_jobs_collection().find_one({
-                        "job_status": Job_Status.CORRECTED.value,
-                    })
-                    if job:
-                        job_id = job["job_id"]
-                        # restart process
-                        WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{job_id}")
-                        WORK_TMP_DIR.mkdir(exist_ok=True)
-                        print(f"Restarting process...")
-                        process(job, WORK_TMP_DIR)
-
-                    # requeue old idle jobs
-                    old_idle_jobs = False
-                    for j in jobs:
-                        def requeue(c_status, n_status):
-                            print("Resubmit job", j["job_id"])
-                            # change status to ensure that a job is not resubmitted several times
-                            res = db.eval_jobs_collection().update_one(
-                                {"job_id": j["job_id"], "job_status": c_status},
-                                {"$inc": {"retry": 1}, "$set": {"job_status": n_status}}
-                            )
-                            if res.matched_count > 0:
-                                redis.lpush("job_queue", json.dumps({"job_id": j["job_id"]}))
-                        if j["job_status"] == Job_Status.RUN.value:
-                            requeue(Job_Status.RUN.value, Job_Status.QUEUED.value)
-                        else:
-                            requeue(Job_Status.FINALIZING.value, Job_Status.VALIDATION.value)
-                        old_idle_jobs = True
-
-                    # continue if idle jobs
-                    if old_idle_jobs:
-                        break
-
-                    # check if all running jobs are idle. If yes, sleep, otherwise break
-                    print("Check alive running jobs")
-
-                    jobs = db.eval_jobs_collection().find({
-                        "job_status": Job_Status.RUN.value
-                    })
-                    all_jobs_idle = False
-                    for j in jobs:
-                        job_id = j["job_id"]
-                        alive_t = alive_times.get(job_id, dt.datetime.now(dt.UTC))
-                        # check if alive_time has increased, and thus job is alived
-                        if j["alive_time"] > alive_t:
-                            all_jobs_idle = False
-                            break
-                        all_jobs_idle = True
-                        alive_times[job_id] = j["alive_time"]
-                    # if one job alive -> stop
-                    if not all_jobs_idle:
-                        print("All jobs are not idle.")
-                        break
-                    # otherwise, sleep
-                    print("Sleep before checking again running jobs.")
-                    time.sleep(5)
-        finally:
-            collection_check.update_one({'locked': True}, {'$set': {'locked': False}})
+        check_for_idle_jobs_to_requeue(db, sio)
 
     except Exception as e:
         print(e)

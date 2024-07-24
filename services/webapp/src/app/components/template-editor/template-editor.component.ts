@@ -116,6 +116,10 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
     this.notifyService.showError("Assurez-vous de remplir le champ du nom de template!", "ERREUR");
   }
 
+  showTemplateNotificationSuccess(){
+    this.notifyService.showSuccess("Template sauvegardé!", "Success");
+  }
+
   confirm() {
     if (this.templateName.trim() === '') {
         this.showNameNotificationError();
@@ -125,24 +129,26 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
         formdata.append('token', this.userService.token);
         formdata.append('template_name', this.templateName);
         formdata.append('matricule_box', JSON.stringify(this.rectangleService.getIdentificationRectCoords()));
-        
+
         const questionsRectCoords = this.rectangleService.getQuestionsRectCoords();
         if (questionsRectCoords && questionsRectCoords.x1 != null) {
             formdata.append('grade_box', JSON.stringify(questionsRectCoords));
         }
-        
+
         if (!this.templateService.checkEditing()) {
             formdata.append('template_file', this.templateService.getFile());
             this.http.post<any>(`${SERVER_URL}template`, formdata).subscribe(
                 (data) => {
-                    this.router.navigate(['/templates']);
+                  this.showTemplateNotificationSuccess();
+                    // this.router.navigate(['/templates']);
                 }
             );
         } else {
             formdata.append('template_id', this.templateService.getTemplateId());
             this.http.post<any>(`${SERVER_URL}template/modify`, formdata).subscribe(
                 (data) => {
-                    this.router.navigate(['/templates']);
+                  this.showTemplateNotificationSuccess();
+                    // this.router.navigate(['/templates']);
                 }
             );
         }

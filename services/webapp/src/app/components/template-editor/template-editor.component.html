@@ -1,7 +1,8 @@
 <div class="template-editor-container">
     <div class="background">
         <div class="template-container">
-            <ngx-extended-pdf-viewer [src]="this.templateService.getTemplateUrl()" 
+            <ngx-extended-pdf-viewer [src]="this.templateService.getTemplateUrl()"
+                [page]="this.templateService.getPage()"
                 [showToolbar]="false"
                 [showSidebarButton]="false"
                 [showFindButton]="true"
@@ -22,12 +23,12 @@
                 [showScrollingButton]="false"
                 [showSpreadButton]="false"
                 [showPropertiesButton]="false">
-            </ngx-extended-pdf-viewer> 
+            </ngx-extended-pdf-viewer>
             <canvas id="cv"></canvas>
             <svg id="svg"
-                (mousedown)="mouseDown($event)" 
-                (mouseup)="mouseUp($event)" 
-                (mousemove)="mouseMove($event)" 
+                (mousedown)="mouseDown($event)"
+                (mouseup)="mouseUp($event)"
+                (mousemove)="mouseMove($event)"
                 (mouseleave)="mouseLeave($event)">
             </svg>
         </div>

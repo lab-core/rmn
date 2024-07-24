@@ -105,8 +105,8 @@ export class TemplatesPageComponent implements OnInit {
 
   openNewTemplateDialog(): void {
     this.dialog.open(NewTemplateDialogComponent, {
-        width: '30%',
-        height: '30%',
+        width: '40%',
+        height: '60%',
     })
   }
 

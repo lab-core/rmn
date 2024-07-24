@@ -13,12 +13,14 @@ export class NewTemplateDialogComponent implements OnInit {
     private router: Router,
     private templateService : TemplateService,
     public dialogRef: MatDialogRef<NewTemplateDialogComponent>
-    ) { }
+  ) {}
 
   copy: File;
   copyName: string = '';
+  page: number = 1;
 
   disabled: boolean = true;
+  hideWarning: boolean = true;
 
   ngOnInit(): void {
   }
@@ -28,32 +30,38 @@ export class NewTemplateDialogComponent implements OnInit {
     let file: File = (target.files as FileList)[0];
     this.setCopy(file);
   }
-  
+
   setCopy(file: File) {
     this.copy = file;
     this.copyName = file.name;
     this.checkDisabled();
   }
 
+  setPage() {
+    this.hideWarning = (this.page > 0);
+    this.checkDisabled();
+  }
+
   checkDisabled(){
-    this.disabled = !this.copyName;
+    this.disabled = !this.copyName || !this.hideWarning;
   }
 
   async confirm() {
     this.templateService.setFile(this.copy);
+    this.templateService.setPage(this.page);
     this.templateService.setEditingExisting(false);
     await this.templateService.createNewTemplate(this.copy);
     this.dialogRef.close();
     this.router.navigate(['/template-editor']);
   }
 
-  @HostListener('dragover', ['$event']) 
+  @HostListener('dragover', ['$event'])
   onDragOver(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
   }
 
-  @HostListener('drop', ['$event']) 
+  @HostListener('drop', ['$event'])
   onDrop(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();

@@ -9,10 +9,10 @@
 
 
 .get-document-button {
-    height: 25%;
-    width: 50%;
+    height: 15%;
+    width: 30%;
     border: none;
-    border-radius: 3%/12%; 
+    border-radius: 3%/12%;
     background-color: #007cbb;
     color: #ffffff;
     font-size: 15px;
@@ -24,11 +24,11 @@
 }
 
 .label-box {
-    height: 10%;
+    height: 5%;
     width: 50%;
     text-overflow: ellipsis;
 
-    margin-top: 5%;
+    margin-top: 2.5%;
     margin-bottom: 5%;
 
     display: flex;
@@ -36,12 +36,27 @@
     justify-content: center;
 }
 
+.num-pages-container {
+  margin-top: 2.5%;
+  margin-bottom: 5%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.page-warning {
+  color: red;
+  font-size: 15px;
+}
+
 
 .confirm-document-button {
-    height: 15%;
-    width: 20%;
+    height: 10%;
+    width: 15%;
     border: none;
-    border-radius: 3%/12%; 
+    border-radius: 3%/12%;
     background-color: #00bb64;
     color: #ffffff;
     font-size: 15px;

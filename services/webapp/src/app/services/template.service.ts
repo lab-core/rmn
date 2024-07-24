@@ -11,6 +11,7 @@ export class TemplateService {
 
   templateName: string;
   templateId: string;
+  templatePage: number = 1;
 
   constructor() { }
 
@@ -25,6 +26,14 @@ export class TemplateService {
 
   getFile() {
     return this.templateFile;
+  }
+
+  setPage(page: number) {
+    this.templatePage = page;
+  }
+
+  getPage() {
+    return this.templatePage;
   }
 
   getTemplateUrl() {

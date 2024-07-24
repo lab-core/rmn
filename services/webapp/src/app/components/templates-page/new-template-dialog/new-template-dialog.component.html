@@ -5,5 +5,12 @@
     <div class="label-box">
         <label for="copy-input-button">{{copyName}}</label>
     </div>
+    <div class="num-pages-container">
+        <h3>Page pour le gabarit (>0)</h3>
+        <div class="value-input-div">
+          <input id="page" type="number" min='1' [(ngModel)]="page" placeholder="Entrer la page" class="page-input" (ngModelChange)="setPage()"/>
+          <p class="page-warning" [hidden]="hideWarning">Entrer une valeur positive (>0)</p>
+        </div>
+    </div>
     <button class="confirm-document-button" mat-flat-button color="accent" [disabled]="disabled" (click)="confirm()">Confirmer</button>
 </div>

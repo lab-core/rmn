@@ -1,18 +1,20 @@
 from flask import Flask, request, Response, json, send_file
 from utils.box_converter import convert_box_to_dict, convert_box_to_list
+from utils.clients import redis_client
 from pathlib import Path
 from io import FileIO
 from werkzeug.utils import secure_filename
 import uuid
 import os
+import json
 
 
 TEMP_FOLDER = Path(__file__).resolve().parent.joinpath("temp")
 
+redis = redis_client()
 
-class TemplateService() :
-
-    def create_template(request, db, storage) :
+class TemplateService():
+    def create_template(request, db, storage):
 
         request_form = request.form
 
@@ -100,6 +102,8 @@ class TemplateService() :
                 status=500,
             )
 
+        redis.lpush("job_queue", json.dumps({"template_id": template_id}))
+
         return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
@@ -114,7 +118,10 @@ class TemplateService() :
 
         template_id = str(request_form["template_id"])
         collection = db["template"]
-        storage.remove(f'template/{template_id}.pdf')
+        template = collection.find_one({"template_id": template_id})
+        storage.remove(template["template_file_id"])
+        if "template_rendered_file_id" in template:
+            storage.remove(template["template_rendered_file_id"])
         collection.delete_one({"template_id": template_id})
 
         return Response(response=json.dumps({"response": "OK"}), status=200)
@@ -123,11 +130,12 @@ class TemplateService() :
         collection = db["template"]
         templates = collection.find({"user_id": user_id})
         for t in templates:
-            t_id = t["template_id"]
-            storage.remove(f'template/{t_id}.pdf')
+            storage.remove(t["template_file_id"])
+            if "template_rendered_file_id" in t:
+                storage.remove(t["template_rendered_file_id"])
         collection.delete_many({"user_id": user_id})
 
-    def get_all_template_info(request, db) :
+    def get_all_template_info(request, db):
         request_form = request.form
 
         if "user_id" not in request_form:
@@ -159,7 +167,7 @@ class TemplateService() :
 
         return Response(response=json.dumps({"response": user_templates_list}), status=200)
 
-    def get_template_info(request, db) :
+    def get_template_info(request, db):
         request_form = request.form
 
         if "template_id" not in request_form:
@@ -190,7 +198,7 @@ class TemplateService() :
 
         return Response(response=json.dumps({"response": template_resp}), status=200)
 
-    def download_template_file(request, db, storage) :
+    def download_template_file(request, db, storage):
         request_form = request.form
 
         #
@@ -201,10 +209,12 @@ class TemplateService() :
             )
 
         template_id = str(request_form["template_id"])
+        template = db["template"].find_one({"template_id": template_id})
+        spath = template.get("template_rendered_file_id", template["template_file_id"])
 
         # Save file to local
         filepath = str(TEMP_FOLDER.joinpath(template_id))
-        storage.copy_from(f"template/{template_id}.pdf", filepath)
+        storage.copy_from(spath, filepath)
         print("file created")
 
         file_send = send_file(filepath)
@@ -224,13 +234,12 @@ class TemplateService() :
             )
 
         template_name = request_form['template_name']
-        matricule_box = convert_box_to_list(json.loads(request_form['matricule_box']))
         template_id = str(request_form["template_id"])
+        update_fields = {"template_name": template_name}
 
-        update_fields = {
-            "template_name": template_name,
-            "matricule_box": matricule_box,
-        }
+        if "matricule_box" in request_form:
+            matricule_box = convert_box_to_list(json.loads(request_form['matricule_box']))
+            update_fields["matricule_box"] = matricule_box
 
         if "grade_box" in request_form:
             grade_box = convert_box_to_list(json.loads(request_form['grade_box']))
@@ -243,6 +252,8 @@ class TemplateService() :
             {
                 "$set": update_fields
             })
+
+        redis.lpush("job_queue", json.dumps({"template_id": template_id}))
 
         return Response(response=json.dumps({"response": "OK"}), status=200)
 
