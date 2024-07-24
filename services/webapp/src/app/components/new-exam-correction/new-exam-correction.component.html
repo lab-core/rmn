@@ -41,6 +41,12 @@
                           <h3><u>Nombre de questions</u></h3>
                           <input [(ngModel)]="this.nQuestions" [ngModelOptions]="{standalone: true}"
                                  (change)="updateQuestionsCount()" type="number" min="1" step="1" required>
+                          <div class="checkbox-container">
+                            <label>
+                                <input type="checkbox" [(ngModel)]="statisticsForStudents" [ngModelOptions]="{standalone: true}">
+                                Statistiques pour les élèves
+                            </label>
+                          </div>  
                         </div>
                         <table class="questions-table">
                           <thead>

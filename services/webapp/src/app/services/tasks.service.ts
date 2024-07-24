@@ -103,7 +103,7 @@ export class TasksService {
     }
   }
 
-  addTask(copies, csv, front_template_id, regular_template_id, n_pages_per_question, n_max_points_per_question, bonus_enabled_map, taskName, front_template_name, regular_template_name) {
+  addTask(copies, csv, front_template_id, regular_template_id, n_pages_per_question, n_max_points_per_question, bonus_enabled_map, taskName, front_template_name, regular_template_name, statistics_for_students) {
     const formdata: FormData = new FormData();
     formdata.append('user_id', this.userService.currentUsername);
     formdata.append('token', this.userService.token);
@@ -118,6 +118,7 @@ export class TasksService {
     formdata.append('job_name', taskName);
     formdata.append('front_template_name', front_template_name);
     formdata.append('regular_template_name', regular_template_name);
+    formdata.append('statistics_for_students', statistics_for_students);
 
     this.percentDone = 0;
 

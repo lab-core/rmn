@@ -309,7 +309,11 @@ if __name__ == "__main__":
             docs = db.documents_collection().find({"job_id": job_id})
             eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
             copies_informations = eval_job["copies_informations"]
+            n_max_points_per_question = eval_job["n_max_points_per_question"]
+            statistics_for_students = eval_job["statistics_for_students"]
+            print("statistics_for_students", statistics_for_students)
             copies_info_dict = {item[0]: item[1] for item in copies_informations}
+            n_max_points_per_question_dict = {item[0]: item[1] for item in n_max_points_per_question}
 
             print(f"Col: {df.columns}")
             date = get_date()
@@ -431,13 +435,24 @@ if __name__ == "__main__":
 
                                 # adding stats file
                                 filename = os.path.basename(file)
-                                if filename in copies_info_dict:
-                                    scores = copies_info_dict[filename]
-                                    all_notes = np.array([sublist[1] for sublist in scores]).reshape(-1, 1)
-                                    score_total = sum(sublist[1] for sublist in scores)
+                                if filename in copies_info_dict and statistics_for_students:
+                                    print("copies_info_dict", copies_info_dict)
+                                    print("n_max_points_per_question_dict", n_max_points_per_question_dict)
+                                    n_questions = len(n_max_points_per_question_dict)
+                                    scores = [[grade[i][1] for grade in copies_info_dict.values()] for i in range(n_questions)]
+                                    # scores = [[1,1,1,1,1], [2,2,2,2,2], [3,3,3,3,3], [4,4,4,4,4], [5,5,5,5,5]]
+
+                                    # copies_info_dict = [["filename.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]], ["filename2.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]]]
+                                    
+                                    # n_max_points_per_question_dict = [['Q1', 9], ['Q2', 9], ['Q3', 9], ['Q4', 9], ['Q5', 9]]
+
+                                    all_notes = np.array(scores)
+                                    score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
+                                   
+                                    question_index = list(copies_info_dict.keys()).index(filename)
+                                    print("all_notes", all_notes, "score_total", score_total, "n_questions", n_questions, 'question_index', question_index)
+
                                     f_boxplots = create_all_boxplots(all_notes)
-                                    n_questions = len(scores)
-                                    print("all_notes", all_notes, "score_total", score_total, "n_questions", n_questions)
                                     fpdf = create_stats_latex(nom_complet, 0, n_questions, all_notes, score_total, f_boxplots, tmp_dir=m_folder)
                                     print("Stats for ", nom_complet, "created: ", fpdf)
                                     remove_non_pdfs(m_folder)
@@ -467,7 +482,16 @@ if __name__ == "__main__":
                                 }
                             },
                         )
-
+                # adding stats for professors
+                n_questions = len(n_max_points_per_question_dict)
+                scores = [[grade[i][1] for grade in copies_info_dict.values()] for i in range(n_questions)]
+                all_notes = np.array(scores)
+                score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
+                f_boxplots = create_all_boxplots(all_notes)
+                fpdf = create_stats_latex('Statistiques générales', None, n_questions, all_notes, score_total, f_boxplots, tmp_dir=all_copies_folder_path)
+                print("General stats created: ", fpdf)
+                remove_non_pdfs(all_copies_folder_path)
+                
                 #
                 if moodle_ind:
                     shutil.make_archive(
