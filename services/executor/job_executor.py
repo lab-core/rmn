@@ -146,7 +146,7 @@ if __name__ == "__main__":
             eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
             copies_informations = eval_job["copies_informations"]
             n_max_points_per_question = eval_job["n_max_points_per_question"]
-            statistics_for_students = bool(eval_job["statistics_for_students"])
+            statistics_for_students = eval_job["statistics_for_students"]
             print("statistics_for_students", statistics_for_students)
             copies_info_dict = {item[0]: item[1] for item in copies_informations}
             n_max_points_per_question_dict = {item[0]: item[1] for item in n_max_points_per_question}
