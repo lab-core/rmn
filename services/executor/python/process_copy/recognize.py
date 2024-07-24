@@ -846,7 +846,7 @@ def find_matricule(
     possible_digits = [{} for i in range(len_mat)]
     id_box = None
 
-    def find_digits(gray_box, split=False):
+    def find_digits(gray_box, cnt, split=True):
         try:
             # find contours of the numbers.
             # If separate_box, each number of the matricule is in its separate box
@@ -857,6 +857,7 @@ def find_matricule(
                 max_cnts=len_mat,
                 split_on_semi_column=split,
                 min_box_before_split=6,
+                ctrl_size_variation=True
             )
             # check length
             if len(cnts) != len_mat:
@@ -904,27 +905,13 @@ def find_matricule(
         return True
 
     # find the id box
-    cropped = fetch_box(grays[0], front_box)
-    cnts, hierarchy = cv2.findContours(
-        find_edges(cropped, thick=0), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-    )
-    cnts = imutils.grab_contours((cnts, hierarchy))
-    imwrite_contours("rgray", cropped, cnts, thick=5)
-    # Find the biggest contour for the front box
-    pos, biggest_c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
-    id_box = get_image_from_contour(cropped, biggest_c)
-    for cnt in biggest_children(cnts, hierarchy, pos):
-        cnt_cropped = get_image_from_contour(cropped, cnt)
-        if find_digits(cnt_cropped, True):
-            break
+    biggest_c = find_matricule_box_contours(grays[0], front_box, find_digits, True)
 
     # try to find a matricule on the next page
     if regular_box != None:
         print("Trying to find matricule on the next page...")
         for gray in grays[1:]:
-            cropped = fetch_box(gray, regular_box)
-            # mgray = find_edges(cropped, thick=3, line_on_original=True, max_gap=5, min_lenth=150)
-            find_digits(cropped, True)
+            find_matricule_box_contours(gray, regular_box, find_digits)
 
     # build matricules and sort them by probabilities
     matricules = [(0, "")]
@@ -933,6 +920,9 @@ def find_matricule(
             (c + p, "%s%d" % (m, d)) for c, m in matricules for d, p in distri.items()
         ]
     smats = sorted(matricules, reverse=True)
+
+    cropped = fetch_box(grays[0], front_box)
+    id_box = get_image_from_contour(cropped, biggest_c)
 
     # find the most probable matricule that exists
     if grades_dfs:
@@ -946,6 +936,84 @@ def find_matricule(
             return mat, id_box, None
 
     return None, id_box, None
+
+
+def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False):
+    # find the id box
+    cropped = fetch_box(gray, regular_box)
+    if biggest_child:
+        cnts, hierarchy = cv2.findContours(
+            find_edges(cropped, thick=0), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )
+        cnts = imutils.grab_contours((cnts, hierarchy))
+        imwrite_contours("rgray", cropped, cnts, thick=5)
+        # Find the biggest contour for the front box
+        pos, biggest_c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
+        for cnt in biggest_children(cnts, hierarchy, pos):
+            gray_box = get_image_from_contour(cropped, cnt)
+            if callback(gray_box, cnt):
+                return biggest_c, True
+        return biggest_c, False
+    else:
+        return None, callback(cropped, None)
+
+
+def write_matricule_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False):
+    # create a gray copy of the image
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # fetch only the part in the box
+    b_x = int(box[0] * img.shape[1])
+    b_y = int(box[2] * img.shape[0])
+    # draw the box
+    cv2.rectangle(
+        img,
+        (b_x, b_y),
+        (int(box[1] * img.shape[1]), int(box[3] * img.shape[0])),
+        color,
+        2*thick
+    )
+
+    def draw_contour_on_img(x0, y0, cnt):
+        # draw the contour on the whole image
+        (x, y, w, h) = cv2.boundingRect(cnt)
+        cv2.rectangle(
+            img,
+            (x0 + x, y0 + y),
+            (x0 + x + w, y0 + y + h),
+            color,
+            thick
+        )
+
+    def draw_contour(gray_box, cnt):
+        # find contours of the numbers of the matricule is in its separate box
+        try:
+            cnts, dot, thresh = find_digit_contours(
+                gray_box,
+                max_cnts=len_mat,
+                split_on_semi_column=True,
+                min_box_before_split=6,
+                ctrl_size_variation=True
+            )
+            # check length
+            if len(cnts) != len_mat:
+                return False
+
+            # each number is in a separate box, draw it individually
+            x = y = 0
+            if cnt is not None:
+                (x, y, _, _) = cv2.boundingRect(cnt)
+            for c in cnts:
+                draw_contour_on_img(b_x + x, b_y + y, c)
+                imwrite_png("rendered", img)
+
+        except cv2.error as e:
+            print(e)
+            print("Got an error while finding digits.")
+            return False
+
+        return True
+
+    return find_matricule_box_contours(gray, box, draw_contour, biggest_child)
 
 
 def try_fix_n_questions(max_nb_questions, predictions):
@@ -1145,6 +1213,7 @@ def clean_and_sort_digit_contours(
     min_box_before_split=0,
     max_cnts=None,
     trim=None,
+    ctrl_size_variation=True
 ):
     # remove thin contours
     ccnts = []
@@ -1205,9 +1274,14 @@ def clean_and_sort_digit_contours(
             scnts = scnts[semi_column + 1 :]
     cnts = [c[-1] for c in scnts]
 
+    if not scnts:
+        return [], 0
+
     # keep centered contours
     # look for the middle line and remove anything above or below
     # and check for a dot
+    w_median = median(w for _, w, h, _ in scnts)
+    h_median = median(h for _, w, h, _ in scnts)
     dot = len(cnts)
     ccnts = []
     if gray is not None:
@@ -1221,6 +1295,9 @@ def clean_and_sort_digit_contours(
                 len(ccnts) < dot
             ):  # store position of the first one, as it could be a dot
                 dot = len(ccnts)
+            continue
+        # remove contours that are too different
+        if ctrl_size_variation and (abs(w_median - w) > 20 or abs(h_median - h) > 20):
             continue
         ccnts.append(c)
     if gray is not None:
@@ -1640,7 +1717,7 @@ def imwrite_contours(
 
 
 def biggest_children(cnts, hierarchy, parent_positon):
-    # Look only to the children (startng with the biggest contours) to try to find a matricule
+    # Look only to the children (starting with the biggest contours) to try to find a matricule
     n = hierarchy[0][parent_positon][2]  # first child index of the biggest contour
     scnts = []
     while n != -1:
@@ -1650,7 +1727,7 @@ def biggest_children(cnts, hierarchy, parent_positon):
 
 
 def find_digit_contours(
-    gray, split_on_semi_column=True, min_box_before_split=0, max_cnts=None, trim=None
+    gray, split_on_semi_column=True, min_box_before_split=0, max_cnts=None, trim=None, ctrl_size_variation=False
 ):
     thresh = get_clean_thresh(gray)
 
@@ -1663,7 +1740,8 @@ def find_digit_contours(
 
     # clean cnts
     scnts, dot = clean_and_sort_digit_contours(
-        cnts, gray, split_on_semi_column, min_box_before_split, max_cnts, trim=trim
+        cnts, gray, split_on_semi_column, min_box_before_split, max_cnts,
+        trim=trim, ctrl_size_variation=ctrl_size_variation
     )
 
     return scnts, dot, thresh
