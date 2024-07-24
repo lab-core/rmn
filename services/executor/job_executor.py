@@ -318,7 +318,16 @@ if __name__ == "__main__":
                                 }
                             },
                         )
-
+                # adding stats for professors
+                n_questions = len(n_max_points_per_question_dict)
+                scores = [[grade[i][1] for grade in copies_info_dict.values()] for i in range(n_questions)]
+                all_notes = np.array(scores)
+                score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
+                f_boxplots = create_all_boxplots(all_notes)
+                fpdf = create_stats_latex('Statistiques générales', None, n_questions, all_notes, score_total, f_boxplots, tmp_dir=all_copies_folder_path)
+                print("General stats created: ", fpdf)
+                remove_non_pdfs(all_copies_folder_path)
+                
                 #
                 if moodle_ind:
                     shutil.make_archive(
