@@ -10,6 +10,26 @@ INTERMEDIATE_IMAGE_PATH = os.path.join(storage.abs_path(f'temp'), 'intermediate_
 
 
 def convert_to_front_box_config(list_matricule_box):
+    """
+    Converts a list of matricule box values to a front box configuration dictionary.
+
+    Args:
+        list_matricule_box (list): A list of matricule box values.
+
+    Returns:
+        dict: A dictionary representing the front box configuration with the following keys:
+            - "front": A tuple of rounded matricule box values.
+            - "separate_box": A boolean indicating whether the box should be separated.
+            - "regular": A tuple representing the regular box configuration.
+
+    Example:
+        >>> convert_to_front_box_config([1.234, 2.345, 3.456])
+        {
+            "front": (1.23, 2.35, 3.46),
+            "separate_box": True,
+            "regular": (0.55, 0.95, 0.05, 0.13)
+        }
+    """
     rounded_list_matricule_box = [round(x, 2) for x in list_matricule_box]
     return {
         "front": tuple(rounded_list_matricule_box),
@@ -18,6 +38,18 @@ def convert_to_front_box_config(list_matricule_box):
     }
 
 def convert_to_regular_box_config(list_matricule_box):
+    """
+    Converts a list of matricule box values to a regular box configuration.
+
+    Args:
+        list_matricule_box (list): A list of matricule box values.
+
+    Returns:
+        dict: A dictionary representing the regular box configuration with the following keys:
+            - "front" (tuple): A tuple representing the front box dimensions.
+            - "separate_box" (bool): A boolean indicating whether the box should be separated.
+            - "regular" (tuple): A tuple representing the rounded matricule box values.
+    """
     rounded_list_matricule_box = [round(x, 2) for x in list_matricule_box]
     return {
         "front": (0.05, 0.85, 0.15, 0.35),
@@ -26,9 +58,28 @@ def convert_to_regular_box_config(list_matricule_box):
     }
 
 def convert_grade_box_config(list_grade_box):
+    """
+    Converts a list of grade boxes into a dictionary with a tuple of grades.
+
+    Args:
+        list_grade_box (list): A list of grade boxes.
+
+    Returns:
+        dict: A dictionary with a tuple of grades.
+
+    """
     return {"grade": tuple(list_grade_box)}
 
 def process_writing(job_id):
+    """
+    Process the writing job by adding grades to the PDF files.
+
+    Args:
+        job_id (str): The ID of the job.
+
+    Returns:
+        None
+    """
     box_list, box_matricule_list, regular_box_matricule_list = None, None, None
     box_grades = (0.8, .95, 0.2, 0.55)
     shape=(8.5, 11)

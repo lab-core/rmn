@@ -14,9 +14,33 @@ storage = Storage()
 CURRENT_START_PAGE = 2 # start_page
 
 def calculate_total_expected_pages(n_pages_per_question):
+    """
+    Calculate the total expected number of pages based on the number of pages per question.
+
+    Args:
+        n_pages_per_question (dict): A dictionary mapping question IDs to the number of pages for each question.
+
+    Returns:
+        int: The total expected number of pages.
+
+    """
     return sum(n_pages_per_question.values()) + CURRENT_START_PAGE - 1
 
 def calculate_pages(pages_per_question):
+    """
+    Calculate the range of pages for each question based on the number of pages per question.
+
+    Args:
+        pages_per_question (dict): A dictionary mapping each question to the number of pages.
+
+    Returns:
+        dict: A dictionary mapping each question to a list of page numbers.
+
+    Example:
+        >>> pages_per_question = {'Q1': 3, 'Q2': 2, 'Q3': 4}
+        >>> calculate_pages(pages_per_question)
+        {'Q1': [0, 1, 2], 'Q2': [3, 4], 'Q3': [5, 6, 7, 8]}
+    """
     current_start_page = CURRENT_START_PAGE
     results = {}
     for question, num_pages in pages_per_question.items():
@@ -26,6 +50,19 @@ def calculate_pages(pages_per_question):
     return results
 
 def verify_n_pages(n_pages_per_question, input_pdfs, job_id):
+    """
+    Verifies the number of pages in each input PDF file.
+
+    Args:
+        n_pages_per_question (int): The expected number of pages per question.
+        input_pdfs (list): A list of input PDF file paths.
+        job_id (str): The ID of the job.
+
+    Returns:
+        tuple: A tuple containing a boolean value indicating whether the verification is valid,
+               and a list of error messages if any.
+
+    """
     is_valid = True
     error_messages = []
     total_expected_pages = calculate_total_expected_pages(n_pages_per_question)
@@ -45,6 +82,22 @@ def verify_n_pages(n_pages_per_question, input_pdfs, job_id):
     return is_valid, error_messages
 
 def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
+    """
+    Splits the input PDFs into separate question PDFs and saves them in the output folder.
+    Also saves the first page of each input PDF as a cover page.
+
+    Args:
+        n_pages_per_question (dict): A dictionary mapping question names to the number of pages per question.
+        input_pdfs (list): A list of input PDF file paths.
+        output_folder (str): The path to the output folder where the split PDFs will be saved.
+        job_id (str): The ID of the job.
+
+    Returns:
+        tuple: A tuple containing the following:
+            - generated_pdfs_per_question (dict): A dictionary mapping question names to the generated PDF file paths.
+            - is_valid (bool): A flag indicating whether the input PDFs are valid.
+            - error_messages (list): A list of error messages if the input PDFs are invalid.
+    """
     is_valid, error_messages = verify_n_pages(n_pages_per_question, input_pdfs, job_id)
     total_expected_pages = calculate_total_expected_pages(n_pages_per_question)
     generated_pdfs_per_question = {question: [] for question in n_pages_per_question.keys()}
@@ -114,6 +167,19 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
 
 
 def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_id):
+    """
+    Extracts the contents of a zip file, processes the extracted PDF files, and saves the generated PDFs.
+
+    Args:
+        zip_path (str): The path to the zip file.
+        temp_folder (str): The temporary folder to extract the zip contents.
+        output_folder (str): The folder to save the generated PDFs.
+        n_pages_per_question (int): The number of pages per question.
+        job_id (str): The ID of the job.
+
+    Returns:
+        tuple: A tuple containing the generated PDFs, a flag indicating if the processing is valid, and any error messages.
+    """
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(temp_folder)
 
@@ -129,6 +195,21 @@ def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_
 
 
 def process_path(zip_folder, job_id, n_pages_per_question):
+    """
+    Process the path for a given job.
+
+    Args:
+        zip_folder (str): The folder containing the ZIP file.
+        job_id (str): The ID of the job.
+        n_pages_per_question (dict): A mapping of questions to page numbers.
+
+    Returns:
+        tuple: A tuple containing the generated PDFs, a flag indicating if the process is valid, and any error messages.
+
+    Raises:
+        FileNotFoundError: If no ZIP file is found in the specified folder.
+        ValueError: If no mapping of questions to page numbers is provided.
+    """
     documents_path = Path(storage.abs_path('documents')).resolve().joinpath(job_id)
 
     zip_path = Path(storage.abs_path(zip_folder))
@@ -148,6 +229,20 @@ def process_path(zip_folder, job_id, n_pages_per_question):
 
 
 def insert_copies(zip_folder, job_id, n_pages_per_question):
+    """
+    Inserts copies of PDF documents into the database.
+
+    Args:
+        zip_folder (str): The path to the folder containing the ZIP file.
+        job_id (str): The ID of the job.
+        n_pages_per_question (int): The number of pages per question.
+
+    Raises:
+        ValueError: If the generated PDFs are not valid.
+
+    Returns:
+        None
+    """
     db = Database()
 
     generated_pdfs, is_valid, error_messages = process_path(zip_folder, job_id, n_pages_per_question)
@@ -155,6 +250,7 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
     document_index = 1
     for question, pdf_paths in generated_pdfs.items():
         for pdf_path in pdf_paths:
+            # code used to develop in local
             # file_path = os.path.join('documents', job_id, question, os.path.basename(pdf_path))
             # storage.copy_from(pdf_path, storage.abs_path(file_path))
             

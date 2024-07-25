@@ -3,6 +3,17 @@ from PyPDF2 import PdfReader, PdfWriter
 from python.process_copy.database import Database
 
 def find_files_with_base_name(base_name, folder_paths, suffix):
+    """
+    Find files with a given base name and suffix in the specified folder paths.
+
+    Args:
+        base_name (str): The base name of the files to search for.
+        folder_paths (list): A list of folder paths to search in.
+        suffix (str): The suffix of the files to search for.
+
+    Returns:
+        list: A list of file paths that match the given base name and suffix.
+    """
     pdf_paths = []
     for folder_path in folder_paths:
         for file_name in os.listdir(folder_path):
@@ -11,6 +22,17 @@ def find_files_with_base_name(base_name, folder_paths, suffix):
     return pdf_paths
 
 def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
+    """
+    Merge PDF files based on their base names.
+
+    Args:
+        base_names (list): A list of base names of the PDF files to be merged.
+        folder_paths (list): A list of folder paths where the PDF files are located.
+        output_folder (str): The folder path where the merged PDF files will be saved.
+
+    Returns:
+        None
+    """
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
@@ -38,6 +60,15 @@ def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
         print(f"Merged PDF for {base_name} saved at {output_path}")
 
 def process_merge(job_id):
+    """
+    Merge PDF files for a given job ID.
+
+    Args:
+        job_id (str): The ID of the job.
+
+    Returns:
+        None
+    """
     db = Database()
     eval_jobs_collection = db.eval_jobs_collection()
     eval_job = eval_jobs_collection.find_one({"job_id": job_id})
