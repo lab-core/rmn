@@ -361,6 +361,7 @@ export class DashboardPageComponent {
       this.notificationService.showError("Veuillez valider toutes les copies avant de valider la tâche!", "Erreur!");
     } else {
       this.validating = true;
+      this.tasksService.setvalidatingTaskId(this.task.job_id);
       let response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
       if (response === "OK") {
         this.router.navigate(['/tasks-history']);
