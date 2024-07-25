@@ -30,7 +30,7 @@ export class TasksHistoryComponent implements OnInit {
   color: ThemePalette = 'primary';
   mode: ProgressSpinnerMode = 'determinate';
   diameter = 60;
-  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status', 'job_infos', 'job_estimation', 'job_deletion', 'job_retry'];
+  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status' ,'job_infos', 'job_deletion', 'job_retry'];
   dataSource: MatTableDataSource<any> = new MatTableDataSource<any>();
 
   @ViewChild(MatPaginator) paginator: MatPaginator;
@@ -116,14 +116,14 @@ export class TasksHistoryComponent implements OnInit {
       let n_total_doc = resp.n_total_doc;
       this.tasksList.forEach(x => {
         if (x.job_id === job_id) {
-          x.job_estimation = Math.round((n_total_doc - lastN) * lastExecTime);
+          // x.job_estimation = Math.round((n_total_doc - lastN) * lastExecTime);
           // x.job_completion = Math.round((lastN / n_total_doc) * 100);
         }
       });
       this.dataSource.data = this.tasksList;
     });
 
-    setInterval(this.decrementTime.bind(this), 1000);
+    // setInterval(this.decrementTime.bind(this), 1000);
   }
 
   ngOnDestroy(): void {
@@ -186,18 +186,18 @@ export class TasksHistoryComponent implements OnInit {
                 }
               });
 
-              if (x.job_status === "RUN" || x.job_status === "FINALIZING") {
-                x.job_estimation = Math.round((response[0].n_total_doc - lastN) * lastExecTime);
-              }
-              if (x.job_status === "QUEUED") {
-                // x.job_completion = 0;
-              } else if (x.job_status === "ERROR") {
-                // x.job_completion = 0;
-              } else if (x.job_status === "ARCHIVED") {
-                // x.job_completion = 100;
-              } else {
-                // x.job_completion = Math.round((lastN / response[0].n_total_doc) * 100);
-              }
+              // if (x.job_status === "RUN" || x.job_status === "FINALIZING") {
+              //   x.job_estimation = Math.round((response[0].n_total_doc - lastN) * lastExecTime);
+              // }
+              // if (x.job_status === "QUEUED") {
+              //   x.job_completion = 0;
+              // } else if (x.job_status === "ERROR") {
+              //   x.job_completion = 0;
+              // } else if (x.job_status === "ARCHIVED") {
+              //   x.job_completion = 100;
+              // } else {
+              //   x.job_completion = Math.round((lastN / response[0].n_total_doc) * 100);
+              // }
             }, (error) => {
               console.error(error);
             });
@@ -294,16 +294,16 @@ export class TasksHistoryComponent implements OnInit {
     return savedJobInfos ? JSON.parse(savedJobInfos) : null;
   }
 
-  decrementTime() {
-    if (this.tasksList != null) {
-      this.tasksList.forEach(x => {
-        if (!isNaN(x.job_estimation) && x.job_estimation !== null && x.job_estimation !== 0) {
-          x.job_estimation = x.job_estimation - 1;
-        }
-      });
-    }
+  // decrementTime() {
+  //   if (this.tasksList != null) {
+  //     this.tasksList.forEach(x => {
+  //       if (!isNaN(x.job_estimation) && x.job_estimation !== null && x.job_estimation !== 0) {
+  //         x.job_estimation = x.job_estimation - 1;
+  //       }
+  //     });
+  //   }
 
-  }
+  // }
   reroute() {
     this.router.navigate(['/main-menu']);
   }
