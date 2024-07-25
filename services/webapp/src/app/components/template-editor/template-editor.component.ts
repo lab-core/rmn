@@ -23,6 +23,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
 
   identificationActive : boolean = true;
   questionsActive : boolean = false;
+  disabled: boolean = false;
 
   constructor(
     public templateService : TemplateService,
@@ -65,7 +66,8 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
           var file = new File([data], this.templateService.getTemplateName());
           this.templateService.setFile(file);
           await this.templateService.createNewTemplate(file);
-          this.notifyService.showSuccess("Le gabarit a été mis à jour", "Rendu");
+          this.notifyService.showSuccess("Le gabarit a été mis à jour.", "Rendu");
+          this.disabled = false;
       });
     });
   }
@@ -131,15 +133,15 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
   }
 
   showRectanglesNotificationError(){
-    this.notifyService.showError("Assurez-vous de définir le rectangle de notes.", "ERREUR");
+    this.notifyService.showError("Assurez-vous de définir le rectangle de notes.", "Erreur");
   }
 
   showNameNotificationError(){
-    this.notifyService.showError("Assurez-vous de remplir le champ du nom de template!", "ERREUR");
+    this.notifyService.showError("Assurez-vous de remplir le champ du nom de template!", "Erreur");
   }
 
-  showTemplateNotificationSuccess(){
-    this.notifyService.showSuccess("Template sauvegardé!", "Success");
+  showTemplateNotificationInfo(){
+    this.notifyService.showInfo("Veuillez attendre le rendu maintenant.", "Sauvegardé");
   }
 
   confirm() {
@@ -160,7 +162,8 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
         formdata.append('template_id', this.templateService.getTemplateId());
         this.http.post<any>(`${SERVER_URL}template/modify`, formdata).subscribe(
             (data) => {
-              this.showTemplateNotificationSuccess();
+              this.disabled = true;
+              this.showTemplateNotificationInfo();
                 // this.router.navigate(['/templates']);
             }
         );
