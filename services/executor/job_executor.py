@@ -439,11 +439,9 @@ if __name__ == "__main__":
                                     print("n_max_points_per_question_dict", n_max_points_per_question_dict)
                                     n_questions = len(n_max_points_per_question_dict)
                                     scores = [[grade[i][1] for grade in copies_info_dict.values()] for i in range(n_questions)]
-                                    # scores = [[1,1,1,1,1], [2,2,2,2,2], [3,3,3,3,3], [4,4,4,4,4], [5,5,5,5,5]]
-
-                                    # copies_info_dict = [["filename.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]], ["filename2.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]]]
-                                    
-                                    # n_max_points_per_question_dict = [['Q1', 9], ['Q2', 9], ['Q3', 9], ['Q4', 9], ['Q5', 9]]
+                                    # ex of scores = [[1,1,1,1,1], [2,2,2,2,2], [3,3,3,3,3], [4,4,4,4,4], [5,5,5,5,5]]
+                                    # ex of copies_info_dict = [["filename.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]], ["filename2.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]]]
+                                    # ex of n_max_points_per_question_dict = [['Q1', 9], ['Q2', 9], ['Q3', 9], ['Q4', 9], ['Q5', 9]]
 
                                     all_notes = np.array(scores)
                                     score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
@@ -453,7 +451,7 @@ if __name__ == "__main__":
 
                                     f_boxplots = create_all_boxplots(all_notes)
                                     fpdf = create_stats_latex(nom_complet, 0, n_questions, all_notes, score_total, f_boxplots, tmp_dir=m_folder)
-                                    print("Stats for ", nom_complet, "created: ", fpdf)
+                                    print("Stats for", nom_complet, "created:", fpdf)
                                     remove_non_pdfs(m_folder)
 
                         copies_path = all_copies_folder_path
@@ -488,7 +486,7 @@ if __name__ == "__main__":
                 score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
                 f_boxplots = create_all_boxplots(all_notes)
                 fpdf = create_stats_latex('Statistiques générales', None, n_questions, all_notes, score_total, f_boxplots, tmp_dir=all_copies_folder_path)
-                print("General stats created: ", fpdf)
+                print("General stats created:", fpdf)
                 remove_non_pdfs(all_copies_folder_path)
                 
                 #
@@ -782,8 +780,8 @@ if __name__ == "__main__":
                     ),
                 )
 
-            # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-            # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
+            storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+            storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
         else:
             print("Job status "+job["job_status"]+" not handled.")
 
