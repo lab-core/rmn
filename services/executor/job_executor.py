@@ -226,9 +226,8 @@ if __name__ == "__main__":
             "template_rendered",
             json.dumps(
                 {
-                    "template_id": temp_id,
-                    "status": "Template %s has been updated" % template["template_name"],
                     "user_id": template["user_id"],
+                    "template_id": temp_id
                 }
             ),
         )

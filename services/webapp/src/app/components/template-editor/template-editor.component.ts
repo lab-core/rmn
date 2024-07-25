@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { AfterViewInit, Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { SocketService } from 'src/app/services/socket.service';
 import { TemplateService } from 'src/app/services/template.service';
 import { RectangleService } from 'src/app/services/drawing/rectangle.service';
 import { SelectionService } from 'src/app/services/drawing/selection.service';
@@ -27,6 +28,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
     public templateService : TemplateService,
     private http: HttpClient,
     private router: Router,
+    private socketService: SocketService,
     private userService: UserService,
     private rectangleService : RectangleService,
     private selectionService : SelectionService,
@@ -44,12 +46,28 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
       // }
       // this.rectangleService.init();
     }
+
+    this.joinSocket();
   }
 
-  async onFileSelected(event: any) {
-    const file = event.target.files[0];
-    this.templateService.setFile(file);
-    await this.templateService.createNewTemplate(file);
+  ngOnDestroy(): void {
+    this.socketService.getSocket().off('template_rendered');
+    this.socketService.disconnectSocket();
+  }
+
+  joinSocket() {
+    this.socketService.join(this.templateService.getTemplateId());
+    this.socketService.getSocket().on('template_rendered', async (data: any) => {
+      const formdata: FormData = new FormData();
+      formdata.append('token', this.userService.token);
+      formdata.append('template_id', this.templateService.getTemplateId());
+       this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).subscribe(async data => {
+          var file = new File([data], this.templateService.getTemplateName());
+          this.templateService.setFile(file);
+          await this.templateService.createNewTemplate(file);
+          this.notifyService.showSuccess("Le gabarit a été mis à jour", "Rendu");
+      });
+    });
   }
 
   ngAfterViewInit(): void {

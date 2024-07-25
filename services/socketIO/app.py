@@ -42,6 +42,12 @@ def handle_job_status_change(data):
     emit("jobs_status", data, room=user_id)
     print(f"Received data: {data} to room : {user_id}")
 
+@socketio.on("template_rendered")
+def handle_template_rendered_change(data):
+    template_id = json.loads(data)["template_id"]
+    emit("template_rendered", data, room=template_id)
+    print(f"Received data: {data} to room : {template_id}")
+
 
 if __name__ == "__main__":
     # socketio.run(app, host="localhost", port=7000)

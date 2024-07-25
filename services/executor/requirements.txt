@@ -25,6 +25,7 @@ h11==0.14.0
 h5py==3.11.0
 httplib2==0.22.0
 idna==3.7
+img2pdf==0.5.1
 importlib_metadata==8.0.0
 importlib_resources==6.4.0
 imutils==0.5.4
