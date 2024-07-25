@@ -14,7 +14,7 @@ COPY ./requirements.txt ./requirements.txt
 
 RUN pip install -r requirements.txt \
   && pip uninstall -y PyCrypto PyMuPDF httplib2 \
-  && pip install PyCryptodome PyMuPDF httplib2==0.15.0
+  && pip install PyCryptodome PyMuPDF==1.24.8 httplib2==0.15.0
 
 COPY . .
 

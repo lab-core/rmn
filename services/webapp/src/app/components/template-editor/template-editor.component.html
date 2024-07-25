@@ -1,7 +1,7 @@
 <div class="template-editor-container">
     <div class="background">
         <div class="template-container">
-            <ngx-extended-pdf-viewer [src]="this.templateService.getTemplateUrl()" 
+            <ngx-extended-pdf-viewer [src]="this.templateService.getTemplateUrl()"
                 [showToolbar]="false"
                 [showSidebarButton]="false"
                 [showFindButton]="true"
@@ -59,7 +59,7 @@
             <div class="selection-options-container" *ngIf="toolType != 'rectangle'">
             </div>
             <div class="confirmation-container">
-                <button class="confirmation-button" (click)="confirm()">Confirmer</button>
+                <button class="confirmation-button" mat-flat-button color="accent" [disabled]="disabled" (click)="confirm()">Confirmer</button>
             </div>
         </div>
     </div>
