@@ -61,17 +61,21 @@ export class TaskRetryDialogComponent implements OnInit {
   onFileSelected(event: any): void {
     if (event.target.files) {
       const files: FileList = event.target.files;
-      this.selectedFiles.push(...Array.from(files));
+      this.selectedFiles.push(...Array.from(files).filter(file => this.isPDF(file)));
       this.handleFiles();
     }
   }
-
+  
   onDrop(event: DragEvent): void {
     event.preventDefault();
     if (event.dataTransfer && event.dataTransfer.files) {
-      this.selectedFiles.push(...Array.from(event.dataTransfer.files));
+      this.selectedFiles.push(...Array.from(event.dataTransfer.files).filter(file => this.isPDF(file)));
       this.handleFiles();
     }
+  }
+  
+  isPDF(file: File): boolean {
+    return file.type === 'application/pdf';
   }
 
   onDragOver(event: DragEvent): void {
