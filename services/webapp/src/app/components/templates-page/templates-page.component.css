@@ -43,9 +43,7 @@ app-main-menu {
 }
 
 .templates-container {
-    width: 40%;
     height: 80%;
-    margin-top: 10%;
     background-color: #ffffff;
     border: 1px solid gray;
     z-index: 1;
@@ -59,6 +57,21 @@ app-main-menu {
     -webkit-box-shadow: 0 5px 10px 0px rgb(0 0 0 / 70%);
     -o-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
     -ms-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
+}
+
+@media screen and (min-width: 1024px) and (max-width: 1366px) {
+    .templates-container {
+        width: 60%;
+        margin-top: 20%;
+    }
+}
+
+
+@media screen and (max-width: 1023px), (min-width: 1367px) {
+    .templates-container {
+        width: 40%;
+        margin-top: 10%;
+    }
 }
 
 .templates-search-create {

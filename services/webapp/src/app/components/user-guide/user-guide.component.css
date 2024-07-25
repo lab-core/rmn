@@ -9,14 +9,28 @@
     flex-direction: column;
 }
 .stepper_horizontal {
-    width: 50%;
-    margin-top: 5%;
-    margin-left: 25%;
     z-index: 1;
     /*height: 50%;*/
     /* margin: auto; */
     /*margin-top: 0.5%;*/
     
+}
+
+@media screen and (min-width: 1024px) and (max-width: 1366px) {
+    .stepper_horizontal {
+        width: 80%;
+        margin-top: 15%;
+        margin-left: 10%;
+    }
+}
+
+
+@media screen and (max-width: 1023px), (min-width: 1367px) {
+    .stepper_horizontal {
+        width: 60%;
+        margin-top: 10%;
+        margin-left: 20%;
+    }
 }
 
 li {
