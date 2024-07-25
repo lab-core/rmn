@@ -78,7 +78,6 @@ export class TemplatesPageComponent implements OnInit {
 
 
   editTemplate(template: Map<string, string>): void {
-    this.templateService.setEditingExisting(true);
     const formdata: FormData = new FormData();
     formdata.append('token', this.userService.token);
     formdata.append('template_id', template["template_id"]);

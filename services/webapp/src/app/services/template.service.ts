@@ -5,13 +5,11 @@ import { Injectable } from '@angular/core';
 })
 export class TemplateService {
 
-  editingTemplate: boolean = false;
   templateFile: File;
   templateUrl: string;
 
   templateName: string;
   templateId: string;
-  templatePage: number = 1;
 
   constructor() { }
 
@@ -26,14 +24,6 @@ export class TemplateService {
 
   getFile() {
     return this.templateFile;
-  }
-
-  setPage(page: number) {
-    this.templatePage = page;
-  }
-
-  getPage() {
-    return this.templatePage;
   }
 
   getTemplateUrl() {
@@ -54,13 +44,5 @@ export class TemplateService {
 
   getTemplateId() {
     return this.templateId;
-  }
-
-  setEditingExisting(isEditing: boolean) {
-    this.editingTemplate = isEditing;
-  }
-
-  checkEditing() {
-    return this.editingTemplate;
   }
 }

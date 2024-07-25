@@ -3,6 +3,7 @@ from utils.box_converter import convert_box_to_dict, convert_box_to_list
 from utils.clients import redis_client
 from pathlib import Path
 from io import FileIO
+from PyPDF2 import PdfWriter, PdfReader
 from werkzeug.utils import secure_filename
 import uuid
 import os
@@ -15,7 +16,6 @@ redis = redis_client()
 
 class TemplateService():
     def create_template(request, db, storage):
-
         request_form = request.form
 
         if "user_id" not in request_form:
@@ -24,18 +24,7 @@ class TemplateService():
                 status=400,
             )
 
-        # if "grade_box" not in request_form:
-        #     return Response(
-        #         response=json.dumps({"response": f"Error: matricule_box not provided."}),
-        #         status=400,
-        #     )
-
-        template_name = request_form['template_name'] if "template_name" in request_form else "Template"
-        print(request_form['matricule_box'])
-        matricule_box = convert_box_to_list(json.loads(request_form['matricule_box'])) if "matricule_box" in request_form else None
-        if "grade_box" in request_form:
-            grade_box = convert_box_to_list(json.loads(request_form['grade_box'])) if "grade_box" in request_form else None
-
+        template_name = request_form['template_name'] if "template_name" in request_form else ""
         print(request.files)
 
         if not request.files:
@@ -71,6 +60,14 @@ class TemplateService():
 
         try:
             file_name = str(TEMP_FOLDER.joinpath(template_file_name))
+            # keep only the page needed
+            infile = PdfReader(file_name, 'rb')
+            output = PdfWriter()
+            page = int(request_form.get("template_page", '0'))
+            output.add_page(infile.pages[page])
+            with open(file_name, 'wb') as f:
+                output.write(f)
+            # move pdf to storage
             path_on_cloud = 'template/'
             template_file_id = f'{path_on_cloud}{template_id}.pdf'
             storage.move_to(file_name, template_file_id)
@@ -86,12 +83,15 @@ class TemplateService():
             "user_id": user_id,
             "template_id": template_id,
             "template_name": str(template_name),
-            "matricule_box": matricule_box,
             "template_file_id": template_file_id
         }
 
         if "grade_box" in request_form:
+            grade_box = convert_box_to_list(json.loads(request_form['grade_box']))
             template["grade_box"] = grade_box
+        if "matricule_box" in request_form:
+            matricule_box = convert_box_to_list(json.loads(request_form['matricule_box']))
+            template["matricule_box"] = matricule_box
 
         try:
             collection.insert_one(template)
@@ -102,10 +102,11 @@ class TemplateService():
                 status=500,
             )
 
-        redis.lpush("job_queue", json.dumps({"template_id": template_id}))
-
-        return Response(response=json.dumps({"response": "OK"}), status=200)
-
+        temp = {
+            "template_id": template_id,
+            "template_name": str(template_name)
+        }
+        return Response(response=json.dumps({"response": temp}), status=200)
 
     def delete_template(request, db, storage):
         request_form = request.form
@@ -192,8 +193,8 @@ class TemplateService():
         template_resp = {
             "template_name": template['template_name'],
             "template_id": template['template_id'],
-            "matricule_box" :convert_box_to_dict(template['matricule_box']) if 'matricule_box' in template else None,
-            "grade_box" :convert_box_to_dict(template['grade_box']) if 'grade_box' in template else None,
+            "matricule_box": convert_box_to_dict(template.get('matricule_box')),
+            "grade_box": convert_box_to_dict(template.get('grade_box')),
         }
 
         return Response(response=json.dumps({"response": template_resp}), status=200)
@@ -226,7 +227,7 @@ class TemplateService():
     def change_template_info(request, db):
         request_form = request.form
 
-        required_fields = {"template_id", "template_name", "matricule_box"}
+        required_fields = {"template_id", "template_name"}
         if not set(request_form.keys()) >= required_fields:
             return Response(
                 response=json.dumps({"response": "Error: Missing value in request form"}),

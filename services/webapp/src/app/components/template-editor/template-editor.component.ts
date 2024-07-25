@@ -38,11 +38,11 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
     if (!this.templateService.getTemplateUrl()) {
       this.reroute();
     } else {
-      if (this.templateService.checkEditing()){
+      // if (this.templateService.checkEditing()){
         this.templateName = this.templateService.getTemplateName();
         this.rectangleService.initExistingRects();
-      }
-      this.rectangleService.init();
+      // }
+      // this.rectangleService.init();
     }
   }
 
@@ -139,23 +139,13 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
             formdata.append('grade_box', JSON.stringify(questionsRectCoords));
         }
 
-        if (!this.templateService.checkEditing()) {
-            formdata.append('template_file', this.templateService.getFile());
-            this.http.post<any>(`${SERVER_URL}template`, formdata).subscribe(
-                (data) => {
-                  this.showTemplateNotificationSuccess();
-                    // this.router.navigate(['/templates']);
-                }
-            );
-        } else {
-            formdata.append('template_id', this.templateService.getTemplateId());
-            this.http.post<any>(`${SERVER_URL}template/modify`, formdata).subscribe(
-                (data) => {
-                  this.showTemplateNotificationSuccess();
-                    // this.router.navigate(['/templates']);
-                }
-            );
-        }
+        formdata.append('template_id', this.templateService.getTemplateId());
+        this.http.post<any>(`${SERVER_URL}template/modify`, formdata).subscribe(
+            (data) => {
+              this.showTemplateNotificationSuccess();
+                // this.router.navigate(['/templates']);
+            }
+        );
         this.rectangleService.resetRects();
     }
   }
