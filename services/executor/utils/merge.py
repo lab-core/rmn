@@ -1,4 +1,5 @@
 import os
+import re
 from PyPDF2 import PdfReader, PdfWriter
 from python.process_copy.database import Database
 from utils.storage import Storage
@@ -73,6 +74,20 @@ def process_merge(job_id):
         None
     """
     db = Database()
+    job_documents_collection = db.documents_collection()
+    documents = job_documents_collection.find({"job_id": job_id})
+    documents_dict = {document["filename"]: document for document in documents}
+    print("documents_dict:", documents_dict)
+
+    matching_documents = []
+    # regular expression to match filenames of the form "filename_Q{index}.pdf"
+    pattern = re.compile(r'^.+_Q\d+\.pdf$')
+
+    for filename, document in documents_dict.items():
+        document_basename = os.path.basename(filename)
+        if pattern.match(document_basename):
+            matching_documents.append(document)
+
     eval_jobs_collection = db.eval_jobs_collection()
     eval_job = eval_jobs_collection.find_one({"job_id": job_id})
     n_max_points_per_question = eval_job["n_max_points_per_question"]
@@ -84,7 +99,14 @@ def process_merge(job_id):
         question_index_path = storage.abs_path(os.path.join('documents', job_id, str(question_index)))
         folder_paths.append(question_index_path)
 
-    base_names = [os.path.splitext(file_name)[0].rsplit('_', 1)[0] for file_name in os.listdir(folder_paths[0]) if file_name.lower().endswith('.pdf')]
+    base_names = []
+    for folder_path in folder_paths:
+        for file_name in os.listdir(folder_path):
+            file_basename = os.path.basename(file_name)
+            for document in matching_documents:
+                if os.path.basename(document["filename"]).lower() == file_basename.lower():
+                    base_name = os.path.splitext(file_name)[0].rsplit('_', 1)[0]
+                    base_names.append(base_name)
 
     output_folder = storage.abs_path(os.path.join('corrected_copies', job_id))
 
