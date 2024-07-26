@@ -1144,7 +1144,7 @@ def download_document():
                 version_name = version_basename(file_id) + "-%s.pdf" % request_form["document_version"]
                 storage.copy_from(version_name, file_id)
             except ValueError:
-                # if cannot find this version use default one
+                # if cannot find this version use default one (generally the last one)
                 storage.copy_from(file_id, file_id)
         else:
             storage.copy_from(file_id, file_id)
@@ -1175,6 +1175,41 @@ def download_document():
         return response
 
     return file_send
+
+
+@app.route("/document/last_version", methods=["POST"])
+@cross_origin()
+@verify_share_token()
+def last_version_document():
+    request_form = request.form
+    if "document_index" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: document_index not provided."}),
+            status=400,
+        )
+
+    job_id = str(request_form["job_id"])
+    document_index = request_form["document_index"]
+
+    db = mongo["RMN"]
+    document_collection = db["job_documents"]
+
+    document_index = int(document_index)
+    document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})
+    if document_file is None:
+        return Response(
+            response=json.dumps({"response": "No document found!"}),
+            status=404,
+        )
+
+    file_id = str(document_file["image_id"])
+    version_base = version_basename(file_id)
+    filename_base = storage.abs_path(version_base)
+    print("file_base", filename_base)
+    all_versions = glob.glob(filename_base + "-*.pdf")
+
+    return Response(response=json.dumps({"last_version": len(all_versions) - 1}), status=200)
+
 
 @app.route("/job/validate", methods=["POST"])
 @cross_origin()

@@ -364,6 +364,26 @@
     justify-content: space-between;
 }
 
+/* Responsive layout - makes a one column layout instead of a two-column layout */
+@media (max-width: 1000px) {
+  .validation-check-container {
+    width: 90%;
+    height: 15%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.validation-block {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
 .check-list-container {
     width: 100%;
     height: 98%;
@@ -401,6 +421,46 @@ input[type=number] {
     padding: 10px 15px;
     box-sizing: border-box;
     -moz-appearance: textfield;
+}
+
+.version-container {
+  width: 100%;
+  margin-left: 5%;
+  margin-right: 5%;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  text-align: center;
+}
+
+.version-number {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.version-buttons {
+  width: 100%;
+  margin-left: 5%;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  text-align: center;
+}
+
+.nav-button {
+  aspect-ratio: 1.5 / 1;
+  height: 80%;
+  border-radius: 24%/48%;
+  border: 2px solid black;
+  margin-left: 20px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
 }
 
 .validate-container {
@@ -454,6 +514,7 @@ input[type=number] {
 }
 
 h3 {
+    width: 200px;
     padding: 0px;
     margin: 0px;
 }

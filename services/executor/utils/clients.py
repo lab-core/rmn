@@ -20,7 +20,7 @@ def mongo_client():
 
 
 def redis_client():
-    return redis.Redis(host=redis_host, port=6379, db=0)
+    return redis.Redis(host=redis_host)
 
 
 def socketio_client():

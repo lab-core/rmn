@@ -15,6 +15,7 @@ import { MatSelectChange } from '@angular/material/select';
 import * as saveAs from 'file-saver';
 import * as JSZip from 'jszip';
 import { PDFDocument } from 'pdf-lib';
+import { MatIconModule } from '@angular/material/icon';
 
 
 @Component({
@@ -49,6 +50,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   disabledValidationButton = true;
   disabledDropDown = false;
   validating: boolean = false;
+  disablePrevious: boolean = false;
+  disableNext: boolean = false;
   hasDownloadedZip: boolean = false;
   hasUploadedZip: boolean = false;
 
@@ -66,6 +69,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   currentCopyName: string;
   currentQuestionIndex: string;
   index: string;
+  currentVersion: number = 0;
+  lastVersion: number = 0;
   currentMatricule: number;
   currentScore: number | null;
   currentTotal: number;
@@ -379,20 +384,30 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   loadPdf(version: number = undefined): void {
+    this.setPdfLoading(true);
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.tasksService.getvalidatingTaskId());
     formdata.append('document_index', this.currentCopy.toString());
-    if (version !== undefined) formdata.append('document_version', version.toString());
+    if (version !== undefined) {
+      if (version < 0) version = 0;
+      formdata.append('document_version', version.toString());
+    }
 
-    this.pdfLoading = true;
     if (this.examsList[this.currentIndex()]["status"] !== "NOT_READY") {
       this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
-        (data) => {
+        async (data) => {
           let url = window.URL.createObjectURL(data);
           this.pdfSrc = url;
-          this.pdfLoading = false;
+          await this.getLastVersion();
+          // set to last version if undefined or greater than last version
+          if (version === undefined || version >= this.lastVersion) {
+            this.currentVersion = this.lastVersion;
+          } else {
+            this.currentVersion = version;
+          }
           this.pdfModified = false;
+          this.setPdfLoading(false);
           // initialize pdf viewer options
           if (!this.pdfViewerInitialized)
            setTimeout(() => { this.initializePdfViewer(); }, 1000);
@@ -401,6 +416,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           console.error(error);
         });
     }
+  }
+
+  setPdfLoading(pdfLoading: boolean) {
+    this.pdfLoading = pdfLoading;
+    this.disablePrevious = pdfLoading || (this.currentVersion == 0);
+    this.disableNext = pdfLoading || (this.currentVersion >= this.lastVersion);
   }
 
   async pdfLoaded(e) {
@@ -435,10 +456,29 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.changeCurrentCopy(this.initialCopyIndex + examIndex, this.examsList[examIndex].status);
   }
 
+  setNewVersion(event){
+    this.loadPdf(event.target.value);
+  }
+
   async loadCopy(): Promise<void> {
     this.loadPdf();
     this.getCurrentMatricule();
     this.getCurrentStatus();
+  }
+
+  async getLastVersion() {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', this.tasksService.getvalidatingTaskId());
+    formdata.append('document_index', this.currentCopy.toString());
+    await this.http.post(`${SERVER_URL}document/last_version`, formdata)
+      .toPromise()
+      .then(async (data: any) => {
+          this.lastVersion = data["last_version"];
+      })
+      .catch((error) => {
+          console.error(error);
+      });
   }
 
   async verifyIfQuestionIsBonus(): Promise<void> {
