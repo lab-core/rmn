@@ -258,6 +258,10 @@ if __name__ == "__main__":
             print("Merging copies...")
             process_merge(job_id)
 
+            #cleaning storage
+            print("Cleaning storage...")
+            storage.clean_storage(job_id)     
+
             # Set Job status to VALIDATION
             db.eval_jobs_collection().update_one(
                 {"job_id": job_id},
