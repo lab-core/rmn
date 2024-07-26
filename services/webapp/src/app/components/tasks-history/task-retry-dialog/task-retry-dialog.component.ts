@@ -61,7 +61,7 @@ export class TaskRetryDialogComponent implements OnInit {
   onFileSelected(event: any): void {
     if (event.target.files) {
       const files: FileList = event.target.files;
-      this.selectedFiles.push(...Array.from(files).filter(file => this.isPDF(file)));
+      this.selectedFiles.push(...Array.from(files));
       this.handleFiles();
     }
   }
@@ -69,13 +69,9 @@ export class TaskRetryDialogComponent implements OnInit {
   onDrop(event: DragEvent): void {
     event.preventDefault();
     if (event.dataTransfer && event.dataTransfer.files) {
-      this.selectedFiles.push(...Array.from(event.dataTransfer.files).filter(file => this.isPDF(file)));
+      this.selectedFiles.push(...Array.from(event.dataTransfer.files));
       this.handleFiles();
     }
-  }
-  
-  isPDF(file: File): boolean {
-    return file.type === 'application/pdf';
   }
 
   onDragOver(event: DragEvent): void {
@@ -92,29 +88,46 @@ export class TaskRetryDialogComponent implements OnInit {
 
   async handleFiles(): Promise<void> {
     const nonZipFiles: File[] = [];
+    const zipFiles: File[] = [];
+
     for (const file of this.selectedFiles) {
-      if (file.name.endsWith('.zip')) {
-        await this.extractZip(file);
-      } else {
-        nonZipFiles.push(file);
-      }
+        if (file.name.endsWith('.zip')) {
+            zipFiles.push(file);
+        } else if (this.isPDF(file)) {
+            nonZipFiles.push(file);
+        }
     }
+
     this.selectedFiles = nonZipFiles;
+
+    for (const zipFile of zipFiles) {
+        await this.extractZip(zipFile);
+    }
+  }
+
+  isPDF(file: File): boolean {
+      return file.type === 'application/pdf';
   }
 
   async extractZip(file: File): Promise<void> {
-    const zip = new JSZip();
-    const contents = await zip.loadAsync(file);
-    const files = Object.keys(contents.files);
+      const zip = new JSZip();
+      const contents = await zip.loadAsync(file);
+      const files = Object.keys(contents.files);
 
-    for (const filename of files) {
-      if (!contents.files[filename].dir) {
-        const content = await contents.files[filename].async('blob');
-        const fileNameOnly = filename.split('/').pop(); 
-        const newFile = new File([content], fileNameOnly, { type: content.type });
-        this.selectedFiles.push(newFile);
+      for (const filename of files) {
+          if (!contents.files[filename].dir) {
+              const content = await contents.files[filename].async('blob');
+              const fileNameOnly = filename.split('/').pop();
+              const newFile = new File(
+                  [content], 
+                  fileNameOnly, 
+                  { type: fileNameOnly.endsWith('.pdf') ? 'application/pdf' : content.type }
+              );
+              if (this.isPDF(newFile)) {
+                  this.selectedFiles.push(newFile);
+              }
+          }
       }
-    }
   }
 
   ignoreAndContinue(): void {
