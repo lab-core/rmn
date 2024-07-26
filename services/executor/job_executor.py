@@ -772,8 +772,8 @@ if __name__ == "__main__":
                     ),
                 )
 
-            storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-            storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
+            # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+            # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
         else:
             print("Job status "+job["job_status"]+" not handled.")
 
