@@ -6,12 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/utils/clients.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/clients.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/executor/job_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/job_executor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/executor/utils/merge.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/merge.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/executor/utils/stats.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/stats.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -199,12 +196,12 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/executor/utils/stats.py</url>
-          <line>126</line>
+          <line>128</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/executor/utils/stats.py</url>
-          <line>118</line>
+          <line>120</line>
           <option name="timeStamp" value="12" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -232,16 +229,6 @@
           <line>33</line>
           <option name="timeStamp" value="68" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
-          <line>804</line>
-          <option name="timeStamp" value="76" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
-          <line>238</line>
-          <option name="timeStamp" value="86" />
-        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
@@ -251,7 +238,7 @@
     <SUITE FILE_PATH="coverage/rmn$exam_stats.coverage" NAME="exam_stats Coverage Results" MODIFIED="1721181412006" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
     <SUITE FILE_PATH="coverage/rmn$test.coverage" NAME="test Coverage Results" MODIFIED="1721796076415" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
     <SUITE FILE_PATH="coverage/rmn$app.coverage" NAME="app Coverage Results" MODIFIED="1721616886063" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/server" />
-    <SUITE FILE_PATH="coverage/rmn$exec.coverage" NAME="exec Coverage Results" MODIFIED="1721933401857" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
+    <SUITE FILE_PATH="coverage/rmn$exec.coverage" NAME="exec Coverage Results" MODIFIED="1722014707124" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
     <SUITE FILE_PATH="coverage/rmn$split_and_merge.coverage" NAME="split_and_merge Coverage Results" MODIFIED="1716597389703" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/utils" />
     <SUITE FILE_PATH="coverage/rmn$recognize.coverage" NAME="recognize Coverage Results" MODIFIED="1721795247863" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/python/process_copy" />
   </component>

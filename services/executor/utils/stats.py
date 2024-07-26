@@ -98,6 +98,7 @@ def makedir_path(dir_name):
         os.makedirs(dir_name)
     return DIR
 
+
 def remove_non_pdfs(directory):
     for filename in os.listdir(directory):
         file_path = os.path.join(directory, filename)
@@ -107,6 +108,7 @@ def remove_non_pdfs(directory):
                     os.unlink(file_path)
             except Exception as e:
                 print(f'Failed to delete {file_path}. Reason: {e}')
+
 
 # if __name__ == "__main__":
 #     import numpy as np

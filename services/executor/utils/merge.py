@@ -79,9 +79,9 @@ def process_merge(job_id):
     question_indexes = [item[0] for item in n_max_points_per_question]
     question_indexes.sort()
 
-    folder_paths = storage.abs_paths(os.path.join('cover_pages', job_id))
+    folder_paths = [storage.abs_path(os.path.join('cover_pages', job_id))]
     for question_index in question_indexes:
-        question_index_path = storage.abs_paths(os.path.join('documents', job_id, str(question_index)))
+        question_index_path = storage.abs_path(os.path.join('documents', job_id, str(question_index)))
         folder_paths.append(question_index_path)
 
     base_names = [os.path.splitext(file_name)[0].rsplit('_', 1)[0] for file_name in os.listdir(folder_paths[0]) if file_name.lower().endswith('.pdf')]

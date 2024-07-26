@@ -282,17 +282,6 @@ if __name__ == "__main__":
             )
             validated_copies_folder_path.mkdir(exist_ok=True)
 
-            # Path to corrected copies
-            corrected_copies_path = os.path.join(storage.abs_path('corrected_copies'), job_id)
-
-            # Replace original copies with corrected copies in the validate/copies folder
-            if os.path.exists(corrected_copies_path):
-                for file_name in os.listdir(corrected_copies_path):
-                    full_file_name = os.path.join(corrected_copies_path, file_name)
-                    if os.path.isfile(full_file_name):
-                        shutil.copy(full_file_name, validated_copies_folder_path)
-                        shutil.copy(full_file_name, tmp_copies_folder_path)
-
             # Save file to local
             csv_file_path = str(VALIDATE_FOLDER.joinpath('notes.csv'))
             storage.copy_from(notes_csv_file_id, csv_file_path)
@@ -348,6 +337,13 @@ if __name__ == "__main__":
             all_copies_folder_path = validated_copies_folder_path.joinpath("all")
             all_copies_folder_path.mkdir(exist_ok=True)
             print("All folder:", str(all_copies_folder_path))
+
+            # create box plots
+            n_questions = len(n_max_points_per_question_dict)
+            scores = [[grade[i][1] for grade in copies_info_dict.values()] for i in range(n_questions)]
+            all_notes = np.array(scores)
+            score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
+            f_boxplots = create_all_boxplots(all_notes)
 
             for i, id in enumerate(moodle_zip_id_list):
                 # moodle_i
@@ -437,20 +433,15 @@ if __name__ == "__main__":
                                 if filename in copies_info_dict and statistics_for_students:
                                     print("copies_info_dict", copies_info_dict)
                                     print("n_max_points_per_question_dict", n_max_points_per_question_dict)
-                                    n_questions = len(n_max_points_per_question_dict)
-                                    scores = [[grade[i][1] for grade in copies_info_dict.values()] for i in range(n_questions)]
                                     # ex of scores = [[1,1,1,1,1], [2,2,2,2,2], [3,3,3,3,3], [4,4,4,4,4], [5,5,5,5,5]]
                                     # ex of copies_info_dict = [["filename.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]], ["filename2.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]]]
                                     # ex of n_max_points_per_question_dict = [['Q1', 9], ['Q2', 9], ['Q3', 9], ['Q4', 9], ['Q5', 9]]
 
-                                    all_notes = np.array(scores)
                                     score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
                                    
                                     question_index = list(copies_info_dict.keys()).index(filename)
-                                    print("all_notes", all_notes, "score_total", score_total, "n_questions", n_questions, 'question_index', question_index)
 
-                                    f_boxplots = create_all_boxplots(all_notes)
-                                    fpdf = create_stats_latex(nom_complet, 0, n_questions, all_notes, score_total, f_boxplots, tmp_dir=m_folder)
+                                    fpdf = create_stats_latex(nom_complet, question_index, n_questions, all_notes, score_total, f_boxplots, tmp_dir=m_folder)
                                     print("Stats for", nom_complet, "created:", fpdf)
                                     remove_non_pdfs(m_folder)
 
@@ -479,17 +470,8 @@ if __name__ == "__main__":
                                 }
                             },
                         )
-                # adding stats for professors
-                n_questions = len(n_max_points_per_question_dict)
-                scores = [[grade[i][1] for grade in copies_info_dict.values()] for i in range(n_questions)]
-                all_notes = np.array(scores)
-                score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
-                f_boxplots = create_all_boxplots(all_notes)
-                fpdf = create_stats_latex('Statistiques générales', None, n_questions, all_notes, score_total, f_boxplots, tmp_dir=all_copies_folder_path)
-                print("General stats created:", fpdf)
-                remove_non_pdfs(all_copies_folder_path)
                 
-                #
+                # make moodle.zip
                 if moodle_ind:
                     shutil.make_archive(
                         str(VALIDATE_FOLDER.joinpath(moodle_folder_name)),
@@ -504,6 +486,12 @@ if __name__ == "__main__":
                         print(e)
                 else:
                     storage.remove(id)
+
+            # adding stats for professors
+            fpdf = create_stats_latex('Statistiques générales', None, n_questions, all_notes, score_total,
+                                      f_boxplots, tmp_dir=all_copies_folder_path)
+            print("General stats created:", fpdf)
+            remove_non_pdfs(all_copies_folder_path)
 
             # create zip with all copies (gathered by group if enabled)
             shutil.make_archive(
