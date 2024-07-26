@@ -505,76 +505,76 @@ def grade_files(
                 m = m.group()
 
             # try to recognize each grade and verify the total
-            grays = gray_images(file, [0], straighten=False, shape=shape)
-            if grays is None:
-                print(Fore.RED + "%s: No valid pdf" % filename + Style.RESET_ALL)
-                continue
-            gray = grays[0]
-            total_matched, numbers, grades, number_images, boxes = grade(
-                gray,
-                box["grade"],
-                classifier=classifier,
-                trim=trim,
-                max_grade=max_grade,
-                max_question=max_question
-            )
+            # grays = gray_images(file, [0], straighten=False, shape=shape)
+            # if grays is None:
+            #     print(Fore.RED + "%s: No valid pdf" % filename + Style.RESET_ALL)
+            #     continue
+            # gray = grays[0]
+            # total_matched, numbers, grades, number_images, boxes = grade(
+            #     gray,
+            #     box["grade"],
+            #     classifier=classifier,
+            #     trim=trim,
+            #     max_grade=max_grade,
+            #     max_question=max_question
+            # )
 
-            i, name = get_name(m, grades_dfs)
-            group = ""
-            if i < 0:
-                print(
-                    Fore.RED
-                    + "%s: Matricule (%s) not found in csv files" % (filename, m)
-                    + Style.RESET_ALL
-                )
-            else:
-                l_group = group_label(grades_dfs[i])
-                if l_group:
-                    group = str(grades_dfs[i].at[m, l_group])
-                    print("Group:", group)
+            # i, name = get_name(m, grades_dfs)
+            # group = ""
+            # if i < 0:
+            #     print(
+            #         Fore.RED
+            #         + "%s: Matricule (%s) not found in csv files" % (filename, m)
+            #         + Style.RESET_ALL
+            #     )
+            # else:
+            #     l_group = group_label(grades_dfs[i])
+            #     if l_group:
+            #         group = str(grades_dfs[i].at[m, l_group])
+            #         print("Group:", group)
 
-            # fill moodle csv file
-            if numbers and len(numbers) > 1:
-                print("Found numbers:", numbers)
+            # # fill moodle csv file
+            # if numbers and len(numbers) > 1:
+            #     print("Found numbers:", numbers)
 
-                # db.save_unverified_number_images(
-                #     job_id, doc_index, number_images[:-1]
-                # )
-                number_images.clear()  # delete numbers picture
+            #     # db.save_unverified_number_images(
+            #     #     job_id, doc_index, number_images[:-1]
+            #     # )
+            #     number_images.clear()  # delete numbers picture
 
-                # fill csv for all the subquestion
-                for index_grade, grade_number in enumerate(numbers[:-1]):
-                    col_name = f"{MF.question} {index_grade + 1}"
+            #     # fill csv for all the subquestion
+            #     for index_grade, grade_number in enumerate(numbers[:-1]):
+            #         col_name = f"{MF.question} {index_grade + 1}"
 
-                    if col_name not in grades_dfs[i].columns:
-                        # create new column: Question_{index_grade + 1}
-                        # Initialize to 0
-                        if MF.grade not in grades_dfs[i].columns:
-                            grades_dfs[i][MF.grade] = None
-                        total_index = grades_dfs[i].columns.get_loc(MF.grade)
-                        grades_dfs[i].insert(total_index, col_name, 0)
+            #         if col_name not in grades_dfs[i].columns:
+            #             # create new column: Question_{index_grade + 1}
+            #             # Initialize to 0
+            #             if MF.grade not in grades_dfs[i].columns:
+            #                 grades_dfs[i][MF.grade] = None
+            #             total_index = grades_dfs[i].columns.get_loc(MF.grade)
+            #             grades_dfs[i].insert(total_index, col_name, 0)
 
-                    print("%s - %s: %.2f" % (filename, col_name, grade_number))
-                    grades_dfs[i].at[m, col_name] = grade_number
+            #         print("%s - %s: %.2f" % (filename, col_name, grade_number))
+            #         grades_dfs[i].at[m, col_name] = grade_number
 
-                # Fill total grade in csv
-                if pd.isna(grades_dfs[i].at[m, MF.grade]):
-                    print("%s - %s: %.2f" % (filename, MF.grade, numbers[-1]))
-                    grades_dfs[i].at[m, MF.grade] = numbers[-1]
-                    grades_dfs[i].at[m, MF.mdate] = dt
-                elif grades_dfs[i].at[m, MF.grade] != numbers[-1]:
-                    print(
-                        Fore.RED
-                        + "%s: there is already a grade (%.2f) different of %.2f"
-                        % (filename, grades_dfs[i].at[m, MF.grade], numbers[-1])
-                        + Style.RESET_ALL
-                    )
-                    numbers[-1] = grades_dfs[i].at[m, MF.grade]
-                else:
-                    print("%s: found same grade %.2f" % (filename, numbers[-1]))
-            else:
-                print(Fore.GREEN + "%s: No valid grade" % filename + Style.RESET_ALL)
-                grades_dfs[i].at[m, MF.mdate] = dt
+            #     # Fill total grade in csv
+            #     if pd.isna(grades_dfs[i].at[m, MF.grade]):
+            #         print("%s - %s: %.2f" % (filename, MF.grade, numbers[-1]))
+            #         grades_dfs[i].at[m, MF.grade] = numbers[-1]
+            #         grades_dfs[i].at[m, MF.mdate] = dt
+            #     elif grades_dfs[i].at[m, MF.grade] != numbers[-1]:
+            #         print(
+            #             Fore.RED
+            #             + "%s: there is already a grade (%.2f) different of %.2f"
+            #             % (filename, grades_dfs[i].at[m, MF.grade], numbers[-1])
+            #             + Style.RESET_ALL
+            #         )
+            #         numbers[-1] = grades_dfs[i].at[m, MF.grade]
+            #     else:
+            #         print("%s: found same grade %.2f" % (filename, numbers[-1]))
+            # else:
+            #     print(Fore.GREEN + "%s: No valid grade" % filename + Style.RESET_ALL)
+            #     grades_dfs[i].at[m, MF.mdate] = dt
 
             # Display in the summary the identity box if provided
             # id_img = None
@@ -585,42 +585,45 @@ def grade_files(
             results = [(f"Matricule: {m}", is_matricule_valid)]
 
             # Check there were no grades existing
-            if not numbers or len(numbers) < 1:
-                if max_nb_questions:
-                    numbers = [0] * (int(max_nb_questions) + 1)
-                else:
-                    # come back later when max_nb_questions found
-                    numbers = [0]
+            # if not numbers or len(numbers) < 1:
+            #     if max_nb_questions:
+            #         numbers = [0] * (int(max_nb_questions) + 1)
+            #     else:
+            #         # come back later when max_nb_questions found
+            #         numbers = [0]
 
-            results.extend(
-                [
-                    (f"Question {i + 1}: {n}", total_matched)
-                    for i, n in enumerate(numbers[:-1])
-                ]
-            )
-            results.append((f"Total: {numbers[-1]}", total_matched))
-            src = handler.createDocumentPreview(file, DIRPATH, results, dpi=dpi,
-                                                box=box["grade"], boxes=boxes,
-                                                mat_box=box_matricule["front"] if use_mat_box else None)
-            print(f"src: {src}")
+            # results.extend(
+            #     [
+            #         (f"Question {i + 1}: {n}", total_matched)
+            #         for i, n in enumerate(numbers[:-1])
+            #     ]
+            # )
+            # results.append((f"Total: {numbers[-1]}", total_matched))
+            # src = handler.createDocumentPreview(file, DIRPATH, results, dpi=dpi,
+            #                                     box=box["grade"], boxes=boxes,
+            #                                     mat_box=box_matricule["front"] if use_mat_box else None)
+            # print(f"src: {src}")
             # DB update
 
             # image_id = db.save_preview_image(src, job_id, doc_index)
             doc_status = (
                 Document_Status.HIGH_ACCURACY
-                if total_matched and is_matricule_valid
+                if is_matricule_valid
                 else Document_Status.TO_VALIDATE
             )
             # numbers[:-1] = try_fix_n_questions(max_nb_questions, numbers[:-1])
 
-            subquestions = {
-                f"Question {index_sub + 1}": sub
-                for index_sub, sub in enumerate(numbers[:-1])
-            }
-            n_questions[doc_index] = numbers[:-1]
+            # subquestions = {
+            #     f"Question {index_sub + 1}": sub
+            #     for index_sub, sub in enumerate(numbers[:-1])
+            # }
+            # n_questions[doc_index] = numbers[:-1]
 
             exec_time = time.time() - start_time
             
+            subquestions = []
+            numbers = [0]
+            group = ""
             if not db.update_document(
                 job_id,
                 filename,
@@ -630,7 +633,8 @@ def grade_files(
                 doc_status,
                 m,
                 exec_time,
-                group):
+                group
+                ):
                 raise KeyError(f"Document {filename} was not found.")
 
             sio.emit(

@@ -21,8 +21,8 @@
 
                 <!-- Template ID Column -->
                 <ng-container matColumnDef="template_name">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Nom du gabarit </th>
-                    <td mat-cell *matCellDef="let row"> {{row.template_name}} </td>
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Nom des gabarits </th>
+                    <td mat-cell *matCellDef="let row"> {{row.front_template_name}} & {{row.regular_template_name}}</td>
                 </ng-container>
 
                 <!-- Queued Time Column -->
@@ -89,13 +89,13 @@
                 </ng-container>
 
                 <!-- Job Estimation Column -->
-                <ng-container matColumnDef="job_estimation">
+                <!-- <ng-container matColumnDef="job_estimation">
                     <th mat-header-cell *matHeaderCellDef mat-sort-header> Estimation </th>
                     <td mat-cell *matCellDef="let row">
                         <span *ngIf="row.job_status === 'RUN' || row.job_status === 'FINALIZING'">{{row.job_estimation}}
                             sec</span>
                     </td>
-                </ng-container>
+                </ng-container> -->
 
                 <!-- Job Deletion Column -->
                 <ng-container matColumnDef="job_deletion">
