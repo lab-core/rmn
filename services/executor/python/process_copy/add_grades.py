@@ -113,7 +113,7 @@ def process_writing(job_id):
         base_filename = filename.replace('_cover.pdf', '.pdf')
         copyDict = copies_info_dict.get(base_filename)
 
-        input_pdf_path = os.path.join(storage.abs_path(f'cover_pages/{job_id}'), filename)
+        input_pdf_path = os.path.join(storage.abs_path(os.path.join('cover_pages', job_id)), filename)
         numbers = [grade[1] for grade in copyDict]
         total = sum(numbers)
         numbers.append(total)
