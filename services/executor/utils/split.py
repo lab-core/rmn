@@ -254,7 +254,7 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
             # file_path = os.path.join('documents', job_id, question, os.path.basename(pdf_path))
             # storage.copy_from(pdf_path, storage.abs_path(file_path))
             
-            file_name = f"documents/{job_id}/{question}/{os.path.basename(pdf_path)}"
+            file_name = os.path.join('documents', job_id, question, os.path.basename(pdf_path))
             pdf_name = os.path.basename(pdf_path)
             original_pdf_name = re.sub(r'_Q\d+', '', pdf_name)
             doc = db.get_document(job_id, original_pdf_name)
