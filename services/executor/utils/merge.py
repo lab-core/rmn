@@ -1,6 +1,9 @@
 import os
 from PyPDF2 import PdfReader, PdfWriter
 from python.process_copy.database import Database
+from utils.storage import Storage
+
+storage = Storage()
 
 def find_files_with_base_name(base_name, folder_paths, suffix):
     """
@@ -76,12 +79,13 @@ def process_merge(job_id):
     question_indexes = [item[0] for item in n_max_points_per_question]
     question_indexes.sort()
 
-    folder_paths = [f'storage/cover_pages/{job_id}']
+    folder_paths = storage.abs_paths(os.path.join('cover_pages', job_id))
     for question_index in question_indexes:
-        folder_paths.append(f'storage/documents/{job_id}/{question_index}')
+        question_index_path = storage.abs_paths(os.path.join('documents', job_id, str(question_index)))
+        folder_paths.append(question_index_path)
 
     base_names = [os.path.splitext(file_name)[0].rsplit('_', 1)[0] for file_name in os.listdir(folder_paths[0]) if file_name.lower().endswith('.pdf')]
 
-    output_folder = f'storage/corrected_copies/{job_id}'
+    output_folder = storage.abs_path(os.path.join('corrected_copies', job_id))
 
     merge_pdfs_by_base_name(base_names, folder_paths, output_folder)
