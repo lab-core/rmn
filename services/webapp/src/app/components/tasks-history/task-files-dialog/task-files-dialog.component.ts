@@ -89,6 +89,8 @@ export class TaskFilesDialogComponent implements OnInit {
             let typeExport = 'text/csv'
             if (fileType == 'zip_file') {
               typeExport = 'application/zip'
+            } else if (fileType == 'stats_pdf_file') {
+              typeExport = 'application/pdf'
             }
             const file = new Blob([data.body as any], { type: typeExport });
             let downloadURL = window.URL.createObjectURL(file);

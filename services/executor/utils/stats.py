@@ -13,11 +13,12 @@ n_latex_line = latex_line
 latex_line += " \\\\ \\hline"
 
 
-def create_stats_latex(nom, index, n_questions, all_notes, total, boxplots, latex_dir="tex", width_plot_ratio=0.5, tmp_dir="tmp"):
+def create_stats_latex(nom, index, n_questions, all_notes, total, boxplots, latex_dir="tex", width_plot_ratio=0.5, TMP_DIR="tmp"):
     """
     width_plot_ratio = percentage of the width of the page to be used by the boxplot
     """
-    TMP_DIR = makedir_path(tmp_dir)
+    if isinstance(TMP_DIR, str):
+        TMP_DIR = makedir_path(TMP_DIR)
 
     with open(TMP_DIR.joinpath("data.tex"), "w") as f:
         # remove ascents

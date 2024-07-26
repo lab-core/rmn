@@ -752,6 +752,7 @@ def download_file(user_id):
     #
     output_file_mapping_dict = {
         Output_File.NOTES_CSV_FILE: "notes_csv_file_id",
+        Output_File.STATS_PDF_FILE: "stats_file_id",
         Output_File.PREVIEW_FILE: "preview_file_id",
         Output_File.ZIP_FILE: "moodle_zip_id_list",
     }
@@ -768,6 +769,7 @@ def download_file(user_id):
         os.makedirs(TEMP_FOLDER)
 
     # Save file to local
+    print("File to send", file_id)
     filepath = str(TEMP_FOLDER.joinpath(file_id.split(os.sep)[-1]))
     storage.copy_from(file_id, filepath)
     file_send = send_file(filepath)

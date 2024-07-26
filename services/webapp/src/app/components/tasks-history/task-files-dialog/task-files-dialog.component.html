@@ -19,12 +19,20 @@
             </div>
             <button mat-raised-button color="primary" (click)="checkInputBox('notes_csv_file', 0)">Télécharger</button>
         </div>
+        <div class="file-container">
+            <div class="file-logo pdf-logo">
+            </div>
+            <div class="file-input-div">
+                <input type="text" id="stats_pdf_file" value="stats">
+            </div>
+            <button mat-raised-button color="primary" (click)="checkInputBox('stats_pdf_file', 0)">Télécharger</button>
+        </div>
     </div>
     <div class="cancel-container">
         <button mat-raised-button color="warn" (click)="cancel()">Sortir</button>
     </div>
 </div>
 <div id="overlay" *ngIf="this.downloading"></div>
-<mat-spinner *ngIf="this.downloading" color="accent" [diameter]="150" mode="determinate" [value]="this.downloadProgress"></mat-spinner> 
+<mat-spinner *ngIf="this.downloading" color="accent" [diameter]="150" mode="determinate" [value]="this.downloadProgress"></mat-spinner>
 <div id="overlay" *ngIf="this.downloading"></div>
 <div class="files-uploading-steps" *ngIf="this.downloading">Téléchargement du fichier...</div>

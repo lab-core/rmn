@@ -37,7 +37,7 @@ export class NewExamCorrectionComponent implements OnInit {
   selectedRegularTemplate: string = "";
   disabled: boolean = false;
   uploading: boolean = false;
-  statisticsForStudents: boolean = false;
+  statisticsForStudents: boolean = true;
 
   nQuestions: number = 0;
   totalPages: number = 0;
@@ -64,7 +64,7 @@ export class NewExamCorrectionComponent implements OnInit {
     private userService: UserService,
     private notifyService: NotificationService,
     private _formBuilder: FormBuilder
-  ) { 
+  ) {
     this.firstFormGroup = this._formBuilder.group({
       firstCtrl: ['', Validators.required],
     });
@@ -384,7 +384,7 @@ export class NewExamCorrectionComponent implements OnInit {
       await this.convertDownloadableCSV();
       let front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
       let regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
-   
+
       this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate, this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName, front_template_name, regular_template_name, this.statisticsForStudents);
     }
   }

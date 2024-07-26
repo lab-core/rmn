@@ -16,6 +16,7 @@ class Output_File(Enum):
     PREVIEW_FILE = "preview_file"
     NOTES_CSV_FILE = "notes_csv_file"
     ZIP_FILE = "zip_file"
+    STATS_PDF_FILE = "stats_pdf_file"
 
 
 class Client_Type(Enum):

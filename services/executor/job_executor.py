@@ -245,10 +245,11 @@ if __name__ == "__main__":
         OUTPUT_FOLDER = TMP_DIR.joinpath("output")
         EXTRACT_FOLDER = TMP_DIR.joinpath("extract")
         VALIDATE_FOLDER = TMP_DIR.joinpath("validate")
+        TEX_FOLDER = TMP_DIR.joinpath("tex")
 
         stopH = StopHandler(db.eval_jobs_collection(), job_id)
 
-        if job["job_status"] == Job_Status.VALIDATION.value:
+        if job["job_status"] == Job_Status.VALIDATION.value or job["job_status"] == Job_Status.FINALIZING.value:
             # adding grades
             print("Adding grades...")
             process_writing(job_id)
@@ -298,7 +299,7 @@ if __name__ == "__main__":
             eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
             copies_informations = eval_job["copies_informations"]
             n_max_points_per_question = eval_job["n_max_points_per_question"]
-            statistics_for_students = eval_job["statistics_for_students"]
+            statistics_for_students = True  # eval_job["statistics_for_students"]
             print("statistics_for_students", statistics_for_students)
             copies_info_dict = {item[0]: item[1] for item in copies_informations}
             n_max_points_per_question_dict = {item[0]: item[1] for item in n_max_points_per_question}
@@ -344,6 +345,7 @@ if __name__ == "__main__":
             all_notes = np.array(scores)
             score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
             f_boxplots = create_all_boxplots(all_notes)
+            TEX_FOLDER.mkdir(exist_ok=True)
 
             for i, id in enumerate(moodle_zip_id_list):
                 # moodle_i
@@ -441,9 +443,9 @@ if __name__ == "__main__":
                                    
                                     question_index = list(copies_info_dict.keys()).index(filename)
 
-                                    fpdf = create_stats_latex(nom_complet, question_index, n_questions, all_notes, score_total, f_boxplots, tmp_dir=m_folder)
+                                    fpdf = create_stats_latex(nom_complet, question_index, n_questions, all_notes, score_total, f_boxplots, TMP_DIR=TEX_FOLDER)
                                     print("Stats for", nom_complet, "created:", fpdf)
-                                    remove_non_pdfs(m_folder)
+                                    shutil.move(fpdf, m_folder.joinpath("statistiques.pdf"))
 
                         copies_path = all_copies_folder_path
                         if l_group:
@@ -488,10 +490,11 @@ if __name__ == "__main__":
                     storage.remove(id)
 
             # adding stats for professors
-            fpdf = create_stats_latex('Statistiques générales', None, n_questions, all_notes, score_total,
-                                      f_boxplots, tmp_dir=all_copies_folder_path)
+            fpdf = create_stats_latex('Statistiques', None, n_questions, all_notes, score_total,
+                                      f_boxplots, TMP_DIR=TEX_FOLDER)
             print("General stats created:", fpdf)
-            remove_non_pdfs(all_copies_folder_path)
+            stats_file_id = os.path.normpath(f"output_stats{os.sep}{job_id}.pdf")
+            storage.move_to(fpdf, stats_file_id)
 
             # create zip with all copies (gathered by group if enabled)
             shutil.make_archive(
@@ -527,6 +530,7 @@ if __name__ == "__main__":
                     {"job_id": job_id},
                     {"$set": {
                         "notes_csv_file_id": notes_csv_file_id,
+                        "stats_file_id": stats_file_id,
                         "moodle_zip_id_list": zip_id_list
                     }})
 
