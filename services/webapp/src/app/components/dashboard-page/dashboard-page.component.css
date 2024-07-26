@@ -32,14 +32,14 @@ app-main-menu {
   -ms-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
   padding: 20px;
   height: auto;
-  max-height: 90vh; 
+  max-height: 90vh;
   overflow: auto;
   text-align: center;
-  font-size: 1.2em; 
+  font-size: 1.2em;
 }
 
 .task-header {
-  margin-bottom: 20px; 
+  margin-bottom: 20px;
   font-weight: 500;
   cursor: pointer;
 }
@@ -85,12 +85,12 @@ tbody td {
 }
 
 .correct-button {
-  padding: 5px 10px; 
+  padding: 5px 10px;
   border: 1px solid black;
   border-radius: 10px;
   background-color: white;
   cursor: pointer;
-  font-size: 0.75em; 
+  font-size: 0.75em;
   margin-left: 5px;
 }
 
@@ -119,6 +119,7 @@ button:hover {
 }
 
 .validate-job-button {
+  width: fit-content;
   border-radius: 5px;
   height: 80%;
   font-size: 100%;
@@ -136,13 +137,13 @@ button:hover {
   transition: 0.3s;
 }
 
-@media screen and (min-width: 1024px) and (max-width: 1366px) {
+/* @media screen and (min-width: 1024px) and (max-width: 1366px) {
   .validate-job-button {
       width: 20%;
   }
 
   .task-container {
-      width: 80%; 
+      width: 80%;
   }
 }
 
@@ -153,6 +154,6 @@ button:hover {
   }
 
   .task-container {
-      width: 70%; 
+      width: 70%;
   }
-}
+} */

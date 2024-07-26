@@ -6,9 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/job_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/job_executor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/utils/merge.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/merge.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/utils/stats.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/stats.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/server/service/user_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/service/user_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/template-editor/template-editor.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/template-editor/template-editor.component.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
