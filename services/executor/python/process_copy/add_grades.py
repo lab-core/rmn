@@ -81,9 +81,9 @@ def process_writing(job_id):
         None
     """
     box_list, box_matricule_list, regular_box_matricule_list = None, None, None
-    box_grades = (0.8, .95, 0.2, 0.55)
-    shape=(8.5, 11)
-    dpi=300
+    box_grades=(0.8, 0.95, 0.2, 0.55) # default box for grades recognition
+    shape=(8.5, 11) # default shape
+    dpi=300 #default dpi
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
 
     db = Database()
@@ -117,8 +117,6 @@ def process_writing(job_id):
         numbers = [grade[1] for grade in copyDict]
         total = sum(numbers)
         numbers.append(total)
-
-        box_grades=(0.8, 0.95, 0.2, 0.55)
 
         try:
             add_grades(numbers, input_pdf_path, box_grades, add_border=False, shape=shape)
