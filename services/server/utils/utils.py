@@ -2,11 +2,14 @@ from enum import Enum
 
 
 class Job_Status(Enum):
-    QUEUED = "QUEUED"
-    RUN = "RUN"
+    SPLIT = "SPLIT"
+    RETRY = "RETRY"
     CORRECTED = "CORRECTED"
     IGNORED = "IGNORED"
+    QUEUED = "QUEUED"
+    RUN = "RUN"
     VALIDATION = "VALIDATION"
+    VALIDATED = "VALIDATED"
     FINALIZING = "FINALIZING"
     ARCHIVED = "ARCHIVED"
     ERROR = "ERROR"

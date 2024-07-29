@@ -63,7 +63,7 @@ export class TasksHistoryComponent implements OnInit {
     // Assign the data to the data source for the table to render
     this.getTasks();
     this.socketService.join(this.userService.currentUsername)
-    this.socketService.getSocket().on('jobs_status', async (params: any) => {
+    this.socketService.getSocket().on('job_status', async (params: any) => {
       let resp = JSON.parse(params)
       let job_id = resp.job_id;
       let job_status = resp.status;
@@ -71,31 +71,12 @@ export class TasksHistoryComponent implements OnInit {
       this.tasksList.forEach(x => {
         if (x.job_id === job_id) {
           x.job_status = job_status;
-          let status = '';
-          switch (job_status) {
-            case 'QUEUED':
-              status = 'En attente';
-              break;
-            case 'RUN':
-              status = 'En traîtement';
-              break;
-            case 'VALIDATION':
-              status = 'Prêt à la vérification';
-              break;
-            case 'FINALIZING':
-              status = 'Finalisation en cours';
-              break;
-            case 'ARCHIVED':
-              status = 'Archivée';
-              break;
-            case 'ERROR':
-              status = 'Erreur';
+          x.info = this.getTaskInfo(job_status);
+          if (job_status === 'RETRY') {
               let cleanedInfos = resp.job_infos.slice(1, -1).replace(/['",]/g, '');
               x.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
-              this.saveJobInfos(job_id, x.job_infos);
-              break;
           }
-          const message = "Le status de la tâche " + String(job_id) + " a changé à [" + String(status) + "] !";
+          const message = "Le status de la tâche " + x.job_name + " a changé à: " + x.info + " !";
           this.notificationService.showInfo(message, "Alerte!")
         }
       });
@@ -128,7 +109,7 @@ export class TasksHistoryComponent implements OnInit {
 
   ngOnDestroy(): void {
     this.socketService.getSocket().off('document_ready');
-    this.socketService.getSocket().off('jobs_status');
+    this.socketService.getSocket().off('job_status');
     this.socketService.disconnectSocket();
   }
 
@@ -147,7 +128,6 @@ export class TasksHistoryComponent implements OnInit {
     formdata.append('token', this.userService.token);
     this.http.post<any>(`${SERVER_URL}jobs`, formdata).subscribe(
       (data) => {
-        let amountTask = 0;
         this.tasksList = data['response'];
 
         this.tasksList.forEach(x => {
@@ -155,11 +135,13 @@ export class TasksHistoryComponent implements OnInit {
         })
 
         this.tasksList.forEach((task: any) => {
-          if (task.job_status === 'VALIDATION') {
-            amountTask += 1;
+          task.info = this.getTaskInfo(task.job_status);
+          if (task.job_status === 'RETRY') {
+              let cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
+              task.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
           }
         });
-        this.tasksService.setamountTasks(amountTask);
+
         this.tasksList.forEach(x => {
           const formdata: FormData = new FormData();
           formdata.append('token', this.userService.token);
@@ -210,6 +192,34 @@ export class TasksHistoryComponent implements OnInit {
       });
   }
 
+  getTaskInfo(job_status) {
+    switch (job_status) {
+      case 'SPLIT':
+        return 'En préparation';
+      case 'RETRY':
+        return 'Rectifier les pdf';
+      case 'CORRECTED':
+          return 'À nouveau en préparation';
+      case 'IGNORED':
+        return 'Prêt à la correction';
+      case 'QUEUED':
+        return 'Prêt à la correction';
+      case 'RUN':
+        return 'Prêt à la correction et traitement en cours des matricules';
+      case 'VALIDATION':
+        return 'Prêt à la correction et vérification des matricules';
+      case 'VALIDATED':
+        return "En attente d'être finalisé";
+      case 'FINALIZING':
+        return 'Finalisation en cours';
+      case 'ARCHIVED':
+        return 'Archivée';
+      case 'ERROR':
+        return 'Erreur';
+    }
+    return 'Non reconnu: ' + job_status;
+  }
+
   deleteJob(jobId: string): void {
     const formdata: FormData = new FormData();
     formdata.append('user_id', this.userService.currentUsername);
@@ -227,8 +237,8 @@ export class TasksHistoryComponent implements OnInit {
 
   shareJob(jobId: string, jobName: string): void {
     let dialogRef = this.dialog.open(TaskShareDialogComponent, {
-      width: '30%',
-      height: '40%',
+      width: '60%',
+      height: '90%',
       data: {taskId: jobId, taskName: jobName}
     });
     dialogRef.afterClosed().subscribe(async result => {
@@ -241,17 +251,20 @@ export class TasksHistoryComponent implements OnInit {
       });
   }
 
-  retryJob(jobId: string, jobName: string): void {
-    let errorMessages = this.getSavedJobInfos(jobId);
+  retryJob(task: any): void {
     let dialogRef = this.dialog.open(TaskRetryDialogComponent, {
-      width: '50%',
-      height: '50%',
-      data: {taskId: jobId, taskName: jobName, taskMessages: errorMessages }
+      width: '60%',
+      height: '90%',
+      data: {taskId: task.job_id, taskName: task.job_name, taskMessages: task.job_infos }
     });
     dialogRef.afterClosed().subscribe(async result => {
         if (result === false) {
           const message = "Une erreur est intervenue lors de la correction de la tâche !";
           this.notificationService.showError(message, "Erreur!");
+        } else if (result !== "") {
+          task.status = result;
+          task.info = this.getTaskInfo(result);
+          this.getTasks();  // re render
         }
       }, (error) => {
         console.error(error);
@@ -262,7 +275,10 @@ export class TasksHistoryComponent implements OnInit {
     if (task.job_status === 'ARCHIVED') {
       this.openTaskFilesDialog(task.job_id);
     }
-    else if ((task.job_status === 'VALIDATION') && task) {
+    else if (task.job_status === 'IGNORED' ||
+             task.job_status === 'QUEUED' ||
+             task.job_status === 'RUN' ||
+             task.job_status === 'VALIDATION') {
       this.router.navigate(['/dashboard', task.job_id]);
     }
   }
@@ -276,22 +292,13 @@ export class TasksHistoryComponent implements OnInit {
       (data) => {
         let nbZipFile = data['response']
         let dialogRef = this.dialog.open(TaskFilesDialogComponent, {
-          width: '30%',
-          height: '60%',
+          width: '40%',
+          height: '90%',
           data: { taskId: jobId, nbZipFile: nbZipFile }
         })
       }, (error) => {
         console.error(error);
       });
-  }
-
-  saveJobInfos(jobId: string, jobInfos: string[]) {
-    localStorage.setItem(`job_infos_${jobId}`, JSON.stringify(jobInfos));
-  }
-
-  getSavedJobInfos(jobId: string): string[] | null {
-    const savedJobInfos = localStorage.getItem(`job_infos_${jobId}`);
-    return savedJobInfos ? JSON.parse(savedJobInfos) : null;
   }
 
   // decrementTime() {

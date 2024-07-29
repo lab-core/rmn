@@ -47,15 +47,15 @@ export class TaskShareDialogComponent implements OnInit {
     if (this.data.questionIndex) {
       formdata.append('question_index', this.data.questionIndex.toString());
     }
-    
+
     const shareEndpoint = this.data.shareType === 'matricule' ? 'matricule/share' : 'job/share';
-    
+
     this.http.post<any>(`${SERVER_URL}${shareEndpoint}`, formdata).subscribe(
       (data) => {
         let resp = data['response'];
         if (resp.share_url) {
           this.shareUrl = resp.share_url;
-          this.docService.getDocuments(this.data.taskId).then(() => {
+          this.docService.getDocuments(this.data.taskId, false).then(() => {
             this.groupsList = this.docService.groupsList;
             this.group = "";
             this.getUrl();
@@ -77,6 +77,9 @@ export class TaskShareDialogComponent implements OnInit {
     const formdata: FormData = new FormData();
     formdata.append('token', this.userService.token);
     formdata.append('job_id', this.data.taskId);
+    if (this.data.questionIndex) {
+      formdata.append('question_index', this.data.questionIndex.toString());
+    }
     this.http.post<any>(`${SERVER_URL}/job/unshare`, formdata).subscribe(
       (data) => {
         this.close(data['response'] === "OK");

@@ -61,10 +61,6 @@ class Storage:
             self.remove_tree(os.path.join('cover_pages', job_id))
         except Exception as e:
             print(e)
-        try:
-            self.remove_tree(f"temp")
-        except Exception as e:
-            print(e)
         if os.path.exists(os.path.join(self.abs_path('incorrect_files'), job_id)):
             try:
                 self.remove_tree(os.path.join('incorrect_files', job_id))

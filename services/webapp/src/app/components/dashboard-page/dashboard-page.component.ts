@@ -22,14 +22,15 @@ export class DashboardPageComponent {
   taskId: string;
   taskName: string;
   examsList: Array<any> = [];
-  uniqueFileCount: number = 0;
+  questionsDocList: Array<any> = [];
+  examsCount: number = 0;
   questions: { corrected: number, total: number }[] = [];
-  validatedCounts: { [key: string]: number } = {};
   maxQuestionIndex: number;
   averages: number[] = [];
   nMaxPointsPerQuestion: Map<string, number>;
   bonusEnabledMap = new Map<string, boolean>();
   totalCorrectedCopies: number = 0;
+  totalVerifiedMatricules: number = 0;
   totalPoints: number = 0;
   totalCopies: number = 0;
   totalMean: number = 0;
@@ -38,15 +39,15 @@ export class DashboardPageComponent {
 
   constructor(
     private router: Router,
-    private route: ActivatedRoute, 
-    private tasksService: TasksService, 
-    private userService: UserService, 
-    private http: HttpClient, 
+    private route: ActivatedRoute,
+    private tasksService: TasksService,
+    private userService: UserService,
+    private http: HttpClient,
     public dialog: MatDialog,
-    private docService: DocumentsService, 
+    private docService: DocumentsService,
     private notificationService: NotificationService,
     private validationService: ValidationService
-  ) { 
+  ) {
   }
 
   async ngOnInit() {
@@ -54,8 +55,13 @@ export class DashboardPageComponent {
       this.taskId = params['taskId'];
     });
     if (this.taskId) {
+      // fetch informations and documents
       await this.getTask();
       await this.getDocuments(this.taskId);
+      await this.getQuestions(this.taskId);
+      // update metrics
+      this.computeTotals();
+      this.updateQuestions();
     } else {
       this.router.navigate(['/tasks-history']);
     }
@@ -70,7 +76,6 @@ export class DashboardPageComponent {
     this.taskName = this.task.job_name;
     if (this.task['copies_informations'] && this.task['n_max_points_per_question']) {
       this.averages = this.computeAverage();
-      this.computeTotals();
     } else {
       console.error('Missing required task properties: copies_informations or n_max_points_per_question');
     }
@@ -94,61 +99,49 @@ export class DashboardPageComponent {
       const response = await this.http.post<any>(`${SERVER_URL}/documents`, formdata).toPromise();
       if (response && response.response) {
         this.examsList = response.response || [];
-        this.uniqueFileCount = this.getUniqueFilenames(this.examsList).length;
-        this.countValidatedByQuestion();
-        this.updateQuestions();
-        this.computeTotals();
+        this.examsCount = this.examsList.length;
       } else {
         console.error('Invalid response format:', response);
       }
     } catch (error) {
       console.error('Error fetching documents:', error);
     }
-  }  
-
-  getUniqueFilenames(examsList: Array<any>): Array<string> {
-    if (!examsList) {
-      console.error('examsList is undefined');
-      return [];
-    }
-
-    const filenames = examsList.map(doc => doc.filename.replace(/_Q\d+/, '')).filter(filename => !filename.endsWith('_cover.pdf'));
-    return Array.from(new Set(filenames));
   }
 
-  countValidatedByQuestion() {
-    const validatedCounts: { [key: string]: number } = {};
-
-    this.validatedCounts = {};
-
-    this.examsList.forEach(doc => {
-      if (doc.status === 'VALIDATED') {
-        const questionIndexMatch = doc.filename.match(/_Q(\d+)/);
-        if (questionIndexMatch) {
-          const questionIndex = questionIndexMatch[1];
-          if (!validatedCounts[questionIndex]) {
-            validatedCounts[questionIndex] = 0;
-          }
-          validatedCounts[questionIndex]++;
-        }
+  async getQuestions(jobId: string) {
+    try {
+      const formdata: FormData = new FormData();
+      formdata.append('user_id', this.userService.currentUsername);
+      formdata.append('token', this.userService.token);
+      formdata.append('job_id', jobId);
+      formdata.append('questions', "true");
+      const response = await this.http.post<any>(`${SERVER_URL}/documents`, formdata).toPromise();
+      if (response && response.response) {
+        this.questionsDocList = response.response || [];
+      } else {
+        console.error('Invalid response format:', response);
       }
-    });
-
-    this.validatedCounts = validatedCounts;
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    }
   }
 
   updateQuestions() {
+    const validatedCounts: { [key: string]: number } = {};
+    this.questionsDocList.forEach(doc => {
+      if (doc.status === 'VALIDATED') {
+        if (!validatedCounts[doc.question]) {
+          validatedCounts[doc.question] = 0;
+        }
+        validatedCounts[doc.question]++;
+      }
+    });
+
     this.questions = [];
-
-    if (!this.validatedCounts) {
-      this.validatedCounts = {};
-    }
-
     this.task['n_max_points_per_question'].forEach(([question, _]: [string, number]) => {
-      const questionIndex = question.replace('Q', '');
       this.questions.push({
-        corrected: this.validatedCounts[questionIndex] || 0,
-        total: this.uniqueFileCount
+        corrected: validatedCounts[question] || 0,
+        total: this.examsCount
       });
     });
   }
@@ -160,21 +153,28 @@ export class DashboardPageComponent {
     );
     const fullyCorrectedCopies = this.computeFullyCorrectedCopies();
     this.totalCorrectedCopies = fullyCorrectedCopies.length;
-  
+
+    this.totalVerifiedMatricules = 0;
+    this.examsList.forEach((exam: any) => {
+      if (exam["status"] === "VALIDATED") {
+        this.totalVerifiedMatricules += 1;
+      }
+    });
+
     let totalPoints = 0;
     let totalCopies = 0;
     let maxPossiblePoints = 0;
-  
+
     // compute the maximum possible points excluding bonus questions
     this.nMaxPointsPerQuestion.forEach((maxPoints, question) => {
       if (!this.bonusEnabledMap.get(question)) {
         maxPossiblePoints += maxPoints;
       }
     });
-  
+
     fullyCorrectedCopies.forEach(copy => {
       let copyPoints = 0;
-  
+
       this.task['copies_informations'].forEach(([copyId, questions]) => {
         if (copyId === copy) {
           questions.forEach(([question, points]) => {
@@ -182,13 +182,13 @@ export class DashboardPageComponent {
           });
         }
       });
-  
+
       if (maxPossiblePoints > 0) {
         totalPoints += copyPoints;
         totalCopies++;
       }
     });
-  
+
     this.totalPoints = totalPoints;
     this.totalCopies = totalCopies;
     this.totalMean = totalCopies > 0 ? totalPoints / totalCopies : 0;
@@ -198,13 +198,12 @@ export class DashboardPageComponent {
   computeFullyCorrectedCopies(): string[] {
     const correctedCopiesMap: { [filename: string]: number } = {};
 
-    this.examsList.forEach(doc => {
-      const filename = doc.filename.replace(/_Q\d+/, '');
-      if (!correctedCopiesMap[filename]) {
-        correctedCopiesMap[filename] = 0;
+    this.questionsDocList.forEach(doc => {
+      if (!correctedCopiesMap[doc.basename]) {
+        correctedCopiesMap[doc.basename] = 0;
       }
       if (doc.status === 'VALIDATED') {
-        correctedCopiesMap[filename]++;
+        correctedCopiesMap[doc.basename]++;
       }
     });
 
@@ -235,7 +234,7 @@ export class DashboardPageComponent {
     const copiesInformationsArray = this.task['copies_informations'];
 
     const copiesInformations = new Map<string, Map<string, number>>(
-      copiesInformationsArray.map((item: [string, Array<[string, number]>]) => 
+      copiesInformationsArray.map((item: [string, Array<[string, number]>]) =>
         [item[0], new Map<string, number>(item[1].map(innerItem => [innerItem[0], innerItem[1]]))]
       )
     );
@@ -275,9 +274,13 @@ export class DashboardPageComponent {
     return averages;
   }
 
-  correctQuestion(index: number) {
+  correctQuestion(index=undefined) {
     this.tasksService.setvalidatingTaskId(this.task.job_id);
-    this.router.navigate([`/task-validation`, this.taskId, index + 1]);
+    if (index) {
+      this.router.navigate([`/task-validation`, this.taskId, index + 1]);
+    } else {
+      this.router.navigate([`/task-validation`, this.taskId]);
+    }
   }
 
   verifyMatricules() {
@@ -285,11 +288,15 @@ export class DashboardPageComponent {
     this.router.navigate([`/matricule-validation`, this.taskId]);
   }
 
-  shareQuestion(index: number) {
+  shareQuestion(index=undefined) {
+    let data = { taskId: this.taskId, taskName: this.taskName, shareType: 'job' }
+    if (index) {
+      data["questionIndex"] = index + 1;
+    }
     let dialogRef = this.dialog.open(TaskShareDialogComponent, {
       width: '30%',
       height: '40%',
-      data: { taskId: this.taskId, taskName: this.taskName, shareType: 'job', questionIndex: index + 1 }
+      data: data
     });
     dialogRef.afterClosed().subscribe(async result => {
       if (result === false) {
@@ -300,7 +307,7 @@ export class DashboardPageComponent {
       console.error(error);
     });
   }
-  
+
   shareTask() {
     let dialogRef = this.dialog.open(TaskShareDialogComponent, {
       width: '30%',
@@ -318,47 +325,36 @@ export class DashboardPageComponent {
   }
 
   async validateJob() {
-    // workaround to grade all the copies at once
-    const copiesInformations = {'asgqwasvbnrydh.pdf':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'eqghqrafdz.pdf':{'Q1': 8, 'Q2': 8, 'Q3': 8, 'Q4': 8, 'Q5': 8}, 'ghnfdbxfdc.pdf':{'Q1': 3, 'Q2': 5, 'Q3': 1, 'Q4': 2, 'Q5': 4}, 'knm__vqead .pdf':{'Q1': 1, 'Q2': 1, 'Q3': 3, 'Q4': 7, 'Q5': 2}, 'mdh xgvc.pdf':{'Q1': 6, 'Q2': 8, 'Q3': 4, 'Q4': 4, 'Q5': 5}, 'mffytdhgc.pdf':{'Q1': 2, 'Q2': 2, 'Q3': 5, 'Q4': 9, 'Q5': 8}, 'mtodjhisnjrbifs.pdf': {'Q1': 1, 'Q2': 6, 'Q3': 9, 'Q4': 4, 'Q5': 1}, 'wqref bw g.pdf':{'Q1': 7, 'Q2': 7, 'Q3': 8, 'Q4': 6, 'Q5': 7}, 'wvdzcs.pdf':{'Q1': 5, 'Q2': 9, 'Q3': 0, 'Q4': 6, 'Q5': 5}}
-    const formData: FormData = new FormData();
-    this.userService.addTokens(formData);
-    formData.append('job_id', this.task.job_id);
-    const serializedCopiesInformations = JSON.stringify(
-      Object.entries(copiesInformations).map(([key, value]) => [key, Object.entries(value)])
-    );
-    formData.append('copies_informations', serializedCopiesInformations);
+    // // workaround to grade all the copies at once
+    // const copiesInformations = {'asgqwasvbnrydh':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'eqghqrafdz':{'Q1': 8, 'Q2': 8, 'Q3': 8, 'Q4': 8, 'Q5': 8}, 'ghnfdbxfdc':{'Q1': 3, 'Q2': 5, 'Q3': 1, 'Q4': 2, 'Q5': 4}, 'knm__vqead ':{'Q1': 1, 'Q2': 1, 'Q3': 3, 'Q4': 7, 'Q5': 2}, 'mdh xgvc.pdf':{'Q1': 6, 'Q2': 8, 'Q3': 4, 'Q4': 4, 'Q5': 5}, 'mffytdhgc':{'Q1': 2, 'Q2': 2, 'Q3': 5, 'Q4': 9, 'Q5': 8}, 'mtodjhisnjrbifs': {'Q1': 1, 'Q2': 6, 'Q3': 9, 'Q4': 4, 'Q5': 1}, 'wqref bw g':{'Q1': 7, 'Q2': 7, 'Q3': 8, 'Q4': 6, 'Q5': 7}, 'wvdzcs':{'Q1': 5, 'Q2': 9, 'Q3': 0, 'Q4': 6, 'Q5': 5}}
+    // const formData: FormData = new FormData();
+    // this.userService.addTokens(formData);
+    // formData.append('job_id', this.task.job_id);
+    // const serializedCopiesInformations = JSON.stringify(
+    //   Object.entries(copiesInformations).map(([key, value]) => [key, Object.entries(value)])
+    // );
+    // formData.append('copies_informations', serializedCopiesInformations);
+    //
+    // let response;
+    // try {
+    //     const promise = await this.http.post<any>(`${SERVER_URL}documents/grade_all`, formData).toPromise();
+    //     response = promise['response'];
+    //     console.log(response);
+    // } catch (error) {
+    //     console.error(error);
+    // }
+    //
+    // // workaround to validate all the copies at once
+    // this.examsList.forEach((exam: any) => {
+    //   if (exam["status"] === "TO VALIDATE") {
+    //     exam["status"] = "VALIDATED";
+    //   }
+    // });
 
-    let response;
-    try {
-        const promise = await this.http.post<any>(`${SERVER_URL}documents/grade_all`, formData).toPromise();
-        response = promise['response'];
-        console.log(response);
-    } catch (error) {
-        console.error(error);
-    }
-
-    // workaround to validate all the copies at once
-    this.examsList.forEach((exam: any) => {
-      if (exam["status"] === "TO VALIDATE") {
-        exam["status"] = "VALIDATED";
-      }
-    });
-    
-    let uncheckedcopy = 0;
-    let uncheckedMatricules = 0;
-    this.examsList.forEach((exam: any) => {
-      if (exam["status"] === "TO VALIDATE") {
-        uncheckedcopy += 1;
-      }
-      if (exam["filename"].includes("_cover.pdf") && exam["status"] === "TO VALIDATE") {
-        uncheckedMatricules += 1;
-      }
-    });
-
-    if (uncheckedMatricules > 0) {
-      this.notificationService.showError("Veuillez valider les matricules avant de valider la tâche!", "Erreur!");
-    } else if (uncheckedcopy > 0) {
-      this.notificationService.showError("Veuillez valider toutes les copies avant de valider la tâche!", "Erreur!");
+    if (this.totalVerifiedMatricules < this.examsCount) {
+      this.notificationService.showError("Veuillez vérifier tous les matricules avant de valider la tâche!", "Erreur!");
+    } else if (this.totalCorrectedCopies < this.examsCount) {
+      this.notificationService.showError("Veuillez corriger toutes les copies avant de valider la tâche!", "Erreur!");
     } else {
       this.validating = true;
       this.tasksService.setvalidatingTaskId(this.task.job_id);

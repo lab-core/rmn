@@ -173,8 +173,13 @@ def run_args(args):
 
     if args.find:
         print('Find the matricule for the pdf files in %s' % args.path)
-        from process_copy.recognize import find_matricules
-        find_matricules(args.path, matricule_box[args.find], args.grades)
+        from process_copy.recognize import process_all, find_matricules, find_all_matricules
+        # find_all_matricules(args.path, matricule_box[args.find], args.grades)
+        try:
+            process_all(args.path, args.grades, matricule_box[args.find], grade_box[args.find],
+                        args.job_id, args.user_id, find_matricules)
+        except KeyError:
+            raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
 
     if args.import_files:
         print('Import the pdf files from %s to %s' % (args.mpath, args.path))
@@ -187,12 +192,13 @@ def run_args(args):
 
     if args.grade:
         print('Find the grade for the pdf files in %s' % args.path)
-        from process_copy.recognize import grade_all, compare_all
+        from process_copy.recognize import process_all, compare_all, grade_files
         try:
             if args.compare:
                 compare_all(args.path, args.grades, grade_box[args.grade])
             else:
-                grade_all(args.path, args.grades, matricule_box["exam"], grade_box["exam"], args.job_id, args.user_id)
+                process_all(args.path, args.grades, matricule_box[args.grade], grade_box[args.grade],
+                            args.job_id, args.user_id, grade_files)
         except KeyError:
             raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
 

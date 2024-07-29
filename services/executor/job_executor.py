@@ -10,7 +10,7 @@ import numpy as np, cv2
 import img2pdf
 from pdf2image import convert_from_path
 from pathlib import Path
-
+import copy
 
 from python.process_copy.parser import parse_run_args, grade_box, matricule_box
 from python.process_copy.recognize import get_date, write_box_contours, imwrite_png
@@ -23,7 +23,7 @@ from utils.merge import process_merge
 from utils.utils import Job_Status, Document_Status
 from utils.storage import Storage
 from utils.stop_handler import StopHandler
-from utils.clients import redis_client, socketio_client
+from utils.clients import redis_client, socketio_client, update_status
 from zipfile import ZipFile
 from utils.split import insert_copies
 
@@ -57,7 +57,7 @@ def save_number_images(storage, job_id, document_index, questions):
         print(e)
 
 
-def check_for_idle_jobs_to_requeue(db, sio):
+def check_for_idle_jobs_to_requeue(db):
     alive_times = {}
     collection_check = db.get_collection("check")
     try:
@@ -85,33 +85,8 @@ def check_for_idle_jobs_to_requeue(db, sio):
                     # Set Job status from IGNORED to VALIDATION
                     job_id = job["job_id"]
                     user_id = job["user_id"]
-                    db.eval_jobs_collection().update_one(
-                        {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value}}
-                    )
 
-                    sio.emit(
-                        "jobs_status",
-                        json.dumps(
-                            {
-                                "job_id": job_id,
-                                "status": Job_Status.VALIDATION.value,
-                                "user_id": user_id,
-                            }
-                        ),
-                    )
-                    print(
-                        f"Ignoring incorrect files and setting job status of job ${job_id} from IGNORED to VALIDATION")
-
-                job = db.eval_jobs_collection().find_one({
-                    "job_status": Job_Status.CORRECTED.value,
-                })
-                if job:
-                    job_id = job["job_id"]
-                    # restart process
-                    WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{job_id}")
-                    WORK_TMP_DIR.mkdir(exist_ok=True)
-                    print(f"Restarting process...")
-                    process(job, WORK_TMP_DIR)
+                    update_status(user_id, job_id, Job_Status.VALIDATION)
 
                 # requeue old idle jobs
                 old_idle_jobs = False
@@ -147,6 +122,7 @@ def check_for_idle_jobs_to_requeue(db, sio):
                     job_id = j["job_id"]
                     alive_t = alive_times.get(job_id, dt.datetime.now(dt.UTC))
                     # check if alive_time has increased, and thus job is alived
+                    j["alive_time"] = j["alive_time"].replace(tzinfo=dt.UTC)
                     if j["alive_time"] > alive_t:
                         all_jobs_idle = False
                         break
@@ -167,9 +143,6 @@ if __name__ == "__main__":
     # Connect to Mongo
     print("Setting up MongoClient...")
     db = Database()
-
-    # Create SocketIO connection
-    sio = socketio_client()
 
     # create redis connection
     redis = redis_client()
@@ -222,6 +195,7 @@ if __name__ == "__main__":
             print(f"An error occurred: {e}")
             raise
 
+        sio = socketio_client()
         sio.emit(
             "template_rendered",
             json.dumps(
@@ -231,6 +205,7 @@ if __name__ == "__main__":
                 }
             ),
         )
+        sio.disconnect()
 
 
     def process(p_job, TMP_DIR):
@@ -249,24 +224,25 @@ if __name__ == "__main__":
 
         stopH = StopHandler(db.eval_jobs_collection(), job_id)
 
-        if job["job_status"] == Job_Status.VALIDATION.value or job["job_status"] == Job_Status.FINALIZING.value:
-            # adding grades
-            print("Adding grades...")
-            process_writing(job_id)
+        if job["job_status"] == Job_Status.VALIDATED.value or job["job_status"] == Job_Status.FINALIZING.value:
+            # Set Job status to FINALIZING
+            if job["job_status"] != Job_Status.FINALIZING.value:
+                update_status(user_id, job_id, Job_Status.FINALIZING)
 
-            # merging copies
-            print("Merging copies...")
-            process_merge(job_id)
+            if os.path.exists(storage.abs_path(os.path.join("documents", job_id))):
+                # adding grades
+                print("Adding grades...")
+                process_writing(job_id, TMP_DIR)
 
-            #cleaning storage
-            print("Cleaning storage...")
-            storage.clean_storage(job_id)     
+                # merging copies
+                print("Merging copies...")
+                process_merge(job_id)
 
-            # Set Job status to VALIDATION
-            db.eval_jobs_collection().update_one(
-                {"job_id": job_id},
-                {"$set": {"job_status": Job_Status.FINALIZING.value}}
-            )
+                # cleaning storage
+                print("Cleaning storage...")
+                storage.clean_storage(job_id)
+            else:
+                print("Merging already performed")
 
             #
             user = db.users_collection().find_one({"username": user_id})
@@ -303,28 +279,31 @@ if __name__ == "__main__":
             eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
             copies_informations = eval_job["copies_informations"]
             n_max_points_per_question = eval_job["n_max_points_per_question"]
-            statistics_for_students = True  # eval_job["statistics_for_students"]
+            statistics_for_students = eval_job["statistics_for_students"]
             print("statistics_for_students", statistics_for_students)
             copies_info_dict = {item[0]: item[1] for item in copies_informations}
-            n_max_points_per_question_dict = {item[0]: item[1] for item in n_max_points_per_question}
+            n_questions = len(n_max_points_per_question)
+            n_max_points_per_question = [q[1] for q in sorted(n_max_points_per_question)]
+            question_bonus = [q[1] for q in sorted(eval_job["bonus_enabled_map"])]
+            question_totals = copy.copy(n_max_points_per_question)
+            question_totals.append(sum(s for i, s in enumerate(n_max_points_per_question) if not question_bonus[i]))
 
             print(f"Col: {df.columns}")
             date = get_date()
 
-            print("docs", docs)
-            for document_index, doc in enumerate(docs):
-                if doc["filename"].endswith('_cover.pdf'):
-                    mat = str(doc["matricule"])
-                    print("mat", mat)
-                    if mat in df.index.values:
-                        filename_base = doc["filename"].replace('_cover.pdf', '.pdf')  
-                        print("filename_base", filename_base)
-                        if filename_base in copies_info_dict:
-                            scores = copies_info_dict[filename_base]
-                            total_score = sum(sublist[1] for sublist in scores)
-                            print("TOTAL SCORE FOR ", filename_base, ":", total_score)
-                            df.loc[mat, MF.grade] = total_score
-                            df.loc[mat, MF.mdate] = date
+            # print("docs", docs)
+            for doc in docs:
+                mat = str(doc["matricule"])
+                print("mat", mat)
+                if mat in df.index.values:
+                    if doc["filename"] in copies_info_dict:
+                        scores = copies_info_dict[doc["filename"]]
+                        for s in scores:
+                            df.loc[mat, s[0]] = s[1]
+                        total_score = sum(sublist[1] for sublist in scores)
+                        print("TOTAL SCORE FOR ", doc["filename"], ":", total_score)
+                        df.loc[mat, MF.grade] = total_score
+                        df.loc[mat, MF.mdate] = date
 
             df.to_csv(csv_file_path, mode="w+")
 
@@ -344,11 +323,14 @@ if __name__ == "__main__":
             print("All folder:", str(all_copies_folder_path))
 
             # create box plots
-            n_questions = len(n_max_points_per_question_dict)
-            scores = [[grade[i][1] for grade in copies_info_dict.values()] for i in range(n_questions)]
+            filenames = []
+            scores = [[] for i in range(n_questions)]
+            for filename, grade in copies_info_dict.items():
+                filenames.append(filename)
+                for i in range(n_questions):
+                    scores[i].append(grade[i][1])
             all_notes = np.array(scores)
-            score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
-            f_boxplots = create_all_boxplots(all_notes)
+            f_boxplots = create_all_boxplots(all_notes, str(TMP_DIR))
             TEX_FOLDER.mkdir(exist_ok=True)
 
             for i, id in enumerate(moodle_zip_id_list):
@@ -383,15 +365,14 @@ if __name__ == "__main__":
                         ):
                             continue
 
-                        doc = db.documents_collection().find_one({"job_id": job_id, "filename": str(f)})
+                        filename = str(f).rsplit('.', 1)[0]
+                        doc = db.documents_collection().find_one({"job_id": job_id, "filename": filename})
 
                         if doc is None:
                             continue
 
-                        doc_idx = doc["document_index"]
-
-                        start_time = time.time()
-
+                        # doc_idx = doc["document_index"]
+                        # start_time = time.time()
                         # if save_verified_images:
                         #     save_number_images(
                         #         storage, job_id, doc_idx - 1, doc["subquestion_predictions"]
@@ -435,19 +416,17 @@ if __name__ == "__main__":
                                 shutil.copy(str(file), str(m_dest))
 
                                 # adding stats file
-                                filename = os.path.basename(file)
+                                filename = os.path.basename(file).rsplit(".", 1)[0]
                                 if filename in copies_info_dict and statistics_for_students:
                                     print("copies_info_dict", copies_info_dict)
-                                    print("n_max_points_per_question_dict", n_max_points_per_question_dict)
+                                    print("n_max_points_per_question", n_max_points_per_question)
                                     # ex of scores = [[1,1,1,1,1], [2,2,2,2,2], [3,3,3,3,3], [4,4,4,4,4], [5,5,5,5,5]]
                                     # ex of copies_info_dict = [["filename.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]], ["filename2.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]]]
                                     # ex of n_max_points_per_question_dict = [['Q1', 9], ['Q2', 9], ['Q3', 9], ['Q4', 9], ['Q5', 9]]
 
-                                    score_total = sum(int(max_points[1]) for max_points in n_max_points_per_question_dict)
-                                   
-                                    question_index = list(copies_info_dict.keys()).index(filename)
-
-                                    fpdf = create_stats_latex(nom_complet, question_index, n_questions, all_notes, score_total, f_boxplots, TMP_DIR=TEX_FOLDER)
+                                    question_index = filenames.index(filename)
+                                    fpdf = create_stats_latex(nom_complet, question_index, n_questions,
+                                                              all_notes, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER)
                                     print("Stats for", nom_complet, "created:", fpdf)
                                     shutil.move(fpdf, m_folder.joinpath("statistiques.pdf"))
 
@@ -459,23 +438,7 @@ if __name__ == "__main__":
                         dest = copies_path.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
                         shutil.move(str(file), str(dest))
 
-                        exec_time = time.time() - start_time
                         counter += 1
-
-                        db.documents_collection().update_one(
-                            {
-                                "job_id": job_id,
-                                "document_index": doc_idx,
-                                "status": Document_Status.VALIDATED.value,
-                            },
-                            {
-                                "$set": {
-                                    "document_index": counter,
-                                    "execution_time": exec_time,
-                                    "status": Document_Status.READY.value,
-                                }
-                            },
-                        )
                 
                 # make moodle.zip
                 if moodle_ind:
@@ -494,7 +457,7 @@ if __name__ == "__main__":
                     storage.remove(id)
 
             # adding stats for professors
-            fpdf = create_stats_latex('Statistiques', None, n_questions, all_notes, score_total,
+            fpdf = create_stats_latex('Statistiques', None, n_questions, all_notes, question_totals,
                                       f_boxplots, TMP_DIR=TEX_FOLDER)
             print("General stats created:", fpdf)
             stats_file_id = os.path.normpath(f"output_stats{os.sep}{job_id}.pdf")
@@ -539,26 +502,8 @@ if __name__ == "__main__":
                     }})
 
                 #
-                db.eval_jobs_collection().update_one(
-                    {"job_id": job_id},
-                    {
-                        "$set": {
-                            "job_status": Job_Status.ARCHIVED.value,
-                            "notes_file_id": notes_csv_file_id,
-                        }
-                    },
-                )
+                update_status(user_id, job_id, Job_Status.ARCHIVED, db_infos={"notes_file_id": notes_csv_file_id})
 
-                sio.emit(
-                    "jobs_status",
-                    json.dumps(
-                        {
-                            "job_id": job_id,
-                            "status": Job_Status.ARCHIVED.value,
-                            "user_id": user_id,
-                        }
-                    ),
-                )
             except Exception as e:
                 print("Error while moving file to storage")
                 db.eval_jobs_collection().update_one(
@@ -585,12 +530,14 @@ if __name__ == "__main__":
 
             try:
                 storage.remove_tree(os.path.normpath(f"documents{os.sep}{job_id}"))
+                storage.remove_tree(os.path.normpath(f"corrected_copies{os.sep}{job_id}"))
             except:
                 pass
 
+            db.questions_collection().delete_many({"job_id": job_id})
             db.documents_collection().delete_many({"job_id": job_id})
 
-        elif job["job_status"] == Job_Status.QUEUED.value or job["job_status"] == Job_Status.CORRECTED.value:
+        elif job["job_status"] == Job_Status.QUEUED.value or job["job_status"] == Job_Status.IGNORED.value:
             # make directories
             MOODLE_FOLDER.mkdir(exist_ok=True)
             OUTPUT_FOLDER.mkdir(exist_ok=True)
@@ -624,21 +571,21 @@ if __name__ == "__main__":
                 zip_ref.extractall(EXTRACT_FOLDER)
 
             # fetch the user-defined boxes
-            box_list, box_matricule_list, regular_box_matricule_list = \
+            box_grade_list, box_matricule_list, regular_box_matricule_list = \
                 db.get_templates_info(job_params["front_template_id"],
                                       job_params["regular_template_id"])
             if regular_box_matricule_list is not None:
                 matricule_box['exam']['regular'] = tuple([round(x, 2) for x in regular_box_matricule_list])
             if box_matricule_list is not None:
                 matricule_box['exam']['front'] = tuple([round(x, 2) for x in box_matricule_list])
-            if box_list is not None:
-                grade_box['exam']['grade'] = tuple([round(x, 2) for x in box_list])
+            if box_grade_list is not None:
+                grade_box['exam']['grade'] = tuple([round(x, 2) for x in box_grade_list])
 
             args = [
                 str(EXTRACT_FOLDER),
                 "-m",
                 str(MOODLE_FOLDER),
-                "-g",
+                "-f",
                 "exam",
                 "--grades",
                 str(OUTPUT_FOLDER.joinpath("notes.csv")),
@@ -670,21 +617,7 @@ if __name__ == "__main__":
                     raise e
 
                 # Error handling
-                db.eval_jobs_collection().update_one(
-                    {"job_id": job_id},
-                    {"$set": {"job_status": Job_Status.ERROR.value}}
-                )
-
-                sio.emit(
-                    "jobs_status",
-                    json.dumps(
-                        {
-                            "job_id": job_id,
-                            "user_id": user_id,
-                            "status": Job_Status.ERROR.value,
-                        }
-                    ),
-                )
+                update_status(user_id, job_id, Job_Status.ERROR)
 
                 storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
                 storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
@@ -696,88 +629,55 @@ if __name__ == "__main__":
             notes_csv_file_id = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
             storage.move_to(os.path.join(OUTPUT_FOLDER, "notes.csv"), notes_csv_file_id)
 
-            if job["job_status"] == Job_Status.QUEUED.value:
-                moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}.zip")
-                storage.move_to(MOODLE_ZIP, moodle_zip_file_id)
+            moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}.zip")
+            storage.move_to(MOODLE_ZIP, moodle_zip_file_id)
 
-                moodle_zip_id_list = [moodle_zip_file_id]
-                i = 1
-                for file_path in TMP_DIR.glob("moodle*.zip"):
-                    moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_{i}.zip")
-                    storage.move_to(str(file_path), moodle_zip_file_id)
-                    moodle_zip_id_list.append(moodle_zip_file_id)
-                    i = i + 1
+            moodle_zip_id_list = [moodle_zip_file_id]
+            i = 1
+            for file_path in TMP_DIR.glob("moodle*.zip"):
+                moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_{i}.zip")
+                storage.move_to(str(file_path), moodle_zip_file_id)
+                moodle_zip_id_list.append(moodle_zip_file_id)
+                i = i + 1
 
+            # finalize job
+            db.jobs_output_collection().insert_one(
+                {
+                    "job_id": job_id,
+                    "user_id": user_id,
+                    "notes_csv_file_id": notes_csv_file_id,
+                    "preview_file_id": "None",
+                    "moodle_zip_id_list": moodle_zip_id_list,
+                }
+            )
+
+            # Set Job status to VALIDATION
+            update_status(user_id, job_id, Job_Status.VALIDATION, sio_infos={"job_infos": "Validation matricule prête"})
+
+        elif job["job_status"] == Job_Status.SPLIT.value or job["job_status"] == Job_Status.CORRECTED.value:
+            job_params = db.eval_jobs_collection().find_one({"job_id": job_id})
             n_pages_per_question = {key: value for key, value in job_params["n_pages_per_question"]}
 
             try:
-                insert_copies('output_zip', job_id, n_pages_per_question)
+                insert_copies('zips', job_id, n_pages_per_question, TMP_DIR)
                 print("Copies inserted in database")
 
-                if job["job_status"] == Job_Status.QUEUED.value:
-                    db.jobs_output_collection().insert_one(
-                        {
-                            "job_id": job_id,
-                            "user_id": user_id,
-                            "notes_csv_file_id": notes_csv_file_id,
-                            "preview_file_id": "None",
-                            "moodle_zip_id_list": moodle_zip_id_list,
-                        }
-                    )
+                # Set Job status to QUEUED as no error have been raised. Process can continue
+                update_status(user_id, job_id, Job_Status.QUEUED)
 
-                # Set Job status to VALIDATION
-                db.eval_jobs_collection().update_one(
-                    {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value,
-                                                   "job_infos": "Tâche prête"}}
-                )
-
-                sio.emit(
-                    "jobs_status",
-                    json.dumps(
-                        {
-                            "job_id": job_id,
-                            "status": Job_Status.VALIDATION.value,
-                            "user_id": user_id,
-                            "job_infos": "Tâche prête"
-                        }
-                    ),
-                )
-
-            except Exception as e:
+                # push the job to the queue to be continued
+                redis.rpush("job_queue", json.dumps({"job_id": job_id}))
+            except ValueError as e:
                 error_messages = str(e)
                 print(e)
-                print("Copies inserted in database")
-                db.jobs_output_collection().insert_one(
-                    {
-                        "job_id": job_id,
-                        "user_id": user_id,
-                        "notes_csv_file_id": notes_csv_file_id,
-                        "preview_file_id": "None",
-                        "moodle_zip_id_list": moodle_zip_id_list,
-                    }
-                )
+                # Set Job status to RETRY
+                update_status(user_id, job_id, Job_Status.RETRY, infos={"job_infos": error_messages})
 
+            except Exception as e:
+                print(e)
                 # Set Job status to ERROR
-                db.eval_jobs_collection().update_one(
-                    {"job_id": job_id},
-                    {"$set": {"job_status": Job_Status.ERROR.value,
-                              "job_infos": error_messages}}
-                )
+                update_status(user_id, job_id, Job_Status.ERROR)
 
-                sio.emit(
-                    "jobs_status",
-                    json.dumps(
-                        {
-                            "job_id": job_id,
-                            "user_id": user_id,
-                            "status": Job_Status.ERROR.value,
-                            "job_infos": error_messages
-                        }
-                    ),
-                )
-
-            # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-            # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
         else:
             print("Job status "+job["job_status"]+" not handled.")
 
@@ -811,11 +711,10 @@ if __name__ == "__main__":
             shutil.rmtree(WORK_TMP_DIR)
 
         # check if any job is idle and dangling
-        check_for_idle_jobs_to_requeue(db, sio)
+        check_for_idle_jobs_to_requeue(db)
 
     except Exception as e:
         print(e)
     finally:
         db.close()
-        sio.disconnect()
     print("Job end.")

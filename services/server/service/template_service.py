@@ -68,8 +68,7 @@ class TemplateService():
             with open(file_name, 'wb') as f:
                 output.write(f)
             # move pdf to storage
-            path_on_cloud = 'template/'
-            template_file_id = f'{path_on_cloud}{template_id}.pdf'
+            template_file_id = os.path.join("template", f'{template_id}.pdf')
             storage.move_to(file_name, template_file_id)
 
         except Exception as e:

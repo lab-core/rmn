@@ -22,6 +22,9 @@ class Database:
     def documents_collection(self):
         return self.get_collection("job_documents")
 
+    def questions_collection(self):
+        return self.get_collection("job_questions")
+
     def eval_jobs_collection(self):
         return self.get_collection("eval_jobs")
 
@@ -31,13 +34,37 @@ class Database:
     def users_collection(self):
         return self.get_collection("users")
 
+    def insert_question(
+        self,
+        job_id,
+        doc_index,
+        rel_filepath,
+        status,
+        filename,
+        question,
+        basename,
+        grade=None
+    ):
+        return self.questions_collection().insert_one(
+            {
+                "job_id": job_id,
+                "document_index": doc_index,
+                "rel_filepath": rel_filepath,
+                "status": status.value,
+                "filename": filename,
+                "question": question,
+                "basename": basename,
+                "grade": grade
+            }
+        )
+
     def insert_document(
         self,
         job_id,
         doc_index,
         subquestion_pred,
         total,
-        image_id,
+        rel_filepath,
         status,
         matricule,
         time,
@@ -50,7 +77,7 @@ class Database:
                 "matricule": str(matricule),
                 "subquestion_predictions": subquestion_pred,
                 "total": total,
-                "image_id": image_id,
+                "rel_filepath": rel_filepath,
                 "status": status.value,
                 "execution_time": time,
                 "filename": filename,
@@ -68,7 +95,6 @@ class Database:
         doc_index,
         subquestion_pred,
         total,
-        # image_id,
         status,
         matricule,
         time,
@@ -76,19 +102,20 @@ class Database:
     ):
         try:
             # return updated doc
+            set = {
+                "matricule": str(matricule),
+                "status": status.value,
+                "execution_time": time,
+            }
+            if subquestion_pred is not None:
+                set["subquestion_predictions"] = subquestion_pred
+            if total is not None:
+                set["total"] = total
+            if group is not None:
+                set["group"] = group
             return self.documents_collection().update_one(
                 {"job_id": job_id, "document_index": doc_index},
-                {
-                    "$set": {
-                        "matricule": str(matricule),
-                        "subquestion_predictions": subquestion_pred,
-                        "total": total,
-                        # "image_id": image_id,
-                        "status": status.value,
-                        "execution_time": time,
-                        "group": group
-                    }
-                },
+                {"$set": set},
             ).matched_count > 0
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -154,19 +181,17 @@ class Database:
 
         shutil.rmtree(os.path.join("numbers"))
 
-    def get_templates_info(self, front_template_id, regular_template_id):
+    def get_templates_info(self, front_template_id, regular_template_id=None):
         front_template = self.mongo_database["template"].find_one(
             {"template_id": front_template_id}
         )
-       
         front_template_matricule_box = front_template.get("matricule_box", None)
         front_template_grade_box = front_template.get("grade_box", None)
 
         regular_template = self.mongo_database["template"].find_one(
             {"template_id": regular_template_id}
         )
-     
-        regular_template_matricule_box = regular_template.get("matricule_box", None)
+        regular_template_matricule_box = regular_template.get("matricule_box", None) if regular_template else None
 
         return front_template_grade_box, front_template_matricule_box, regular_template_matricule_box
 

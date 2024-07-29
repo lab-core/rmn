@@ -36,10 +36,10 @@ def handle_message(data):
     print(f"Received data: {data} to room : {job_id}")
 
 
-@socketio.on("jobs_status")
+@socketio.on("job_status")
 def handle_job_status_change(data):
     user_id = json.loads(data)["user_id"]
-    emit("jobs_status", data, room=user_id)
+    emit("job_status", data, room=user_id)
     print(f"Received data: {data} to room : {user_id}")
 
 @socketio.on("template_rendered")

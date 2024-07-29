@@ -9,9 +9,12 @@ from python.process_copy.database import Database
 from utils.storage import Storage
 from utils.utils import Document_Status
 from collections import OrderedDict
+from werkzeug.utils import secure_filename
+
 
 storage = Storage()
-CURRENT_START_PAGE = 2 # start_page
+CURRENT_START_PAGE = 2  # start_page
+
 
 def calculate_total_expected_pages(n_pages_per_question):
     """
@@ -25,6 +28,7 @@ def calculate_total_expected_pages(n_pages_per_question):
 
     """
     return sum(n_pages_per_question.values()) + CURRENT_START_PAGE - 1
+
 
 def calculate_pages(pages_per_question):
     """
@@ -49,39 +53,58 @@ def calculate_pages(pages_per_question):
         current_start_page = end_page + 1
     return results
 
-def verify_n_pages(n_pages_per_question, input_pdfs, job_id):
+
+def verify_names_and_n_pages(n_pages_per_question, input_pdfs, job_id):
     """
     Verifies the number of pages in each input PDF file.
 
     Args:
-        n_pages_per_question (int): The expected number of pages per question.
+        n_pages_per_question (dict): The expected number of pages per question.
         input_pdfs (list): A list of input PDF file paths.
         job_id (str): The ID of the job.
 
     Returns:
-        tuple: A tuple containing a boolean value indicating whether the verification is valid,
+        couple: A couple containing the list of the new pdfs renamed,
                and a list of error messages if any.
 
     """
-    is_valid = True
     error_messages = []
     total_expected_pages = calculate_total_expected_pages(n_pages_per_question)
+    names = set()
+    new_input_pdfs = []
 
     for input_pdf in input_pdfs:
-        with open(input_pdf, 'rb') as f:
+        # check if name exists, and find a new one in this case
+        file_name = os.path.basename(input_pdf)
+        fname = sfile_name = secure_filename(file_name)
+        i = 0
+        while fname in names:
+            fname = sfile_name.rsplit('.', 1)[0] + "-%d.pdf" % i
+            i += 1
+
+        # add the name, and update the name if needed
+        names.add(fname)
+        if fname == file_name:
+            new_input = input_pdf
+        else:
+            new_input = os.path.join(os.path.dirname(input_pdf), fname)
+            shutil.move(input_pdf, new_input)
+
+        with open(new_input, 'rb') as f:
             reader = PdfReader(f)
             total_pages = len(reader.pages)
 
             if total_pages != total_expected_pages:
-                is_valid = False
-                file_name = os.path.basename(input_pdf)
-                error_messages.append(f"Erreur : {file_name} a {total_pages} page(s).")
-                file_path = os.path.join('incorrect_files', job_id, file_name)
-                storage.copy_from(input_pdf, storage.abs_path(file_path))
-    
-    return is_valid, error_messages
+                error_messages.append(f"Erreur: {fname} a {total_pages} page(s).")
+                file_path = os.path.join('incorrect_files', job_id, fname)
+                storage.move_to(new_input, file_path)
+            else:
+                new_input_pdfs.append(new_input)
 
-def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
+    return new_input_pdfs, error_messages
+
+
+def split_and_save(n_pages_per_question, input_pdfs, job_id):
     """
     Splits the input PDFs into separate question PDFs and saves them in the output folder.
     Also saves the first page of each input PDF as a cover page.
@@ -89,27 +112,25 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
     Args:
         n_pages_per_question (dict): A dictionary mapping question names to the number of pages per question.
         input_pdfs (list): A list of input PDF file paths.
-        output_folder (str): The path to the output folder where the split PDFs will be saved.
         job_id (str): The ID of the job.
 
     Returns:
-        tuple: A tuple containing the following:
+        couple: A couple containing the following:
             - generated_pdfs_per_question (dict): A dictionary mapping question names to the generated PDF file paths.
-            - is_valid (bool): A flag indicating whether the input PDFs are valid.
             - error_messages (list): A list of error messages if the input PDFs are invalid.
     """
-    is_valid, error_messages = verify_n_pages(n_pages_per_question, input_pdfs, job_id)
+    input_pdfs, error_messages = verify_names_and_n_pages(n_pages_per_question, input_pdfs, job_id)
     total_expected_pages = calculate_total_expected_pages(n_pages_per_question)
     generated_pdfs_per_question = {question: [] for question in n_pages_per_question.keys()}
 
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+    output_folder = storage.abs_path(os.path.join("documents", job_id))
+    os.makedirs(output_folder, exist_ok=True)
 
-    base_cover_page_path = os.path.dirname(os.path.dirname(output_folder))
-    cover_page_folder = os.path.join(base_cover_page_path, "cover_pages", job_id)
-    if not os.path.exists(cover_page_folder):
-        os.makedirs(cover_page_folder)
+    cover_page_folder = storage.abs_path(os.path.join("cover_pages", job_id))
+    os.makedirs(cover_page_folder, exist_ok=True)
 
+    db = Database()
+    document_index = 0
     for input_pdf in input_pdfs:
         with open(input_pdf, 'rb') as f:
             reader = PdfReader(f)
@@ -124,8 +145,7 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
                             writer.add_page(reader.pages[page_index])
 
                     question_folder = os.path.join(output_folder, question)
-                    if not os.path.exists(question_folder):
-                        os.makedirs(question_folder)
+                    os.makedirs(question_folder, exist_ok=True)
                     output_path = os.path.join(question_folder, f"{base_filename}_{question}.pdf")
                     with open(output_path, 'wb') as output_file:
                         writer.write(output_file)
@@ -139,62 +159,68 @@ def split_and_save(n_pages_per_question, input_pdfs, output_folder, job_id):
                 # saving the first page as cover page
                 cover_writer = PdfWriter()
                 cover_writer.add_page(reader.pages[0])
-                cover_output_path = os.path.join(cover_page_folder, f"{base_filename}_cover.pdf")
+                cover_basename = f"{base_filename}_cover.pdf"
+                cover_output_path = os.path.join(cover_page_folder, cover_basename)
                 with open(cover_output_path, 'wb') as cover_output_file:
                     cover_writer.write(cover_output_file)
+                # inserting the cover_pages into the database
+                db.insert_document(
+                    job_id=job_id,
+                    doc_index=document_index,
+                    subquestion_pred=[],
+                    total=0,
+                    rel_filepath=os.path.join("cover_pages", job_id, cover_basename),
+                    status=Document_Status.NOT_READY,
+                    matricule="",
+                    time=0,
+                    filename=base_filename
+                )
+                document_index += 1
 
-    # inserting the cover_pages into the database
-    db = Database()
-    cover_page_dest = os.path.join('cover_pages', job_id)
-    if not os.path.exists(storage.abs_path(cover_page_dest)):
-        os.makedirs(storage.abs_path(cover_page_dest))
-    for file in os.listdir(cover_page_folder):
-        original_pdf_name = re.sub(r'_cover\.pdf$', '.pdf', file)
-        doc = db.get_document(job_id, original_pdf_name)
-        db.insert_document(
-            job_id=job_id,
-            doc_index=file,
-            subquestion_pred=[], 
-            total=0,
-            image_id=file,
-            status=Document_Status.TO_VALIDATE,  
-            matricule=doc["matricule"],
-            time=0,
-            filename=file
-        )
-
-    return generated_pdfs_per_question, is_valid, error_messages
+    return generated_pdfs_per_question, error_messages
 
 
-def process_zip(zip_path, temp_folder, output_folder, n_pages_per_question, job_id):
+def process_zip(zip_path, tmp_folder, n_pages_per_question, job_id):
     """
     Extracts the contents of a zip file, processes the extracted PDF files, and saves the generated PDFs.
 
     Args:
         zip_path (str): The path to the zip file.
-        temp_folder (str): The temporary folder to extract the zip contents.
-        output_folder (str): The folder to save the generated PDFs.
-        n_pages_per_question (int): The number of pages per question.
+        tmp_folder (str): The temporary folder to extract the zip contents.
+        n_pages_per_question (dict): The number of pages per question.
         job_id (str): The ID of the job.
 
     Returns:
-        tuple: A tuple containing the generated PDFs, a flag indicating if the processing is valid, and any error messages.
+        couple: A couple containing the generated PDFs, and any error messages.
     """
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(temp_folder)
-
+        zip_ref.extractall(tmp_folder)
         extracted_files = []
-        for root, dirs, files in os.walk(temp_folder):
+        for root, dirs, files in os.walk(tmp_folder):
             for file in files:
-                if file.lower().endswith('.pdf'):
+                if "__MACOSX" in file or not file.endswith(".pdf") or file.startswith("."):
+                    os.remove(os.path.join(root, file))
+                elif file.lower().endswith('.pdf'):
                     extracted_files.append(os.path.join(root, file))
 
-    generated_pdfs, is_valid, error_messages = split_and_save(n_pages_per_question, extracted_files, output_folder, job_id)
-    shutil.rmtree(temp_folder)
-    return generated_pdfs, is_valid, error_messages
+    generated_pdfs, error_messages = \
+        split_and_save(n_pages_per_question, extracted_files, job_id)
+
+    # create a new zip replacing the previous one
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(tmp_folder):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, tmp_folder)
+                zipf.write(file_path, arcname)
+
+    # remove zip tmp directory
+    shutil.rmtree(tmp_folder)
+
+    return generated_pdfs, error_messages
 
 
-def process_path(zip_folder, job_id, n_pages_per_question):
+def process_path(zip_folder, job_id, n_pages_per_question, TMP_DIR):
     """
     Process the path for a given job.
 
@@ -202,40 +228,38 @@ def process_path(zip_folder, job_id, n_pages_per_question):
         zip_folder (str): The folder containing the ZIP file.
         job_id (str): The ID of the job.
         n_pages_per_question (dict): A mapping of questions to page numbers.
+        TMP_DIR (Path): temporary folder to put temporary files
 
     Returns:
-        tuple: A tuple containing the generated PDFs, a flag indicating if the process is valid, and any error messages.
+        couple: A couple containing the generated PDFs, and any error messages.
 
     Raises:
         FileNotFoundError: If no ZIP file is found in the specified folder.
         ValueError: If no mapping of questions to page numbers is provided.
     """
-    documents_path = Path(storage.abs_path('documents')).resolve().joinpath(job_id)
-
     zip_path = Path(storage.abs_path(zip_folder))
-    zip_files = glob.glob(os.path.join(zip_path, '%s.zip' % job_id))
+    zip_file_path = os.path.join(zip_path, '%s.zip' % job_id)
     
-    if not zip_files:
+    if not zip_file_path:
         raise FileNotFoundError("No ZIP file found in specified folder.")
-    
-    zip_file_path = os.path.join(zip_path, zip_files[0])
-    temp_path = zip_path.joinpath('extracted')
-    
+
     if not n_pages_per_question:
         raise ValueError("Please provide a mapping of questions to page numbers.")
 
-    generated_pdfs, is_valid, error_messages = process_zip(zip_file_path, temp_path, documents_path, n_pages_per_question, job_id)
-    return generated_pdfs, is_valid, error_messages
+    temp_path = TMP_DIR.joinpath('extracted')
+    generated_pdfs, error_messages = \
+        process_zip(zip_file_path, str(temp_path), n_pages_per_question, job_id)
+    return generated_pdfs, error_messages
 
 
-def insert_copies(zip_folder, job_id, n_pages_per_question):
+def insert_copies(zip_folder, job_id, n_pages_per_question, TMP_DIR):
     """
     Inserts copies of PDF documents into the database.
 
     Args:
         zip_folder (str): The path to the folder containing the ZIP file.
         job_id (str): The ID of the job.
-        n_pages_per_question (int): The number of pages per question.
+        n_pages_per_question (dict): The number of pages per question.
 
     Raises:
         ValueError: If the generated PDFs are not valid.
@@ -245,34 +269,26 @@ def insert_copies(zip_folder, job_id, n_pages_per_question):
     """
     db = Database()
 
-    generated_pdfs, is_valid, error_messages = process_path(zip_folder, job_id, n_pages_per_question)
+    generated_pdfs, error_messages = process_path(zip_folder, job_id, n_pages_per_question, TMP_DIR)
     
-    document_index = 1
+    document_index = 0
     for question, pdf_paths in generated_pdfs.items():
         for pdf_path in pdf_paths:
-            # code used to develop in local
-            # file_path = os.path.join('documents', job_id, question, os.path.basename(pdf_path))
-            # storage.copy_from(pdf_path, storage.abs_path(file_path))
-            
-            file_name = os.path.join('documents', job_id, question, os.path.basename(pdf_path))
-            pdf_name = os.path.basename(pdf_path)
-            original_pdf_name = re.sub(r'_Q\d+', '', pdf_name)
-            doc = db.get_document(job_id, original_pdf_name)
-
-            db.insert_document(
+            filename = os.path.basename(pdf_path).rsplit(".", 1)[0]
+            basename = filename.rsplit("_", 1)[0]
+            rel_filepath = os.path.join('documents', job_id, question, filename) + ".pdf"
+            db.insert_question(
                 job_id=job_id,
                 doc_index=document_index,
-                subquestion_pred=[], 
-                total=0,
-                image_id=file_name,
-                status=Document_Status.TO_VALIDATE,  
-                matricule=doc["matricule"], 
-                time=0,
-                filename=file_name
+                rel_filepath=rel_filepath,
+                status=Document_Status.TO_VALIDATE,
+                filename=filename,
+                question=question,
+                basename=basename
             )
             document_index += 1
-    
-    if not is_valid:
+
+    if error_messages:
         raise ValueError(error_messages)
 
 # example

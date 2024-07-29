@@ -12,14 +12,11 @@ export class MainMenuComponent implements OnInit {
 
   constructor(
     private router: Router,
-    public tasksService: TasksService,
     private notificationService: NotificationService
   ) { }
 
-  
-  async ngOnInit(): Promise<void> {
-    this.tasksService.getTasks();
-  }
+
+  async ngOnInit(): Promise<void> {}
 
   disconnect(): void {
     localStorage.clear()
@@ -30,7 +27,7 @@ export class MainMenuComponent implements OnInit {
   newCorrection(): void {
     this.router.navigate(['/new-correction']);
   }
-  
+
   newExamCorrection(): void {
     this.router.navigate(['/new-exam-correction']);
   }

@@ -33,8 +33,17 @@
           </tr>
           <tr>
             <td>Total</td>
-            <td>{{ totalCorrectedCopies }} / {{ uniqueFileCount }}</td>
+            <td>{{ totalCorrectedCopies }} / {{ examsCount }}</td>
             <td>{{ totalMean | number:'1.2-2' }} / {{ maxPossiblePoints }}</td>
+            <td class="action-buttons">
+              <button class="correct-button" (click)="correctQuestion()">Corriger</button>
+              <button class="correct-button" (click)="shareQuestion()">Partager</button>
+            </td>
+          </tr>
+          <tr>
+            <td>Matricules</td>
+            <td>{{ totalVerifiedMatricules }} / {{ examsCount }}</td>
+            <td></td>
             <td class="action-buttons">
               <button class="correct-button" (click)="verifyMatricules()">Verifier les matricules</button>
               <button class="correct-button" (click)="shareTask()">Partager</button>

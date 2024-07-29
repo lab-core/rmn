@@ -13,7 +13,7 @@ n_latex_line = latex_line
 latex_line += " \\\\ \\hline"
 
 
-def create_stats_latex(nom, index, n_questions, all_notes, total, boxplots, latex_dir="tex", width_plot_ratio=0.5, TMP_DIR="tmp"):
+def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, latex_dir="tex", width_plot_ratio=0.5, TMP_DIR="tmp"):
     """
     width_plot_ratio = percentage of the width of the page to be used by the boxplot
     """
@@ -29,9 +29,9 @@ def create_stats_latex(nom, index, n_questions, all_notes, total, boxplots, late
     averages = np.average(all_notes, axis=1)
     with open(TMP_DIR.joinpath("stats.tex"), "w") as f:
         for i in range(n_questions):
-            f.write(latex_line.format(i+1, all_notes[i][index] if index is not None else "",
+            f.write(latex_line.format("%d (/ %d)" % (i+1, totals[i]), all_notes[i][index] if index is not None else "",
                                       averages[i], boxplots[i])+"\n")
-        f.write(n_latex_line.format("Total (/ %d)" % total,
+        f.write(n_latex_line.format("Total (/ %d)" % totals[-1],
                                     sum(notes[index] for notes in all_notes) if index is not None else "",
                                     sum(averages), boxplots[-1])+"\n")
 

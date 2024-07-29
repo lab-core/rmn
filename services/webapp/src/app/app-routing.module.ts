@@ -46,6 +46,11 @@ const routes: Routes = [
         // canActivateChild: [UserService]
     },
     {
+        path: 'task-validation/:job_id',
+        component : TaskVerificationComponent,
+        // canActivateChild: [UserService]
+    },
+    {
         path: 'task-validation/:job_id/:index',
         component : TaskVerificationComponent,
         // canActivateChild: [UserService]

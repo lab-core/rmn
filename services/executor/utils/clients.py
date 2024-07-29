@@ -1,4 +1,6 @@
 import os
+import json
+from copy import copy
 import redis
 import socketio
 from pymongo import MongoClient
@@ -27,3 +29,44 @@ def socketio_client():
     sio = socketio.Client()
     sio.connect(f"http://{socketio_host}:7000")
     return sio
+
+
+def emit_job(user_id, job_id, status, infos=None, sio_infos=None):
+    if infos is None and sio_infos is None:
+        sio_infos = {}
+    elif infos is not None:
+        if sio_infos is not None:
+            sio_infos.update(infos)
+        else:
+            sio_infos = copy(infos)
+
+    sio = socketio_client()
+    sio_infos["user_id"] = user_id
+    sio_infos["job_id"] = job_id
+    sio_infos["status"] = status.value
+    sio.emit("job_status", json.dumps(sio_infos))
+    sio.disconnect()
+
+
+def update_status(user_id, job_id, status, infos=None, db_infos=None, sio_infos=None, db_name="RMN"):
+    # initialize db_infos
+    if infos is None and db_infos is None:
+        db_infos = {}
+    elif infos is not None:
+        if db_infos is not None:
+            db_infos.update(infos)
+        else:
+            db_infos = copy(infos)
+    # update db status
+    mongo_cli = mongo_client()
+    try:
+        db = mongo_client()[db_name]
+        db_infos["job_status"] = status.value
+        db.get_collection("eval_jobs").update_one(
+            {"job_id": job_id},
+            {"$set": db_infos}
+        )
+    finally:
+        mongo_cli.close()
+    # emit status
+    emit_job(user_id, job_id, status, infos, sio_infos)

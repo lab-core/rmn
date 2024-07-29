@@ -44,10 +44,9 @@ export class MatriculeVerificationComponent implements OnInit {
   pdfSrc: string;
 
   copiesInformations: Map<string, Map<string, number>> = new Map();
-  initialCopyIndex: number = 0;
-  currentCopy: number = 0;
+  initialCopyIndex: number = -1;
+  currentCopy: number = -1;
   currentCopyName: string;
-  currentQuestionIndex: string;
   currentMatricule: number;
   currentScore: number | null;
   currentTotal: number;
@@ -85,11 +84,7 @@ export class MatriculeVerificationComponent implements OnInit {
       this.getMatriculeList();
       await this.getDocuments();
       this.getSubExamsList();
-      if (this.checkForAvailableCopies()) {
-        this.initialCopyIndex = 0;
-        this.currentCopy = this.initialCopyIndex;
-        this.changeCurrentExam(this.currentCopy);
-      }
+      this.nextCopy();
       this.checkValidationButton();
 
       this.socketService.join(this.job["job_id"]);
@@ -102,7 +97,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
       if (this.userService.token) {
         this.socketService.join(this.userService.currentUsername);
-        this.socketService.getSocket().on('jobs_status', async (params: any) => {
+        this.socketService.getSocket().on('job_status', async (params: any) => {
           const resp = JSON.parse(params);
           const jobId = resp.job_id;
           if (this.job["job_id"] === jobId) {
@@ -122,7 +117,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   ngOnDestroy(): void {
     this.socketService.getSocket().off('document_ready');
-    this.socketService.getSocket().off('jobs_status');
+    this.socketService.getSocket().off('job_status');
     this.socketService.disconnectSocket();
   }
 
@@ -132,20 +127,20 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   async getDocuments() {
-    await this.docService.getDocuments(this.tasksService.getvalidatingTaskId());
-    this.examsList = this.docService.coversList;
+    await this.docService.getDocuments(this.tasksService.getvalidatingTaskId(), false);
+    this.examsList = this.docService.documentsList;
     this.groupsList = this.docService.groupsList;
     // compute sub exams list if any selected group
     this.getSubExamsList();
     // initialize initialCopyIndex and currentCopy
-    if (this.examsList.length > 0) {
-      this.initialCopyIndex = 0;
-      this.currentCopy = this.initialCopyIndex;
+    if (this.examsList.length > 0 && this.initialCopyIndex < 0) {
+      this.initialCopyIndex = this.examsList[0].document_index;
+      this.currentCopy = this.initialCopyIndex - 1;
     }
   }
 
   async getCopiesInformations() {
-    let exam = this.examsList[this.currentIndex()];
+    let exam = this.currentExam();
     this.currentCopyName = exam["filename"];
     await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
     this.copiesInformations = this.docService.copiesInformations;
@@ -173,7 +168,7 @@ export class MatriculeVerificationComponent implements OnInit {
     console.log("Group:", this.group, this.subExamsList.length, "exams");
     // if any copy available
     if (this.checkForAvailableCopies()) {
-      this.currentCopy = this.initialCopyIndex;
+      this.currentCopy = this.initialCopyIndex - 1;
       this.nextCopy();
     } else {
       this.disabledValidationcontainer = true;
@@ -184,13 +179,12 @@ export class MatriculeVerificationComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-    formdata.append('document_index', this.examsList[this.currentCopy].document_index);
+    formdata.append('document_index', this.currentCopy.toString());
 
     this.pdfLoading = true;
 
-    // find the document in examsList based on the filename (currentIndex)
-    const currentFilename = this.currentIndex();
-    const currentExam = this.examsList.find((exam: any) => exam.filename === currentFilename);
+    // find the document in examsList based on the currentIndex
+    const currentExam = this.currentExam();
     console.log("Current Exam: ", currentExam);
 
     if (currentExam && currentExam.status !== "NOT_READY") {
@@ -199,7 +193,7 @@ export class MatriculeVerificationComponent implements OnInit {
           let url = window.URL.createObjectURL(data);
           this.pdfSrc = url;
           this.pdfLoading = false;
-          console.log("PDF loaded successfully for: ", currentFilename);
+          console.log("PDF loaded successfully for: ", this.currentCopyName);
         }, (error) => {
           console.error(error);
           this.pdfLoading = false;
@@ -207,18 +201,17 @@ export class MatriculeVerificationComponent implements OnInit {
     } else {
       this.pdfLoading = false;
       if (!currentExam) {
-        console.error("Document not found for filename:", currentFilename);
+        console.error("Document not found for index:", this.currentCopy);
       }
     }
   }
 
-  changeCurrentCopy(copyIndex: string, status: string) {
+  changeCurrentCopy(copyIndex: number, status: string) {
     if (status !== "NOT_READY") {
-        let exam = this.examsList.find((e) => e.document_index === copyIndex);
+        let exam = this.examsList[copyIndex-this.initialCopyIndex];
         console.log("Change current copy to", copyIndex);
-        this.currentQuestionIndex = this.getQuestionIndex(copyIndex);
         this.currentCopyName = exam.filename;
-        this.currentCopy = this.examsList.indexOf(exam);
+        this.currentCopy = copyIndex;
         console.log("Current copy", this.currentCopy);
         this.disabledValidationcontainer = false;
         this.loadCopy();
@@ -255,19 +248,6 @@ export class MatriculeVerificationComponent implements OnInit {
     }
   }
 
-  getQuestionIndex(filename: string): string {
-    const baseName = filename.substring(0, filename.lastIndexOf('.'));
-    const underscoreIndex = baseName.lastIndexOf('_');
-    const result = baseName.substring(underscoreIndex + 1);
-    return result;
-  }
-
-  getBaseNameWithExtension(filename: string): string {
-    const underscoreIndex = filename.lastIndexOf('_');
-    const baseNameWithExtension = filename.substring(0, underscoreIndex) + filename.substring(filename.lastIndexOf('.'));
-    return baseNameWithExtension;
-  }
-
   checkForAvailableCopies(): boolean {
     if (this.subExamsList.length == 0) return false;
     let exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
@@ -276,16 +256,23 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   getMatriculeList() {
-    let tempList = JSON.parse(this.job["students_list"]);
+    let tempList = this.job["students_list"];
     tempList = tempList.map(x => {
       x = { matricule: x['matricule'], nom: x['Nom complet'], identifiant: x['matricule'] + ' - ' + x["Nom complet"] }; return x;
     });
     this.matriculeList = tempList;
   }
 
+  currentExam() {
+    return this.examsList[this.currentIndex()];
+  }
+
+  currentIndex(): number {
+    return this.currentCopy - this.initialCopyIndex;
+  }
+
   getCurrentMatricule() {
-    const currentFilename = this.currentIndex();
-    const currentExam = this.examsList.find((exam: any) => exam.filename === currentFilename);
+    const currentExam = this.currentExam();
     if (currentExam && currentExam["status"] !== "NOT_READY") {
       this.currentMatricule = currentExam["matricule"];
       this.getDuplicatedMatricule();
@@ -301,23 +288,20 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   getCurrentStatus() {
-    const currentFilename = this.currentIndex();
-    const currentExam = this.examsList.find((exam: any) => exam.filename === currentFilename);
+    const currentExam = this.currentExam();
     if (currentExam) {
       this.currentStatus = currentExam["status"];
     } else {
-      console.error("Document not found for filename:", currentFilename);
+      console.error("Document not found for index:", this.currentCopy);
     }
   }
 
   setValidatedStatus() {
-    const currentFilename = this.currentIndex();
-    const currentExam = this.examsList.find((exam: any) => exam.filename === currentFilename);
-
+    const currentExam = this.currentExam();
     if (currentExam) {
         currentExam.status = "VALIDATED";
     } else {
-        console.error("Document not found for filename:", currentFilename);
+        console.error("Document not found for index:", this.currentCopy);
     }
   }
 
@@ -329,7 +313,7 @@ export class MatriculeVerificationComponent implements OnInit {
     this.getCurrentMatricule();
     const formdata: FormData = new FormData();
     formdata.append('job_id', this.job["job_id"]);
-    formdata.append('document_index', this.currentIndex());
+    formdata.append('document_index', this.currentCopy.toString());
     this.getCurrentMatricule();
     formdata.append('matricule', this.currentMatricule.toString());
     formdata.append('user_id', this.userService.currentUsername);
@@ -445,23 +429,16 @@ export class MatriculeVerificationComponent implements OnInit {
     return index;
   }
 
-  currentIndex(): string {
-    if (this.examsList && this.examsList[this.currentCopy]) {
-      return this.examsList[this.currentCopy].filename;
-    }
-    return '';
-  }
-
   reroute() {
     this.router.navigate(['/dashboard', this.job["job_id"]]);
   }
 
   previousCopy(): void {
-    let tempIndex = this.currentCopy - 1;
+    let tempIndex = this.currentIndex() - 1;
     while (tempIndex >= 0 && !this.subExamsList.includes(this.examsList[tempIndex])) {
-      tempIndex--;
+      tempIndex --;
     }
-    console.log("Previous copy", tempIndex);
+    console.log("Previous copy", tempIndex)
     if (tempIndex >= 0) {
       this.changeCurrentExam(tempIndex);
     }
@@ -469,16 +446,16 @@ export class MatriculeVerificationComponent implements OnInit {
 
   nextCopy(): void {
     let tempIndex = this.nextCopyIndex();
-    console.log("Next copy", tempIndex);
+    console.log("Next copy", tempIndex)
     if (tempIndex < this.examsList.length) {
       this.changeCurrentExam(tempIndex);
     }
   }
 
   nextCopyIndex(): number {
-    let tempIndex = this.currentCopy + 1;
+    let tempIndex = this.currentIndex() + 1;
     while (tempIndex < this.examsList.length && !this.subExamsList.includes(this.examsList[tempIndex])) {
-      tempIndex++;
+      tempIndex ++;
     }
     return tempIndex;
   }
@@ -502,13 +479,8 @@ export class MatriculeVerificationComponent implements OnInit {
 
   checkValidationButton(): void {
     const disabledValidationButton = this.examsList.some(exam => exam.status !== 'VALIDATED');
-    const questionIndex = this.route.snapshot.queryParams['question_index'];
-
     if (!this.disabledDropDown) {
       this.disabledValidationButton = disabledValidationButton;
-    } else if (questionIndex) {
-      const subExams = this.examsList.filter(exam => exam.filename.includes(`Q${questionIndex}`));
-      this.disabledValidationButton = subExams.some(exam => exam["status"] !== 'VALIDATED');
     }
   }
 }

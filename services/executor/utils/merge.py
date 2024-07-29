@@ -6,6 +6,7 @@ from utils.storage import Storage
 
 storage = Storage()
 
+
 def find_files_with_base_name(base_name, folder_paths, suffix):
     """
     Find files with a given base name and suffix in the specified folder paths.
@@ -24,6 +25,7 @@ def find_files_with_base_name(base_name, folder_paths, suffix):
             if file_name.startswith(base_name) and file_name.lower().endswith(suffix):
                 pdf_paths.append(os.path.join(folder_path, file_name))
     return pdf_paths
+
 
 def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
     """
@@ -44,24 +46,23 @@ def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
         writer = PdfWriter()
         output_path = os.path.join(output_folder, f"{base_name}.pdf")
 
-        # merging cover page first
-        cover_pdf_path = find_files_with_base_name(base_name, folder_paths, suffix='_cover.pdf')
-        if cover_pdf_path:
-            cover_reader = PdfReader(cover_pdf_path[0])
-            for page in cover_reader.pages:
-                writer.add_page(page)
+        for i, path in enumerate(folder_paths):
+            filename = base_name
+            # if cover
+            if i == 0:
+                filename += "_cover.pdf"
+            # otherwise, it's a question
+            else:
+                filename += f"_Q{i}.pdf"
 
-        # merging regular PDFs
-        pdf_paths = find_files_with_base_name(base_name, folder_paths, suffix='.pdf')
-        for pdf_path in pdf_paths:
-            if not pdf_path.endswith('_cover.pdf'):
-                reader = PdfReader(pdf_path)
-                for page in reader.pages:
-                    writer.add_page(page)
+            reader = PdfReader(os.path.join(path, filename))
+            for page in reader.pages:
+                writer.add_page(page)
 
         with open(output_path, 'wb') as output_file:
             writer.write(output_file)
         print(f"Merged PDF for {base_name} saved at {output_path}")
+
 
 def process_merge(job_id):
     """
@@ -74,40 +75,23 @@ def process_merge(job_id):
         None
     """
     db = Database()
-    job_documents_collection = db.documents_collection()
-    documents = job_documents_collection.find({"job_id": job_id})
-    documents_dict = {document["filename"]: document for document in documents}
-    print("documents_dict:", documents_dict)
-
-    matching_documents = []
-    # regular expression to match filenames of the form "filename_Q{index}.pdf"
-    pattern = re.compile(r'^.+_Q\d+\.pdf$')
-
-    for filename, document in documents_dict.items():
-        document_basename = os.path.basename(filename)
-        if pattern.match(document_basename):
-            matching_documents.append(document)
-
     eval_jobs_collection = db.eval_jobs_collection()
     eval_job = eval_jobs_collection.find_one({"job_id": job_id})
     n_max_points_per_question = eval_job["n_max_points_per_question"]
     question_indexes = [item[0] for item in n_max_points_per_question]
     question_indexes.sort()
 
+    # folders where to fetch the different parts to merge
     folder_paths = [storage.abs_path(os.path.join('cover_pages', job_id))]
     for question_index in question_indexes:
         question_index_path = storage.abs_path(os.path.join('documents', job_id, str(question_index)))
         folder_paths.append(question_index_path)
 
-    base_names = []
-    for folder_path in folder_paths:
-        for file_name in os.listdir(folder_path):
-            file_basename = os.path.basename(file_name)
-            for document in matching_documents:
-                if os.path.basename(document["filename"]).lower() == file_basename.lower():
-                    base_name = os.path.splitext(file_name)[0].rsplit('_', 1)[0]
-                    base_names.append(base_name)
+    # files to merge
+    documents = db.documents_collection().find({"job_id": job_id})
+    base_names = [doc["filename"] for doc in documents]
 
+    # output for the merged files
     output_folder = storage.abs_path(os.path.join('corrected_copies', job_id))
 
     merge_pdfs_by_base_name(base_names, folder_paths, output_folder)

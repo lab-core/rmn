@@ -22,6 +22,7 @@ export class TaskRetryDialogComponent implements OnInit {
 
   @ViewChild('fileUpload', { static: false }) fileUpload: ElementRef;
   downloading: boolean = false;
+  disabled: boolean = true;
   downloadProgress = 0;
   errorMessages: string[] = [];
   filenames: string[] = [];
@@ -34,7 +35,7 @@ export class TaskRetryDialogComponent implements OnInit {
     private userService: UserService,
     private http: HttpClient,
     @Inject(MAT_DIALOG_DATA) public data: DialogData
-  ) { 
+  ) {
     this.errorMessages = data.taskMessages;
     this.extractFilenames();
   }
@@ -48,7 +49,7 @@ export class TaskRetryDialogComponent implements OnInit {
 
   extractFilenames(): void {
     this.filenames = this.errorMessages.map(msg => {
-      const match = msg.match(/Erreur : (.+?)\.pdf/);
+      const match = msg.match(/Erreur: (.+?)\.pdf/);
       return match ? `${match[1]}.pdf` : '';
     });
   }
@@ -65,7 +66,7 @@ export class TaskRetryDialogComponent implements OnInit {
       this.handleFiles();
     }
   }
-  
+
   onDrop(event: DragEvent): void {
     event.preventDefault();
     if (event.dataTransfer && event.dataTransfer.files) {
@@ -87,26 +88,28 @@ export class TaskRetryDialogComponent implements OnInit {
   }
 
   async handleFiles(): Promise<void> {
-    const nonZipFiles: File[] = [];
+    const pdfFiles: File[] = [];
     const zipFiles: File[] = [];
 
     for (const file of this.selectedFiles) {
         if (file.name.endsWith('.zip')) {
             zipFiles.push(file);
         } else if (this.isPDF(file)) {
-            nonZipFiles.push(file);
+            pdfFiles.push(file);
         }
     }
 
-    this.selectedFiles = nonZipFiles;
+    this.selectedFiles = pdfFiles;
 
     for (const zipFile of zipFiles) {
         await this.extractZip(zipFile);
     }
+
+    this.disabled = false;
   }
 
   isPDF(file: File): boolean {
-      return file.type === 'application/pdf';
+      return file.type === 'application/pdf' && !file.name.startsWith('.');
   }
 
   async extractZip(file: File): Promise<void> {
@@ -119,8 +122,8 @@ export class TaskRetryDialogComponent implements OnInit {
               const content = await contents.files[filename].async('blob');
               const fileNameOnly = filename.split('/').pop();
               const newFile = new File(
-                  [content], 
-                  fileNameOnly, 
+                  [content],
+                  fileNameOnly,
                   { type: fileNameOnly.endsWith('.pdf') ? 'application/pdf' : content.type }
               );
               if (this.isPDF(newFile)) {
@@ -135,15 +138,12 @@ export class TaskRetryDialogComponent implements OnInit {
     const formData = new FormData();
     formData.append('token', this.userService.token);
     formData.append('job_id', job_id);
-    this.filenames.forEach((filename, index) => {
-      formData.append(`incorrect_files[${index}]`, filename);
-    });
-    
+
     const requestURL = `${SERVER_URL}job/ignore`;
     this.http.post(requestURL, formData).subscribe(
         (data) => {
             this.notifyService.showSuccess('Reprise de la tâche', 'SUCCÈS');
-            this.dialogRef.close('');
+            this.dialogRef.close('IGNORED');
         },
         (error) => {
             console.error('Ignore error', error);
@@ -158,7 +158,7 @@ export class TaskRetryDialogComponent implements OnInit {
     formData.append('token', this.userService.token);
     formData.append('job_id', job_id);
     this.selectedFiles.forEach((file, index) => {
-      formData.append(`file${index}`, file); 
+      formData.append(`file${index}`, file);
     });
 
     this.http.post(`${SERVER_URL}job/continue`, formData, {
@@ -169,7 +169,7 @@ export class TaskRetryDialogComponent implements OnInit {
         this.downloadProgress = Math.round(100 * event.loaded / (event.total ?? 1));
       } else if (event.type === HttpEventType.Response) {
         this.notifyService.showSuccess('Fichier(s) téléversé(s) avec succès', 'SUCCÈS');
-        this.dialogRef.close('');
+        this.dialogRef.close('CORRECTED');
         this.uploadedFiles.push(...this.selectedFiles.map(file => file.name));
         this.selectedFiles = [];
       }
@@ -192,7 +192,7 @@ export class TaskRetryDialogComponent implements OnInit {
             if (data.type === HttpEventType.DownloadProgress) {
                 this.downloadProgress = data.total ? Math.round(100 * data.loaded / data.total) : 0;
             } else if (data.type === HttpEventType.Response) {
-                let typeExport = 'application/pdf'; 
+                let typeExport = 'application/pdf';
                 const file = new Blob([data.body as any], { type: typeExport });
                 const downloadURL = window.URL.createObjectURL(file);
                 saveAs(downloadURL, filename);

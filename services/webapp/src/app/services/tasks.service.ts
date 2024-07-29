@@ -12,8 +12,6 @@ import { map, tap } from 'rxjs/operators';
 export class TasksService {
 
   private validatingTaskId: string;
-  private hasTasks: boolean = false;
-  private amountTask: number = 0;
   percentDone: number = 0;
   uploadPart1: boolean = false;
   uploadPart2: boolean = false;
@@ -30,24 +28,6 @@ export class TasksService {
     return this.validatingTaskId;
   }
 
-  getHasTasks() {
-    return this.hasTasks;
-  }
-
-  setamountTasks(amount: number) {
-    this.amountTask = amount;
-
-    if (this.amountTask != 0) {
-      this.hasTasks = true;
-    } else {
-      this.hasTasks = false;
-    }
-  }
-
-  getamountTasks() {
-    return this.amountTask;
-  }
-
   getpercentageDone() {
     return this.percentDone;
   }
@@ -58,25 +38,6 @@ export class TasksService {
 
   getUploadPart2State() {
     return this.uploadPart2;
-  }
-
-
-  getTasks() {
-    const formdata: FormData = new FormData();
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
-    this.http.post<any>(`${SERVER_URL}jobs`, formdata).subscribe(
-      (data) => {
-        let amountTask = 0;
-        let tasksList = data['response'];
-
-        tasksList.forEach((task: any) => {
-          if (task.job_status === 'VALIDATION') {
-            amountTask += 1;
-          }
-        });
-        this.setamountTasks(amountTask);
-      });
   }
 
   async getTaskById(jobId) {
@@ -141,7 +102,6 @@ export class TasksService {
       });
 
     let tasks: Array<any> = [];
-    this.amountTask = 0;
 
     const formdataJobs: FormData = new FormData();
     formdataJobs.append('user_id', this.userService.currentUsername);
@@ -150,17 +110,5 @@ export class TasksService {
       (data) => {
         tasks = data['response']
       });
-
-    tasks.forEach((task: any) => {
-      if (task.job_status === 'VALIDATION') {
-        this.amountTask += 1;
-      }
-    });
-
-    if (this.amountTask != 0) {
-      this.hasTasks = true;
-    } else {
-      this.hasTasks = false;
-    }
   }
 }

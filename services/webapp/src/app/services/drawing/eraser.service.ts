@@ -8,10 +8,9 @@ export class EraserService {
   svgContainer : SVGGraphicsElement;
   indentificationRect : SVGGraphicsElement;
   questionsRect : SVGGraphicsElement;
-  
+
 
   constructor(private rectangleService : RectangleService) { }
-
 
   init(){
     this.svgContainer = document.querySelector('#svg');
@@ -43,7 +42,7 @@ export class EraserService {
 
   mouseMove(event: MouseEvent): void  {
     //do nothing
-  } 
+  }
 
   mouseUp(event: MouseEvent): void {
     //do nothing

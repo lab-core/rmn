@@ -11,9 +11,9 @@
             <div class="filter-job-container" *ngIf="!this.disabledDropDown">
                 <mat-form-field appearance="fill">
                     <mat-label>Numéro de la question</mat-label>
-                    <mat-select (selectionChange)="onQuestionIndexChange($event)">
-                        <mat-option *ngFor="let index of questionIndexes" [value]="index">
-                            {{index}}
+                    <mat-select (selectionChange)="onQuestionIndexChange($event)" [(value)]="index">
+                        <mat-option *ngFor="let i of questionIndexes" [value]="i">
+                            {{i}}
                         </mat-option>
                     </mat-select>
                 </mat-form-field>

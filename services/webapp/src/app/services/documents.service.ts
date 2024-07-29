@@ -10,7 +10,6 @@ export class DocumentsService {
 
   jobId: string;
   documentsList: Array<any>;
-  coversList: Array<any> = [];
   groupsList: Array<string>;
   nMaxPointsPerQuestion = new Map<string, number>();
   copiesInformations = new Map<string, Map<string, number>>();
@@ -19,23 +18,19 @@ export class DocumentsService {
   constructor(private http: HttpClient,
               private userService: UserService) { }
 
-  async getDocuments(jobId: string) {
+  async getDocuments(jobId: string, questions: boolean) {
     const formdata: FormData = new FormData();
     formdata.append('job_id', jobId);
+    if (questions) {
+      formdata.append('questions', 'true');
+    }
     this.userService.addTokens(formdata);
     this.groupsList = [""];
 
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}documents`, formdata).toPromise();
-      let tempDocumentsList = promise['response'];
-      // filter out documents that have a numeric document_index
-      this.documentsList = tempDocumentsList.filter((exam: any) => {
-        return typeof exam.document_index === 'number' && !isNaN(exam.document_index);
-      });
-      // filter documents to include only those with filenames ending in _cover.pdf
-      this.coversList = tempDocumentsList.filter((exam: any) => {
-        return /_cover\.pdf$/.test(exam.document_index);
-      });
+      this.documentsList = promise['response'];
+
       // fetch groups if any
       this.documentsList.forEach((exam: any) => {
         if (exam.group && !this.groupsList.includes(exam.group)) {
@@ -55,15 +50,15 @@ export class DocumentsService {
     const formdata: FormData = new FormData();
     formdata.append('job_id', jobId);
     this.userService.addTokens(formdata);
-  
+
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}job`, formdata).toPromise();
       if (!promise || !promise['response']) {
         throw new Error("Invalid response from server");
       }
-  
+
       let job = promise['response'];
-  
+
       // fetch n_max_points_per_question
       if (!job['n_max_points_per_question']) {
         throw new Error("n_max_points_per_question is undefined");
@@ -72,7 +67,7 @@ export class DocumentsService {
       this.nMaxPointsPerQuestion = new Map<string, number>(
         nMaxPointsPerQuestionArray.map((item: [string, number]) => [item[0], item[1]])
       );
-  
+
       // fetch copies_informations
       if (!job['copies_informations']) {
         throw new Error("copies_informations is undefined");
@@ -83,7 +78,7 @@ export class DocumentsService {
           [item[0], new Map<string, number>(item[1].map(innerItem => [innerItem[0], innerItem[1]]))]
         )
       );
-  
+
       // fetch bonus_enabled_map
       if (!job['bonus_enabled_map']) {
         throw new Error("bonus_enabled_map is undefined");
@@ -92,10 +87,10 @@ export class DocumentsService {
       this.bonusEnabledMap = new Map<string, boolean>(
         bonusEnabledMapArray.map((item: [string, boolean]) => [item[0], item[1]])
       );
-  
+
     } catch (error) {
       console.error('Error in getJobInfos:', error);
     }
   }
-  
+
 }

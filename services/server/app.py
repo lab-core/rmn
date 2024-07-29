@@ -9,12 +9,12 @@ from pathlib import Path
 from utils.utils import Job_Status, Output_File, Document_Status
 from utils.storage import Storage
 from utils.clients import redis_client, socketio_client, mongo_client
-from datetime import datetime, timedelta
+from utils.zip import update_zip
+import datetime as dt
 from io import FileIO
 from service.front_page_service import FrontPageHandler
 from threading import Thread
 from zipfile import ZipFile
-
 
 import uuid
 import os
@@ -120,7 +120,7 @@ def verify_share_token():
             token = request.form["share_token"]
             job = db["eval_jobs"].find_one({"job_id": job_id, "share_token": token})
             if not job:
-                print("Error: share token not valid.")
+                print("Error: share token (", token, ") not valid for", job_id)
                 return Response(
                     response=json.dumps({"response": f"Error: share token not valid."}),
                     status=400,
@@ -221,11 +221,10 @@ def evaluate(user_id):
     front_template_name = str(request_form["front_template_name"])
     regular_template_name = str(request_form["regular_template_name"])
     job_name = str(request_form["job_name"])
-    statistics_for_students = str(request_form["statistics_for_students"])
+    statistics_for_students = request_form["statistics_for_students"].lower() == "true"
     n_pages_per_question = json.loads(request_form["n_pages_per_question"])
     n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
     bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
-
 
     db = mongo["RMN"]
     collection = db["eval_jobs"]
@@ -246,8 +245,8 @@ def evaluate(user_id):
         "regular_template_id": regular_template_id,
         "front_template_name": front_template_name,
         "regular_template_name": regular_template_name,
-        "queued_time": datetime.utcnow(),
-        "job_status": Job_Status.QUEUED.value,
+        "queued_time": dt.datetime.utcnow(),  # dt.datetime.now(dt.UTC)
+        "job_status": Job_Status.SPLIT.value,
         "retry": 0,
         "notes_file_id": notes_file_id,
         "zip_file_id": zip_file_id,
@@ -289,9 +288,9 @@ def evaluate(user_id):
     # Create SocketIO connection
     sio = socketio_client()
     sio.emit(
-        "jobs_status",
+        "job_status",
         json.dumps(
-            {"job_id": job_id, "status": Job_Status.QUEUED.value, "user_id": user_id}
+            {"job_id": job_id, "status": Job_Status.SPLIT.value, "user_id": user_id}
         ),
     )
     sio.disconnect()
@@ -309,6 +308,7 @@ def evaluate(user_id):
     thread.start()
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
+
 
 def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_name, notes_csv_file_name):
     try:
@@ -335,7 +335,7 @@ def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_n
         # Create SocketIO connection
         sio = socketio_client()
         sio.emit(
-            "jobs_status",
+            "job_status",
             json.dumps(
                 {
                     "job_id": job_id,
@@ -420,13 +420,14 @@ def get_jobs(user_id):
             "job_status": job["job_status"],
             "job_name": job["job_name"],
             "front_template_name": job["front_template_name"],
-            "regular_template_name": job["regular_template_name"]
+            "regular_template_name": job["regular_template_name"],
+            "job_infos": job.get("job_infos", "")
         }
         for job in jobs
     ]
 
     # wake up workers in case some jobs died
-    max_alive = datetime.utcnow() - timedelta(seconds=120)
+    max_alive = dt.datetime.utcnow() - dt.timedelta(seconds=120)  # dt.datetime.now(dt.UTC)
 
     def requeue(job_id, c_status, n_status):
         print("Resubmit job", job_id)
@@ -440,15 +441,7 @@ def get_jobs(user_id):
 
     for job in jobs:
         if job["job_status"] == Job_Status.RUN.value and job["alive_time"] < max_alive:
-            if job["job_status"] == Job_Status.RUN.value:
-                requeue(job["job_id"], Job_Status.RUN.value, Job_Status.QUEUED.value)
-            else:
-                requeue(job["job_id"], Job_Status.FINALIZING.value, Job_Status.VALIDATION.value)
-
-            res = collection.update_one(
-                {"job_id": job["job_id"], "job_status": Job_Status.RUN.value},
-                {"$inc": {"retry": 1}, "$set": {"job_status": Job_Status.QUEUED.value}}
-            )
+            requeue(job["job_id"], Job_Status.RUN.value, Job_Status.QUEUED.value)
 
     #
     return Response(response=json.dumps({"response": resp}), status=200)
@@ -484,7 +477,7 @@ def get_job():
         "front_template_name": job["front_template_name"],
         "regular_template_name": job["regular_template_name"],
         "students_list": job["students_list"],
-        "job_infos": job["job_infos"],
+        "job_infos": job.get("job_infos", ""),
         "n_max_points_per_question": job["n_max_points_per_question"],
         "copies_informations": job.get("copies_informations", []),
         "n_pages_per_question": job["n_pages_per_question"],
@@ -509,12 +502,12 @@ def share_job(user_id):
         )
     job_id = str(request_form["job_id"])
 
-    if "question_index" not in request_form:
-        return Response(
-            response=json.dumps({"response": f"Error: question_index not provided."}),
-            status=400
-        )
-    question_index = int(request_form["question_index"])
+    # if "question_index" not in request_form:
+    #     return Response(
+    #         response=json.dumps({"response": f"Error: question_index not provided."}),
+    #         status=400
+    #     )
+    question_index = int(request_form.get("question_index")) if "question_index" in request_form else None
 
     host = request.headers.get('Host')
     if not host:
@@ -539,10 +532,11 @@ def share_job(user_id):
     else:
         token = job["share_token"]
 
+    protocol = "http" if host == "0.0.0.0" or host == "localhost" else "https"
     if question_index:
-        share_url = f"https://{host}/task-validation/?job={job_id}&token={token}&question_index={question_index}"
+        share_url = f"{protocol}://{host}/task-validation/?job_id={job_id}&token={token}&question_index={question_index}"
     else:
-        share_url = f"https://{host}/task-validation/?job={job_id}&token={token}"
+        share_url = f"{protocol}://{host}/task-validation/?job_id={job_id}&token={token}"
 
     #
     resp = {
@@ -582,7 +576,6 @@ def unshare_job(user_id):
 @cross_origin()
 @verify_token()
 def ignore_job(user_id):
-
     request_form = request.form
     #
     if "job_id" not in request_form:
@@ -590,11 +583,10 @@ def ignore_job(user_id):
             response=json.dumps({"response": f"Error: job_id not provided."}),
             status=400,
         )
-    
+
     job_id = str(request_form["job_id"])
     db = mongo["RMN"]
-    collection_eval_jobs = db["eval_jobs"]
-    collection_eval_jobs.update_one(
+    db["eval_jobs"].update_one(
             {"job_id": job_id},
             {
                 "$set": {
@@ -603,61 +595,53 @@ def ignore_job(user_id):
             },
     )
 
-    collection_documents = db["job_documents"]
+    # delete incorrect_files
+    storage.remove_tree(os.path.join("incorrect_files", job_id))
 
-    incorrect_files = []
-    for key in request_form.keys():
-        if key.startswith('incorrect_files'):
-            incorrect_files.append(request_form[key])
-   
-    # delete documents with filenames in incorrect_files
-    
-    for filename in incorrect_files:
-        collection_documents.delete_many({"job_id": job_id, "filename": filename})
+    redis.rpush("job_queue", json.dumps({"job_id": job_id}))
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
+
 
 @app.route("/job/continue", methods=["POST"])
 @cross_origin()
 @verify_token()
 def continue_job(user_id):
-
     request_form = request.form
     job_id = str(request_form["job_id"])
-    
+
     if "job_id" not in request_form:
         return Response(
             response=json.dumps({"response": f"Error: job_id not provided."}),
             status=400,
         )
-    
+
     if not request.files:
         return Response(
             response=json.dumps({"response": f"Error: No files provided."}),
             status=400,
         )
 
-    # replacing files in output_zip
-    pdf_files = [file for key, file in request.files.items() if file.filename.endswith('.pdf')]
-    zip_path = storage.abs_path(f"output_zip{os.sep}{job_id}.zip")
-    new_zip_path = storage.replace_pdfs_in_zip(zip_path, pdf_files, job_id)
-    final_zip_path =  storage.abs_path(f"output_zip{os.sep}")
-    shutil.move(new_zip_path, final_zip_path)
-
-    # removing questions pdfs
-    questions_folder_path = storage.abs_path(f"documents{os.sep}{job_id}")
-    incorrect_files_path = storage.abs_path(f"incorrect_files{os.sep}{job_id}")
-    storage.remove_all_files_in_folder(questions_folder_path)
-    storage.remove_all_files_in_folder(incorrect_files_path)
-
-    #removing files in database
-    db = mongo["RMN"]
-    collection = db["job_documents"]
-    collection.delete_many({"job_id": job_id})
-
-    # set status to CORRECTED
+    # replacing files in zip
     db = mongo["RMN"]
     collection_eval_jobs = db["eval_jobs"]
+    job = collection_eval_jobs.find_one({"job_id": job_id})
+
+    if job["job_status"] != Job_Status.RETRY.value:
+        return Response(
+            response=json.dumps({"response": f"Error: job status is not {Job_Status.RETRY.value}."}),
+            status=400,
+        )
+
+    pdf_files = []
+    for f in request.files.values():
+        file_path = os.path.join("/tmp", f.filename)
+        f.save(file_path)
+        pdf_files.append(file_path)
+    thread = Thread(target=continue_thread, args=[job_id, pdf_files])
+    thread.start()
+
+    # set status to CORRECTED
     collection_eval_jobs.update_one(
             {"job_id": job_id},
             {
@@ -667,8 +651,25 @@ def continue_job(user_id):
             },
     )
 
-
     return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+def continue_thread(job_id, pdf_files):
+    zip_path = storage.abs_path(os.path.join("zips", f"{job_id}.zip"))
+    update_zip(zip_path, pdf_files, f'/tmp/zip_contents_{job_id}')
+
+    # removing questions pdfs
+    storage.remove_tree(os.path.join("documents", job_id))
+    storage.remove_tree(os.path.join("incorrect_files", job_id))
+
+    # removing files in database
+    db = mongo["RMN"]
+    db["job_documents"].delete_many({"job_id": job_id})
+    db["job_questions"].delete_many({"job_id": job_id})
+
+    # add to Redis Queue
+    redis.rpush("job_queue", json.dumps({"job_id": job_id}))
+
 
 @app.route("/incorrect/download", methods=["POST"])
 @cross_origin()
@@ -823,36 +824,14 @@ def update_matricule():
             )
 
     job_id = str(request_form["job_id"])
-    document_index = request_form["document_index"]
+    document_index = int(request_form["document_index"])
     matricule = str(request_form["matricule"])
 
-    # extract the prefix from the document index
-    prefix_match = re.match(r'^(.+?)(_Q\d+|_cover)?\.pdf$', os.path.basename(document_index))
-    if not prefix_match:
-        return Response(
-            response=json.dumps({"response": "Error: Invalid document index format."}),
-            status=400,
-        )
-    
-    prefix = prefix_match.group(1)
-
     db = mongo["RMN"]
-    collection = db["job_documents"]
-
-    # scan all documents within the job and update the ones that match the prefix
-    documents_to_update = collection.find({"job_id": job_id})
-    
-    for document in documents_to_update:
-        document_basename = os.path.basename(document["filename"])
-        if document_basename.startswith(prefix):
-            update_data = {"matricule": matricule}
-            if document_basename.endswith("_cover.pdf"):
-                update_data["status"] = Document_Status.VALIDATED.value
-
-            collection.update_one(
-                {"_id": document["_id"]},
-                {"$set": update_data}
-            )
+    db["job_documents"].update_one(
+        {"job_id": job_id, "document_index": document_index},
+        {"$set": {"matricule": matricule, "status": Document_Status.VALIDATED.value}}
+    )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
@@ -901,7 +880,8 @@ def share_matricule_verification():
     else:
         token = job["share_token"]
 
-    share_url = f"https://{host}/matricule-validation/?job={job_id}&token={token}"
+    protocol = "http" if host == "0.0.0.0" or host == "localhost" else "https"
+    share_url = f"{protocol}://{host}/matricule-validation/?job_id={job_id}&token={token}"
 
     resp = {
         "job_id": job["job_id"],
@@ -921,28 +901,40 @@ def get_documents():
 
     #
     db = mongo["RMN"]
-    collection = db["job_documents"]
-
-    #
-    docs = collection.find({"job_id": job_id})
-    count = collection.count_documents({"job_id": job_id})
-
-    #
-    resp = [
-        {
-            "job_id": doc["job_id"],
-            "document_index": doc["document_index"],
-            "subquestion_predictions": doc["subquestion_predictions"],
-            "matricule": doc["matricule"],
-            "filename": os.path.basename(doc["filename"]),
-            "total": doc["total"],
-            "status": doc["status"],
-            "exec_time": doc["execution_time"],
-            "n_total_doc": count,
-            "group": doc.get("group", "")
-        }
-        for doc in docs
-    ]
+    if request_form.get("questions") is not None:
+        docs = db["job_questions"].find({"job_id": job_id})
+        count = db["job_questions"].count_documents({"job_id": job_id})
+        resp = [
+            {
+                "job_id": doc["job_id"],
+                "document_index": doc["document_index"],
+                "status": doc["status"],
+                "filename": doc["filename"],
+                "question": doc["question"],
+                "basename": doc["basename"],
+                "grade": doc["grade"],
+                "n_total_doc": count
+            }
+            for doc in docs
+        ]
+    else:
+        docs = db["job_documents"].find({"job_id": job_id})
+        count = db["job_documents"].count_documents({"job_id": job_id})
+        resp = [
+            {
+                "job_id": doc["job_id"],
+                "document_index": doc["document_index"],
+                "subquestion_predictions": doc["subquestion_predictions"],
+                "matricule": doc["matricule"],
+                "filename": doc["filename"],
+                "total": doc["total"],
+                "status": doc["status"],
+                "exec_time": doc["execution_time"],
+                "n_total_doc": count,
+                "group": doc.get("group", "")
+            }
+            for doc in docs
+        ]
 
     #
     return Response(response=json.dumps({"response": resp}), status=200)
@@ -953,8 +945,6 @@ def get_documents():
 @verify_share_token()
 def update_document():
     request_form = request.form
-    request_files = request.files
-
     required_fields = ["job_id", "document_index", "copies_informations", "n_max_points_per_question", "status"]
     for field in required_fields:
         if field not in request_form:
@@ -963,37 +953,13 @@ def update_document():
                 status=400,
             )
 
-    if "file" not in request.files:
-        return Response(
-            response=json.dumps({"response": "Error: file not provided."}),
-            status=400,
-        )
-
     job_id = str(request_form["job_id"])
     document_index = int(request_form["document_index"])
     n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
 
-    # replacing the previous file by the new one in storage
-    file = request_files["file"]
-    # file_name = secure_filename(file.filename)
-    file_name = file.filename
-
-    last_underscore_index = file_name.rfind('_')
-    extension_index = file_name.rfind('.pdf')
-    question_index = file_name[last_underscore_index + 1:extension_index]
-    
-    file_path = os.path.join('documents', job_id, question_index, file_name)
-    print("file path ", storage.abs_path(file_path))
-    # save with default name as well as the latest version
-    abs_filename = storage.abs_path(file_path)
-    file.save(abs_filename)
-    save_new_version(abs_filename)
-
     # update the database
     db = mongo["RMN"]
-    collection = db["job_documents"]
-
-    collection.update_one(
+    db["job_questions"].update_one(
         {"job_id": job_id, "document_index": document_index},
         {"$set": {
             "n_max_points_per_question": n_max_points_per_question,
@@ -1001,18 +967,33 @@ def update_document():
         }}
     )
 
-
     # copies_informations in eval_jobs collection
     copies_informations = json.loads(request_form["copies_informations"])
-    collection_eval_jobs = db["eval_jobs"]
-    collection_eval_jobs.update_one(
+    db["eval_jobs"].update_one(
         {"job_id": job_id},
         {"$set": {
             "copies_informations": copies_informations,
         }}
     )
 
+    # replacing the previous file by the new one in storage if any
+    if "file" in request.files:
+        file = request.files["file"]
+        file_name = secure_filename(file.filename)
+
+        last_underscore_index = file_name.rfind('_')
+        extension_index = file_name.rfind('.pdf')
+        question_index = file_name[last_underscore_index + 1:extension_index]
+
+        file_path = os.path.join('documents', job_id, question_index, file_name)
+        print("file path ", storage.abs_path(file_path))
+        # save with default name as well as the latest version
+        abs_filename = storage.abs_path(file_path)
+        file.save(abs_filename)
+        save_new_version(abs_filename)
+
     return Response(response=json.dumps({"response": "OK"}), status=200)
+
 
 @app.route("/documents/grade_all", methods=["POST"])
 @cross_origin()
@@ -1025,7 +1006,7 @@ def grade_all_documents():
             response=json.dumps({"response": "Error: job_id not provided."}),
             status=400,
         )
-    
+
     if "copies_informations" not in request_form:
         return Response(
             response=json.dumps({"response": "Error: copies_informations not provided."}),
@@ -1076,15 +1057,15 @@ def replace_document():
         with ZipFile(temp_file.name, 'r') as zip_file:
             for file_info in zip_file.infolist():
                 if file_info.filename.endswith(".pdf"):
-                    extracted_path = zip_file.extract(file_info, path=TEMP_FOLDER)  
-            
+                    extracted_path = zip_file.extract(file_info, path=TEMP_FOLDER)
+
                     # extracting question number from the filename
                     question_number = re.search(r'_Q(\d+)\.pdf', file_info.filename)
                     if question_number:
                         question_folder = f"Q{question_number.group(1)}"
 
                         storage_path = os.path.join('documents', job_id, question_folder, os.path.basename(file_info.filename))
-                        final_destination = storage.abs_path(storage_path)  
+                        final_destination = storage.abs_path(storage_path)
 
                         if not os.path.exists(os.path.dirname(final_destination)):
                             os.makedirs(os.path.dirname(final_destination), exist_ok=True)
@@ -1125,42 +1106,39 @@ def download_document():
         )
 
     job_id = str(request_form["job_id"])
-    document_index = request_form["document_index"]
+    document_index = int(request_form["document_index"])
 
     db = mongo["RMN"]
-    document_collection = db["job_documents"]
-
-    if document_index.isdigit():
-        document_index = int(document_index)
-        document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})
+    if request_form.get("questions") is not None:
+        question_collection = db["job_questions"]
+        document_file = question_collection.find_one({"job_id": job_id, "document_index": document_index})
         if document_file is None:
             return Response(
                 response=json.dumps({"response": "No document found!"}),
                 status=404,
             )
 
-        file_id = str(document_file["image_id"])
         # add the right version if requested
+        file_path = document_file["rel_filepath"]
         if "document_version" in request_form:
             try:
-                version_name = version_basename(file_id) + "-%s.pdf" % request_form["document_version"]
-                storage.copy_from(version_name, file_id)
+                version_name = version_basename(file_path) \
+                               + "-%s.pdf" % request_form["document_version"]
+                storage.copy_from(version_name, file_path)
             except ValueError:
                 # if cannot find this version use default one (generally the last one)
-                storage.copy_from(file_id, file_id)
+                storage.copy_from(file_path, file_path)
         else:
-            storage.copy_from(file_id, file_id)
-        file_path = file_id
+            storage.copy_from(file_path, file_path)
     else:
-        document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})
+        document_file = db["job_documents"].find_one({"job_id": job_id, "document_index": document_index})
         if document_file is None:
             return Response(
                 response=json.dumps({"response": "No document found!"}),
                 status=404,
             )
 
-        file_id = str(document_file["image_id"])
-        file_path = os.path.join('cover_pages', job_id, file_id)
+        file_path = document_file["rel_filepath"]
         storage.copy_from(file_path, file_path)
 
     print("document_file: ", document_file)
@@ -1191,21 +1169,18 @@ def last_version_document():
         )
 
     job_id = str(request_form["job_id"])
-    document_index = request_form["document_index"]
+    document_index = int(request_form["document_index"])
 
     db = mongo["RMN"]
-    document_collection = db["job_documents"]
-
-    document_index = int(document_index)
-    document_file = document_collection.find_one({"job_id": job_id, "document_index": document_index})
-    if document_file is None:
+    question_collection = db["job_questions"]
+    question_file = question_collection.find_one({"job_id": job_id, "document_index": document_index})
+    if question_file is None:
         return Response(
             response=json.dumps({"response": "No document found!"}),
             status=404,
         )
 
-    file_id = str(document_file["image_id"])
-    version_base = version_basename(file_id)
+    version_base = version_basename(question_file["rel_filepath"])
     filename_base = storage.abs_path(version_base)
     print("file_base", filename_base)
     all_versions = glob.glob(filename_base + "-*.pdf")
@@ -1230,22 +1205,26 @@ def validate(user_id):
     #
     job_id = str(request_form["job_id"])
 
+    # set all estimation to 0
     db = mongo["RMN"]
-    collection = db["job_documents"]
-
-    # Create SocketIO connection
-    sio = socketio_client()
-    sio.emit(
-        "jobs_status",
-        json.dumps(
-            {
-                "job_id": job_id,
-                "status": Job_Status.FINALIZING.value,
-                "user_id": user_id,
+    db["job_documents"].update_many(
+        {"job_id": job_id},
+        {
+            "$set": {
+                "execution_time": 0,
             }
-        ),
+        },
     )
-    sio.disconnect()
+
+    # mark job as VALIDATED
+    db["eval_jobs"].update_one(
+            {"job_id": job_id},
+            {
+                "$set": {
+                    "job_status": Job_Status.VALIDATED.value,
+                }
+            },
+    )
 
     # add to Redis Queue
     try:
@@ -1260,58 +1239,15 @@ def validate(user_id):
             status=500,
         )
 
-    # set all estimation to 0
-    collection.update_many(
-        {"job_id": job_id},
-        {
-            "$set": {
-                "execution_time": 0,
-            }
-        },
-    )
-
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
 def delete_job(job_id):
     print("Delete job:", job_id)
-
     try:
-        storage.remove(f"output_csv/{job_id}.csv")
+        storage.remove_all_match(job_id)
     except Exception as e:
         print(e)
-    try:
-        storage.remove(f"csv/{job_id}.csv")
-    except Exception as e:
-        print(e)
-    try:
-        storage.remove(f"output_zip/{job_id}*.zip")
-    except Exception as e:
-        print(e)
-    try:
-        storage.remove(f"zips/{job_id}.zip")
-    except Exception as e:
-        print(e)
-    try:
-        storage.remove_tree(f"documents/{job_id}")
-    except Exception as e:
-        print(e)
-    try:
-        storage.remove_tree(f"unverified_numbers/{job_id}")
-    except Exception as e:
-        print(e)
-    try:
-        storage.remove_tree(f"cover_pages/{job_id}")
-    except Exception as e:
-        print(e)
-    try:
-        storage.remove_tree(f"corrected_copies/{job_id}")
-    except Exception as e:
-        print(e)
-    try:
-        storage.remove_tree(f"incorrect_files/{job_id}")
-    except Exception as e:
-        print(e)    
 
     #
     db = mongo["RMN"]
@@ -1359,7 +1295,6 @@ def delete(user_id):
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
             status=400
         )
-
     delete_job(job_id)
 
     #
@@ -1372,7 +1307,7 @@ def delete_old_jobs(n_days_old=0, user_id=None):
     r = {} if user_id is None else {"user_id": user_id}
     jobs = collection.find(r)
 
-    now = datetime.utcnow()
+    now = dt.datetime.utcnow()  # dt.datetime.now(dt.UTC)
     n = 0
     for j in jobs:
         delta = now - j["queued_time"]

@@ -57,6 +57,9 @@ export class NewExamCorrectionComponent implements OnInit {
   presentationCopiesName: string = "";
   latexFrontPageName: string = "";
 
+  showDropbox: boolean = false;
+  showOneDrive: boolean = false;
+
   constructor(
     private router: Router,
     private tasksService: TasksService,
@@ -81,6 +84,12 @@ export class NewExamCorrectionComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.getTemplates();
+  }
+
+  selectText(event): void {
+    // const input = document.getElementById('text-box');
+    // input.focus();
+    event.target.select();
   }
 
   updateTotals() {
@@ -156,7 +165,7 @@ export class NewExamCorrectionComponent implements OnInit {
       this.copiesName = "";
     }
 
-    if (document.getElementById("files-onedrive-input").getAttribute("value") != null) {
+    if (this.getOneDriveAttibute("files-onedrive-input") != null) {
       document.getElementById("files-onedrive-input").removeAttribute("value");
       document.getElementById("files-upload-label").removeAttribute("value");
       document.getElementById("files-upload-label").innerHTML = "";
@@ -171,7 +180,7 @@ export class NewExamCorrectionComponent implements OnInit {
       this.copiesName = "";
     }
 
-    if (document.getElementById("files-dropbox-input").getAttribute("value") != null) {
+    if (this.getDropboxAttibute("files-dropbox-input") != null) {
       document.getElementById("files-dropbox-input").removeAttribute("value");
       document.getElementById("files-upload-label").removeAttribute("value");
       document.getElementById("files-upload-label").innerHTML = "";
@@ -186,7 +195,7 @@ export class NewExamCorrectionComponent implements OnInit {
       this.csvName = "";
     }
 
-    if (document.getElementById("csv-onedrive-input").getAttribute("value") != null) {
+    if (this.getOneDriveAttibute("csv-onedrive-input") != null) {
       document.getElementById("csv-onedrive-input").removeAttribute("value");
       document.getElementById("csv-upload-label").removeAttribute("value");
       document.getElementById("csv-upload-label").innerHTML = "";
@@ -201,7 +210,7 @@ export class NewExamCorrectionComponent implements OnInit {
       this.csvName = "";
     }
 
-    if (document.getElementById("csv-dropbox-input").getAttribute("value") != null) {
+    if (this.getDropboxAttibute("csv-dropbox-input") != null) {
       document.getElementById("csv-dropbox-input").removeAttribute("value");
       document.getElementById("csv-upload-label").removeAttribute("value");
       document.getElementById("csv-upload-label").innerHTML = "";
@@ -228,11 +237,11 @@ export class NewExamCorrectionComponent implements OnInit {
   }
 
   CopiesFileEvent(fileInput: Event) {
-    if (document.getElementById("files-dropbox-input").getAttribute("value") != null) {
+    if (this.getDropboxAttibute("files-dropbox-input") != null) {
       document.getElementById("files-dropbox-input").removeAttribute("value");
     }
 
-    if (document.getElementById("files-onedrive-input").getAttribute("value") != null) {
+    if (this.getOneDriveAttibute("files-onedrive-input") != null) {
       document.getElementById("files-onedrive-input").removeAttribute("value");
     }
 
@@ -250,11 +259,11 @@ export class NewExamCorrectionComponent implements OnInit {
   }
 
   CsvFileEvent(fileInput: Event) {
-    if (document.getElementById("csv-dropbox-input").getAttribute("value") != null) {
+    if (this.getDropboxAttibute("csv-dropbox-input") != null) {
       document.getElementById("csv-dropbox-input").removeAttribute("value");
     }
 
-    if (document.getElementById("csv-onedrive-input").getAttribute("value") != null) {
+    if (this.getOneDriveAttibute("csv-onedrive-input") != null) {
       document.getElementById("csv-onedrive-input").removeAttribute("value");
     }
 
@@ -272,11 +281,11 @@ export class NewExamCorrectionComponent implements OnInit {
   }
 
   checkDisabled(): boolean {
-    let dropboxInput = document.getElementById("files-dropbox-input").getAttribute("value");
-    let onedriveInput = document.getElementById("files-onedrive-input").getAttribute("value");
+    let dropboxInput = this.getDropboxAttibute("files-dropbox-input");
+    let onedriveInput = this.getOneDriveAttibute("files-onedrive-input");
 
-    let dropboxInputCSV = document.getElementById("csv-dropbox-input").getAttribute("value");
-    let onedriveInputCSV = document.getElementById("csv-onedrive-input").getAttribute("value");
+    let dropboxInputCSV = this.getDropboxAttibute("csv-dropbox-input");
+    let onedriveInputCSV = this.getOneDriveAttibute("csv-onedrive-input");
 
     if (this.copiesName === "" && dropboxInput === null && onedriveInput === null) {
       return true;
@@ -290,22 +299,46 @@ export class NewExamCorrectionComponent implements OnInit {
   }
 
   async convertDownloadableFile() {
-    if (document.getElementById("files-dropbox-input").getAttribute("value") != null) {
+    if (this.getDropboxAttibute("files-dropbox-input") != null) {
       let blob = await fetch(document.getElementById("files-dropbox-input").getAttribute("value")).then(r => r.blob());
       this.copies = new File([blob], document.getElementById("files-upload-label").getAttribute("value"));
-    } else if (document.getElementById("files-onedrive-input").getAttribute("value") != null) {
+    } else if (this.getOneDriveAttibute("files-onedrive-input") != null) {
       let blob = await fetch(document.getElementById("files-onedrive-input").getAttribute("value")).then(r => r.blob());
       this.copies = new File([blob], document.getElementById("files-upload-label").getAttribute("value"));
     }
   }
 
   async convertDownloadableCSV() {
-    if (document.getElementById("csv-dropbox-input").getAttribute("value") != null) {
+    if (this.getDropboxAttibute("csv-dropbox-input") != null) {
       let blob = await fetch(document.getElementById("csv-dropbox-input").getAttribute("value")).then(r => r.blob());
       this.csv = new File([blob], document.getElementById("csv-upload-label").getAttribute("value"));
-    } else if (document.getElementById("csv-onedrive-input").getAttribute("value") != null) {
+    } else if (this.getOneDriveAttibute("csv-onedrive-input") != null) {
       let blob = await fetch(document.getElementById("csv-onedrive-input").getAttribute("value")).then(r => r.blob());
       this.csv = new File([blob], document.getElementById("csv-upload-label").getAttribute("value"));
+    }
+  }
+
+  getDropboxAttibute(id) {
+    if(!this.showDropbox) {
+      return null;
+    } else {
+      return this.getAttibute(id);
+    }
+  }
+
+  getOneDriveAttibute(id) {
+    if(!this.showDropbox) {
+      return null;
+    } else {
+      return this.getAttibute(id);
+    }
+  }
+
+  getAttibute(id) {
+    if(document.getElementById(id).getAttribute("value") != null) {
+      return document.getElementById(id).getAttribute("value");
+    } else {
+      return null;
     }
   }
 

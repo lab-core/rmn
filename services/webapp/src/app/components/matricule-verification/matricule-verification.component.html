@@ -29,13 +29,13 @@
                         <strong>{{i + 1}}</strong>
                     </div>
                 </div>
-            </div>                       
+            </div>
         </div>
         <div class="validation-container">
             <p *ngIf="this.disabledValidationcontainer">Aucune copie n'est prête à être validée.</p>
             <div class="picture-container" *ngIf="!this.disabledValidationcontainer">
                 <ngx-extended-pdf-viewer *ngIf="!this.pdfLoading"
-                    [src]="this.pdfSrc" 
+                    [src]="this.pdfSrc"
                     [language]="'fr'"
                     [showToolbar]="false"
                     [showSidebarButton]="false"
