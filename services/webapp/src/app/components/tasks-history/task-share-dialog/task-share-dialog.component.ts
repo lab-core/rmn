@@ -61,10 +61,11 @@ export class TaskShareDialogComponent implements OnInit {
             this.getUrl();
           });
         } else {
-          this.close(false);
+          this.close({success: false, message: "Vous ne pouvez pas partager cette tâche."});
         }
       }, (error) => {
         console.error(error);
+        this.close({success: false, message: "Une erreur est intervenue lors du partage de la tâche !"});
       });
   }
 
@@ -77,20 +78,30 @@ export class TaskShareDialogComponent implements OnInit {
     const formdata: FormData = new FormData();
     formdata.append('token', this.userService.token);
     formdata.append('job_id', this.data.taskId);
+    if (this.data.shareType === 'job') {
+      formdata.append('questions', "true");
+    }
     if (this.data.questionIndex) {
       formdata.append('question_index', this.data.questionIndex.toString());
     }
     this.http.post<any>(`${SERVER_URL}/job/unshare`, formdata).subscribe(
       (data) => {
-        this.close(data['response'] === "OK");
+        let resp = {success: data['response'] === "OK"};
+        if (resp.success) {
+          resp["message"] = "L'accès a été enlevé pour cette tâche.";
+        } else {
+          resp["message"] = "L'accès n'a pas pu être enlevé pour cette tâche.";
+        }
+        this.close(resp);
       }, (error) => {
         console.error(error);
+        this.close({success: false, message: "Une erreur est intervenue lors du partage de la tâche !"});
       });
   }
 
   share(): void {
     this.copyUrl();
-    this.close(true);
+    this.close({success: true, message: "Le lien a été copié"});
   }
 
   close(result: any): void {

@@ -276,7 +276,7 @@ export class DashboardPageComponent {
 
   correctQuestion(index=undefined) {
     this.tasksService.setvalidatingTaskId(this.task.job_id);
-    if (index) {
+    if (index !== undefined) {
       this.router.navigate([`/task-validation`, this.taskId, index + 1]);
     } else {
       this.router.navigate([`/task-validation`, this.taskId]);
@@ -288,36 +288,30 @@ export class DashboardPageComponent {
     this.router.navigate([`/matricule-validation`, this.taskId]);
   }
 
-  shareQuestion(index=undefined) {
-    let data = { taskId: this.taskId, taskName: this.taskName, shareType: 'job' }
-    if (index) {
-      data["questionIndex"] = index + 1;
+  shareMatricule() {
+    this.shareTask(false);
+  }
+
+  shareQuestion(questionIndex=undefined) {
+    this.shareTask(true, questionIndex);
+  }
+
+  shareTask(job, questionIndex=undefined) {
+    let data = { taskId: this.taskId, taskName: this.taskName, shareType: job ? 'job' : 'matricule'}
+    if (questionIndex !== undefined) {
+      data["questionIndex"] = questionIndex + 1;
     }
     let dialogRef = this.dialog.open(TaskShareDialogComponent, {
       width: '30%',
       height: '40%',
       data: data
     });
-    dialogRef.afterClosed().subscribe(async result => {
-      if (result === false) {
-        const message = "Une erreur est intervenue lors du partage de la question !";
-        this.notificationService.showError(message, "Erreur!");
-      }
-    }, (error) => {
-      console.error(error);
-    });
-  }
-
-  shareTask() {
-    let dialogRef = this.dialog.open(TaskShareDialogComponent, {
-      width: '30%',
-      height: '40%',
-      data: { taskId: this.taskId, taskName: this.taskName, shareType: 'matricule' }
-    });
-    dialogRef.afterClosed().subscribe(async result => {
-      if (result === false) {
-        const message = "Une erreur est intervenue lors du partage de la tâche !";
-        this.notificationService.showError(message, "Erreur!");
+    dialogRef.afterClosed().subscribe(resp => {
+      if (resp.success) {
+        if (resp.message)
+          this.notificationService.showSuccess(resp.message, "Succès!");
+      } else if (resp.message) {
+          this.notificationService.showError(resp.message, "Erreur!");
       }
     }, (error) => {
       console.error(error);

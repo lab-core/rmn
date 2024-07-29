@@ -93,7 +93,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     // fetch query entries
     let token = this.route.snapshot.queryParams['token'];
     if (token) {
-      this.userService.setShareToken(token);
+      this.userService.setShareToken(token, this.route.snapshot.queryParams['question_index']);
     }
 
     let jobId = this.route.snapshot.queryParams['job_id'];
@@ -107,7 +107,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
     this.groupsList = [this.group];
 
-    this.job = await this.tasksService.getTask();
+    try {
+      this.job = await this.tasksService.getTask();
+    } catch (error) {}
     if (!this.job || !this.job["job_id"]) {
       // reroute page
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
@@ -232,8 +234,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (questionIndex) {
       this.index = questionIndex;
       this.onQuestionIndexChange({ value: questionIndex } as MatSelectChange);
-      this.disabledDropDown = true;
-      this.isIndexProvided = true;
+      if (!this.userService.loggued()) {
+        this.disabledDropDown = true;
+        this.isIndexProvided = true;
+      }
     } else {
       this.route.params.subscribe(params => {
         const index = params['index'];
@@ -467,6 +471,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     formdata.append('job_id', this.tasksService.getvalidatingTaskId());
     formdata.append('document_index', this.currentCopy.toString());
     formdata.append('questions', 'true');
+
     await this.http.post(`${SERVER_URL}document/last_version`, formdata)
       .toPromise()
       .then(async (data: any) => {

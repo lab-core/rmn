@@ -12,6 +12,7 @@ export class UserService implements CanActivate, CanActivateChild {
   currentUsername: string;
   token: string;
   shareToken: string;
+  questionIndex: string;
   role: string;
   saveVerifiedImages: boolean = false;
   moodleStructureInd: boolean = false;
@@ -22,6 +23,7 @@ export class UserService implements CanActivate, CanActivateChild {
     this.role = localStorage.getItem('role')
     this.token = localStorage.getItem('token')
     this.shareToken = localStorage.getItem('shareToken')
+    this.questionIndex = localStorage.getItem('questionIndex')
 
     let saveImages = localStorage.getItem('saveVerifiedImages')
     this.saveVerifiedImages = (saveImages && saveImages != "undefined") ? JSON.parse(localStorage.getItem('saveVerifiedImages')) : false
@@ -30,9 +32,13 @@ export class UserService implements CanActivate, CanActivateChild {
     this.moodleStructureInd = (moodleInd && moodleInd != "undefined") ? JSON.parse(localStorage.getItem('moodleStructureInd')) : false
   }
 
-  setShareToken(shareToken: string): void {
+  setShareToken(shareToken: string, questionIndex=undefined): void {
     this.shareToken = shareToken;
     localStorage.setItem('shareToken', shareToken);
+    if (questionIndex) {
+      this.questionIndex = questionIndex;
+      localStorage.setItem('questionIndex', questionIndex);
+    }
   }
 
   addTokens(form) {
@@ -41,6 +47,9 @@ export class UserService implements CanActivate, CanActivateChild {
     }
     if (this.shareToken) {
       form.append('share_token', this.shareToken);
+      if (this.questionIndex) {
+        form.append('question_index', this.questionIndex);
+      }
     }
   }
 

@@ -81,7 +81,7 @@ def verify_token(role=None):
     return _verify_token
 
 
-def verify_share_token():
+def verify_share_token(question=True, matricule=True, return_validity=False):
     def _verify_token(f):
         @wraps(f)
         def __verify_token(*args, **kwargs):
@@ -108,7 +108,10 @@ def verify_share_token():
                         response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
                         status=400
                     )
-                return f()
+                if return_validity:
+                    return f(None)
+                else:
+                    return f()
             # check if any token share token provided
             if "share_token" not in request.form:
                 return Response(
@@ -118,14 +121,30 @@ def verify_share_token():
             # check if share token valid
             db = mongo["RMN"]
             token = request.form["share_token"]
-            job = db["eval_jobs"].find_one({"job_id": job_id, "share_token": token})
-            if not job:
-                print("Error: share token (", token, ") not valid for", job_id)
+
+            keys = []
+            if question:
+                keys.append("all")
+                if "question_index" in request.form:
+                    keys.append(request.form["question_index"])
+            elif matricule:
+                keys.append("mat")
+            job = db["eval_jobs"].find_one({"job_id": job_id})
+            validity = None
+            if job:
+                for k, t in job.get("share_token", {}).items():
+                    if k in keys and t == token:
+                        validity = k
+            if validity is None:
+                print("Error: share token (", token, ") not valid for", job_id, "and keys", keys)
                 return Response(
                     response=json.dumps({"response": f"Error: share token not valid."}),
                     status=400,
                 )
-            return f()
+            if return_validity:
+                return f(validity)
+            else:
+                return f()
         return __verify_token
     return _verify_token
 
@@ -507,7 +526,7 @@ def share_job(user_id):
     #         response=json.dumps({"response": f"Error: question_index not provided."}),
     #         status=400
     #     )
-    question_index = int(request_form.get("question_index")) if "question_index" in request_form else None
+    question_index = request_form.get("question_index")
 
     host = request.headers.get('Host')
     if not host:
@@ -524,19 +543,25 @@ def share_job(user_id):
             status=400
         )
 
+    key = question_index if question_index else "all"
     if "share_token" not in job:
         token = str(uuid.uuid4())
         collection.update_one(
             {"job_id": job_id},
-            {"$set": {"share_token": token}})
+            {"$set": {"share_token": {key: token}}})
+    elif key not in job["share_token"]:
+        token = str(uuid.uuid4())
+        collection.update_one(
+            {"job_id": job_id},
+            {"$set": {f"share_token.{key}": token}})
     else:
-        token = job["share_token"]
+        token = job["share_token"][key]
 
-    protocol = "http" if host == "0.0.0.0" or host == "localhost" else "https"
+    proto = "http" if host == "0.0.0.0" or host == "localhost" else "https"
     if question_index:
-        share_url = f"{protocol}://{host}/task-validation/?job_id={job_id}&token={token}&question_index={question_index}"
+        share_url = f"{proto}://{host}/task-validation/?job_id={job_id}&token={token}&question_index={question_index}"
     else:
-        share_url = f"{protocol}://{host}/task-validation/?job_id={job_id}&token={token}"
+        share_url = f"{proto}://{host}/task-validation/?job_id={job_id}&token={token}"
 
     #
     resp = {
@@ -563,7 +588,11 @@ def unshare_job(user_id):
     job_id = str(request_form["job_id"])
 
     # Get all jobs from DB
-    res = collection.update_one({"job_id": job_id, "user_id": user_id}, {"$unset": {"share_token": ""}})
+    if "questions" in request.form:
+        key = request_form.get("question_index", "all")
+    else:
+        key = "mat"
+    res = collection.update_one({"job_id": job_id, "user_id": user_id}, {"$unset": {f"share_token.{key}": ""}})
     if res.matched_count == 0:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
@@ -811,7 +840,7 @@ def get_info_zip(user_id):
 
 @app.route("/matricule/update", methods=["POST"])
 @cross_origin()
-@verify_share_token()
+@verify_share_token(job=False)
 def update_matricule():
     request_form = request.form
 
@@ -837,7 +866,7 @@ def update_matricule():
 
 @app.route("/matricule/share", methods=["POST"])
 @cross_origin()
-@verify_share_token()
+@verify_token()
 def share_matricule_verification():
     # Define db and collection used
     db = mongo["RMN"]
@@ -876,9 +905,14 @@ def share_matricule_verification():
         token = str(uuid.uuid4())
         collection.update_one(
             {"job_id": job_id},
-            {"$set": {"share_token": token}})
+            {"$set": {"share_token": {"mat": token}}})
+    elif "mat" not in job["share_token"]:
+        token = str(uuid.uuid4())
+        collection.update_one(
+            {"job_id": job_id},
+            {"$set": {"share_token.mat": token}})
     else:
-        token = job["share_token"]
+        token = job["share_token"]["mat"]
 
     protocol = "http" if host == "0.0.0.0" or host == "localhost" else "https"
     share_url = f"{protocol}://{host}/matricule-validation/?job_id={job_id}&token={token}"
@@ -891,8 +925,8 @@ def share_matricule_verification():
 
 @app.route("/documents", methods=["POST"])
 @cross_origin()
-@verify_share_token()
-def get_documents():
+@verify_share_token(return_validity=True)
+def get_documents(validity):
     request_form = request.form
     job_id = str(request_form["job_id"])
 
@@ -943,7 +977,7 @@ def get_documents():
 @app.route("/documents/update", methods=["POST"])
 @cross_origin()
 @verify_share_token()
-def update_document():
+def update_document(matricule=False):
     request_form = request.form
     required_fields = ["job_id", "document_index", "copies_informations", "n_max_points_per_question", "status"]
     for field in required_fields:
@@ -997,7 +1031,7 @@ def update_document():
 
 @app.route("/documents/grade_all", methods=["POST"])
 @cross_origin()
-@verify_share_token()
+@verify_token()
 def grade_all_documents():
     request_form = request.form
 
@@ -1030,7 +1064,7 @@ def grade_all_documents():
 
 @app.route("/documents/replace", methods=["POST"])
 @cross_origin()
-@verify_share_token()
+@verify_share_token(matricule=False)
 def replace_document():
     request_form = request.form
     request_files = request.files

@@ -20,7 +20,7 @@ export class ValidationService {
     this.userService.addTokens(formData);
     formData.append('job_id', jobId);
     formData.append('document_index', validatingCopy.toString());
-    if (file) formData.append('file', file);
+    formData.append('file', file);
     const serializedCopiesInformations = JSON.stringify(
         Array.from(copiesInformations.entries()).map(([key, value]) => [key, Array.from(value.entries())])
     );
