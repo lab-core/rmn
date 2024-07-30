@@ -1,9 +1,11 @@
-import { Injectable } from '@angular/core';
+import { Injectable } from '@angular/core'
 
 @Injectable({
   providedIn: 'root'
 })
 export class TemplateService {
+
+  editingTemplate: boolean = false;
 
   templateFile: File;
   templateUrl: string;
@@ -16,6 +18,11 @@ export class TemplateService {
   async createNewTemplate(data: Blob) {
     let url = window.URL.createObjectURL(data);
     this.templateUrl = url;
+
+    // let loadingTask = pdfjs.getDocument(url);
+    // let pdf = await loadingTask.promise;
+    // let page = await pdf.getPage(1);
+    // this.template = page;
   }
 
   setFile(file: File) {

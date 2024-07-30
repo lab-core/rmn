@@ -4,6 +4,7 @@ from utils.clients import redis_client
 from pathlib import Path
 from io import FileIO
 from PyPDF2 import PdfWriter, PdfReader
+from pdf2image import convert_from_path
 from werkzeug.utils import secure_filename
 import uuid
 import os
@@ -214,8 +215,14 @@ class TemplateService():
 
         # Save file to local
         filepath = str(TEMP_FOLDER.joinpath(template_id))
-        storage.copy_from(spath, filepath)
+        # storage.copy_from(spath, filepath)
         print("file created")
+
+        # convert to image
+        img = convert_from_path(storage.abs_path(spath), dpi=300, first_page=0, last_page=1)[0]
+        filepath = filepath.rsplit(".", 1)[0] + ".jpg"
+        print("save image to", filepath)
+        img.save(filepath)
 
         file_send = send_file(filepath)
 

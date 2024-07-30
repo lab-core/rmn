@@ -41,19 +41,32 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
     if (!this.templateService.getTemplateUrl()) {
       this.reroute();
     } else {
-      // if (this.templateService.checkEditing()){
-        this.templateName = this.templateService.getTemplateName();
-        this.rectangleService.initExistingRects();
-      // }
-      // this.rectangleService.init();
+      this.templateName = this.templateService.getTemplateName();
+      this.rectangleService.initExistingRects();
     }
 
     this.joinSocket();
+    this.loadTemplate();
   }
 
   ngOnDestroy(): void {
     this.socketService.getSocket().off('template_rendered');
     this.socketService.disconnectSocket();
+  }
+
+
+  async loadTemplate() {
+    // Apply page dimensions to the `<canvas>` element.
+    let canvas = document.getElementById("cv") as HTMLCanvasElement;
+    let context = canvas.getContext("2d");
+
+    var img = new Image();
+    img.onload = function(){
+      canvas.height = img.height;
+      canvas.width = img.width;
+      context.drawImage(img, 0, 0);
+    }
+    img.src = this.templateService.getTemplateUrl();
   }
 
   joinSocket() {
@@ -66,6 +79,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
           var file = new File([data], this.templateService.getTemplateName());
           this.templateService.setFile(file);
           await this.templateService.createNewTemplate(file);
+          await this.loadTemplate();
           this.notifyService.showSuccess("Le gabarit a été mis à jour.", "Rendu");
           this.disabled = false;
       });
@@ -73,7 +87,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    (<HTMLElement>document.querySelector('#viewerContainer')).style.overflowY = "hidden";
+    // (<HTMLElement>document.querySelector('#viewerContainer')).style.overflowY = "hidden";
   }
 
   onToolChange(value){

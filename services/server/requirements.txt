@@ -33,6 +33,8 @@ nipype==1.8.5
 numpy==1.24.2
 packaging==23.0
 pandas==1.5.3
+pdf2image==1.17.0
+pillow==10.4.0
 prov==2.0.0
 pycparser==2.21
 pycryptodome==3.17
