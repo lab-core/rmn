@@ -109,7 +109,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
     try {
       this.job = await this.tasksService.getTask();
-    } catch (error) {}
+    } catch (err) {
+      console.error(err);
+    }
     if (!this.job || !this.job["job_id"]) {
       // reroute page
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
@@ -214,7 +216,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return formattedIndexes;
   }
 
-  async saveCurrentScore(): Promise<void> {
+  async loadScore(): Promise<void> {
     await this.getCopiesInformations();
     const fullCopyName = this.currentExam()["basename"];
     const questionMap = this.copiesInformations.get(fullCopyName);
@@ -223,8 +225,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.currentScore = questionMap.get(this.currentQuestionIndex);
       this.currentScoresMap.set(this.currentCopy, this.currentScore);
     } else {
-      this.currentScoresMap.set(this.currentCopy, this.currentScore);
+      this.currentScore = this.currentScoresMap.get(this.currentCopy) || null;
     }
+  }
+
+  async saveCurrentScore(): Promise<void> {
+    this.currentScoresMap.set(this.currentCopy, this.currentScore);
   }
 
   initializeQuestionIndexes(): void {
@@ -442,8 +448,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.disabledValidationcontainer = false;
         await this.loadCopy();
         this.setChosenColor(status);
-        this.currentScore = this.currentScoresMap.get(this.currentCopy) || null;
-        await this.saveCurrentScore();
+        await this.loadScore();
         await this.verifyIfQuestionIsBonus();
       } else {
           console.error('Erreur lors de l\'obtention du document PDF modifié.');

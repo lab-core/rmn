@@ -86,7 +86,7 @@ def check_for_idle_jobs_to_requeue(db):
                     job_id = job["job_id"]
                     user_id = job["user_id"]
 
-                    update_status(user_id, job_id, Job_Status.VALIDATION)
+                    update_status(db, user_id, job_id, Job_Status.VALIDATION)
 
                 # requeue old idle jobs
                 old_idle_jobs = False
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         if job["job_status"] == Job_Status.VALIDATED.value or job["job_status"] == Job_Status.FINALIZING.value:
             # Set Job status to FINALIZING
             if job["job_status"] != Job_Status.FINALIZING.value:
-                update_status(user_id, job_id, Job_Status.FINALIZING)
+                update_status(db, user_id, job_id, Job_Status.FINALIZING)
 
             if os.path.exists(storage.abs_path(os.path.join("documents", job_id))):
                 # adding grades
@@ -502,7 +502,7 @@ if __name__ == "__main__":
                     }})
 
                 #
-                update_status(user_id, job_id, Job_Status.ARCHIVED, db_infos={"notes_file_id": notes_csv_file_id})
+                update_status(db, user_id, job_id, Job_Status.ARCHIVED, db_infos={"notes_file_id": notes_csv_file_id})
 
             except Exception as e:
                 print("Error while moving file to storage")
@@ -617,7 +617,7 @@ if __name__ == "__main__":
                     raise e
 
                 # Error handling
-                update_status(user_id, job_id, Job_Status.ERROR)
+                update_status(db, user_id, job_id, Job_Status.ERROR)
 
                 storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
                 storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
@@ -652,7 +652,7 @@ if __name__ == "__main__":
             )
 
             # Set Job status to VALIDATION
-            update_status(user_id, job_id, Job_Status.VALIDATION, sio_infos={"job_infos": "Validation matricule prête"})
+            update_status(db, user_id, job_id, Job_Status.VALIDATION, sio_infos={"job_infos": "Validation matricule prête"})
 
         elif job["job_status"] == Job_Status.SPLIT.value or job["job_status"] == Job_Status.CORRECTED.value:
             job_params = db.eval_jobs_collection().find_one({"job_id": job_id})
@@ -663,7 +663,7 @@ if __name__ == "__main__":
                 print("Copies inserted in database")
 
                 # Set Job status to QUEUED as no error have been raised. Process can continue
-                update_status(user_id, job_id, Job_Status.QUEUED)
+                update_status(db, user_id, job_id, Job_Status.QUEUED)
 
                 # push the job to the queue to be continued
                 redis.rpush("job_queue", json.dumps({"job_id": job_id}))
@@ -671,12 +671,12 @@ if __name__ == "__main__":
                 error_messages = str(e)
                 print(e)
                 # Set Job status to RETRY
-                update_status(user_id, job_id, Job_Status.RETRY, infos={"job_infos": error_messages})
+                update_status(db, user_id, job_id, Job_Status.RETRY, infos={"job_infos": error_messages})
 
             except Exception as e:
                 print(e)
                 # Set Job status to ERROR
-                update_status(user_id, job_id, Job_Status.ERROR)
+                update_status(db, user_id, job_id, Job_Status.ERROR)
 
         else:
             print("Job status "+job["job_status"]+" not handled.")

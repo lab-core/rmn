@@ -26,9 +26,13 @@ def redis_client():
 
 
 def socketio_client():
-    sio = socketio.Client()
+    sio = socketio.Client(engineio_logger=True)
     sio.connect(f"http://{socketio_host}:7000")
     return sio
+
+
+def socketio_simple_client():
+    return socketio.SimpleClient(f"http://{socketio_host}:7000", engineio_logger=True)
 
 
 def emit_job(user_id, job_id, status, infos=None, sio_infos=None):
@@ -40,15 +44,16 @@ def emit_job(user_id, job_id, status, infos=None, sio_infos=None):
         else:
             sio_infos = copy(infos)
 
-    sio = socketio_client()
     sio_infos["user_id"] = user_id
     sio_infos["job_id"] = job_id
     sio_infos["status"] = status.value
+
+    sio = socketio_client()
     sio.emit("job_status", json.dumps(sio_infos))
     sio.disconnect()
 
 
-def update_status(user_id, job_id, status, infos=None, db_infos=None, sio_infos=None, db_name="RMN"):
+def update_status(db, user_id, job_id, status, infos=None, db_infos=None, sio_infos=None):
     # initialize db_infos
     if infos is None and db_infos is None:
         db_infos = {}
@@ -58,15 +63,10 @@ def update_status(user_id, job_id, status, infos=None, db_infos=None, sio_infos=
         else:
             db_infos = copy(infos)
     # update db status
-    mongo_cli = mongo_client()
-    try:
-        db = mongo_client()[db_name]
-        db_infos["job_status"] = status.value
-        db.get_collection("eval_jobs").update_one(
-            {"job_id": job_id},
-            {"$set": db_infos}
-        )
-    finally:
-        mongo_cli.close()
+    db_infos["job_status"] = status.value
+    db.get_collection("eval_jobs").update_one(
+        {"job_id": job_id},
+        {"$set": db_infos}
+    )
     # emit status
     emit_job(user_id, job_id, status, infos, sio_infos)

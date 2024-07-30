@@ -97,6 +97,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
 
             # check if token valid
             resp, user_id = check_token(request.form)
+            # if resp is None => valid token
             if resp is None:
                 job = db["eval_jobs"].find_one({"job_id": job_id, "user_id": user_id})
                 if job is None:
@@ -104,11 +105,13 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                     job = db["eval_jobs"].find_one({"job_id": job_id})
                     if job:
                         print("Found job:", job)
-                    return Response(
-                        response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
-                        status=400
-                    )
-                if return_validity:
+                    # if there is a share token, try it after
+                    if "share_token" not in request.form:
+                        return Response(
+                            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+                            status=400
+                        )
+                elif return_validity:
                     return f(None)
                 else:
                     return f()
@@ -127,10 +130,11 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                 keys.append("all")
                 if "question_index" in request.form:
                     keys.append(request.form["question_index"])
-            elif matricule:
+            if matricule:
                 keys.append("mat")
-            job = db["eval_jobs"].find_one({"job_id": job_id})
+
             validity = None
+            job = db["eval_jobs"].find_one({"job_id": job_id})
             if job:
                 for k, t in job.get("share_token", {}).items():
                     if k in keys and t == token:
@@ -840,7 +844,7 @@ def get_info_zip(user_id):
 
 @app.route("/matricule/update", methods=["POST"])
 @cross_origin()
-@verify_share_token(job=False)
+@verify_share_token(question=False)
 def update_matricule():
     request_form = request.form
 
@@ -936,6 +940,11 @@ def get_documents(validity):
     #
     db = mongo["RMN"]
     if request_form.get("questions") is not None:
+        if validity == "mat":
+            return Response(response=json.dumps({"Error": "You don't have access to these questions"}), status=400)
+        question = None
+        if validity is not None and validity != "all":
+            question = f"Q{validity}"
         docs = db["job_questions"].find({"job_id": job_id})
         count = db["job_questions"].count_documents({"job_id": job_id})
         resp = [
@@ -949,9 +958,11 @@ def get_documents(validity):
                 "grade": doc["grade"],
                 "n_total_doc": count
             }
-            for doc in docs
+            for doc in docs if question is None or doc["question"] == question
         ]
     else:
+        if validity is not None and validity != "mat":
+            return Response(response=json.dumps({"Error": "You don't have access to these documents"}), status=400)
         docs = db["job_documents"].find({"job_id": job_id})
         count = db["job_documents"].count_documents({"job_id": job_id})
         resp = [
@@ -976,8 +987,8 @@ def get_documents(validity):
 
 @app.route("/documents/update", methods=["POST"])
 @cross_origin()
-@verify_share_token()
-def update_document(matricule=False):
+@verify_share_token(matricule=False)
+def update_document():
     request_form = request.form
     required_fields = ["job_id", "document_index", "copies_informations", "n_max_points_per_question", "status"]
     for field in required_fields:
@@ -1129,8 +1140,8 @@ def save_new_version(filename, version=None):
 
 @app.route("/document/download", methods=["POST"])
 @cross_origin()
-@verify_share_token()
-def download_document():
+@verify_share_token(return_validity=True)
+def download_document(validity):
     request_form = request.form
 
     if "document_index" not in request_form:
@@ -1144,16 +1155,22 @@ def download_document():
 
     db = mongo["RMN"]
     if request_form.get("questions") is not None:
+        if validity == "mat":
+            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=400)
+
         question_collection = db["job_questions"]
-        document_file = question_collection.find_one({"job_id": job_id, "document_index": document_index})
-        if document_file is None:
+        doc = question_collection.find_one({"job_id": job_id, "document_index": document_index})
+        if doc is None:
             return Response(
                 response=json.dumps({"response": "No document found!"}),
                 status=404,
             )
 
+        if validity is not None and validity != "all" and doc["question"] != f"Q{validity}":
+            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=400)
+
         # add the right version if requested
-        file_path = document_file["rel_filepath"]
+        file_path = doc["rel_filepath"]
         if "document_version" in request_form:
             try:
                 version_name = version_basename(file_path) \
@@ -1165,17 +1182,19 @@ def download_document():
         else:
             storage.copy_from(file_path, file_path)
     else:
-        document_file = db["job_documents"].find_one({"job_id": job_id, "document_index": document_index})
-        if document_file is None:
+        if validity is not None and validity != "mat":
+            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=400)
+        doc = db["job_documents"].find_one({"job_id": job_id, "document_index": document_index})
+        if doc is None:
             return Response(
                 response=json.dumps({"response": "No document found!"}),
                 status=404,
             )
 
-        file_path = document_file["rel_filepath"]
+        file_path = doc["rel_filepath"]
         storage.copy_from(file_path, file_path)
 
-    print("document_file: ", document_file)
+    print("document_file: ", doc)
     file_send = send_file(file_path)
 
     time.sleep(0.1)

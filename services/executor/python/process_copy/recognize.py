@@ -50,7 +50,7 @@ from process_copy.preview import PreviewHandler
 from process_copy.database import Database
 from utils.storage import Storage
 from utils.utils import Document_Status, Job_Status
-from utils.clients import socketio_client
+from utils.clients import socketio_client, socketio_simple_client
 
 
 ignoreWrite = sys.gettrace() is None and "Debug" not in str(sys.stdin)
@@ -278,18 +278,15 @@ def process_all(
     job = db.update_job_status_to_run(job_id, names_mat_json)
     new_job = (job["retry"] == 0)
     if new_job:
-        try:
-            # Create SocketIO connection
-            sio = socketio_client()
-            print("Grade new job:", job_id)
-            sio.emit(
-                "job_status",
-                json.dumps(
-                    {"job_id": job_id, "user_id": user_id, "status": Job_Status.RUN.value}
-                ),
-            )
-        finally:
-            sio.disconnect()
+        sio = socketio_client()
+        print("Grade new job:", job_id)
+        sio.emit(
+            "job_status",
+            json.dumps(
+                {"job_id": job_id, "user_id": user_id, "status": Job_Status.RUN.value}
+            ),
+        )
+        sio.disconnect()
     else:
         print("Retry grading old job:", job_id)
 

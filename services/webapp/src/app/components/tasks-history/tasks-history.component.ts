@@ -94,7 +94,7 @@ export class TasksHistoryComponent implements OnInit {
       let job_id = resp.job_id;
       let lastN = resp.document_index;
       let lastExecTime = resp.execution_time;
-      let n_total_doc = resp.n_total_doc;
+      // let n_total_doc = resp.n_total_doc;
       this.tasksList.forEach(x => {
         if (x.job_id === job_id) {
           // x.job_estimation = Math.round((n_total_doc - lastN) * lastExecTime);
