@@ -50,7 +50,7 @@ def emit_job(user_id, job_id, status, infos=None, sio_infos=None):
 
     sio = socketio_client()
     sio.emit("job_status", json.dumps(sio_infos))
-    sio.disconnect()
+    # sio.disconnect()
 
 
 def update_status(db, user_id, job_id, status, infos=None, db_infos=None, sio_infos=None):

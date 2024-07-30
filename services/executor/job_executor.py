@@ -177,20 +177,26 @@ if __name__ == "__main__":
         if grade_box:
             np_img = draw_boxes_on_template(grade_box, np_img, False)
 
-        cv2.imwrite(WORK_TMP_DIR.joinpath("rendered.png"), np_img)
-        layout = img2pdf.get_fixed_dpi_layout_fun((300, 300))
+        tmp_img = str(WORK_TMP_DIR.joinpath("rendered.png"))
+        cv2.imwrite(tmp_img, np_img)
 
-        rendered_pdf = template["template_file_id"].rsplit(".", 1)[0] + "-rendered.pdf"
-        tmp_rendered = str(WORK_TMP_DIR.joinpath(rendered_pdf))
-        with open(tmp_rendered, "wb") as f:
-            f.write(img2pdf.convert(str(WORK_TMP_DIR.joinpath("rendered.png")), layout_fun=layout))
+        # For a png
+        rendered_path = template["template_file_id"].rsplit(".", 1)[0] + "-rendered.png"
+        storage.move_to(tmp_img, rendered_path)
 
-        storage.move_to(tmp_rendered, rendered_pdf)
+        # # For a pdf
+        # rendered_path = template["template_file_id"].rsplit(".", 1)[0] + "-rendered.pdf"
+        # tmp_rendered = str(WORK_TMP_DIR.joinpath(rendered_path))
+        # with open(tmp_rendered, "wb") as f:
+        #     layout = img2pdf.get_fixed_dpi_layout_fun((300, 300))
+        #     f.write(img2pdf.convert(tmp_img, layout_fun=layout))
+        # storage.move_to(tmp_rendered, rendered_path)
+
         try:
             # update doc
             db.get_collection("template").update_one(
                 {"template_id": temp_id},
-                {"$set": {"template_rendered_file_id": rendered_pdf}})
+                {"$set": {"template_rendered_file_id": rendered_path}})
         except Exception as e:
             print(f"An error occurred: {e}")
             raise
@@ -205,7 +211,7 @@ if __name__ == "__main__":
                 }
             ),
         )
-        sio.disconnect()
+        # sio.disconnect()
 
 
     def process(p_job, TMP_DIR):

@@ -212,17 +212,18 @@ class TemplateService():
         template_id = str(request_form["template_id"])
         template = db["template"].find_one({"template_id": template_id})
         spath = template.get("template_rendered_file_id", template["template_file_id"])
+        print("template file path:", spath)
 
         # Save file to local
         filepath = str(TEMP_FOLDER.joinpath(template_id))
-        # storage.copy_from(spath, filepath)
-        print("file created")
-
-        # convert to image
-        img = convert_from_path(storage.abs_path(spath), dpi=300, first_page=0, last_page=1)[0]
-        filepath = filepath.rsplit(".", 1)[0] + ".jpg"
-        print("save image to", filepath)
-        img.save(filepath)
+        # convert to image if pdf
+        if spath.endswith(".pdf"):
+            img = convert_from_path(storage.abs_path(spath), dpi=300, first_page=0, last_page=1)[0]
+            filepath = filepath.rsplit(".", 1)[0] + ".png"
+            print("save image to", filepath)
+            img.save(filepath)
+        else:
+            storage.copy_from(spath, filepath)
 
         file_send = send_file(filepath)
 

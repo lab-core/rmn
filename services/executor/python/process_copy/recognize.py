@@ -286,7 +286,7 @@ def process_all(
                 {"job_id": job_id, "user_id": user_id, "status": Job_Status.RUN.value}
             ),
         )
-        sio.disconnect()
+        # sio.disconnect()
     else:
         print("Retry grading old job:", job_id)
 
@@ -655,7 +655,7 @@ def grade_files(
                 print('RAM limit exceeded')
                 break
     finally:
-        sio.disconnect()
+        # sio.disconnect()
         db.close()
 
     # store grades
@@ -773,7 +773,7 @@ def find_matricules(
                 print('RAM limit exceeded')
                 break
     finally:
-        sio.disconnect()
+        # sio.disconnect()
         db.close()
 
     if q_results:
