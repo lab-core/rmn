@@ -88,11 +88,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
-    let token = this.route.snapshot.queryParams['token'];
-    if (token) {
-      this.userService.setShareToken(token, this.route.snapshot.queryParams['question_index']);
-    }
-
     let jobId = this.route.snapshot.queryParams['job_id'];
     if (jobId) {
       this.tasksService.setvalidatingTaskId(jobId);
@@ -147,9 +142,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async ngOnDestroy(): Promise<any> {
-    this.socketService.getSocket().off('document_ready');
-    this.socketService.getSocket().off('job_status');
-    this.socketService.disconnectSocket();
+    if (this.socketService.getSocket()){
+      this.socketService.getSocket().off('document_ready');
+      this.socketService.getSocket().off('job_status');
+      this.socketService.disconnectSocket();
+    }
   }
 
   @HostListener('document:keydown.enter', ['$event'])

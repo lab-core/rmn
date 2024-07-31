@@ -1,13 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { CanActivate, CanActivateChild, ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
+import { ActivatedRouteSnapshot, Router, RouterStateSnapshot } from '@angular/router';
+import { NotificationService } from 'src/app/services/notification.service';
 import { SERVER_URL } from '../utils';
 
 
 @Injectable({
   providedIn: 'root'
 })
-export class UserService implements CanActivate, CanActivateChild {
+export class UserService {
 
   currentUsername: string;
   private token: string;
@@ -16,14 +17,15 @@ export class UserService implements CanActivate, CanActivateChild {
   role: string;
   saveVerifiedImages: boolean = false;
   moodleStructureInd: boolean = false;
+  warningShown: boolean = false;
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient,
+              private router: Router,
+              private notificationService: NotificationService) {
 
     this.currentUsername = localStorage.getItem('user_id')
     this.role = localStorage.getItem('role')
     this.token = localStorage.getItem('token')
-    this.shareToken = localStorage.getItem('shareToken')
-    this.questionIndex = localStorage.getItem('questionIndex')
 
     let saveImages = localStorage.getItem('saveVerifiedImages')
     this.saveVerifiedImages = (saveImages && saveImages != "undefined") ? JSON.parse(localStorage.getItem('saveVerifiedImages')) : false
@@ -32,12 +34,10 @@ export class UserService implements CanActivate, CanActivateChild {
     this.moodleStructureInd = (moodleInd && moodleInd != "undefined") ? JSON.parse(localStorage.getItem('moodleStructureInd')) : false
   }
 
-  setShareToken(shareToken: string, questionIndex=undefined): void {
-    this.shareToken = shareToken;
-    localStorage.setItem('shareToken', shareToken);
-    if (questionIndex) {
-      this.questionIndex = questionIndex;
-      localStorage.setItem('questionIndex', questionIndex);
+  private setShareToken(queryParams: any): void {
+    if (queryParams.token) {
+      this.shareToken = queryParams.token;
+      this.questionIndex = queryParams.question_index;
     }
   }
 
@@ -73,6 +73,7 @@ export class UserService implements CanActivate, CanActivateChild {
     this.token = response['token']
     this.saveVerifiedImages = response['saveVerifiedImages'];
     this.moodleStructureInd = response['moodleStructureInd'];
+    this.warningShown = false;
   }
 
   signup(username, password, role) {
@@ -114,14 +115,30 @@ export class UserService implements CanActivate, CanActivateChild {
     return this.token != null;
   }
 
-  canActivate(route: ActivatedRouteSnapshot,
-              state: RouterStateSnapshot): boolean {
-    return this.loggued();
+  canActivateLoggued(route: ActivatedRouteSnapshot,
+                     state: RouterStateSnapshot) {
+    if (this.loggued()) {
+      return true;
+    } else {
+      if(!this.warningShown) {
+        this.notificationService.showWarning("Veuillez vous logguer.", "Attention!");
+        this.warningShown = true;
+      }
+      return this.router.createUrlTree(['/login']);
+    }
   }
 
-  canActivateChild(route: ActivatedRouteSnapshot,
-                   state: RouterStateSnapshot): boolean {
-    this.setShareToken(route.queryParams['token']);
-    return this.loggued() || this.shareToken != null;
+  canActivateShared(route: ActivatedRouteSnapshot,
+                    state: RouterStateSnapshot) {
+    this.setShareToken(route.queryParams);
+    if(this.loggued() || this.shareToken != null) {
+      return true;
+    } else {
+      if(!this.warningShown) {
+        this.notificationService.showWarning("Vous ne pouvez pas accéder à cette page.", "Attention!");
+        this.warningShown = true;
+      }
+      return this.router.createUrlTree(['/login']);
+    }
   }
 }

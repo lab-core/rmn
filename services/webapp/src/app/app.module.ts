@@ -1,5 +1,6 @@
+// modules
 import { BrowserModule } from '@angular/platform-browser';
-import { HttpClientModule } from '@angular/common/http';
+import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { NgModule } from '@angular/core';
 import { AppRoutingModule } from './app-routing.module';
 import { MatCardModule } from "@angular/material/card";
@@ -24,6 +25,9 @@ import { MatStepperModule } from '@angular/material/stepper';
 import { MatListModule } from '@angular/material/list';
 import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+
+
+// components
 import { AppComponent } from './components/app/app.component';
 import { LoginPageComponent } from './components/login-page/login-page.component';
 import { MainMenuComponent } from './components/main-menu/main-menu.component';
@@ -45,6 +49,10 @@ import { NewExamCorrectionComponent } from './components/new-exam-correction/new
 import { TaskRetryDialogComponent } from './components/tasks-history/task-retry-dialog/task-retry-dialog.component';
 import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
 import { MatriculeVerificationComponent } from './components/matricule-verification/matricule-verification.component';
+
+// providers
+import { RequestInterceptor } from './services/interceptor.service';
+
 
 @NgModule({
   declarations: [
@@ -97,7 +105,13 @@ import { MatriculeVerificationComponent } from './components/matricule-verificat
     NgxExtendedPdfViewerModule,
     ToastrModule.forRoot()
   ],
-  providers: [],
+  providers: [
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: RequestInterceptor,
+      multi: true,
+    }
+  ],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

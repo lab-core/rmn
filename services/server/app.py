@@ -46,7 +46,7 @@ def check_token(form, role=None):
     if "token" not in form:
         return Response(
             response=json.dumps({"response": "Error: token not provided."}),
-            status=400,
+            status=401,
         ), None
     # check if token valid
     db = mongo["RMN"]
@@ -55,14 +55,14 @@ def check_token(form, role=None):
     if not valid:
         return Response(
             response=json.dumps({"response": "Error: token not valid. Please login."}),
-            status=400,
+            status=401,
         ), None
     if ("user_id" in form and form["user_id"] != username) or \
             ("username" in form and form["username"] != username):
         print(f"Error: token belongs to username {username}.")
         return Response(
             response=json.dumps({"response": "Error: token belongs to another username."}),
-            status=400,
+            status=401,
         ), None
 
     return None, username
@@ -90,7 +90,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                 print("Error: job_id not provided.")
                 return Response(
                     response=json.dumps({"response": "Error: job_id not provided."}),
-                    status=400,
+                    status=401,
                 )
             job_id = request.form["job_id"]
             db = mongo["RMN"]
@@ -109,7 +109,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                     if "share_token" not in request.form:
                         return Response(
                             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
-                            status=400
+                            status=401
                         )
                 elif return_validity:
                     return f(None)
@@ -119,7 +119,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
             if "share_token" not in request.form:
                 return Response(
                     response=json.dumps({"response": "Error: token not provided."}),
-                    status=400,
+                    status=401,
                 )
             # check if share token valid
             db = mongo["RMN"]
@@ -143,7 +143,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                 print("Error: share token (", token, ") not valid for", job_id, "and keys", keys)
                 return Response(
                     response=json.dumps({"response": "Error: share token not valid."}),
-                    status=400,
+                    status=401,
                 )
             if return_validity:
                 return f(validity)

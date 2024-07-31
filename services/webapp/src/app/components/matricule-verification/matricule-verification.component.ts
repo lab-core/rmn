@@ -64,10 +64,6 @@ export class MatriculeVerificationComponent implements OnInit {
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
-    let token = this.route.snapshot.queryParams['token'];
-    if (token) {
-      this.userService.setShareToken(token);
-    }
     let jobId = this.route.snapshot.queryParams['job'];
     if (jobId) {
       this.tasksService.setvalidatingTaskId(jobId);
@@ -115,9 +111,11 @@ export class MatriculeVerificationComponent implements OnInit {
 
 
   ngOnDestroy(): void {
-    this.socketService.getSocket().off('document_ready');
-    this.socketService.getSocket().off('job_status');
-    this.socketService.disconnectSocket();
+    if (this.socketService.getSocket()){
+      this.socketService.getSocket().off('document_ready');
+      this.socketService.getSocket().off('job_status');
+      this.socketService.disconnectSocket();
+    }
   }
 
   @HostListener('document:keydown.enter', ['$event'])

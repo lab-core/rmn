@@ -1,5 +1,5 @@
-import { NgModule } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
+import { NgModule, inject } from '@angular/core';
+import { ActivatedRouteSnapshot, CanActivateFn, RouterStateSnapshot, RouterModule, Routes } from '@angular/router';
 import { LoginPageComponent } from './components/login-page/login-page.component';
 import { MainMenuComponent } from './components/main-menu/main-menu.component';
 import { TasksHistoryComponent } from './components/tasks-history/tasks-history.component';
@@ -15,56 +15,76 @@ import { DashboardPageComponent } from './components/dashboard-page/dashboard-pa
 import { MatriculeVerificationComponent } from './components/matricule-verification/matricule-verification.component';
 
 
+const canActivateLoggued: CanActivateFn = (
+  route: ActivatedRouteSnapshot,
+  state: RouterStateSnapshot,
+) => {
+  return inject(UserService).canActivateLoggued(route, state);
+};
+
+
+const canActivateShared: CanActivateFn = (
+  route: ActivatedRouteSnapshot,
+  state: RouterStateSnapshot,
+) => {
+  return inject(UserService).canActivateShared(route, state);
+};
+
 // This is my case
 const routes: Routes = [
     {
         path : '',
-        component : LoginPageComponent
+        component : TasksHistoryComponent,
+        canActivate: [canActivateLoggued]
+    },
+    {
+      path : 'login',
+      component : LoginPageComponent
     },
     {
         path: 'tasks-history',
         component : TasksHistoryComponent,
-        canActivate: [UserService]
+        canActivate: [canActivateLoggued]
     },
     {
         path: 'dashboard/:taskId',
         component : DashboardPageComponent,
-        canActivate: [UserService]
+        canActivate: [canActivateLoggued]
     },
     {
         path: 'templates',
         component : TemplatesPageComponent,
-        canActivate: [UserService]
+        canActivate: [canActivateLoggued]
     },
     {
         path: 'template-editor',
         component : TemplateEditorComponent,
-        canActivate: [UserService]
+        canActivate: [canActivateLoggued]
     },
     {
         path: 'task-validation',
         component: TaskVerificationComponent,
-        canActivateChild: [UserService]
+        canActivate: [canActivateShared]
     },
     {
         path: 'task-validation/:job_id',
         component : TaskVerificationComponent,
-        canActivateChild: [UserService]
+        canActivate: [canActivateLoggued]
     },
     {
         path: 'task-validation/:job_id/:index',
         component : TaskVerificationComponent,
-        canActivateChild: [UserService]
+        canActivate: [canActivateLoggued]
     },
     {
         path: 'matricule-validation',
         component: MatriculeVerificationComponent,
-        canActivateChild: [UserService]
+        canActivate: [canActivateShared]
     },
     {
         path: 'matricule-validation/:job_id',
         component: MatriculeVerificationComponent,
-        canActivateChild: [UserService]
+        canActivate: [canActivateLoggued]
     },
     // {
     //     path: 'presentation-page',
@@ -74,17 +94,17 @@ const routes: Routes = [
     {
         path: 'new-exam-correction',
         component : NewExamCorrectionComponent,
-        canActivate: [UserService]
+        canActivate: [canActivateLoggued]
     },
     {
         path: 'user-profile',
         component : UserProfileComponent,
-        canActivate: [UserService]
+        canActivate: [canActivateLoggued]
     },
     {
         path: 'user-guide',
         component : UserGuideComponent,
-        canActivate: [UserService]
+        canActivate: [canActivateLoggued]
     },
     {
         path: '**',
