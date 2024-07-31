@@ -17,7 +17,6 @@ import * as JSZip from 'jszip';
 import { PDFDocument } from 'pdf-lib';
 import { MatIconModule } from '@angular/material/icon';
 
-
 @Component({
   selector: 'app-task-verification',
   templateUrl: './task-verification.component.html',
@@ -364,39 +363,26 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return true;
   }
 
-  loadPdf(version: number = undefined): void {
-    this.setPdfLoading(true);
-    const formdata: FormData = new FormData();
-    this.userService.addTokens(formdata);
-    formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-    formdata.append('document_index', this.currentCopy.toString());
-    formdata.append('questions', 'true');
-    if (version !== undefined) {
-      if (version < 0) version = 0;
-      formdata.append('document_version', version.toString());
-    }
-
+  async loadPdf(version: number = undefined): Promise<void> {
     if (this.currentExam()["status"] !== "NOT_READY") {
-      this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
-        async (data) => {
-          let url = window.URL.createObjectURL(data);
-          this.pdfSrc = url;
-          await this.getLastVersion();
-          // set to last version if undefined or greater than last version
-          if (version === undefined || version >= this.lastVersion) {
-            this.currentVersion = this.lastVersion;
-          } else {
-            this.currentVersion = version;
-          }
-          this.pdfModified = false;
-          this.setPdfLoading(false);
-          // initialize pdf viewer options
-          if (!this.pdfViewerInitialized)
-           setTimeout(() => { this.initializePdfViewer(); }, 1000);
-          // console.log("Current Exam: ", this.examsList[this.currentIndex()])
-        }, (error) => {
-          console.error(error);
-        });
+      this.setPdfLoading(true);
+      const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, version);
+      if (pdfSource.url) {
+        this.pdfSrc = pdfSource.url;
+        this.lastVersion = pdfSource.lastVersion;
+        // set to last version if undefined or greater than last version
+        if (version === undefined || version >= this.lastVersion) {
+          this.currentVersion = this.lastVersion;
+        } else {
+          this.currentVersion = version;
+        }
+        this.pdfModified = false;
+        // initialize pdf viewer options
+        if (!this.pdfViewerInitialized)
+         setTimeout(() => { this.initializePdfViewer(); }, 1000);
+        // console.log("Current Exam: ", this.examsList[this.currentIndex()])
+      }
+      this.setPdfLoading(false);
     }
   }
 
@@ -440,30 +426,18 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     await this.changeCurrentCopy(this.initialCopyIndex + examIndex, this.examsList[examIndex].status);
   }
 
-  setNewVersion(event){
-    this.loadPdf(event.target.value);
+  async setNewVersion(event){
+    await this.loadPdf(event.target.value);
   }
 
   async loadCopy(): Promise<void> {
-    this.loadPdf();
+    await this.loadPdf();
     this.getCurrentStatus();
-  }
-
-  async getLastVersion() {
-    const formdata: FormData = new FormData();
-    this.userService.addTokens(formdata);
-    formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-    formdata.append('document_index', this.currentCopy.toString());
-    formdata.append('questions', 'true');
-
-    await this.http.post(`${SERVER_URL}document/last_version`, formdata)
-      .toPromise()
-      .then(async (data: any) => {
-          this.lastVersion = data["last_version"];
-      })
-      .catch((error) => {
-          console.error(error);
-      });
+    // try to load the following copy
+    let nextIndex = this.nextCopyIndex();
+    if (nextIndex < this.examsList.length) {
+      this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex);
+    }
   }
 
   verifyIfQuestionIsBonus(): void {
