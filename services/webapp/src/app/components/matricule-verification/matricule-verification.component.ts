@@ -43,14 +43,13 @@ export class MatriculeVerificationComponent implements OnInit {
   job: Map<string, any>;
   pdfSrc: string;
 
-  copiesInformations: Map<string, Map<string, number>> = new Map();
   initialCopyIndex: number = -1;
   currentCopy: number = -1;
   currentCopyName: string;
   currentMatricule: number;
-  currentScore: number | null;
+  currentGrade: number | null;
   currentTotal: number;
-  currentPredictions: Map<string, number>;
+  currentGrades: Map<string, number>;
   currentStatus: string;
   currentMatriculeSelection: string;
   currentMatriculeWarning: string;
@@ -137,13 +136,6 @@ export class MatriculeVerificationComponent implements OnInit {
       this.initialCopyIndex = this.examsList[0].document_index;
       this.currentCopy = this.initialCopyIndex - 1;
     }
-  }
-
-  async getCopiesInformations() {
-    let exam = this.currentExam();
-    this.currentCopyName = exam["filename"];
-    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
-    this.copiesInformations = this.docService.copiesInformations;
   }
 
   getSubExamsList(): void {
@@ -381,7 +373,6 @@ export class MatriculeVerificationComponent implements OnInit {
   changeMatricule(selection): void {
     this.currentMatricule = Number(selection.matricule);
     let exam = this.examsList[this.currentCopy];
-    exam["total"] = this.currentTotal;
     exam["matricule"] = String(this.currentMatricule);
     this.getDuplicatedMatricule();
   }
@@ -412,15 +403,15 @@ export class MatriculeVerificationComponent implements OnInit {
     }
   }
 
-  updateTotal(predictionKey, predictionValue): void {
-    this.currentPredictions[predictionKey] = predictionValue;
+  updateTotal(gradeKey, gradeValue): void {
+    this.currentGrades[gradeKey] = gradeValue;
     this.currentTotal = this.getTotal();
   }
 
   getTotal(): number {
     let sum = 0;
-    for (const prediction of Object.keys(this.currentPredictions)) {
-      sum += this.currentPredictions[prediction];
+    for (const question of Object.keys(this.currentGrades)) {
+      sum += this.currentGrades[question];
     }
     return sum;
   }

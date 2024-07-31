@@ -43,6 +43,7 @@
 .back-button {
     position: absolute;
     top: 10%;
+    width: 1%;
     left: 0;
     transition: 3s;
     height: 80%;

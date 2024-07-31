@@ -26,13 +26,9 @@ def redis_client():
 
 
 def socketio_client():
-    sio = socketio.Client(engineio_logger=True)
+    sio = socketio.Client()
     sio.connect(f"http://{socketio_host}:7000")
     return sio
-
-
-def socketio_simple_client():
-    return socketio.SimpleClient(f"http://{socketio_host}:7000", engineio_logger=True)
 
 
 def emit_job(user_id, job_id, status, infos=None, sio_infos=None):

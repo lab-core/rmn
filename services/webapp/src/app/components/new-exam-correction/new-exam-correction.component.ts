@@ -110,8 +110,8 @@ export class NewExamCorrectionComponent implements OnInit {
     this.questionKeys = [];
     this.bonusEnabledMap.clear();
     for (let i = 1; i <= this.nQuestions; i++) {
-      this.nPagesPerQuestion.set(`Q${i}`, 1);
-      this.nMaxPointsPerQuestion.set(`Q${i}`, 1);
+      this.nPagesPerQuestion.set(`Q${i}`, 0);
+      this.nMaxPointsPerQuestion.set(`Q${i}`, 0);
       this.questionKeys.push(`Q${i}`);
       this.bonusEnabledMap.set(`Q${i}`, false);
     }

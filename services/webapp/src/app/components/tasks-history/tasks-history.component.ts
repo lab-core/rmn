@@ -280,6 +280,8 @@ export class TasksHistoryComponent implements OnInit {
              task.job_status === 'RUN' ||
              task.job_status === 'VALIDATION') {
       this.router.navigate(['/dashboard', task.job_id]);
+    } else if (task.job_status === 'RETRY') {
+      this.retryJob(task);
     }
   }
 

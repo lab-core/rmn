@@ -283,11 +283,9 @@ if __name__ == "__main__":
             #
             docs = db.documents_collection().find({"job_id": job_id})
             eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
-            copies_informations = eval_job["copies_informations"]
             n_max_points_per_question = eval_job["n_max_points_per_question"]
             statistics_for_students = eval_job["statistics_for_students"]
             print("statistics_for_students", statistics_for_students)
-            copies_info_dict = {item[0]: item[1] for item in copies_informations}
             n_questions = len(n_max_points_per_question)
             n_max_points_per_question = [q[1] for q in sorted(n_max_points_per_question)]
             question_bonus = [q[1] for q in sorted(eval_job["bonus_enabled_map"])]
@@ -298,15 +296,17 @@ if __name__ == "__main__":
             date = get_date()
 
             # print("docs", docs)
+            grades_dict = {}
             for doc in docs:
                 mat = str(doc["matricule"])
                 print("mat", mat)
                 if mat in df.index.values:
-                    if doc["filename"] in copies_info_dict:
-                        scores = copies_info_dict[doc["filename"]]
-                        for s in scores:
-                            df.loc[mat, s[0]] = s[1]
-                        total_score = sum(sublist[1] for sublist in scores)
+                    grades = doc["grades"]
+                    if grades:
+                        grades_dict[doc["filename"]] = grades
+                        for i, g in enumerate(grades):
+                            df.loc[mat, f"Q{i+1}"] = g
+                        total_score = sum(grades)
                         print("TOTAL SCORE FOR ", doc["filename"], ":", total_score)
                         df.loc[mat, MF.grade] = total_score
                         df.loc[mat, MF.mdate] = date
@@ -330,13 +330,13 @@ if __name__ == "__main__":
 
             # create box plots
             filenames = []
-            scores = [[] for i in range(n_questions)]
-            for filename, grade in copies_info_dict.items():
+            all_grades = [[] for _ in range(n_questions)]
+            for filename, grades in grades_dict.items():
                 filenames.append(filename)
                 for i in range(n_questions):
-                    scores[i].append(grade[i][1])
-            all_notes = np.array(scores)
-            f_boxplots = create_all_boxplots(all_notes, str(TMP_DIR))
+                    all_grades[i].append(grades[i])
+            all_grades = np.array(all_grades)
+            f_boxplots = create_all_boxplots(all_grades, str(TMP_DIR))
             TEX_FOLDER.mkdir(exist_ok=True)
 
             for i, id in enumerate(moodle_zip_id_list):
@@ -381,7 +381,7 @@ if __name__ == "__main__":
                         # start_time = time.time()
                         # if save_verified_images:
                         #     save_number_images(
-                        #         storage, job_id, doc_idx - 1, doc["subquestion_predictions"]
+                        #         storage, job_id, doc_idx - 1, doc["grades"]
                         #     )
 
                         matricule = str(doc["matricule"])
@@ -423,18 +423,17 @@ if __name__ == "__main__":
 
                                 # adding stats file
                                 filename = os.path.basename(file).rsplit(".", 1)[0]
-                                if filename in copies_info_dict and statistics_for_students:
-                                    print("copies_info_dict", copies_info_dict)
-                                    print("n_max_points_per_question", n_max_points_per_question)
-                                    # ex of scores = [[1,1,1,1,1], [2,2,2,2,2], [3,3,3,3,3], [4,4,4,4,4], [5,5,5,5,5]]
-                                    # ex of copies_info_dict = [["filename.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]], ["filename2.pdf", ['Q1', 1], ['Q2', 2], ['Q3', 3], ['Q4', 4], ['Q5', 5]]]
-                                    # ex of n_max_points_per_question_dict = [['Q1', 9], ['Q2', 9], ['Q3', 9], ['Q4', 9], ['Q5', 9]]
-
-                                    question_index = filenames.index(filename)
-                                    fpdf = create_stats_latex(nom_complet, question_index, n_questions,
-                                                              all_notes, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER)
-                                    print("Stats for", nom_complet, "created:", fpdf)
-                                    shutil.move(fpdf, m_folder.joinpath("statistiques.pdf"))
+                                if statistics_for_students:
+                                    try:
+                                        file_index = filenames.index(filename)
+                                        fpdf = create_stats_latex(nom_complet, file_index, n_questions,
+                                                                  all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER)
+                                        print("Stats for", nom_complet, "created:", fpdf)
+                                        shutil.move(fpdf, m_folder.joinpath("statistiques.pdf"))
+                                    except ValueError:
+                                        # file not found
+                                        print(f"File {filename} does not correspond to a valid document.")
+                                        pass
 
                         copies_path = all_copies_folder_path
                         if l_group:
@@ -463,7 +462,7 @@ if __name__ == "__main__":
                     storage.remove(id)
 
             # adding stats for professors
-            fpdf = create_stats_latex('Statistiques', None, n_questions, all_notes, question_totals,
+            fpdf = create_stats_latex('Statistiques', None, n_questions, all_grades, question_totals,
                                       f_boxplots, TMP_DIR=TEX_FOLDER)
             print("General stats created:", fpdf)
             stats_file_id = os.path.normpath(f"output_stats{os.sep}{job_id}.pdf")
@@ -527,7 +526,7 @@ if __name__ == "__main__":
             # for doc in docs:
             #     # delete unverified numbers for job
             #     document_index = doc["document_index"] - 1
-            #     for image_index in range(len(doc["subquestion_predictions"].keys())):
+            #     for image_index in range(len(doc["grades"].keys())):
             #         try:
             #             storage.remove(os.path.normpath(
             #                 f"unverified_numbers{os.sep}{job_id}{os.sep}{document_index}{os.sep}{image_index}.png"))

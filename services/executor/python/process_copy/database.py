@@ -43,8 +43,11 @@ class Database:
         filename,
         question,
         basename,
+        question_index=None,
         grade=None
     ):
+        if question_index is None:
+            question_index = int(question[1:])  # 'Q1' -> index of 1
         return self.questions_collection().insert_one(
             {
                 "job_id": job_id,
@@ -53,6 +56,7 @@ class Database:
                 "status": status.value,
                 "filename": filename,
                 "question": question,
+                "question_index": question_index,
                 "basename": basename,
                 "grade": grade
             }
@@ -62,8 +66,7 @@ class Database:
         self,
         job_id,
         doc_index,
-        subquestion_pred,
-        total,
+        grades,
         rel_filepath,
         status,
         matricule,
@@ -75,8 +78,7 @@ class Database:
                 "job_id": job_id,
                 "document_index": doc_index,
                 "matricule": str(matricule),
-                "subquestion_predictions": subquestion_pred,
-                "total": total,
+                "grades": grades,
                 "rel_filepath": rel_filepath,
                 "status": status.value,
                 "execution_time": time,
@@ -93,8 +95,7 @@ class Database:
         self,
         job_id,
         doc_index,
-        subquestion_pred,
-        total,
+        grades,
         status,
         matricule,
         time,
@@ -107,10 +108,8 @@ class Database:
                 "status": status.value,
                 "execution_time": time,
             }
-            if subquestion_pred is not None:
-                set["subquestion_predictions"] = subquestion_pred
-            if total is not None:
-                set["total"] = total
+            if grades is not None:
+                set["grades"] = grades
             if group is not None:
                 set["group"] = group
             return self.documents_collection().update_one(
@@ -121,18 +120,18 @@ class Database:
             print(f"An error occurred: {e}")
             raise
 
-    def update_document_predictions(
+    def update_document_grades(
         self,
         job_id,
         doc_index,
-        subquestion_pred
+        grades
     ):
         # return updated doc
         return self.documents_collection().update_one(
             {"job_id": job_id, "document_index": doc_index},
             {
                 "$set": {
-                    "subquestion_predictions": subquestion_pred
+                    "grades": grades
                 }
             },
         ).matched_count > 0

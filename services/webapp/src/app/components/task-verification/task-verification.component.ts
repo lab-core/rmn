@@ -61,7 +61,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   zoomSetting: any;
   pdfViewerInitialized: boolean = false;
 
-  copiesInformations: Map<string, Map<string, number>> = new Map();
   nMaxPointsPerQuestion = new Map<string, number>();
   bonusEnabledMap = new Map<string, boolean>();
   bonusNoticationsShown = new Map<string, boolean>();
@@ -72,9 +71,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   index: string = "Tout sélectionner";
   currentVersion: number = 0;
   lastVersion: number = 0;
-  currentScore: number | null;
+  currentGrade: number | null;
   currentTotal: number;
-  currentPredictions: Map<string, number>;
+  currentGrades: Map<string, number>;
   currentStatus: string;
 
   colorChosen: string;
@@ -87,7 +86,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   formattedIndexes: Array<string> = [];
   // default max copies per pdf value
   maxCopiesPerPdf: number = 40;
-  currentScoresMap: Map<number, number> = new Map();
+  currentGradesMap: Map<number, number> = new Map();
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
@@ -118,16 +117,16 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.router.navigate(['/tasks-history']);
     }
 
+    // set job parameters
+    this.getMaxPointsPerQuestion();
+    this.getBonusEnabledMap();
+
     // fetch job and documents
     await this.getDocuments();
-    await this.getMaxPointsPerQuestion();
-    await this.getBonusEnabledMap();
 
     this.socketService.join(this.job["job_id"]);
     this.socketService.getSocket().on('document_ready', async (params: any) => {
       await this.getDocuments();
-      await this.getMaxPointsPerQuestion();
-      await this.getBonusEnabledMap();
       if (this.disabledValidationcontainer) {
         this.nextCopy();
       }
@@ -203,7 +202,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     const formattedIndexes: Array<string> = [];
     const maxIndex = this.examsList.length;
     const questionString = `Q1`;
-    const subExamsListSize = this.examsList.filter(exam => exam.question === questionString).length;
+    let subExamsListSize = this.examsList.filter(exam => exam.question === questionString).length;
+    if (subExamsListSize === 0) {
+      subExamsListSize = maxIndex;
+    }
 
     for (let i = 1; i <= Math.ceil(maxIndex / subExamsListSize); i++) {
         for (let j = 1; j <= subExamsListSize; j++) {
@@ -216,21 +218,17 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return formattedIndexes;
   }
 
-  async loadScore(): Promise<void> {
-    await this.getCopiesInformations();
-    const fullCopyName = this.currentExam()["basename"];
-    const questionMap = this.copiesInformations.get(fullCopyName);
-
-    if (questionMap && questionMap.has(this.currentQuestionIndex)) {
-      this.currentScore = questionMap.get(this.currentQuestionIndex);
-      this.currentScoresMap.set(this.currentCopy, this.currentScore);
+  loadScore(): void {
+    if (this.currentExam()["grade"]) {
+      this.currentGrade = this.currentExam()["grade"];
+      this.currentGradesMap.set(this.currentCopy, this.currentGrade);
     } else {
-      this.currentScore = this.currentScoresMap.get(this.currentCopy) || null;
+      this.currentGrade = this.currentGradesMap.get(this.currentCopy) || null;
     }
   }
 
-  async saveCurrentScore(): Promise<void> {
-    this.currentScoresMap.set(this.currentCopy, this.currentScore);
+  async saveCurrentGrade(): Promise<void> {
+    this.currentGradesMap.set(this.currentCopy, this.currentGrade);
   }
 
   initializeQuestionIndexes(): void {
@@ -293,7 +291,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async getDocuments() {
     await this.docService.getDocuments(this.tasksService.getvalidatingTaskId(), true);
     this.examsList = this.docService.documentsList;
-    this.groupsList = this.docService.groupsList;
+    // this.groupsList = this.docService.groupsList;
     // compute sub exams list if any selected group
     this.getSubExamsList();
     // initialize initialCopyIndex and currentCopy
@@ -303,21 +301,18 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
   }
 
-  async getMaxPointsPerQuestion() {
-    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
-    this.nMaxPointsPerQuestion = this.docService.nMaxPointsPerQuestion;
+ getMaxPointsPerQuestion() {
+    this.nMaxPointsPerQuestion = new Map<string, number>();
+    this.job["n_max_points_per_question"].forEach(e => {
+      this.nMaxPointsPerQuestion.set(e[0], e[1]);
+    });
   }
 
-  async getBonusEnabledMap() {
-    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
-    this.bonusEnabledMap = this.docService.bonusEnabledMap;
-  }
-
-  async getCopiesInformations() {
-    let exam = this.currentExam();
-    this.currentCopyName = exam["filename"];
-    await this.docService.getJobInfos(this.tasksService.getvalidatingTaskId());
-    this.copiesInformations = this.docService.copiesInformations;
+ getBonusEnabledMap() {
+    this.bonusEnabledMap = new Map<string, boolean>();
+    this.job["bonus_enabled_map"].forEach(e => {
+      this.bonusEnabledMap.set(e[0], e[1]);
+    });
   }
 
   getSubExamsList(): void {
@@ -349,19 +344,16 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
   }
 
-  async addScoreToQuestion(): Promise<boolean> {
-    const fullCopyName = this.currentExam()["basename"];
-    if (fullCopyName && this.currentScore !== null) {
-      await this.getMaxPointsPerQuestion();
-      await this.getCopiesInformations();
-      if (this.currentScore >= 0) {
-        if (this.currentScore > this.nMaxPointsPerQuestion.get(this.currentQuestionIndex)) {
-          const excessPoints = this.currentScore - this.nMaxPointsPerQuestion.get(this.currentQuestionIndex);
+ addScoreToQuestion(): boolean {
+    if (this.currentGrade !== null) {
+      if (this.currentGrade >= 0) {
+        if (this.currentGrade > this.nMaxPointsPerQuestion.get(this.currentQuestionIndex)) {
+          const excessPoints = this.currentGrade - this.nMaxPointsPerQuestion.get(this.currentQuestionIndex);
           this.notificationService.showWarning(`Vous avez rajouté ${excessPoints} point(s) bonus`, 'Attention!');
         }
-        this.addOrUpdateInnerMap(fullCopyName, this.currentQuestionIndex, this.currentScore);
-        this.currentScore = null;
-      } else if (!this.bonusEnabledMap.get(this.currentQuestionIndex)) {
+        this.currentGradesMap.set(this.currentCopy, this.currentGrade);
+        this.currentGrade = null;
+      } else {
         this.notificationService.showWarning('Veuillez saisir une note valide.', 'Note invalide');
         throw new Error('Note invalide');
       }
@@ -370,19 +362,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       return false;
     }
     return true;
-  }
-
-  addOrUpdateInnerMap(copieName: string, questionIndex: string, score: number) {
-    if (!this.copiesInformations.has(copieName)) {
-        let copieInformations = new Map<string, number>();
-        copieInformations.set(questionIndex, score);
-        this.copiesInformations.set(copieName, copieInformations);
-    } else {
-        let existingMap = this.copiesInformations.get(copieName);
-        if (existingMap) {
-          existingMap.set(questionIndex, score);
-      }
-    }
   }
 
   loadPdf(version: number = undefined): void {
@@ -448,8 +427,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.disabledValidationcontainer = false;
         await this.loadCopy();
         this.setChosenColor(status);
-        await this.loadScore();
-        await this.verifyIfQuestionIsBonus();
+        this.loadScore();
+        this.verifyIfQuestionIsBonus();
       } else {
           console.error('Erreur lors de l\'obtention du document PDF modifié.');
           this.notificationService.showError('Échec de la sauvegarde du document PDF modifié.', 'Erreur de validation');
@@ -487,13 +466,13 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       });
   }
 
-  async verifyIfQuestionIsBonus(): Promise<void> {
-    if (this.currentScore == null && this.bonusEnabledMap.get(this.currentQuestionIndex)) {
-      this.currentScore = 0;
-      await this.addScoreToQuestion();
-      if (!this.bonusNoticationsShown[this.currentQuestionIndex]) {
+  verifyIfQuestionIsBonus(): void {
+    if (this.currentGrade == null && this.bonusEnabledMap.get(this.currentQuestionIndex)) {
+      this.currentGrade = 0;
+      this.addScoreToQuestion();
+      if (!this.bonusNoticationsShown.get(this.currentQuestionIndex)) {
         this.notificationService.showInfo('Cette question est une question bonus. Sa note initiale est 0.', 'Information');
-        this.bonusNoticationsShown[this.currentQuestionIndex] = true;
+        this.bonusNoticationsShown.set(this.currentQuestionIndex, true);
       }
     }
   }
@@ -528,20 +507,19 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
 
   async validateCurrentCopy() {
-    if (this.hasDownloadedZip && !this.hasUploadedZip) {
+    if (this.hasDownloadedZip && !this.hasUploadedZip && this.currentIndex() === this.examsList.length - 1) {
       this.notificationService.showWarning("Vous n'avez téléversé aucun nouveaux fichiers.", 'Attention!');
     }
 
     try {
-        this.currentExam()["total"] = this.currentTotal;
-        const scoreAdded = await this.addScoreToQuestion();
-        if (scoreAdded && await this.saveCurrentCopy(true)) {
+        if (this.addScoreToQuestion() && await this.saveCurrentCopy(true)) {
             this.setValidatedStatus();
             this.nextCopy();
         }
     } catch (error) {
         console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
         this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
+        this.changeCurrentExam(this.currentIndex());
     }
     this.checkValidationButton();
 }
@@ -561,8 +539,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
             this.tasksService.getvalidatingTaskId(),
             this.currentCopy,
             file,
-            this.copiesInformations,
-            0,
+            this.currentQuestionIndex.slice(1),
+            this.currentGradesMap.get(this.currentCopy),
             this.nMaxPointsPerQuestion,
             this.currentStatus
         );
@@ -575,15 +553,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return true;  // nothing to do -> true
   }
 
-  updateTotal(predictionKey, predictionValue): void {
-    this.currentPredictions[predictionKey] = predictionValue;
+  updateTotal(key, value): void {
+    this.currentGrades[key] = value;
     this.currentTotal = this.getTotal();
   }
 
   getTotal(): number {
     let sum = 0;
-    for (const prediction of Object.keys(this.currentPredictions)) {
-      sum += this.currentPredictions[prediction];
+    for (const question of Object.keys(this.currentGrades)) {
+      sum += this.currentGrades[question];
     }
     return sum;
   }
@@ -659,7 +637,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.disabledValidationButton = disabledValidationButton;
     } else if (questionIndex) {
       const subExams = this.examsList.filter(exam => exam.filename.includes(`Q${questionIndex}`));
-          this.disabledValidationButton = subExams.some(exam => exam["status"] !== 'VALIDATED');
+      this.disabledValidationButton = subExams.some(exam => exam["status"] !== 'VALIDATED');
     }
   }
 

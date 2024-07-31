@@ -12,6 +12,19 @@ import { DocumentsService } from 'src/app/services/documents.service';
 import { ValidationService } from 'src/app/services/validation.service';
 import { ValidationWarningDialogComponent } from '../task-verification/validation-warning-dialog/validation-warning-dialog.component';
 
+
+interface Question {
+  name: string;
+  index: number;
+  bonus: boolean;
+  max: number;
+  validatedCount: number;
+  count: number;
+  total: number;
+  average: number;
+  validatedFilenames: Set<string>;
+}
+
 @Component({
   selector: 'app-dashboard-page',
   templateUrl: './dashboard-page.component.html',
@@ -24,17 +37,8 @@ export class DashboardPageComponent {
   examsList: Array<any> = [];
   questionsDocList: Array<any> = [];
   examsCount: number = 0;
-  questions: { corrected: number, total: number }[] = [];
-  maxQuestionIndex: number;
-  averages: number[] = [];
-  nMaxPointsPerQuestion: Map<string, number>;
-  bonusEnabledMap = new Map<string, boolean>();
-  totalCorrectedCopies: number = 0;
+  questions: Question[] = [];
   totalVerifiedMatricules: number = 0;
-  totalPoints: number = 0;
-  totalCopies: number = 0;
-  totalMean: number = 0;
-  maxPossiblePoints: number = 0;
   validating: boolean = false;
 
   constructor(
@@ -60,8 +64,9 @@ export class DashboardPageComponent {
       await this.getDocuments(this.taskId);
       await this.getQuestions(this.taskId);
       // update metrics
-      this.computeTotals();
-      this.updateQuestions();
+      this.computeQuestions();
+      this.computeTotalQuestion();
+      this.computeTotalMatricules();
     } else {
       this.router.navigate(['/tasks-history']);
     }
@@ -74,11 +79,6 @@ export class DashboardPageComponent {
   async getTask() {
     this.task = await this.tasksService.getTaskById(this.taskId);
     this.taskName = this.task.job_name;
-    if (this.task['copies_informations'] && this.task['n_max_points_per_question']) {
-      this.averages = this.computeAverage();
-    } else {
-      console.error('Missing required task properties: copies_informations or n_max_points_per_question');
-    }
   }
 
   getTaskInfo() {
@@ -126,90 +126,133 @@ export class DashboardPageComponent {
     }
   }
 
-  updateQuestions() {
-    const validatedCounts: { [key: string]: number } = {};
-    this.questionsDocList.forEach(doc => {
-      if (doc.status === 'VALIDATED') {
-        if (!validatedCounts[doc.question]) {
-          validatedCounts[doc.question] = 0;
-        }
-        validatedCounts[doc.question]++;
-      }
-    });
-
-    this.questions = [];
-    this.task['n_max_points_per_question'].forEach(([question, _]: [string, number]) => {
-      this.questions.push({
-        corrected: validatedCounts[question] || 0,
-        total: this.examsCount
-      });
-    });
-  }
-
-  computeTotals() {
-    const bonusEnabledArray = this.task['bonus_enabled_map'];
-    this.bonusEnabledMap = new Map<string, boolean>(
-      bonusEnabledArray.map((item: [string, boolean]) => [item[0], item[1]])
-    );
-    const fullyCorrectedCopies = this.computeFullyCorrectedCopies();
-    this.totalCorrectedCopies = fullyCorrectedCopies.length;
-
+  computeTotalMatricules() {
     this.totalVerifiedMatricules = 0;
-    this.examsList.forEach((exam: any) => {
-      if (exam["status"] === "VALIDATED") {
-        this.totalVerifiedMatricules += 1;
+    this.examsList.forEach(doc => {
+      if (doc.status === 'VALIDATED') {
+        this.totalVerifiedMatricules++;
       }
     });
-
-    let totalPoints = 0;
-    let totalCopies = 0;
-    let maxPossiblePoints = 0;
-
-    // compute the maximum possible points excluding bonus questions
-    this.nMaxPointsPerQuestion.forEach((maxPoints, question) => {
-      if (!this.bonusEnabledMap.get(question)) {
-        maxPossiblePoints += maxPoints;
-      }
-    });
-
-    fullyCorrectedCopies.forEach(copy => {
-      let copyPoints = 0;
-
-      this.task['copies_informations'].forEach(([copyId, questions]) => {
-        if (copyId === copy) {
-          questions.forEach(([question, points]) => {
-            copyPoints += points;
-          });
-        }
-      });
-
-      if (maxPossiblePoints > 0) {
-        totalPoints += copyPoints;
-        totalCopies++;
-      }
-    });
-
-    this.totalPoints = totalPoints;
-    this.totalCopies = totalCopies;
-    this.totalMean = totalCopies > 0 ? totalPoints / totalCopies : 0;
-    this.maxPossiblePoints = maxPossiblePoints;
   }
 
-  computeFullyCorrectedCopies(): string[] {
-    const correctedCopiesMap: { [filename: string]: number } = {};
-
+  computeQuestions() {
+    const questionsStats = new Map<string, Question>();
     this.questionsDocList.forEach(doc => {
-      if (!correctedCopiesMap[doc.basename]) {
-        correctedCopiesMap[doc.basename] = 0;
+      if (questionsStats[doc.question] === undefined) {
+        let question: Question = {
+          name: doc.question,
+          index: doc.question_index - 1,
+          bonus: this.isQuestionBonus(doc.question),
+          max: this.getQuestionMax(doc.question),
+          count: 0,
+          validatedCount: 0,
+          total: 0,
+          average: 0,
+          validatedFilenames: new Set<string>()
+        };
+        questionsStats[doc.question] = question;
       }
+
+      let stats = questionsStats[doc.question];
+      stats.count++;
       if (doc.status === 'VALIDATED') {
-        correctedCopiesMap[doc.basename]++;
+        stats.validatedCount++;
+        stats.total += doc.grade;
+        stats.validatedFilenames.add(doc.basename);
       }
     });
 
-    return Object.keys(correctedCopiesMap).filter(filename => {
-      return correctedCopiesMap[filename] === this.task['n_max_points_per_question'].length;
+    // put the questions in an array
+    this.questions = Array<Question>(Object.keys(questionsStats).length);
+    Object.values(questionsStats).forEach(question => {
+      this.questions[question.index] = question;
     });
+
+    // compute the averages
+    this.questions.forEach(question => {
+      this.computeAverage(question);
+    });
+  }
+
+  computeAverage(question: Question) {
+    if (question.validatedCount > 0) {
+      const average = question.total / question.validatedCount;
+      question.average = Number(average.toFixed(2));
+    } else {
+      question.average = 0;
+    }
+  }
+
+  computeTotalQuestion() {
+    const totalQuestion: Question = {
+      name: "Total",
+      index: this.questions.length,
+      bonus: false,
+      max: 0,
+      count: this.examsCount,
+      validatedCount: 0,
+      total: 0,
+      average: 0,
+      validatedFilenames: null
+    }
+
+    // find copies that are totally corrected/validated
+    // count also max
+    this.questions.forEach(question => {
+      if (totalQuestion.validatedFilenames) {
+        let intersectionSet = new Set<string>();
+        for (let name of question.validatedFilenames) {
+          if (totalQuestion.validatedFilenames.has(name)) {
+            intersectionSet.add(name);
+          }
+        }
+        totalQuestion.validatedFilenames = intersectionSet;
+      } else {
+        totalQuestion.validatedFilenames = question.validatedFilenames;
+      }
+      // for max
+      if (!question.bonus) {
+        totalQuestion.max += question.max;
+      }
+    });
+    totalQuestion.validatedCount = totalQuestion.validatedFilenames.size;
+
+    // compute the total for those copies
+    this.questionsDocList.forEach(doc => {
+      if (totalQuestion.validatedFilenames.has(doc.basename)) {
+        totalQuestion.total += doc.grade;
+      }
+    })
+    this.computeAverage(totalQuestion);
+
+    this.questions.push(totalQuestion);
+  }
+
+  getTotalQuestion() {
+    if (this.questions.length > 0) {
+      return this.questions[this.questions.length - 1];
+    }
+    return null;
+  }
+
+  isQuestionBonus(questionName) {
+    let bonus = false;
+    this.task["bonus_enabled_map"].every(element => {
+      if (element[0] !== questionName) return true;  // continue
+      bonus = element[1];
+      return false;  // stop
+    });
+    return bonus;
+  }
+
+  getQuestionMax(questionName) {
+    let qMax = 0;
+    this.task["n_max_points_per_question"].every(element => {
+      if (element[0] !== questionName) return true;  // continue
+      qMax = element[1];
+      return false;  // stop
+    });
+    return qMax;
   }
 
   openTaskFilesDialog(jobId: string): void {
@@ -219,8 +262,8 @@ export class DashboardPageComponent {
     formdata.append('job_id', jobId);
     this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).subscribe(
       (data) => {
-        let nbZipFile = data['response']
-        let dialogRef = this.dialog.open(TaskFilesDialogComponent, {
+        const nbZipFile = data['response']
+        this.dialog.open(TaskFilesDialogComponent, {
           width: '30%',
           height: '60%',
           data: { taskId: jobId, nbZipFile: nbZipFile }
@@ -230,53 +273,9 @@ export class DashboardPageComponent {
       });
   }
 
-  computeAverage(): number[] {
-    const copiesInformationsArray = this.task['copies_informations'];
-
-    const copiesInformations = new Map<string, Map<string, number>>(
-      copiesInformationsArray.map((item: [string, Array<[string, number]>]) =>
-        [item[0], new Map<string, number>(item[1].map(innerItem => [innerItem[0], innerItem[1]]))]
-      )
-    );
-
-    const nMaxPointsPerQuestionArray = this.task['n_max_points_per_question'];
-    this.nMaxPointsPerQuestion = new Map<string, number>(
-      nMaxPointsPerQuestionArray.map((item: [string, number]) => [item[0], item[1]])
-    );
-
-    // initializing an object to store the total points and count for each question
-    const totals = new Map<string, { totalPoints: number, count: number }>();
-
-    copiesInformations.forEach((studentScores) => {
-      studentScores.forEach((score, question) => {
-        if (!totals.has(question)) {
-          totals.set(question, { totalPoints: 0, count: 0 });
-        }
-        const questionTotals = totals.get(question)!;
-        questionTotals.totalPoints += score;
-        questionTotals.count += 1;
-      });
-    });
-
-    // computing averages
-    const averages: number[] = [];
-
-    this.nMaxPointsPerQuestion.forEach((_, question) => {
-      const questionTotals = totals.get(question);
-      if (questionTotals) {
-        const average = questionTotals.totalPoints / questionTotals.count;
-        averages.push(Number(average.toFixed(2)));
-      } else {
-        averages.push(0);
-      }
-    });
-
-    return averages;
-  }
-
-  correctQuestion(index=undefined) {
+  correctQuestion(index) {
     this.tasksService.setvalidatingTaskId(this.task.job_id);
-    if (index !== undefined) {
+    if (index < this.questions.length - 1) {  // if not last question i.e. total
       this.router.navigate([`/task-validation`, this.taskId, index + 1]);
     } else {
       this.router.navigate([`/task-validation`, this.taskId]);
@@ -301,12 +300,11 @@ export class DashboardPageComponent {
     if (questionIndex !== undefined) {
       data["questionIndex"] = questionIndex + 1;
     }
-    let dialogRef = this.dialog.open(TaskShareDialogComponent, {
+    this.dialog.open(TaskShareDialogComponent, {
       width: '30%',
       height: '40%',
       data: data
-    });
-    dialogRef.afterClosed().subscribe(resp => {
+    }).afterClosed().subscribe(resp => {
       if (resp.success) {
         if (resp.message)
           this.notificationService.showSuccess(resp.message, "Succès!");
@@ -347,15 +345,15 @@ export class DashboardPageComponent {
 
     if (this.totalVerifiedMatricules < this.examsCount) {
       this.notificationService.showError("Veuillez vérifier tous les matricules avant de valider la tâche!", "Erreur!");
-    } else if (this.totalCorrectedCopies < this.examsCount) {
+    } else if (this.getTotalQuestion().validatedCount < this.examsCount) {
       this.notificationService.showError("Veuillez corriger toutes les copies avant de valider la tâche!", "Erreur!");
     } else {
       this.validating = true;
       this.tasksService.setvalidatingTaskId(this.task.job_id);
-      let response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
+      const response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
       if (response === "OK") {
         this.router.navigate(['/tasks-history']);
-        let message = "La tâche est en cours de finalisation!";
+        const message = "La tâche est en cours de finalisation!";
         this.notificationService.showInfo(message, "Alerte!")
         // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
       }

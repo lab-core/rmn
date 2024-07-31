@@ -17,27 +17,18 @@
         <tbody>
           <tr *ngFor="let question of questions; let i = index">
             <td>
-              <div *ngIf="bonusEnabledMap.get('Q' + (i + 1))">
-                Q{{ i + 1 }} (Bonus)
+              <div *ngIf="question.bonus">
+                {{ question.name }} (Bonus)
               </div>
-              <div *ngIf="!bonusEnabledMap.get('Q' + (i + 1))">
-                Q{{ i + 1 }}
+              <div *ngIf="!question.bonus">
+                {{ question.name }}
               </div>
             </td>
-            <td>{{ question.corrected }} / {{ question.total }}</td>
-            <td>{{ averages[i] | number:'1.2-2' }} / {{ nMaxPointsPerQuestion.get('Q' + (i + 1)) }}</td>
+            <td>{{ question.validatedCount }} / {{ question.count }}</td>
+            <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
             <td class="action-buttons">
               <button class="correct-button" (click)="correctQuestion(i)">Corriger</button>
               <button class="correct-button" (click)="shareQuestion(i)">Partager</button>
-            </td>
-          </tr>
-          <tr>
-            <td>Total</td>
-            <td>{{ totalCorrectedCopies }} / {{ examsCount }}</td>
-            <td>{{ totalMean | number:'1.2-2' }} / {{ maxPossiblePoints }}</td>
-            <td class="action-buttons">
-              <button class="correct-button" (click)="correctQuestion()">Corriger</button>
-              <button class="correct-button" (click)="shareQuestion()">Partager</button>
             </td>
           </tr>
           <tr>
@@ -45,7 +36,7 @@
             <td>{{ totalVerifiedMatricules }} / {{ examsCount }}</td>
             <td></td>
             <td class="action-buttons">
-              <button class="correct-button" (click)="verifyMatricules()">Verifier les matricules</button>
+              <button class="correct-button" (click)="verifyMatricules()">Verifier</button>
               <button class="correct-button" (click)="shareMatricule()">Partager</button>
             </td>
           </tr>

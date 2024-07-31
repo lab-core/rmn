@@ -15,24 +15,17 @@ export class ValidationService {
     private userService: UserService
   ) { }
 
-  async validateDocument(jobId, validatingCopy, file, copiesInformations, version, nMaxPointsPerQuestion = new Map(), status) {
+  async validateDocument(jobId: string, validatingCopy: number, file: File,
+                         questionIndex, grade, nMaxPointsPerQuestion, status) {
     const formData: FormData = new FormData();
     this.userService.addTokens(formData);
     formData.append('job_id', jobId);
     formData.append('document_index', validatingCopy.toString());
     formData.append('file', file);
-    const serializedCopiesInformations = JSON.stringify(
-        Array.from(copiesInformations.entries()).map(([key, value]) => [key, Array.from(value.entries())])
-    );
-    formData.append('copies_informations', serializedCopiesInformations);
-
-    // only append n_max_points_per_question if provided
-    if (nMaxPointsPerQuestion && nMaxPointsPerQuestion.size > 0) {
-        const serializedNMaxPointsPerQuestion = JSON.stringify(Array.from(nMaxPointsPerQuestion.entries()));
-        formData.append('n_max_points_per_question', serializedNMaxPointsPerQuestion);
+    if (questionIndex) {
+      formData.set('question_index', questionIndex);
     }
-
-    formData.append('version', version);
+    formData.append('grades', [grade].toString());
     formData.append('status', status);
 
     let response;

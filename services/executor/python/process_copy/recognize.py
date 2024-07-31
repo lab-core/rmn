@@ -50,7 +50,7 @@ from process_copy.preview import PreviewHandler
 from process_copy.database import Database
 from utils.storage import Storage
 from utils.utils import Document_Status, Job_Status
-from utils.clients import socketio_client, socketio_simple_client
+from utils.clients import socketio_client
 
 
 ignoreWrite = sys.gettrace() is None and "Debug" not in str(sys.stdin)
@@ -316,7 +316,7 @@ def process_all(
                     if not os.path.isfile(file):
                         continue
                     g_files.append(file)
-                    db.insert_document(job_id, doc_index, [], 0, "",
+                    db.insert_document(job_id, doc_index, [], "",
                                        Document_Status.NOT_READY, "", 0, f)
                     doc_index += 1
     db.close()
@@ -573,11 +573,6 @@ def grade_files(
                 else Document_Status.TO_VALIDATE
             )
             numbers[:-1] = try_fix_n_questions(max_nb_questions, numbers[:-1])
-
-            subquestions = {
-                f"Question {index_sub + 1}": sub
-                for index_sub, sub in enumerate(numbers[:-1])
-            }
             n_questions[doc_index] = numbers[:-1]
 
             exec_time = time.time() - start_time
@@ -585,8 +580,7 @@ def grade_files(
             if not db.update_document(
                 job_id,
                 doc_index,
-                subquestions,
-                numbers[-1],
+                numbers[:-1],
                 doc_status,
                 m,
                 exec_time,
@@ -630,11 +624,7 @@ def grade_files(
                     if len(doc_questions) != n_doc_q or changed2:
                         n_questions[index] = doc_questions
                         # update document
-                        subquestions = {
-                            f"Question {index_sub + 1}": sub
-                            for index_sub, sub in enumerate(doc_questions)
-                        }
-                        db.update_document_predictions(job_id, index, subquestions)
+                        db.update_document_grades(job_id, index, doc_questions)
 
                         doc = db.get_document(job_id, index)
                         sio.emit(
@@ -741,7 +731,6 @@ def find_matricules(
                     job_id,
                     doc_index,
                     None,
-                    None,
                     doc_status,
                     m,
                     exec_time,
@@ -787,7 +776,7 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
     doc = db.get_document(job_id, doc_index)
     if doc and doc['status'] != Document_Status.NOT_READY.value:
         print("Document", doc['filename'], "is ready with status", doc['status'])
-        n_questions[doc_index] = list(doc["subquestion_predictions"])
+        n_questions[doc_index] = list(doc["grades"])
         m = doc["matricule"]
         if m not in matricules_data:
             matricules_data[m] = [file]

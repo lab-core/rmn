@@ -56,7 +56,9 @@ export class TaskShareDialogComponent implements OnInit {
         if (resp.share_url) {
           this.shareUrl = resp.share_url;
           this.docService.getDocuments(this.data.taskId, false).then(() => {
-            this.groupsList = this.docService.groupsList;
+            if (this.data.shareType === 'matricule') {
+              this.groupsList = this.docService.groupsList;
+            }
             this.group = "";
             this.getUrl();
           });

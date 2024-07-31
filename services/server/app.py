@@ -45,7 +45,7 @@ def check_token(form, role=None):
     # check if token provided
     if "token" not in form:
         return Response(
-            response=json.dumps({"response": f"Error: token not provided."}),
+            response=json.dumps({"response": "Error: token not provided."}),
             status=400,
         ), None
     # check if token valid
@@ -54,14 +54,14 @@ def check_token(form, role=None):
     valid, username = UserService.verify_token(token, db, role)
     if not valid:
         return Response(
-            response=json.dumps({"response": f"Error: token not valid. Please login."}),
+            response=json.dumps({"response": "Error: token not valid. Please login."}),
             status=400,
         ), None
     if ("user_id" in form and form["user_id"] != username) or \
             ("username" in form and form["username"] != username):
         print(f"Error: token belongs to username {username}.")
         return Response(
-            response=json.dumps({"response": f"Error: token belongs to another username."}),
+            response=json.dumps({"response": "Error: token belongs to another username."}),
             status=400,
         ), None
 
@@ -89,7 +89,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
             if "job_id" not in request.form:
                 print("Error: job_id not provided.")
                 return Response(
-                    response=json.dumps({"response": f"Error: job_id not provided."}),
+                    response=json.dumps({"response": "Error: job_id not provided."}),
                     status=400,
                 )
             job_id = request.form["job_id"]
@@ -118,7 +118,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
             # check if any token share token provided
             if "share_token" not in request.form:
                 return Response(
-                    response=json.dumps({"response": f"Error: token not provided."}),
+                    response=json.dumps({"response": "Error: token not provided."}),
                     status=400,
                 )
             # check if share token valid
@@ -142,7 +142,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
             if validity is None:
                 print("Error: share token (", token, ") not valid for", job_id, "and keys", keys)
                 return Response(
-                    response=json.dumps({"response": f"Error: share token not valid."}),
+                    response=json.dumps({"response": "Error: share token not valid."}),
                     status=400,
                 )
             if return_validity:
@@ -285,7 +285,7 @@ def evaluate(user_id):
     except Exception as e:
         print(e)
         return Response(
-            response=json.dumps({"response": f"Error: Failed to insert in MongoDB."}),
+            response=json.dumps({"response": "Error: Failed to insert in MongoDB."}),
             status=500,
         )
 
@@ -306,7 +306,7 @@ def evaluate(user_id):
 
     except Exception as e:
         print(e)
-        return Response(response=f"Error: Failed to download files.", status=500)
+        return Response(response="Error: Failed to download files.", status=500)
 
     # Create SocketIO connection
     sio = socketio_client()
@@ -502,7 +502,6 @@ def get_job():
         "students_list": job["students_list"],
         "job_infos": job.get("job_infos", ""),
         "n_max_points_per_question": job["n_max_points_per_question"],
-        "copies_informations": job.get("copies_informations", []),
         "n_pages_per_question": job["n_pages_per_question"],
         "bonus_enabled_map": job["bonus_enabled_map"]
     }
@@ -520,14 +519,14 @@ def share_job(user_id):
     request_form = request.form
     if "job_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: job_id not provided."}),
+            response=json.dumps({"response": "Error: job_id not provided."}),
             status=400
         )
     job_id = str(request_form["job_id"])
 
     # if "question_index" not in request_form:
     #     return Response(
-    #         response=json.dumps({"response": f"Error: question_index not provided."}),
+    #         response=json.dumps({"response": "Error: question_index not provided."}),
     #         status=400
     #     )
     question_index = request_form.get("question_index")
@@ -535,7 +534,7 @@ def share_job(user_id):
     host = request.headers.get('Host')
     if not host:
         return Response(
-            response=json.dumps({"response": f"Error: Host is not defined in the headers."}),
+            response=json.dumps({"response": "Error: Host is not defined in the headers."}),
             status=400
         )
 
@@ -586,7 +585,7 @@ def unshare_job(user_id):
     request_form = request.form
     if "job_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: job_id not provided."}),
+            response=json.dumps({"response": "Error: job_id not provided."}),
             status=400
         )
     job_id = str(request_form["job_id"])
@@ -613,7 +612,7 @@ def ignore_job(user_id):
     #
     if "job_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: job_id not provided."}),
+            response=json.dumps({"response": "Error: job_id not provided."}),
             status=400,
         )
 
@@ -622,9 +621,8 @@ def ignore_job(user_id):
     db["eval_jobs"].update_one(
             {"job_id": job_id},
             {
-                "$set": {
-                    "job_status": Job_Status.IGNORED.value,
-                }
+                "$set": {"job_status": Job_Status.IGNORED.value},
+                "$unset": {"job_infos": ""}
             },
     )
 
@@ -645,13 +643,13 @@ def continue_job(user_id):
 
     if "job_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: job_id not provided."}),
+            response=json.dumps({"response": "Error: job_id not provided."}),
             status=400,
         )
 
     if not request.files:
         return Response(
-            response=json.dumps({"response": f"Error: No files provided."}),
+            response=json.dumps({"response": "Error: No files provided."}),
             status=400,
         )
 
@@ -712,14 +710,14 @@ def download_incorrect_files(user_id):
     #
     if "job_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: job_id not provided."}),
+            response=json.dumps({"response": "Error: job_id not provided."}),
             status=400,
         )
 
     #
     if "file" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: file not provided."}),
+            response=json.dumps({"response": "Error: file not provided."}),
             status=400,
         )
 
@@ -743,14 +741,14 @@ def download_file(user_id):
     #
     if "job_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: job_id not provided."}),
+            response=json.dumps({"response": "Error: job_id not provided."}),
             status=400,
         )
 
     #
     if "file" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: file not provided."}),
+            response=json.dumps({"response": "Error: file not provided."}),
             status=400,
         )
 
@@ -763,13 +761,13 @@ def download_file(user_id):
         print(e)
         return Response(
             response=json.dumps(
-                {"response": f"Error: invalid value for 'file' param."}
+                {"response": "Error: invalid value for 'file' param."}
             ),
             status=400,
         )
     if "zip_index" not in request_form and target_file == Output_File.ZIP_FILE:
         return Response(
-            response=json.dumps({"response": f"Error: zip_index not provided."}),
+            response=json.dumps({"response": "Error: zip_index not provided."}),
             status=400,
         )
 
@@ -819,7 +817,7 @@ def get_info_zip(user_id):
 
     if "job_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: job_id not provided."}),
+            response=json.dumps({"response": "Error: job_id not provided."}),
             status=400,
         )
     #
@@ -871,7 +869,7 @@ def update_matricule():
 @app.route("/matricule/share", methods=["POST"])
 @cross_origin()
 @verify_token()
-def share_matricule_verification():
+def share_matricule_verification(user_id):
     # Define db and collection used
     db = mongo["RMN"]
     collection = db["eval_jobs"]
@@ -879,14 +877,14 @@ def share_matricule_verification():
     request_form = request.form
     if "job_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: job_id not provided."}),
+            response=json.dumps({"response": "Error: job_id not provided."}),
             status=400
         )
     job_id = str(request_form["job_id"])
 
     if "user_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: user_id not provided."}),
+            response=json.dumps({"response": "Error: user_id not provided."}),
             status=400
         )
     user_id = str(request_form["user_id"])
@@ -894,7 +892,7 @@ def share_matricule_verification():
     host = request.headers.get('Host')
     if not host:
         return Response(
-            response=json.dumps({"response": f"Error: Host is not defined in the headers."}),
+            response=json.dumps({"response": "Error: Host is not defined in the headers."}),
             status=400
         )
 
@@ -953,6 +951,7 @@ def get_documents(validity):
                 "document_index": doc["document_index"],
                 "status": doc["status"],
                 "filename": doc["filename"],
+                "question_index": doc["question_index"],
                 "question": doc["question"],
                 "basename": doc["basename"],
                 "grade": doc["grade"],
@@ -960,19 +959,23 @@ def get_documents(validity):
             }
             for doc in docs if question is None or doc["question"] == question
         ]
+        resp = sorted(resp, key=lambda k: k["document_index"])
+        if resp and resp[-1]["document_index"] - resp[0]["document_index"] != len(resp) - 1:
+            print(resp)
+            print(resp[-1]["document_index"], "-", resp[0]["document_index"], " != ", len(resp) - 1)
+            return Response(response=json.dumps({"Error": "The indices are not consecutive and increasing"}), status=400)
     else:
         if validity is not None and validity != "mat":
             return Response(response=json.dumps({"Error": "You don't have access to these documents"}), status=400)
-        docs = db["job_documents"].find({"job_id": job_id})
         count = db["job_documents"].count_documents({"job_id": job_id})
+        docs = db["job_documents"].find({"job_id": job_id})
         resp = [
             {
                 "job_id": doc["job_id"],
                 "document_index": doc["document_index"],
-                "subquestion_predictions": doc["subquestion_predictions"],
+                "grades": doc["grades"],
                 "matricule": doc["matricule"],
                 "filename": doc["filename"],
-                "total": doc["total"],
                 "status": doc["status"],
                 "exec_time": doc["execution_time"],
                 "n_total_doc": count,
@@ -990,7 +993,7 @@ def get_documents(validity):
 @verify_share_token(matricule=False)
 def update_document():
     request_form = request.form
-    required_fields = ["job_id", "document_index", "copies_informations", "n_max_points_per_question", "status"]
+    required_fields = ["job_id", "document_index", "grades", "status"]
     for field in required_fields:
         if field not in request_form:
             return Response(
@@ -1000,26 +1003,43 @@ def update_document():
 
     job_id = str(request_form["job_id"])
     document_index = int(request_form["document_index"])
-    n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
 
     # update the database
     db = mongo["RMN"]
-    db["job_questions"].update_one(
-        {"job_id": job_id, "document_index": document_index},
-        {"$set": {
-            "n_max_points_per_question": n_max_points_per_question,
-            "status": Document_Status.VALIDATED.value,
-        }}
-    )
-
-    # copies_informations in eval_jobs collection
-    copies_informations = json.loads(request_form["copies_informations"])
-    db["eval_jobs"].update_one(
-        {"job_id": job_id},
-        {"$set": {
-            "copies_informations": copies_informations,
-        }}
-    )
+    # first update question and job if any
+    if "question_index" in request_form:
+        q_index = int(request_form["question_index"]) - 1
+        grade = float(request_form["grades"][0])
+        q_doc = db["job_questions"].find_one_and_update(
+            {"job_id": job_id, "document_index": document_index},
+            {"$set": {
+                "status": Document_Status.VALIDATED.value,
+                "grade": grade
+            }}
+        )
+        if q_doc is None:
+            return Response(response=json.dumps({"response": f"Error: question {document_index} not found."}),
+                            status=400)
+        r = db["job_documents"].update_one(
+            {"job_id": job_id, "filename": q_doc["basename"]},
+            {"$set": {
+                f"grades.{q_index}": grade
+            }}
+        )
+        if not r:
+            return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
+                            status=400)
+    else:
+        grades = [float(g) for g in request_form["grades"]]
+        r = db["job_documents"].update_one(
+            {"job_id": job_id, "document_index": document_index},
+            {"$set": {
+                "status": Document_Status.VALIDATED.value,
+                "grades": grades
+            }}
+        )
+        return Response(response=json.dumps({"response": f"Error: document {document_index} not found."}),
+                        status=400)
 
     # replacing the previous file by the new one in storage if any
     if "file" in request.files:
@@ -1028,9 +1048,9 @@ def update_document():
 
         last_underscore_index = file_name.rfind('_')
         extension_index = file_name.rfind('.pdf')
-        question_index = file_name[last_underscore_index + 1:extension_index]
+        question = file_name[last_underscore_index + 1:extension_index]
 
-        file_path = os.path.join('documents', job_id, question_index, file_name)
+        file_path = os.path.join('documents', job_id, question, file_name)
         print("file path ", storage.abs_path(file_path))
         # save with default name as well as the latest version
         abs_filename = storage.abs_path(file_path)
@@ -1040,38 +1060,38 @@ def update_document():
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@app.route("/documents/grade_all", methods=["POST"])
-@cross_origin()
-@verify_token()
-def grade_all_documents():
-    request_form = request.form
-
-    if "job_id" not in request_form:
-        return Response(
-            response=json.dumps({"response": "Error: job_id not provided."}),
-            status=400,
-        )
-
-    if "copies_informations" not in request_form:
-        return Response(
-            response=json.dumps({"response": "Error: copies_informations not provided."}),
-            status=400,
-        )
-
-    job_id = str(request_form["job_id"])
-
-    db = mongo["RMN"]
-
-    copies_informations = json.loads(request_form["copies_informations"])
-    collection_eval_jobs = db["eval_jobs"]
-    collection_eval_jobs.update_one(
-        {"job_id": job_id},
-        {"$set": {
-            "copies_informations": copies_informations,
-        }}
-    )
-
-    return Response(response=json.dumps({"response": "OK"}), status=200)
+# @app.route("/documents/grade_all", methods=["POST"])
+# @cross_origin()
+# @verify_token()
+# def grade_all_documents():
+#     request_form = request.form
+#
+#     if "job_id" not in request_form:
+#         return Response(
+#             response=json.dumps({"response": "Error: job_id not provided."}),
+#             status=400,
+#         )
+#
+#     if "copies_informations" not in request_form:
+#         return Response(
+#             response=json.dumps({"response": "Error: copies_informations not provided."}),
+#             status=400,
+#         )
+#
+#     job_id = str(request_form["job_id"])
+#
+#     db = mongo["RMN"]
+#
+#     copies_informations = json.loads(request_form["copies_informations"])
+#     collection_eval_jobs = db["eval_jobs"]
+#     collection_eval_jobs.update_one(
+#         {"job_id": job_id},
+#         {"$set": {
+#             "copies_informations": copies_informations,
+#         }}
+#     )
+#
+#     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 @app.route("/documents/replace", methods=["POST"])
 @cross_origin()
@@ -1107,7 +1127,7 @@ def replace_document():
                     # extracting question number from the filename
                     question_number = re.search(r'_Q(\d+)\.pdf', file_info.filename)
                     if question_number:
-                        question_folder = f"Q{question_number.group(1)}"
+                        question_folder = "Q%d" % question_number.group(1)
 
                         storage_path = os.path.join('documents', job_id, question_folder, os.path.basename(file_info.filename))
                         final_destination = storage.abs_path(storage_path)
@@ -1251,7 +1271,7 @@ def validate(user_id):
     #
     if "job_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: job_id not provided."}),
+            response=json.dumps({"response": "Error: job_id not provided."}),
             status=400,
         )
 
@@ -1287,7 +1307,7 @@ def validate(user_id):
         print("Failed to push job to Redis Queue.")
         return Response(
             response=json.dumps(
-                {"response": f"Error: Failed to push job to Redis Queue."}
+                {"response": "Error: Failed to push job to Redis Queue."}
             ),
             status=500,
         )
@@ -1334,7 +1354,7 @@ def delete(user_id):
 
     if "job_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: job_id not provided."}),
+            response=json.dumps({"response": "Error: job_id not provided."}),
             status=400,
         )
 
@@ -1378,7 +1398,7 @@ def admin_delete_jobs():
 
     if "n_days_old" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: n_days_old not provided."}),
+            response=json.dumps({"response": "Error: n_days_old not provided."}),
             status=400,
         )
 
@@ -1429,7 +1449,8 @@ def admin_delete_user():
 
     if "username" not in request_form and "user_id" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: username and user_id not provided. Please one of these two fields."}),
+            response=json.dumps({"response": "Error: username and user_id not provided. "
+                                             "Please one of these two fields."}),
             status=400,
         )
 
@@ -1472,26 +1493,26 @@ def front_page(user_id):
 
     if "suffix" not in request_form:
         return Response(
-            response=json.dumps({"response": f"Error: suffix not provided."}),
+            response=json.dumps({"response": "Error: suffix not provided."}),
             status=400,
         )
 
     if not request.files:
         return Response(
-            response=json.dumps({"response": f"Error: No files provided."}),
+            response=json.dumps({"response": "Error: No files provided."}),
             status=400,
         )
 
     if "moodle_zip" not in request.files:
         return Response(
-            response=json.dumps({"response": f"Error: moodle_zip file not provided."}),
+            response=json.dumps({"response": "Error: moodle_zip file not provided."}),
             status=400,
         )
 
     if "latex_front_page" not in request.files:
         return Response(
             response=json.dumps(
-                {"response": f"Error: latex_front_page file not provided."}
+                {"response": "Error: latex_front_page file not provided."}
             ),
             status=400,
         )

@@ -131,6 +131,7 @@ def split_and_save(n_pages_per_question, input_pdfs, job_id):
 
     db = Database()
     document_index = 0
+    def_grades = [None] * len(n_pages_per_question)
     for input_pdf in input_pdfs:
         with open(input_pdf, 'rb') as f:
             reader = PdfReader(f)
@@ -167,8 +168,7 @@ def split_and_save(n_pages_per_question, input_pdfs, job_id):
                 db.insert_document(
                     job_id=job_id,
                     doc_index=document_index,
-                    subquestion_pred=[],
-                    total=0,
+                    grades=def_grades,
                     rel_filepath=os.path.join("cover_pages", job_id, cover_basename),
                     status=Document_Status.NOT_READY,
                     matricule="",
