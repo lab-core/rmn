@@ -167,38 +167,23 @@ export class MatriculeVerificationComponent implements OnInit {
     }
   }
 
-  loadPdf(): void {
-    const formdata: FormData = new FormData();
-    this.userService.addTokens(formdata);
-    formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-    formdata.append('document_index', this.currentCopy.toString());
-
-    this.pdfLoading = true;
-
-    // find the document in examsList based on the currentIndex
-    const currentExam = this.currentExam();
-    console.log("Current Exam: ", currentExam);
-
-    if (currentExam && currentExam.status !== "NOT_READY") {
-      this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).subscribe(
-        (data) => {
-          let url = window.URL.createObjectURL(data);
-          this.pdfSrc = url;
-          this.pdfLoading = false;
-          console.log("PDF loaded successfully for: ", this.currentCopyName);
-        }, (error) => {
-          console.error(error);
-          this.pdfLoading = false;
-        });
-    } else {
-      this.pdfLoading = false;
-      if (!currentExam) {
-        console.error("Document not found for index:", this.currentCopy);
+  async loadPdf(version: number = undefined): Promise<void> {
+    if (this.currentExam()["status"] !== "NOT_READY") {
+      this.pdfLoading = true;
+      const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy);
+      if (pdfSource.url) {
+        this.pdfSrc = pdfSource.url;
+        // this.pdfModified = false;
+        // // initialize pdf viewer options
+        // if (!this.pdfViewerInitialized)
+        //  setTimeout(() => { this.initializePdfViewer(); }, 1000);
+        // console.log("Current Exam: ", this.examsList[this.currentIndex()])
       }
+      this.pdfLoading = false;
     }
   }
 
-  changeCurrentCopy(copyIndex: number, status: string) {
+  async changeCurrentCopy(copyIndex: number, status: string) {
     if (status !== "NOT_READY") {
         let exam = this.examsList[copyIndex-this.initialCopyIndex];
         console.log("Change current copy to", copyIndex);
@@ -206,7 +191,7 @@ export class MatriculeVerificationComponent implements OnInit {
         this.currentCopy = copyIndex;
         console.log("Current copy", this.currentCopy);
         this.disabledValidationcontainer = false;
-        this.loadCopy();
+        await this.loadCopy();
         this.setChosenColor(status);
     }
   }
@@ -222,10 +207,15 @@ export class MatriculeVerificationComponent implements OnInit {
     return this.subExamsList.indexOf(exam) + 1;
   }
 
-  loadCopy(): void {
-    this.loadPdf();
+  async loadCopy(): Promise<void> {
+    await this.loadPdf();
     this.getCurrentMatricule();
     this.getCurrentStatus();
+    // try to load the following copy
+    let nextIndex = this.nextCopyIndex();
+    if (nextIndex < this.examsList.length) {
+      this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex);
+    }
   }
 
   setChosenColor(status: string): void {
