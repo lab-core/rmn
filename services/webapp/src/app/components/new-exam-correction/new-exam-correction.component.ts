@@ -221,8 +221,7 @@ export class NewExamCorrectionComponent implements OnInit {
 
   async getTemplates() {
     const formdata: FormData = new FormData();
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     this.http.post<any>(`${SERVER_URL}user/template`, formdata).subscribe(
       (data) => {
         this.templates = data['response'];
@@ -385,8 +384,7 @@ export class NewExamCorrectionComponent implements OnInit {
       this.disabled = true;
       // post request
       const formdata: FormData = new FormData();
-      formdata.append('user_id', this.userService.currentUsername);
-      formdata.append('token', this.userService.token);
+      this.userService.addTokens(formdata);
       formdata.append('suffix', this.suffix);
       formdata.append('moodle_zip', this.presentationCopies);
       formdata.append('latex_front_page', this.latexFrontPage);

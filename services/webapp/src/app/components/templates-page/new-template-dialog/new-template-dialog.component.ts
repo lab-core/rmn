@@ -54,8 +54,7 @@ export class NewTemplateDialogComponent implements OnInit {
 
   async confirm() {
     const formdata: FormData = new FormData();
-    formdata.append('token', this.userService.token);
-    formdata.append('user_id', this.userService.currentUsername);
+    this.userService.addTokens(formdata);
     formdata.append('template_file', this.copy);
     formdata.append('template_page', (this.page - 1).toString());
     formdata.append('template_name', "New template");
@@ -65,7 +64,7 @@ export class NewTemplateDialogComponent implements OnInit {
           this.templateService.setTemplateId(data["response"]["template_id"]);
 
           const formdata: FormData = new FormData();
-          formdata.append('token', this.userService.token);
+          this.userService.addTokens(formdata);
           formdata.append('template_id', data["response"]["template_id"]);
            this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).subscribe(async data => {
               var file = new File([data], this.templateService.getTemplateName());

@@ -94,7 +94,7 @@ export class MatriculeVerificationComponent implements OnInit {
         }
       });
 
-      if (this.userService.token) {
+      if (this.userService.loggued()) {
         this.socketService.join(this.userService.currentUsername);
         this.socketService.getSocket().on('job_status', async (params: any) => {
           const resp = JSON.parse(params);
@@ -257,7 +257,7 @@ export class MatriculeVerificationComponent implements OnInit {
     const currentExam = this.currentExam();
     if (currentExam && currentExam["status"] !== "NOT_READY") {
       this.currentMatricule = currentExam["matricule"];
-      this.getDuplicatedMatricule();
+      this.getDuplicatedMatricules();
       const matriculeRow = this.matriculeList.find(
         x => x['matricule'] === String(this.currentMatricule)
       );
@@ -292,14 +292,12 @@ export class MatriculeVerificationComponent implements OnInit {
       this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
       return;
     }
-    this.getCurrentMatricule();
     const formdata: FormData = new FormData();
     formdata.append('job_id', this.job["job_id"]);
     formdata.append('document_index', this.currentCopy.toString());
     this.getCurrentMatricule();
     formdata.append('matricule', this.currentMatricule.toString());
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
 
     try {
       const response = await this.http.post(`${SERVER_URL}matricule/update`, formdata).toPromise();
@@ -364,10 +362,10 @@ export class MatriculeVerificationComponent implements OnInit {
     this.currentMatricule = Number(selection.matricule);
     let exam = this.examsList[this.currentCopy];
     exam["matricule"] = String(this.currentMatricule);
-    this.getDuplicatedMatricule();
+    this.getDuplicatedMatricules();
   }
 
-  getDuplicatedMatricule(): void {
+  getDuplicatedMatricules(): void {
     // search for duplicated matricules
     let mat = String(this.currentMatricule);
     let counter = 0;

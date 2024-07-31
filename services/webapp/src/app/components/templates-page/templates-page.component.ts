@@ -45,8 +45,7 @@ export class TemplatesPageComponent implements OnInit {
 
   getTemplates() {
     const formdata: FormData = new FormData();
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     this.http.post<any>(`${SERVER_URL}user/template`, formdata).subscribe(
       (data) => {
         // "template_name"
@@ -79,7 +78,7 @@ export class TemplatesPageComponent implements OnInit {
 
   editTemplate(template: Map<string, string>): void {
     const formdata: FormData = new FormData();
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     formdata.append('template_id', template["template_id"]);
     this.http.post<any>(`${SERVER_URL}template/info`, formdata).subscribe(
       (data) => {
@@ -90,7 +89,7 @@ export class TemplatesPageComponent implements OnInit {
         this.templateService.setTemplateId(data["response"]["template_id"]);
 
         const formdata: FormData = new FormData();
-        formdata.append('token', this.userService.token);
+        this.userService.addTokens(formdata);
         formdata.append('template_id', template["template_id"]);
          this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).subscribe(async data => {
             var file = new File([data], this.templateService.getTemplateName());
@@ -118,7 +117,7 @@ export class TemplatesPageComponent implements OnInit {
     dialogRef.afterClosed().subscribe(async result => {
       if (result !== undefined && result === true) {
         const formdata: FormData = new FormData();
-        formdata.append('token', this.userService.token);
+        this.userService.addTokens(formdata);
         formdata.append('template_id', template["template_id"]);
         this.http.post<any>(`${SERVER_URL}template/delete`, formdata).subscribe(
           (data) => {

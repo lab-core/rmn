@@ -73,7 +73,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
     this.socketService.join(this.templateService.getTemplateId());
     this.socketService.getSocket().on('template_rendered', async (data: any) => {
       const formdata: FormData = new FormData();
-      formdata.append('token', this.userService.token);
+      this.userService.addTokens(formdata);
       formdata.append('template_id', this.templateService.getTemplateId());
        this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).subscribe(async data => {
           var file = new File([data], this.templateService.getTemplateName());
@@ -163,8 +163,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
         this.showNameNotificationError();
     } else {
         const formdata: FormData = new FormData();
-        formdata.append('user_id', this.userService.currentUsername);
-        formdata.append('token', this.userService.token);
+        this.userService.addTokens(formdata);
         formdata.append('template_name', this.templateName);
         formdata.append('matricule_box', JSON.stringify(this.rectangleService.getIdentificationRectCoords()));
 

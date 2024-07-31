@@ -10,8 +10,8 @@ import { SERVER_URL } from '../utils';
 export class UserService implements CanActivate, CanActivateChild {
 
   currentUsername: string;
-  token: string;
-  shareToken: string;
+  private token: string;
+  private shareToken: string;
   questionIndex: string;
   role: string;
   saveVerifiedImages: boolean = false;
@@ -43,6 +43,7 @@ export class UserService implements CanActivate, CanActivateChild {
 
   addTokens(form) {
     if (this.token) {
+      form.append('user_id', this.currentUsername);
       form.append('token', this.token);
     }
     if (this.shareToken) {
@@ -53,13 +54,25 @@ export class UserService implements CanActivate, CanActivateChild {
     }
   }
 
-  login(username, password) {
+  async login(username, password) {
     const formdata: FormData = new FormData();
     formdata.append('username', username);
     formdata.append('password', password);
     let url = SERVER_URL + "login"
+    let resp = await this.http.post(url, formdata).toPromise();
+    //Insert loading bar condition
+    let response = resp['response']
+    localStorage.setItem('user_id', response['username'])
+    localStorage.setItem('role', response['role'])
+    localStorage.setItem('token', response['token'])
+    localStorage.setItem('saveVerifiedImages', JSON.stringify(response['saveVerifiedImages']))
+    localStorage.setItem('moodleStructureInd', JSON.stringify(response['moodleStructureInd']))
 
-    return this.http.post(url, formdata)
+    this.currentUsername = response['username']
+    this.role = response['role']
+    this.token = response['token']
+    this.saveVerifiedImages = response['saveVerifiedImages'];
+    this.moodleStructureInd = response['moodleStructureInd'];
   }
 
   signup(username, password, role) {

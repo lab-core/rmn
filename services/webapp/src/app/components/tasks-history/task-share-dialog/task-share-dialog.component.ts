@@ -41,8 +41,7 @@ export class TaskShareDialogComponent implements OnInit {
 
   ngOnInit(): void {
     const formdata: FormData = new FormData();
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     formdata.append('job_id', this.data.taskId);
     if (this.data.questionIndex) {
       formdata.append('question_index', this.data.questionIndex.toString());
@@ -78,7 +77,7 @@ export class TaskShareDialogComponent implements OnInit {
 
   unshare(): void {
     const formdata: FormData = new FormData();
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     formdata.append('job_id', this.data.taskId);
     if (this.data.shareType === 'job') {
       formdata.append('questions', "true");

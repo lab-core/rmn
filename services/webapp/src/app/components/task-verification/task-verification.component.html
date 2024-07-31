@@ -64,12 +64,12 @@
                     <div class="sub-check-container">
                         <h3>Note (/{{nMaxPointsPerQuestion.get(currentQuestionIndex)}})</h3>
                         <div class="value-input-div">
-                          <input id="score" type="number" [(ngModel)]="currentGrade" (ngModelChange)="saveCurrentGrade()" placeholder="Entrer la note" class="note-input"/>
+                          <input id="score" type="number" [(ngModel)]="currentGrade" placeholder="Entrer la note" class="note-input"/>
                         </div>
                     </div>
                     <div class="sub-check-container"
                         *ngFor="let grade of this.currentGrades | keyvalue : sortNull; trackBy: trackByIndex;">
-                        <h3>{{grade.key}}</h3>
+                        <h3>{{grade.key}} (/{{nMaxPointsPerQuestion.get(grade.key)}}) </h3>
                         <div class="value-input-div">
                             <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
                                 id="text-box" [(ngModel)]="grade.value"

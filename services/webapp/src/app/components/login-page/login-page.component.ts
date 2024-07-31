@@ -43,25 +43,12 @@ export class LoginPageComponent implements OnInit {
 
   }
 
-   attemptLogin() {
-    this.userService.login(this.username, this.password).subscribe((resp) => {
-      //Insert loading bar condition
-      let response = resp['response']
-      localStorage.setItem('user_id', response['username'])
-      localStorage.setItem('role', response['role'])
-      localStorage.setItem('token', response['token'])
-      localStorage.setItem('saveVerifiedImages', JSON.stringify(response['saveVerifiedImages']))
-      localStorage.setItem('moodleStructureInd', JSON.stringify(response['moodleStructureInd']))
-
-      this.userService.currentUsername = response['username']
-      this.userService.role = response['role']
-      this.userService.token = response['token']
-      this.userService.saveVerifiedImages = response['saveVerifiedImages'];
-      this.userService.moodleStructureInd = response['moodleStructureInd'];
+  async attemptLogin() {
+     try {
+      await this.userService.login(this.username, this.password);
       this.router.navigate(['/main-menu']);
-    }, (err) => {
+    } catch(err) {
       this.notification.showError(err.error.response, "Erreur de connexion")
-    })
-
+    }
   }
 }

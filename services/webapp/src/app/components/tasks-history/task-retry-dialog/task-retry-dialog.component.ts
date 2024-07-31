@@ -136,7 +136,7 @@ export class TaskRetryDialogComponent implements OnInit {
   ignoreAndContinue(): void {
     const job_id = this.data.taskId;
     const formData = new FormData();
-    formData.append('token', this.userService.token);
+    this.userService.addTokens(formData);
     formData.append('job_id', job_id);
 
     const requestURL = `${SERVER_URL}job/ignore`;
@@ -155,7 +155,7 @@ export class TaskRetryDialogComponent implements OnInit {
   retryJob(): void {
     const job_id = this.data.taskId;
     const formData = new FormData();
-    formData.append('token', this.userService.token);
+    this.userService.addTokens(formData);
     formData.append('job_id', job_id);
     this.selectedFiles.forEach((file, index) => {
       formData.append(`file${index}`, file);
@@ -181,7 +181,7 @@ export class TaskRetryDialogComponent implements OnInit {
   downloadFile(filename: string): void {
     const job_id = this.data.taskId;
     const formData = new FormData();
-    formData.append('token', this.userService.token);
+    this.userService.addTokens(formData);
     formData.append('job_id', job_id);
     formData.append('file', filename);
 
@@ -218,7 +218,7 @@ export class TaskRetryDialogComponent implements OnInit {
 
     filenames.forEach((filename) => {
       const formData = new FormData();
-      formData.append('token', this.userService.token);
+      this.userService.addTokens(formData);
       formData.append('job_id', job_id);
       formData.append('file', filename);
 

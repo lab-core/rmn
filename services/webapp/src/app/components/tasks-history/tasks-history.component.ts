@@ -124,8 +124,7 @@ export class TasksHistoryComponent implements OnInit {
 
   getTasks() {
     const formdata: FormData = new FormData();
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     this.http.post<any>(`${SERVER_URL}jobs`, formdata).subscribe(
       (data) => {
         this.tasksList = data['response'];
@@ -144,7 +143,7 @@ export class TasksHistoryComponent implements OnInit {
 
         this.tasksList.forEach(x => {
           const formdata: FormData = new FormData();
-          formdata.append('token', this.userService.token);
+          this.userService.addTokens(formdata);
           formdata.append('job_id', x.job_id);
           this.http.post<any>(`${SERVER_URL}documents`, formdata).subscribe(
             (data) => {
@@ -222,8 +221,7 @@ export class TasksHistoryComponent implements OnInit {
 
   deleteJob(jobId: string): void {
     const formdata: FormData = new FormData();
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     this.http.post<any>(`${SERVER_URL}job/delete`, formdata).subscribe(
       (data) => {
@@ -287,8 +285,7 @@ export class TasksHistoryComponent implements OnInit {
 
   openTaskFilesDialog(jobId: string): void {
     const formdata: FormData = new FormData();
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).subscribe(
       (data) => {

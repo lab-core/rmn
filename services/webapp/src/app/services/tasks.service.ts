@@ -66,8 +66,7 @@ export class TasksService {
 
   addTask(copies, csv, front_template_id, regular_template_id, n_pages_per_question, n_max_points_per_question, bonus_enabled_map, taskName, front_template_name, regular_template_name, statistics_for_students) {
     const formdata: FormData = new FormData();
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     formdata.append('front_template_id', front_template_id);
     formdata.append('regular_template_id', regular_template_id);
     formdata.append('zip_file', copies);
@@ -104,8 +103,7 @@ export class TasksService {
     let tasks: Array<any> = [];
 
     const formdataJobs: FormData = new FormData();
-    formdataJobs.append('user_id', this.userService.currentUsername);
-    formdataJobs.append('token', this.userService.token);
+    this.userService.addTokens(formdataJobs);
     this.http.post<any>(`${SERVER_URL}jobs`, formdataJobs).subscribe(
       (data) => {
         tasks = data['response']

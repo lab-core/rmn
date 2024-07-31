@@ -74,7 +74,7 @@ export class TaskFilesDialogComponent implements OnInit {
 
   downloadFile(requestURL : string, filename : string, fileType: string, index : number){
     const formdata: FormData = new FormData();
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     formdata.append('job_id', this.data.taskId);
     formdata.append('file', fileType);
     formdata.append('zip_index', index.toString());

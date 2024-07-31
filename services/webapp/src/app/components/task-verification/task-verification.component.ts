@@ -85,7 +85,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   formattedIndexes: Array<string> = [];
   // default max copies per pdf value
   maxCopiesPerPdf: number = 40;
-  currentGradesMap: Map<number, number> = new Map();
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
@@ -131,7 +130,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       }
     });
 
-    if (this.userService.token) {
+    if (this.userService.loggued()) {
       this.socketService.join(this.userService.currentUsername);
       this.socketService.getSocket().on('job_status', async (params: any) => {
         const resp = JSON.parse(params);
@@ -218,16 +217,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   loadScore(): void {
-    if (this.currentExam()["grade"]) {
-      this.currentGrade = this.currentExam()["grade"];
-      this.currentGradesMap.set(this.currentCopy, this.currentGrade);
-    } else {
-      this.currentGrade = this.currentGradesMap.get(this.currentCopy) || null;
-    }
+    this.currentGrade = this.currentExam()["grade"];
   }
 
-  async saveCurrentGrade(): Promise<void> {
-    this.currentGradesMap.set(this.currentCopy, this.currentGrade);
+  saveCurrentGrade(): boolean {
+    if (this.currentExam()["grade"] !== this.currentGrade) {
+      this.currentExam()["grade"] = this.currentGrade;
+      return true;
+    }
+    return false;
   }
 
   initializeQuestionIndexes(): void {
@@ -343,24 +341,23 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
   }
 
- addScoreToQuestion(): boolean {
+ addGradeToQuestion(): boolean {
     if (this.currentGrade !== null) {
       if (this.currentGrade >= 0) {
         if (this.currentGrade > this.nMaxPointsPerQuestion.get(this.currentQuestionIndex)) {
           const excessPoints = this.currentGrade - this.nMaxPointsPerQuestion.get(this.currentQuestionIndex);
           this.notificationService.showWarning(`Vous avez rajouté ${excessPoints} point(s) bonus`, 'Attention!');
         }
-        this.currentGradesMap.set(this.currentCopy, this.currentGrade);
-        this.currentGrade = null;
+        return this.saveCurrentGrade();
       } else {
         this.notificationService.showWarning('Veuillez saisir une note valide.', 'Note invalide');
         throw new Error('Note invalide');
       }
     } else {
       this.notificationService.showWarning('Veuillez saisir une note.', 'Note invalide');
-      return false;
+      throw new Error('Note invalide');
     }
-    return true;
+    return false;
   }
 
   async loadPdf(version: number = undefined): Promise<void> {
@@ -443,7 +440,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   verifyIfQuestionIsBonus(): void {
     if (this.currentGrade == null && this.bonusEnabledMap.get(this.currentQuestionIndex)) {
       this.currentGrade = 0;
-      this.addScoreToQuestion();
+      this.saveCurrentGrade();
       if (!this.bonusNoticationsShown.get(this.currentQuestionIndex)) {
         this.notificationService.showInfo('Cette question est une question bonus. Sa note initiale est 0.', 'Information');
         this.bonusNoticationsShown.set(this.currentQuestionIndex, true);
@@ -486,7 +483,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
 
     try {
-        if (this.addScoreToQuestion() && await this.saveCurrentCopy(true)) {
+        const gradeChanged = this.addGradeToQuestion();
+        if (await this.saveCurrentCopy(gradeChanged)) {
             this.setValidatedStatus();
             this.nextCopy();
         }
@@ -514,7 +512,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
             this.currentCopy,
             file,
             this.currentQuestionIndex.slice(1),
-            this.currentGradesMap.get(this.currentCopy),
+            this.currentGrade,
             this.nMaxPointsPerQuestion,
             this.currentStatus
         );

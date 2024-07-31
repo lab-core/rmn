@@ -76,8 +76,7 @@ export class PresentationPageComponent implements OnInit {
 
       // post request
       const formdata: FormData = new FormData();
-      formdata.append('user_id', this.userService.currentUsername);
-      formdata.append('token', this.userService.token);
+      this.userService.addTokens(formdata);
       formdata.append('suffix', this.suffix);
       formdata.append('moodle_zip', this.copies);
       formdata.append('latex_front_page', this.latexFrontPage);

@@ -44,7 +44,7 @@ export class ChangePasswordDialogComponent implements OnInit {
 
       const formdata: FormData = new FormData();
       formdata.append('username', this.userService.currentUsername);
-      formdata.append('token', this.userService.token);
+      this.userService.addTokens(formdata);
       formdata.append('new_password', this.newPass);
       formdata.append('old_password', this.currentPass)
       const url = SERVER_URL + 'password';

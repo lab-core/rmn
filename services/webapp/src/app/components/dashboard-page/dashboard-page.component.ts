@@ -7,6 +7,7 @@ import { UserService } from 'src/app/services/user.service';
 import { SERVER_URL } from 'src/app/utils';
 import { TaskFilesDialogComponent } from '../tasks-history/task-files-dialog/task-files-dialog.component';
 import { TaskShareDialogComponent } from '../tasks-history/task-share-dialog/task-share-dialog.component';
+import { SocketService } from 'src/app/services/socket.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { DocumentsService } from 'src/app/services/documents.service';
 import { ValidationService } from 'src/app/services/validation.service';
@@ -48,6 +49,7 @@ export class DashboardPageComponent {
     private userService: UserService,
     private http: HttpClient,
     public dialog: MatDialog,
+    private socketService: SocketService,
     private docService: DocumentsService,
     private notificationService: NotificationService,
     private validationService: ValidationService
@@ -64,12 +66,37 @@ export class DashboardPageComponent {
       await this.getDocuments(this.taskId);
       await this.getQuestions(this.taskId);
       // update metrics
+      this.computeTotalMatricules();
       this.computeQuestions();
       this.computeTotalQuestion();
-      this.computeTotalMatricules();
     } else {
       this.router.navigate(['/tasks-history']);
     }
+
+    this.socketService.join(this.taskId)
+    this.socketService.getSocket().on('doc_validated', async (params: any) => {
+      const resp = JSON.parse(params)
+      const questions: boolean = resp.questions;
+      const matricule: string = resp.matricule;
+      const docIndices: number[] = [resp.document_index]
+      try {
+        // matricule has been validated
+        if (matricule !== undefined) {
+          await this.docService.getDocuments(this.taskId, false, docIndices);
+          this.examsList[resp.document_index] = this.docService.documentsList[0];
+          this.computeTotalMatricules();
+        }
+        // if question has been validated
+        if (questions) {
+          await this.docService.getDocuments(this.taskId, true, docIndices);
+          this.questionsDocList[resp.document_index] = this.docService.documentsList[0];
+          this.computeQuestions();
+          this.computeTotalQuestion();
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    });
   }
 
   loggued(): boolean {
@@ -84,46 +111,25 @@ export class DashboardPageComponent {
   getTaskInfo() {
     if (this.task.job_status === 'ARCHIVED') {
       this.openTaskFilesDialog(this.task.job_id);
-    } else if (this.task.job_status === 'VALIDATION' || this.task.job_status === 'RUN') {
+    }
+    else if (this.task.job_status === 'IGNORED' ||
+             this.task.job_status === 'QUEUED' ||
+             this.task.job_status === 'RUN' ||
+             this.task.job_status === 'VALIDATION') {
       this.tasksService.setvalidatingTaskId(this.task.job_id);
       this.router.navigate(['/task-validation']);
     }
   }
 
   async getDocuments(jobId: string) {
-    try {
-      const formdata: FormData = new FormData();
-      formdata.append('user_id', this.userService.currentUsername);
-      formdata.append('token', this.userService.token);
-      formdata.append('job_id', jobId);
-      const response = await this.http.post<any>(`${SERVER_URL}/documents`, formdata).toPromise();
-      if (response && response.response) {
-        this.examsList = response.response || [];
-        this.examsCount = this.examsList.length;
-      } else {
-        console.error('Invalid response format:', response);
-      }
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-    }
+    await this.docService.getDocuments(jobId, false);
+    this.examsList = this.docService.documentsList;
+    this.examsCount = this.examsList.length;
   }
 
   async getQuestions(jobId: string) {
-    try {
-      const formdata: FormData = new FormData();
-      formdata.append('user_id', this.userService.currentUsername);
-      formdata.append('token', this.userService.token);
-      formdata.append('job_id', jobId);
-      formdata.append('questions', "true");
-      const response = await this.http.post<any>(`${SERVER_URL}/documents`, formdata).toPromise();
-      if (response && response.response) {
-        this.questionsDocList = response.response || [];
-      } else {
-        console.error('Invalid response format:', response);
-      }
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-    }
+    await this.docService.getDocuments(jobId, true);
+    this.questionsDocList = this.docService.documentsList;
   }
 
   computeTotalMatricules() {
@@ -257,8 +263,7 @@ export class DashboardPageComponent {
 
   openTaskFilesDialog(jobId: string): void {
     const formdata: FormData = new FormData();
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).subscribe(
       (data) => {

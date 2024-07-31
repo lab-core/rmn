@@ -316,7 +316,6 @@ def evaluate(user_id):
             {"job_id": job_id, "status": Job_Status.SPLIT.value, "user_id": user_id}
         ),
     )
-    sio.disconnect()
 
     thread = Thread(target=evaluate_thread,
                     kwargs={
@@ -367,7 +366,6 @@ def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_n
                 }
             ),
         )
-        sio.disconnect()
         exit()
 
     # add to Redis Queue
@@ -864,7 +862,18 @@ def update_matricule():
         {"$set": {"matricule": matricule, "status": Document_Status.VALIDATED.value}}
     )
 
+    user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
+
+    sio = socketio_client()
+    sio.emit(
+        "doc_validated",
+        json.dumps(
+            {"job_id": job_id, "user_id": user_id, "document_index": document_index, "matricule": matricule}
+        ),
+    )
+
     return Response(response=json.dumps({"response": "OK"}), status=200)
+
 
 @app.route("/matricule/share", methods=["POST"])
 @cross_origin()
@@ -937,14 +946,18 @@ def get_documents(validity):
 
     #
     db = mongo["RMN"]
+    query = {"job_id": job_id}
+    if request_form.get("documents_indices"):
+        query["document_index"] = {"$in": json.loads(request_form["documents_indices"])}
+
     if request_form.get("questions") is not None:
         if validity == "mat":
             return Response(response=json.dumps({"Error": "You don't have access to these questions"}), status=400)
         question = None
         if validity is not None and validity != "all":
             question = f"Q{validity}"
-        docs = db["job_questions"].find({"job_id": job_id})
-        count = db["job_questions"].count_documents({"job_id": job_id})
+        docs = db["job_questions"].find(query)
+        count = db["job_questions"].count_documents(query)
         resp = [
             {
                 "job_id": doc["job_id"],
@@ -967,8 +980,8 @@ def get_documents(validity):
     else:
         if validity is not None and validity != "mat":
             return Response(response=json.dumps({"Error": "You don't have access to these documents"}), status=400)
-        count = db["job_documents"].count_documents({"job_id": job_id})
-        docs = db["job_documents"].find({"job_id": job_id})
+        count = db["job_documents"].count_documents(query)
+        docs = db["job_documents"].find(query)
         resp = [
             {
                 "job_id": doc["job_id"],
@@ -1003,13 +1016,13 @@ def update_document():
 
     job_id = str(request_form["job_id"])
     document_index = int(request_form["document_index"])
+    grades = [float(g) for g in json.loads(request_form["grades"])]
 
     # update the database
     db = mongo["RMN"]
     # first update question and job if any
     if "question_index" in request_form:
-        q_index = int(request_form["question_index"]) - 1
-        grade = float(request_form["grades"][0])
+        grade = grades[0]
         q_doc = db["job_questions"].find_one_and_update(
             {"job_id": job_id, "document_index": document_index},
             {"$set": {
@@ -1020,6 +1033,8 @@ def update_document():
         if q_doc is None:
             return Response(response=json.dumps({"response": f"Error: question {document_index} not found."}),
                             status=400)
+
+        q_index = int(request_form["question_index"]) - 1
         r = db["job_documents"].update_one(
             {"job_id": job_id, "filename": q_doc["basename"]},
             {"$set": {
@@ -1056,6 +1071,16 @@ def update_document():
         abs_filename = storage.abs_path(file_path)
         file.save(abs_filename)
         save_new_version(abs_filename)
+
+    user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
+
+    sio = socketio_client()
+    sio.emit(
+        "doc_validated",
+        json.dumps(
+            {"job_id": job_id, "user_id": user_id, "document_index": document_index, "questions": True}
+        ),
+    )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 

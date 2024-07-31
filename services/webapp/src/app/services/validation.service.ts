@@ -25,7 +25,7 @@ export class ValidationService {
     if (questionIndex) {
       formData.set('question_index', questionIndex);
     }
-    formData.append('grades', [grade].toString());
+    formData.append('grades', JSON.stringify([grade]));
     formData.append('status', status);
 
     let response;
@@ -43,8 +43,7 @@ export class ValidationService {
   async validateJob(jobId, moodle_ind) {
     const formdata: FormData = new FormData();
     formdata.append('job_id', jobId);
-    formdata.append('user_id', this.userService.currentUsername);
-    formdata.append('token', this.userService.token);
+    this.userService.addTokens(formdata);
     formdata.append('moodle_ind', (Number(moodle_ind)).toString());
     let response;
     try {

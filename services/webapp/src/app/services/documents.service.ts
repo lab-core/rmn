@@ -43,19 +43,22 @@ export class DocumentsService {
   constructor(private http: HttpClient,
               private userService: UserService) { }
 
-  async getDocuments(jobId: string, questions: boolean) {
+  async getDocuments(jobId: string, questions: boolean, docIndices: number[]=undefined) {
     const formdata: FormData = new FormData();
     formdata.append('job_id', jobId);
     this.questions = questions;
     if (questions) {
       formdata.append('questions', 'true');
     }
+    if (docIndices) {
+      formdata.append('documents_indices', JSON.stringify(docIndices));
+    }
     this.userService.addTokens(formdata);
     this.groupsList = [""];
 
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}documents`, formdata).toPromise();
-      this.documentsList = promise['response'];
+      this.documentsList = promise['response'] || [];
       this.pdfSources.clear();
 
       // fetch groups if any

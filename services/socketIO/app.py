@@ -48,6 +48,12 @@ def handle_template_rendered_change(data):
     emit("template_rendered", data, room=template_id)
     print(f"Received data: {data} to room : {template_id}")
 
+@socketio.on("doc_validated")
+def handle_doc_validated(data):
+    job_id = json.loads(data)["job_id"]
+    emit("doc_validated", data, room=job_id)
+    print(f"Received data: {data} to room : {job_id}")
+
 
 if __name__ == "__main__":
     # socketio.run(app, host="localhost", port=7000)
