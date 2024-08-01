@@ -1150,10 +1150,9 @@ def replace_document():
                     extracted_path = zip_file.extract(file_info, path=TEMP_FOLDER)
 
                     # extracting question number from the filename
-                    question_number = re.search(r'_Q(\d+)\.pdf', file_info.filename)
+                    question_number = re.search(r'Q\d+(?=\.pdf$)', file_info.filename)
                     if question_number:
-                        question_folder = "Q%d" % question_number.group(1)
-
+                        question_folder = question_number.group(0)
                         storage_path = os.path.join('documents', job_id, question_folder, os.path.basename(file_info.filename))
                         final_destination = storage.abs_path(storage_path)
 

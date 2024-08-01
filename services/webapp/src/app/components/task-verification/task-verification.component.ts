@@ -372,8 +372,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         }
         this.pdfModified = false;
         // initialize pdf viewer options
-        if (!this.pdfViewerInitialized)
-         setTimeout(() => { this.initializePdfViewer(); }, 1000);
+        // if (!this.pdfViewerInitialized)
+        //  setTimeout(() => { this.initializePdfViewer(); }, 1000);
         // console.log("Current Exam: ", this.examsList[this.currentIndex()])
       }
       this.setPdfLoading(false);
@@ -659,7 +659,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
             if (doc.getPageCount() > 0) {
                 const mergedPdfBytes = await doc.save();
                 const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-                zip.file(`Q${questionIndex}${i > 0 ? `_${i}` : ''}.pdf`, blob);
+                zip.file(`${questionIndex}${i > 0 ? `_${i}` : ''}.pdf`, blob);
             }
         }
     }
@@ -696,6 +696,17 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     event.preventDefault();
   }
 
+  async readFileSync(file: File) {
+     return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(reader.result);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
   async uploadZipFile(file: File) {
     const jobId = this.tasksService.getvalidatingTaskId();
     const nPagesPerQuestionArray = this.job["n_pages_per_question"];
@@ -703,30 +714,41 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     const zip = new JSZip();
 
     try {
-        const zipContent = await JSZip.loadAsync(file);
-        const mergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
-        const mergedPDFDocs = {};
+        let mergedFiles = new Map<string,ArrayBuffer>();
+        if (file.name.endsWith('.pdf')) {
+          mergedFiles[file.name] = await this.readFileSync(file);
+        } else {
+          const zipContent = await JSZip.loadAsync(file);
+          const zipMergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
+          for (const f of zipMergedFiles) {
+            const pdfDoc = await zipContent.file(f).async('arraybuffer');
+            mergedFiles[f] = pdfDoc;
+          }
+        }
 
         // loading and merge PDFs based on their question indices
-        for (const mergedFile of mergedFiles) {
+        // sort names to process them in the right order
+        let keys = Object.keys(mergedFiles);
+        keys.sort();
+        const mergedPDFDocs = {};
+        for (const name of keys) {
             try {
-                const pdfData = await zipContent.file(mergedFile).async('arraybuffer');
-                const pdfDoc = await PDFDocument.load(pdfData);
-                const match = mergedFile.match(/Q(\d+).pdf$/);
-                const questionIndex = match ? mergedPDFDocs[match[0].split(".")[0]] : "Unknown";
+                const pdfDoc = await PDFDocument.load(mergedFiles[name]);
+                const match = name.match(/Q\d+(?=(_\d+)?.pdf$)/);
+                const questionIndex = match ? match[0] : "Unknown";
                 if (!mergedPDFDocs[questionIndex]) {
                     mergedPDFDocs[questionIndex] = await PDFDocument.create();
                 }
 
                 const totalPageCount = pdfDoc.getPageCount();
-                console.log(`The document ${mergedFile} has ${totalPageCount} pages.`);
+                console.log(`The document ${name} has ${totalPageCount} pages.`);
 
                 const copiedPages = await mergedPDFDocs[questionIndex].copyPages(pdfDoc, pdfDoc.getPageIndices());
                 copiedPages.forEach((page) => {
                     mergedPDFDocs[questionIndex].addPage(page);
                 });
             } catch (pdfError) {
-                console.error(`Error processing merged file: ${mergedFile}`, pdfError);
+                console.error(`Error processing merged file: ${name}`, pdfError);
             }
         }
 
@@ -734,8 +756,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         for (const questionIndex of Object.keys(mergedPDFDocs)) {
             const mergedDoc = mergedPDFDocs[questionIndex];
             const totalPageCount = mergedDoc.getPageCount();
-            const originalDocs = this.subExamsList.filter(exam => exam.question === `Q${questionIndex}`);
-            const pagesPerQuestion = nPagesPerQuestion.get(`Q${questionIndex}`) || 1;
+            const originalDocs = this.subExamsList.filter(exam => exam.question === questionIndex);
+            const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
 
             let startPage = 0;
             for (const originalDoc of originalDocs) {
@@ -744,7 +766,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
                     const endPage = startPage + pagesPerQuestion;
 
                     if (totalPageCount < endPage) {
-                        console.warn(`The merged document for Q${questionIndex} does not have enough pages for ${originalDoc["filename"]}.pdf. Required: ${endPage}, available: ${totalPageCount}.`);
+                        console.warn(`The merged document for ${questionIndex} does not have enough pages for ${originalDoc["filename"]}.pdf. Required: ${endPage}, available: ${totalPageCount}.`);
                         break;
                     }
 
@@ -776,9 +798,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
         await this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData).toPromise()
             .then((response) => {
+              if(response) {
                 console.log('Files replaced successfully', response);
                 this.hasUploadedZip = true;
                 this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succès');
+                this.docService.clearPdfSources();
+                this.loadCopy();
+              } else {
+                this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
+              }
             })
             .catch((uploadError) => {
                 console.error('Error replacing files:', uploadError);

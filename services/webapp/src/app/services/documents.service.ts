@@ -36,9 +36,10 @@ export class DocumentsService {
   jobId: string;
   documentsList: Array<any>;
   groupsList: Array<string>;
-  pdfSources = new Map<number, PDFSource>();
   questions: boolean;  // true if fetch question, false for documents
   refreshMinutes: number = 15;  // refresh document every X minutes
+
+  private pdfSources = new Map<number, PDFSource>();
 
   constructor(private http: HttpClient,
               private userService: UserService) { }
@@ -59,7 +60,7 @@ export class DocumentsService {
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}documents`, formdata).toPromise();
       this.documentsList = promise['response'] || [];
-      this.pdfSources.clear();
+      this.clearPdfSources();
 
       // fetch groups if any
       this.documentsList.forEach((exam: any) => {
@@ -129,5 +130,9 @@ export class DocumentsService {
       let pdfSource = await this.downloadPdf(jobId, index, version);
       return pdfSource;
     }
+  }
+
+  clearPdfSources() {
+    this.pdfSources = new Map<number, PDFSource>();
   }
 }
