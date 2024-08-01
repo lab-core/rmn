@@ -31,10 +31,30 @@ export class NewTemplateDialogComponent implements OnInit {
   ngOnInit(): void {
   }
 
-  CopyFileEvent(fileInput: Event){
-    let target= fileInput.target as HTMLInputElement;
-    let file: File = (target.files as FileList)[0];
+  onFileSelected(event: any) {
+    let file: File = (event.target.files as FileList)[0];
     this.setCopy(file);
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer && event.dataTransfer.files.length > 0) {
+      const file = event.dataTransfer.files[0];
+      this.setCopy(file);
+      event.dataTransfer.clearData();
+    }
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  deleteFile(): void {
+    this.copy = undefined;
+    this.copyName = undefined;
+    this.checkDisabled();
   }
 
   setCopy(file: File) {
@@ -50,6 +70,10 @@ export class NewTemplateDialogComponent implements OnInit {
 
   checkDisabled(){
     this.disabled = !this.copyName || !this.hideWarning;
+  }
+
+  selectText(event): void {
+    event.target.select();
   }
 
   async confirm() {
@@ -74,22 +98,5 @@ export class NewTemplateDialogComponent implements OnInit {
               this.router.navigate(['/template-editor']);
         });
     });
-  }
-
-  @HostListener('dragover', ['$event'])
-  onDragOver(event: DragEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  @HostListener('drop', ['$event'])
-  onDrop(event: DragEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.dataTransfer && event.dataTransfer.files.length > 0) {
-      const file = event.dataTransfer.files[0];
-      this.setCopy(file);
-      event.dataTransfer.clearData();
-    }
   }
 }

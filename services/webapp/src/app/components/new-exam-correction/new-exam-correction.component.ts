@@ -6,6 +6,8 @@ import { TasksService } from 'src/app/services/tasks.service';
 import { SERVER_URL } from 'src/app/utils';
 import { NotificationService } from 'src/app/services/notification.service';
 import { FormBuilder, Validators } from '@angular/forms';
+import { MatSelectChange } from '@angular/material/select';
+
 import * as saveAs from 'file-saver';
 
 //DropBox API
@@ -29,6 +31,7 @@ export class NewExamCorrectionComponent implements OnInit {
   thirdFormGroup: any;
   fourthFormGroup: any;
   isLinear = true;
+  nQuestionsReadOnly = true;
 
   copiesName: string = "";
   csvName: string = "";
@@ -87,9 +90,15 @@ export class NewExamCorrectionComponent implements OnInit {
   }
 
   selectText(event): void {
-    // const input = document.getElementById('text-box');
-    // input.focus();
     event.target.select();
+  }
+
+  onQuestionIndexChange(event: MatSelectChange): void {
+    if (event.value) {
+      const template = this.templates.find(t => t['template_id'] === event.value);
+      this.nQuestions = template["n_questions"];
+      this.updateQuestionsCount();
+    }
   }
 
   updateTotals() {
@@ -229,8 +238,8 @@ export class NewExamCorrectionComponent implements OnInit {
           this.notifyService.showWarning("Veuillez créer un template avant de commencer une correction.", "Avertissement");
           this.disabled = true;
         } else {
-          this.selectedFrontTemplate = this.templates[0]['template_id'];
-          this.selectedRegularTemplate = this.templates[0]['template_id'];
+          // this.selectedFrontTemplate = this.templates[0]['template_id'];
+          // this.selectedRegularTemplate = this.templates[0]['template_id'];
         }
       });
   }

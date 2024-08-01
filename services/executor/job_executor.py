@@ -7,8 +7,8 @@ import uuid
 import time
 import datetime as dt
 import numpy as np, cv2
-import img2pdf
 from pdf2image import convert_from_path
+from PIL import Image
 from pathlib import Path
 import copy
 
@@ -157,7 +157,10 @@ if __name__ == "__main__":
 
         template_file = str(WORK_TMP_DIR.joinpath(template["template_file_id"]))
         storage.copy_from(template["template_file_id"], template_file)
-        img = convert_from_path(template_file, dpi=300)[0]
+        if template_file.endswith(".pdf"):
+            img = convert_from_path(template_file, dpi=300)[0]
+        else:
+            img = Image.open(template_file)
 
         def draw_boxes_on_template(box, np_img, mat):
             box = tuple([round(x, 2) for x in box])
@@ -166,16 +169,19 @@ if __name__ == "__main__":
             if not r and mat:
                 np_img2 = np.copy(np_img)
                 write_box_contours(np_img2, box, matricule=mat, biggest_child=True)
-            return np_img2
+            return np_img2, b
 
         # fetch the user-defined boxes
         np_img = np.array(img)
         matricule_box = template.get("matricule_box", None)
         if matricule_box:
-            np_img = draw_boxes_on_template(matricule_box, np_img, True)
+            np_img, _ = draw_boxes_on_template(matricule_box, np_img, True)
+
+        # number of grade boxes found
+        n_questions = 0
         grade_box = template.get("grade_box", None)
         if grade_box:
-            np_img = draw_boxes_on_template(grade_box, np_img, False)
+            np_img, n_questions = draw_boxes_on_template(grade_box, np_img, False)
 
         tmp_img = str(WORK_TMP_DIR.joinpath("rendered.png"))
         cv2.imwrite(tmp_img, np_img)
@@ -196,7 +202,11 @@ if __name__ == "__main__":
             # update doc
             db.get_collection("template").update_one(
                 {"template_id": temp_id},
-                {"$set": {"template_rendered_file_id": rendered_path}})
+                {"$set": {
+                    "template_rendered_file_id": rendered_path,
+                    "n_questions": n_questions - 1
+                }
+            })
         except Exception as e:
             print(f"An error occurred: {e}")
             raise

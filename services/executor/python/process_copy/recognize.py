@@ -1136,7 +1136,7 @@ def write_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False
     for c in cnts:
         draw_contour_on_img(b_x, b_y, c)
         imwrite_png("rendered", img)
-    return None, True
+    return len(cnts), True
 
 
 def try_fix_n_questions(max_nb_questions, predictions):

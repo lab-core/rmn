@@ -53,7 +53,6 @@ export class TemplatesPageComponent implements OnInit {
         this.templatesList = data['response'];
         this.allTemplatesList = data['response'];
       });
-
   }
 
 

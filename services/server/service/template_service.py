@@ -1,6 +1,4 @@
-from flask import Flask, request, Response, json, send_file
-from utils.box_converter import convert_box_to_dict, convert_box_to_list
-from utils.clients import redis_client
+from flask import Response, json, send_file
 from pathlib import Path
 from io import FileIO
 from PyPDF2 import PdfWriter, PdfReader
@@ -10,13 +8,16 @@ import uuid
 import os
 import json
 
+from utils.box_converter import convert_box_to_dict, convert_box_to_list
+from utils.clients import redis_client
+
 
 TEMP_FOLDER = Path(__file__).resolve().parent.joinpath("temp")
 
 redis = redis_client()
 
 class TemplateService():
-    def create_template(request, db, storage):
+    def create_template(request, db, storage, dpi=300):
         request_form = request.form
 
         if "user_id" not in request_form:
@@ -47,7 +48,8 @@ class TemplateService():
         try:
             template_file = request.files.get("template_file")
             template_file_name = secure_filename(template_file.filename)
-            template_file.save(FileIO(TEMP_FOLDER.joinpath(template_file_name), "wb"))
+            temp_template_file_name = str(TEMP_FOLDER.joinpath(template_file_name))
+            template_file.save(FileIO(temp_template_file_name, "wb"))
 
         except Exception as e:
             print(e)
@@ -60,17 +62,21 @@ class TemplateService():
         template_id = str(uuid.uuid4())
 
         try:
-            file_name = str(TEMP_FOLDER.joinpath(template_file_name))
             # keep only the page needed
-            infile = PdfReader(file_name, 'rb')
+            infile = PdfReader(temp_template_file_name, 'rb')
             output = PdfWriter()
             page = int(request_form.get("template_page", '0'))
             output.add_page(infile.pages[page])
-            with open(file_name, 'wb') as f:
+            with open(temp_template_file_name, 'wb') as f:
                 output.write(f)
-            # move pdf to storage
-            template_file_id = os.path.join("template", f'{template_id}.pdf')
-            storage.move_to(file_name, template_file_id)
+            # transform to image
+            img = convert_from_path(temp_template_file_name, dpi=dpi, first_page=0, last_page=1)[0]
+            img_filepath = temp_template_file_name.rsplit(".", 1)[0] + ".png"
+            print("save image to", img_filepath)
+            img.save(img_filepath)
+            # move png to storage
+            template_file_id = os.path.join("template", f'{template_id}.png')
+            storage.move_to(img_filepath, template_file_id)
 
         except Exception as e:
             print(e)
@@ -160,8 +166,9 @@ class TemplateService():
 
         user_templates_list = [
             {
-            "template_name": template['template_name'],
-            "template_id": template['template_id']
+                "template_name": template['template_name'],
+                "template_id": template['template_id'],
+                "n_questions": template['n_questions']
             }
             for template in templates
         ]
@@ -195,6 +202,7 @@ class TemplateService():
             "template_id": template['template_id'],
             "matricule_box": convert_box_to_dict(template.get('matricule_box')),
             "grade_box": convert_box_to_dict(template.get('grade_box')),
+            "n_questions": template['n_questions']
         }
 
         return Response(response=json.dumps({"response": template_resp}), status=200)
@@ -216,14 +224,14 @@ class TemplateService():
 
         # Save file to local
         filepath = str(TEMP_FOLDER.joinpath(template_id))
-        # convert to image if pdf
-        if spath.endswith(".pdf"):
-            img = convert_from_path(storage.abs_path(spath), dpi=300, first_page=0, last_page=1)[0]
-            filepath = filepath.rsplit(".", 1)[0] + ".png"
-            print("save image to", filepath)
-            img.save(filepath)
-        else:
-            storage.copy_from(spath, filepath)
+        # # convert to image if pdf
+        # if spath.endswith(".pdf"):
+        #     img = convert_from_path(storage.abs_path(spath), dpi=300, first_page=0, last_page=1)[0]
+        #     filepath = filepath.rsplit(".", 1)[0] + ".png"
+        #     print("save image to", filepath)
+        #     img.save(filepath)
+        # else:
+        storage.copy_from(spath, filepath)
 
         file_send = send_file(filepath)
 

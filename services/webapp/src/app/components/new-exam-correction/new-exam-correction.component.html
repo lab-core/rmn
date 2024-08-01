@@ -17,6 +17,33 @@
                     </div>
                 </form>
             </mat-step>
+            <mat-step [stepControl]="fourthFormGroup" label="Assigner le template voulu">
+                <div class="breaker"></div>
+                <form [formGroup]="fourthFormGroup">
+                    <div class="steps-container">
+                        <mat-form-field appearance="fill">
+                            <mat-label>Template pour la page de garde</mat-label>
+                            <mat-select [(value)]="selectedFrontTemplate" [disabled]="this.uploading" (selectionChange)="onQuestionIndexChange($event)">
+                                <mat-option *ngFor="let template of templates" [value]="template.template_id">
+                                    {{template.template_name}}
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="fill">
+                            <mat-label>Template pour une page régulière</mat-label>
+                            <mat-select [(value)]="selectedRegularTemplate" [disabled]="this.uploading">
+                                <mat-option *ngFor="let template of templates" [value]="template.template_id">
+                                    {{template.template_name}}
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div class="next-button">
+                        <button mat-button matStepperPrevious>Retour</button>
+                        <button mat-button matStepperNext>Suivant</button>
+                    </div>
+                </form>
+            </mat-step>
             <mat-step [stepControl]="secondFormGroup" label="Téléverser les copies à corriger">
                 <div class="breaker"></div>
                 <form [formGroup]="secondFormGroup">
@@ -39,10 +66,15 @@
                     <span id="files-upload-label"></span>
                     <div class="pages-number-div">
                         <div class="number-pages-container" id="number-page-container">
-                          <h3><u>Nombre de questions</u></h3>
-                          <input [(ngModel)]="this.nQuestions" [ngModelOptions]="{standalone: true}"
-                                 (click)="this.selectText($event)"
-                                 (change)="updateQuestionsCount()" type="number" min="1" step="1" required>
+                          <div class="n-questions-container">
+                            <h3><u>Nombre de questions</u></h3>
+                            <input [(ngModel)]="this.nQuestions" [ngModelOptions]="{standalone: true}"
+                                   (click)="this.selectText($event)" id="nQuestions-input"
+                                   (change)="updateQuestionsCount()" type="number" min="1" step="1" required [readonly]="nQuestionsReadOnly">
+                            <div *ngIf="nQuestionsReadOnly" class="info">
+                              <p>Ce nombre est fixé par le template de la page de garde.</p>
+                            </div>
+                          </div>
                           <div class="checkbox-container">
                             <label>
                                 <input type="checkbox" [(ngModel)]="statisticsForStudents" [ngModelOptions]="{standalone: true}">
@@ -108,33 +140,6 @@
                     </div>
                     <span id="csv-upload-label"></span>
                     <br>
-                    <div class="next-button">
-                        <button mat-button matStepperPrevious>Retour</button>
-                        <button mat-button matStepperNext>Suivant</button>
-                    </div>
-                </form>
-            </mat-step>
-            <mat-step [stepControl]="fourthFormGroup" label="Assigner le gabarit voulu">
-                <div class="breaker"></div>
-                <form [formGroup]="fourthFormGroup">
-                    <div class="steps-container">
-                        <mat-form-field appearance="fill">
-                            <mat-label>Gabarit pour page de garde</mat-label>
-                            <mat-select [(value)]="selectedFrontTemplate" [disabled]="this.uploading">
-                                <mat-option *ngFor="let template of templates" [value]="template.template_id">
-                                    {{template.template_name}}
-                                </mat-option>
-                            </mat-select>
-                        </mat-form-field>
-                        <mat-form-field appearance="fill">
-                            <mat-label>Gabarit pour page régulière</mat-label>
-                            <mat-select [(value)]="selectedRegularTemplate" [disabled]="this.uploading">
-                                <mat-option *ngFor="let template of templates" [value]="template.template_id">
-                                    {{template.template_name}}
-                                </mat-option>
-                            </mat-select>
-                        </mat-form-field>
-                    </div>
                     <div class="next-button">
                         <button mat-button matStepperPrevious>Retour</button>
                         <button mat-flat-button color="accent" (click)="createTask()" [disabled]="this.uploading"

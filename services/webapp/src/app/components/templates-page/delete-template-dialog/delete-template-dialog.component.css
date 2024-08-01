@@ -2,16 +2,16 @@
     width: 100%;
     height: 100%;
     display: flex;
-    flex-direction: column; 
+    flex-direction: column;
 }
 
 .warning-logo-container {
     width: 100%;
     height: 40%;
 
-    display: flex;                  
+    display: flex;
     align-items: center;
-    justify-content: center;  
+    justify-content: center;
 }
 
 .warning-logo-container > mat-icon {
@@ -32,13 +32,14 @@ p {
 }
 
 .delete-buttons-container {
-    width: 100%;
+    width: 90%;
     height: 30%;
+    margin-left: 5%;
 
-    display: flex;     
-    flex-direction: row;              
+    display: flex;
+    flex-direction: row;
     align-items: center;
-    justify-content: space-between; 
+    justify-content: space-between;
 }
 
 
@@ -60,7 +61,8 @@ p {
 }
 
 .confirm-button:hover{
-    background-color: #4e0701;
+    color: #ffffff;
+    background-color: #32cd32;
     transform: scale(1.05,1.05);
     transition: 0.3s;
 }
@@ -84,8 +86,8 @@ p {
 }
 
 .cancel-button:hover{
-    color: #000000;
-    background-color: #ffffff;
+    color: #ffffff;
+    background-color: #cc0000;
     border: 2px solid black;
     transform: scale(1.05,1.05);
     transition: 0.3s;
