@@ -43,7 +43,7 @@
                         <li>Le menu principal présente 6 boutons qui redirigent
                             vers les différentes fonctionnalités de l’application web:
                             créer une nouvelle correction, afficher l’historique des tâches,
-                            configurer un templatet, ajouter une page de présentation, visualiser
+                            configurer un template, ajouter une page de présentation, visualiser
                             le profil utilisateur, et visualiser le guide utilisateur.</li>
                     </ul>
 
@@ -71,7 +71,7 @@
                     <ul>
                         <li>La création d’une nouvelle tâche de correction se fait en 4 étapes:
                             téléverser les copies à corriger, téléverser le fichier csv de notes,
-                            sélectionner un templatet, et donner un nom pour la tâche de correction.</li>
+                            sélectionner un template, et donner un nom pour la tâche de correction.</li>
                         <li>Ces fichiers peuvent être téléversés à partir de différentes plateformes:
                             le système local, DropBox, ou OneDrive.
                         </li>
@@ -100,7 +100,7 @@
                 <form [formGroup]="fourthFormGroup">
                     <ul>
                         <li>La fenêtre de l’historique des tâches présentes diverses informations pour les tâches en
-                            cours ainsi que les tâches archivées: le nom de la tâche, le templatet utilisé pour la
+                            cours ainsi que les tâches archivées: le nom de la tâche, le template utilisé pour la
                             correction,
                             la date d’ajout, le statut de la tâche, la progression de la correction, et l’estimation.
                         </li>
@@ -154,14 +154,14 @@
             -->
             à
 
-            <mat-step [stepControl]="sixthFormGroup" label="Création d'un templatet">
+            <mat-step [stepControl]="sixthFormGroup" label="Création d'un template">
                 <div class="breaker">
                 </div>
                 <form [formGroup]="sixthFormGroup">
                     <ul>
-                        <li>La fenêtre de configuration du templatet présente les différents templatets existants, une barre de
-                            recherche pour filtrer la liste de templatets, et un bouton pour créer un nouveau templatet. Pour
-                            chaque templatet, il est possible de modifier sa configuration, ainsi que de le supprimer.
+                        <li>La fenêtre de configuration du template présente les différents templates existants, une barre de
+                            recherche pour filtrer la liste de templates, et un bouton pour créer un nouveau template. Pour
+                            chaque template, il est possible de modifier sa configuration, ainsi que de le supprimer.
                             </li>
                     </ul>
 
@@ -182,12 +182,12 @@
 
             -->
 
-            <!-- <mat-step [stepControl]="seventhFormGroup" label="Édition d’un templatet">
+            <!-- <mat-step [stepControl]="seventhFormGroup" label="Édition d’un template">
                 <div class="breaker">
                 </div>
                 <form [formGroup]="seventhFormGroup">
                     <ul>
-                        <li>La fenêtre d’édition d’un templatet permet de définir les
+                        <li>La fenêtre d’édition d’un template permet de définir les
                             zones d’identification de la matricule de la copie, ainsi
                             que de définir la zone des notes à reconnaître par le module.
                         </li>

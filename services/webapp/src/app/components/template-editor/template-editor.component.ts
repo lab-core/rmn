@@ -80,7 +80,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
           this.templateService.setFile(file);
           await this.templateService.createNewTemplate(file);
           await this.loadTemplate();
-          this.notifyService.showSuccess("Le templatet a été mis à jour.", "Rendu");
+          this.notifyService.showSuccess("Le template a été mis à jour.", "Rendu");
           this.disabled = false;
       });
     });

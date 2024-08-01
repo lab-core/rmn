@@ -25,7 +25,7 @@
     </div>
 
     <div class="num-pages-container">
-        <h3>Page pour le templatet (>0)</h3>
+        <h3>Page pour le template (>0)</h3>
         <div class="value-input-div">
           <input id="page" type="number" min='1' [(ngModel)]="page" placeholder="Entrer la page" class="page-input" (ngModelChange)="setPage()" (click)="this.selectText($event)"/>
           <p class="page-warning" [hidden]="hideWarning">Entrer une valeur positive (>0)</p>
