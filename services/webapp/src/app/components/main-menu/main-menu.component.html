@@ -7,12 +7,13 @@
                     <span> Tâches </span>
                 </div>
                 <div (click)="newExamCorrection()">
-                    <mat-icon>find_in_page</mat-icon>
-                    <span> Correction </span>
+                    <mat-icon>post_add</mat-icon>
+                    <span> Nouvelle tâche </span>
                 </div>
                 <div (click)="goToTemplatesPage()">
-                    <mat-icon>assessment</mat-icon>
-                    <span> Gabarit </span>
+                    <!-- <mat-icon>find_in_page</mat-icon> -->
+                    <mat-icon>manage_search</mat-icon>
+                    <span> Template </span>
                 </div>
                 <!-- <div (click)="goToPresentationPage()">
                     <mat-icon> insert_drive_file</mat-icon>
@@ -22,13 +23,13 @@
                     <mat-icon>find_in_page</mat-icon>
                     <span> Correction </span>
                 </div> -->
-                <div (click)="goToProfilePage()">
-                    <mat-icon>person</mat-icon>
-                    <span> Profil </span>
-                </div>
                 <div (click)="goToUserGuide()">
                     <mat-icon>library_books</mat-icon>
                     <span> Guide </span>
+                </div>
+                <div (click)="goToProfilePage()">
+                    <mat-icon>person</mat-icon>
+                    <span> Profil </span>
                 </div>
                 <div class="disconnect-button">
                     <mat-icon (click)="disconnect()">exit_to_app</mat-icon>
