@@ -395,7 +395,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.pdfModified = true;
   }
 
-  async changeCurrentCopy(copyIndex, status): Promise<void> {
+  async changeCurrentCopy(copyIndex, status, updateScroll: boolean=true): Promise<void> {
     if (status !== "NOT_READY") {
       if (await this.saveCurrentCopy()) {
         let exam = this.examsList[copyIndex-this.initialCopyIndex];
@@ -406,6 +406,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         console.log("Current copy", this.currentCopy);
         this.disabledValidationcontainer = false;
         await this.loadCopy();
+        if (updateScroll) {
+          this.updateScrollPosition();
+        }
         this.setChosenColor(status);
         this.loadScore();
         this.verifyIfQuestionIsBonus();
@@ -413,6 +416,21 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           console.error('Erreur lors de l\'obtention du document PDF modifié.');
           this.notificationService.showError('Échec de la sauvegarde du document PDF modifié.', 'Erreur de validation');
       }
+    }
+  }
+
+  updateScrollPosition() {
+    let e = document.getElementById('files-list-container');  // scrollTop + clientHeight = scrollHeight
+    let child = e.firstElementChild;
+    let nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
+    let nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
+    let subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentCopy);
+    let currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
+    let distanceTop = e.scrollHeight * currentRow / nRows;
+    // goal is to be in the middle => clientHeight / 2
+    let targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
+    if (targetScrollTop > 0) {
+      e.scrollTop = targetScrollTop;
     }
   }
 

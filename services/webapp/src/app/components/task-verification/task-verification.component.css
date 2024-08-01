@@ -198,17 +198,24 @@
     color: #aaa;
   }
 
+.copy-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 12%;
+  display: flex;
+  align-items: center;
+  color: #ffffff;
+}
 
 .validated-copy {
-    width: 100%;
-    height: 100%;
-    border-radius: 12%;
-    border: 1px solid black;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: green;
-    color: #ffffff;
+  width: 100%;
+  height: 100%;
+  border-radius: 12%;
+  border: 1px solid black;
+  background-color: green;
+  justify-content: center;
+  display: flex;
+  align-items: center;
 }
 
 .validated-copy:hover {
@@ -217,15 +224,15 @@
 }
 
 .to-validate-copy {
-    width: 100%;
-    height: 100%;
-    border-radius: 12%;
-    border: 1px solid black;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: red;
-    color: #ffffff;
+  width: 100%;
+  height: 100%;
+  border-radius: 12%;
+  border: 1px solid black;
+  background-color: red;
+  color: #ffffff;
+  justify-content: center;
+  display: flex;
+  align-items: center;
 }
 
 .to-validate-copy:hover {
@@ -238,11 +245,11 @@
     height: 100%;
     border-radius: 12%;
     border: 1px solid black;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background-color: rgb(65, 65, 247);
     color: #ffffff;
+    justify-content: center;
+    display: flex;
+    align-items: center;
 }
 
 .high-precision-copy:hover {
@@ -255,11 +262,11 @@
     height: 100%;
     border-radius: 12%;
     border: 1px solid darkslategray;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background-color: rgb(116, 116, 116);
     color: #ffffff;
+    justify-content: center;
+    display: flex;
+    align-items: center;
 }
 
 .chosen-copy {

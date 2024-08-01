@@ -18,9 +18,9 @@
                     </mat-select>
                 </mat-form-field>
             </div>
-            <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}">
+            <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}" id="files-list-container">
                 <div class="file-container" *ngFor="let exam of this.subExamsList; let i = index"
-                    (click)="changeCurrentCopy(exam.document_index, exam.status)">
+                    (click)="changeCurrentCopy(exam.document_index, exam.status, false)">
                     <div class="disabled-copy" *ngIf="exam.status == 'NOT_READY'">
                         <strong>{{formattedIndexes[i]}}</strong>
                     </div>
