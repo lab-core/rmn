@@ -9,6 +9,11 @@
     width: 90%;
     height: 30%;
     margin-left: 5%;
+    margin-top: 5%;
+}
+
+.value-input-div {
+  margin-top: 5%;
 }
 
 p {

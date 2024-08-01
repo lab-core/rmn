@@ -64,7 +64,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
-    let jobId = this.route.snapshot.queryParams['job'];
+    let jobId = this.route.snapshot.queryParams['job_id'];
     if (jobId) {
       this.tasksService.setvalidatingTaskId(jobId);
     }
@@ -106,7 +106,6 @@ export class MatriculeVerificationComponent implements OnInit {
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
       this.router.navigate(['/tasks-history']);
     }
-    this.checkValidationButton();
   }
 
 
@@ -199,10 +198,6 @@ export class MatriculeVerificationComponent implements OnInit {
     if (exam) {
       this.changeCurrentCopy(exam.document_index, exam.status);
     }
-  }
-
-  getExamIndex(exam: any): number {
-    return this.subExamsList.indexOf(exam) + 1;
   }
 
   async loadCopy(): Promise<void> {

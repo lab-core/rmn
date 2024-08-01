@@ -11,7 +11,7 @@
               </select>
             </div>
             <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}">
-                <div class="file-container" *ngFor="let exam of this.examsList; let i = index"
+                <div class="file-container" *ngFor="let exam of this.subExamsList; let i = index"
                     (click)="changeCurrentCopy(exam.document_index, exam.status)">
                     <div class="disabled-copy" *ngIf="exam.status == 'NOT_READY'">
                         <strong>{{i + 1}}</strong>
