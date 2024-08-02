@@ -86,7 +86,7 @@ def check_for_idle_jobs_to_requeue(db):
                     job_id = job["job_id"]
                     user_id = job["user_id"]
 
-                    update_status(db, user_id, job_id, Job_Status.VALIDATION)
+                    update_status(db, sio, user_id, job_id, Job_Status.VALIDATION)
 
                 # requeue old idle jobs
                 old_idle_jobs = False
@@ -150,6 +150,9 @@ if __name__ == "__main__":
     # create storage connection (local or NFS)
     storage = Storage()
 
+    # create socketio connection
+    sio = socketio_client()
+
     def process_template(temp_id, WORK_TMP_DIR):
         template = db.get_collection("template").find_one({"template_id": temp_id})
         if not template:
@@ -211,7 +214,6 @@ if __name__ == "__main__":
             print(f"An error occurred: {e}")
             raise
 
-        sio = socketio_client()
         sio.emit(
             "template_rendered",
             json.dumps(
@@ -221,8 +223,6 @@ if __name__ == "__main__":
                 }
             ),
         )
-        # sio.disconnect()
-
 
     def process(p_job, TMP_DIR):
         job_id = p_job["job_id"]
@@ -243,7 +243,7 @@ if __name__ == "__main__":
         if job["job_status"] == Job_Status.VALIDATED.value or job["job_status"] == Job_Status.FINALIZING.value:
             # Set Job status to FINALIZING
             if job["job_status"] != Job_Status.FINALIZING.value:
-                update_status(db, user_id, job_id, Job_Status.FINALIZING)
+                update_status(db, sio, user_id, job_id, Job_Status.FINALIZING)
 
             if os.path.exists(storage.abs_path(os.path.join("documents", job_id))):
                 # adding grades
@@ -295,7 +295,7 @@ if __name__ == "__main__":
             eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
             n_max_points_per_question = eval_job["n_max_points_per_question"]
             statistics_for_students = eval_job["statistics_for_students"]
-            print("statistics_for_students", statistics_for_students)
+            # print("statistics_for_students", statistics_for_students)
             n_questions = len(n_max_points_per_question)
             n_max_points_per_question = [q[1] for q in sorted(n_max_points_per_question)]
             question_bonus = [q[1] for q in sorted(eval_job["bonus_enabled_map"])]
@@ -309,7 +309,7 @@ if __name__ == "__main__":
             grades_dict = {}
             for doc in docs:
                 mat = str(doc["matricule"])
-                print("mat", mat)
+                # print("mat", mat)
                 if mat in df.index.values:
                     grades = doc["grades"]
                     if grades:
@@ -317,7 +317,7 @@ if __name__ == "__main__":
                         for i, g in enumerate(grades):
                             df.loc[mat, f"Q{i+1}"] = g
                         total_score = sum(grades)
-                        print("TOTAL SCORE FOR ", doc["filename"], ":", total_score)
+                        # print("TOTAL SCORE FOR ", doc["filename"], ":", total_score)
                         df.loc[mat, MF.grade] = total_score
                         df.loc[mat, MF.mdate] = date
 
@@ -336,7 +336,7 @@ if __name__ == "__main__":
             counter = 0
             all_copies_folder_path = validated_copies_folder_path.joinpath("all")
             all_copies_folder_path.mkdir(exist_ok=True)
-            print("All folder:", str(all_copies_folder_path))
+            # print("All folder:", str(all_copies_folder_path))
 
             # create box plots
             filenames = []
@@ -372,7 +372,7 @@ if __name__ == "__main__":
                     for f in files:
                         file = os.path.join(root, f)
 
-                        print("file", str(file))
+                        # print("file", str(file))
 
                         if (
                             not os.path.isfile(file)
@@ -410,7 +410,7 @@ if __name__ == "__main__":
                             nom = nom_complet
                             prenom = ""
 
-                        print("moodle_ind", moodle_ind)
+                        # print("moodle_ind", moodle_ind)
                         if moodle_ind:
                             # create folder
                             identifiant = df.at[matricule, MF.id]
@@ -420,15 +420,11 @@ if __name__ == "__main__":
                             else:
                                 identifiant = m_id.group()
                                 folder_name = f"{nom_complet}_{identifiant}_{matricule}_assignsubmission_file_"
-                                print("folder name", folder_name)
                                 m_folder = moodle_folder_path.joinpath(folder_name)
                                 m_folder.mkdir(exist_ok=True)
-                                print("folder path", str(m_folder))
-
                                 m_dest = m_folder.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
-                                print("destination", m_dest)
 
-                                # transfert file to folder
+                                # transfer file to folder
                                 shutil.copy(str(file), str(m_dest))
 
                                 # adding stats file
@@ -438,7 +434,7 @@ if __name__ == "__main__":
                                         file_index = filenames.index(filename)
                                         fpdf = create_stats_latex(nom_complet, file_index, n_questions,
                                                                   all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER)
-                                        print("Stats for", nom_complet, "created:", fpdf)
+                                        # print("Stats for", nom_complet, "created:", fpdf)
                                         shutil.move(fpdf, m_folder.joinpath("statistiques.pdf"))
                                     except ValueError:
                                         # file not found
@@ -517,7 +513,7 @@ if __name__ == "__main__":
                     }})
 
                 #
-                update_status(db, user_id, job_id, Job_Status.ARCHIVED, db_infos={"notes_file_id": notes_csv_file_id})
+                update_status(db, sio, user_id, job_id, Job_Status.ARCHIVED, db_infos={"notes_file_id": notes_csv_file_id})
 
             except Exception as e:
                 print("Error while moving file to storage")
@@ -632,7 +628,7 @@ if __name__ == "__main__":
                     raise e
 
                 # Error handling
-                update_status(db, user_id, job_id, Job_Status.ERROR)
+                update_status(db, sio, user_id, job_id, Job_Status.ERROR)
 
                 storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
                 storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
@@ -667,7 +663,7 @@ if __name__ == "__main__":
             )
 
             # Set Job status to VALIDATION
-            update_status(db, user_id, job_id, Job_Status.VALIDATION, sio_infos={"job_infos": "Validation matricule prête"})
+            update_status(db, sio, user_id, job_id, Job_Status.VALIDATION, sio_infos={"job_infos": "Validation matricule prête"})
 
         elif job["job_status"] == Job_Status.SPLIT.value or job["job_status"] == Job_Status.CORRECTED.value:
             job_params = db.eval_jobs_collection().find_one({"job_id": job_id})
@@ -678,7 +674,7 @@ if __name__ == "__main__":
                 print("Copies inserted in database")
 
                 # Set Job status to QUEUED as no error have been raised. Process can continue
-                update_status(db, user_id, job_id, Job_Status.QUEUED)
+                update_status(db, sio, user_id, job_id, Job_Status.QUEUED)
 
                 # push the job to the queue to be continued
                 redis.rpush("job_queue", json.dumps({"job_id": job_id}))
@@ -686,12 +682,12 @@ if __name__ == "__main__":
                 error_messages = str(e)
                 print(e)
                 # Set Job status to RETRY
-                update_status(db, user_id, job_id, Job_Status.RETRY, infos={"job_infos": error_messages})
+                update_status(db, sio, user_id, job_id, Job_Status.RETRY, infos={"job_infos": error_messages})
 
             except Exception as e:
                 print(e)
                 # Set Job status to ERROR
-                update_status(db, user_id, job_id, Job_Status.ERROR)
+                update_status(db, sio, user_id, job_id, Job_Status.ERROR)
 
         else:
             print("Job status "+job["job_status"]+" not handled.")
@@ -732,4 +728,5 @@ if __name__ == "__main__":
         print(e)
     finally:
         db.close()
+        sio.disconnect()
     print("Job end.")

@@ -31,7 +31,7 @@ def socketio_client():
     return sio
 
 
-def emit_job(user_id, job_id, status, infos=None, sio_infos=None):
+def emit_job(sio, user_id, job_id, status, infos=None, sio_infos=None):
     if infos is None and sio_infos is None:
         sio_infos = {}
     elif infos is not None:
@@ -43,13 +43,10 @@ def emit_job(user_id, job_id, status, infos=None, sio_infos=None):
     sio_infos["user_id"] = user_id
     sio_infos["job_id"] = job_id
     sio_infos["status"] = status.value
-
-    sio = socketio_client()
     sio.emit("job_status", json.dumps(sio_infos))
-    # sio.disconnect()
 
 
-def update_status(db, user_id, job_id, status, infos=None, db_infos=None, sio_infos=None):
+def update_status(db, sio, user_id, job_id, status, infos=None, db_infos=None, sio_infos=None):
     # initialize db_infos
     if infos is None and db_infos is None:
         db_infos = {}
@@ -65,4 +62,4 @@ def update_status(db, user_id, job_id, status, infos=None, db_infos=None, sio_in
         {"$set": db_infos}
     )
     # emit status
-    emit_job(user_id, job_id, status, infos, sio_infos)
+    emit_job(sio, user_id, job_id, status, infos, sio_infos)

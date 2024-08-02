@@ -30,7 +30,7 @@
                             </mat-select>
                         </mat-form-field>
                         <mat-form-field appearance="fill">
-                            <mat-label>Template pour une page régulière</mat-label>
+                            <mat-label>Template pour les pages suivantes</mat-label>
                             <mat-select [(value)]="selectedRegularTemplate" [disabled]="this.uploading">
                                 <mat-option *ngFor="let template of templates" [value]="template.template_id">
                                     {{template.template_name}}

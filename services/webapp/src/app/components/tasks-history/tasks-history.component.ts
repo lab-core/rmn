@@ -30,7 +30,7 @@ export class TasksHistoryComponent implements OnInit {
   color: ThemePalette = 'primary';
   mode: ProgressSpinnerMode = 'determinate';
   diameter = 60;
-  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status' ,'job_infos', 'job_deletion', 'job_retry'];
+  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status' ,'job_infos', 'job_deletion'];  //, 'job_retry'
   dataSource: MatTableDataSource<any> = new MatTableDataSource<any>();
 
   @ViewChild(MatPaginator) paginator: MatPaginator;

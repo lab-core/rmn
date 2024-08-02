@@ -249,6 +249,7 @@ def process_all(
     dpi=300,
     shape=(8.5, 11)):
     db = Database()
+    sio = socketio_client()
 
     # load csv
     grades_dfs, grades_names = load_csv(grades_csv)
@@ -278,7 +279,6 @@ def process_all(
     job = db.update_job_status_to_run(job_id, names_mat_json)
     new_job = (job["retry"] == 0)
     if new_job:
-        sio = socketio_client()
         print("Grade new job:", job_id)
         sio.emit(
             "job_status",
@@ -286,7 +286,6 @@ def process_all(
                 {"job_id": job_id, "user_id": user_id, "status": Job_Status.RUN.value}
             ),
         )
-        # sio.disconnect()
     else:
         print("Retry grading old job:", job_id)
 
@@ -320,6 +319,7 @@ def process_all(
                                        Document_Status.NOT_READY, "", 0, f)
                     doc_index += 1
     db.close()
+    sio.disconnect()
 
     if not os.path.exists(DIRPATH):
         os.makedirs(DIRPATH)
@@ -645,7 +645,7 @@ def grade_files(
                 print('RAM limit exceeded')
                 break
     finally:
-        # sio.disconnect()
+        sio.disconnect()
         db.close()
 
     # store grades
@@ -762,7 +762,7 @@ def find_matricules(
                 print('RAM limit exceeded')
                 break
     finally:
-        # sio.disconnect()
+        sio.disconnect()
         db.close()
 
     if q_results:
@@ -1198,8 +1198,6 @@ def correct_decimals(p):
 
 def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=None, max_question=None, retry=0):
     cropped = fetch_box(gray, box)
-    print(f"box: {box}")
-    print(f"cropped: {cropped}")
     boxes = find_grade_boxes(cropped, add_border, thick=0)
     print(f"Number of boxes : {len(boxes)}")
 

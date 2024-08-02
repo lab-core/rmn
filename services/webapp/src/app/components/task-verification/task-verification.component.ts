@@ -10,7 +10,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
 import { DocumentsService } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
-import { NgxExtendedPdfViewerService,  pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
+import { NgxExtendedPdfViewerService, EditorAnnotation, FreeTextEditorAnnotation, InkEditorAnnotation,  pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
 import { MatSelectChange } from '@angular/material/select';
 import * as saveAs from 'file-saver';
 import * as JSZip from 'jszip';
@@ -154,39 +154,51 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.validateCurrentCopy();
   }
 
-  initializePdfViewer(): void {
-    if (!this.pdfViewerInitialized &&
-        this.ngxService?.ngxExtendedPdfViewerInitialized) {
-      this.ngxService.editorInkColor = '#FF0000';
-      this.ngxService.editorInkThickness = 2;
-      this.ngxService.editorFontColor = '#FF0000';
-      this.ngxService.editorFontSize = 14;
-      this.pdfViewerInitialized = true;
+  initializePdfViewer(retry = 0): void {
+    setTimeout(() => {
+      if (!this.pdfViewerInitialized) {
+        try {
+          this.ngxService.editorInkColor = '#FF0000';
+          this.ngxService.editorInkThickness = 2;
+          this.ngxService.editorFontColor = '#FF0000';
+          this.ngxService.editorFontSize = 14;
+          this.pdfViewerInitialized = true;
+        } catch (err) {
+          if (retry >= 10) {
+            console.error(err);
+          } else  {
+            setTimeout(() => { this.initializePdfViewer(retry+1); }, 200);
+          }
+        }
+      }
+    }, 100);
+  }
+
+  undoChange() {
+    let annotations: EditorAnnotation[] = this.ngxService.getSerializedAnnotations() || [];
+    // search for all InkEditorAnnotation (annotationType = 15)
+    const inkAnnotations: EditorAnnotation[] = annotations.filter(a => a.annotationType == 15);
+
+    // if any ink annotations to remove
+    if (inkAnnotations.length > 0) {
+      // remove last element
+      let lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1] as InkEditorAnnotation;
+      if (lastInkAnnotation.paths.length > 1) {
+        lastInkAnnotation.paths.pop();  // remove last element
+      } else {
+        // remove last annotation
+        inkAnnotations.pop();
+      }
+      // remove all InkEditorAnnotation (annotationType = 15)
+      const filter = (serial: any) => serial.annotationType === 15;
+      this.ngxService.removeEditorAnnotations(filter);
+      // re add all of them minus the last element
+      inkAnnotations.forEach(a => {
+        this.ngxService.addEditorAnnotation(a);
+      });
+    } else {
+      this.notificationService.showInfo("Aucune annotation à enlever. Veuillez utiliser une version précédente si nécessaire.", "Info");
     }
-  }
-
-  undoChange(e: any){
-    const undoEvent = new KeyboardEvent('keydown', {
-      bubbles: true,
-      cancelable: true,
-      charCode: 0,
-      keyCode: 90,
-      code: "KeyZ",
-      composed: true,
-      key: 'z',
-      shiftKey: false,
-      altKey: false,
-      ctrlKey: true,
-      metaKey: false,
-      repeat: false,
-      location: KeyboardEvent.DOM_KEY_LOCATION_STANDARD,
-    });
-
-    document.body.dispatchEvent(undoEvent);
-  }
-
-  public redo(): void{
-     document.execCommand('redo');
   }
 
   toggleSidebar() {
@@ -372,8 +384,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         }
         this.pdfModified = false;
         // initialize pdf viewer options
-        // if (!this.pdfViewerInitialized)
-        //  setTimeout(() => { this.initializePdfViewer(); }, 1000);
+        this.initializePdfViewer();
         // console.log("Current Exam: ", this.examsList[this.currentIndex()])
       }
       this.setPdfLoading(false);

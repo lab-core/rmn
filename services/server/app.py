@@ -31,6 +31,7 @@ app.config["CORS_HEADERS"] = "Content-Type"
 
 mongo = mongo_client()
 redis = redis_client()
+sio = socketio_client()
 storage = Storage()
 # exec_storage = Storage(f"C:{os.sep}Users{os.sep}edgar{os.sep}rmn{os.sep}services{os.sep}executor{os.sep}storage")
 
@@ -309,7 +310,6 @@ def evaluate(user_id):
         return Response(response="Error: Failed to download files.", status=500)
 
     # Create SocketIO connection
-    sio = socketio_client()
     sio.emit(
         "job_status",
         json.dumps(
@@ -354,8 +354,6 @@ def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_n
                 },
             )
 
-        # Create SocketIO connection
-        sio = socketio_client()
         sio.emit(
             "job_status",
             json.dumps(
@@ -864,7 +862,6 @@ def update_matricule():
 
     user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
 
-    sio = socketio_client()
     sio.emit(
         "doc_validated",
         json.dumps(
@@ -1074,7 +1071,6 @@ def update_document():
 
     user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
 
-    sio = socketio_client()
     sio.emit(
         "doc_validated",
         json.dumps(
