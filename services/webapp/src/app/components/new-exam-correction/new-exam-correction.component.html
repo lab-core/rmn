@@ -71,8 +71,16 @@
                             <input [(ngModel)]="this.nQuestions" [ngModelOptions]="{standalone: true}"
                                    (click)="this.selectText($event)" id="nQuestions-input"
                                    (change)="updateQuestionsCount()" type="number" min="1" step="1" required [readonly]="nQuestionsReadOnly">
-                            <div *ngIf="nQuestionsReadOnly" class="info">
-                              <p>Ce nombre est fixé par le template de la page de garde.</p>
+                            <div *ngIf="nQuestionsReadOnly">
+                              <div *ngIf="this.nQuestions>0" class="info">
+                                <small>Ce nombre est fixé par le template de la page de garde.</small>
+                              </div>
+                              <ng-container *ngIf="this.nQuestions === undefined">
+                                <small style="color: red;">Veuillez sélectionner en premier un template pour la page de garde.</small>
+                              </ng-container>
+                              <ng-container *ngIf="this.nQuestions<=0">
+                                <small style="color: red;">Veuillez sélectionner un rectangle qui permet de reconnaitre les boites des questions pour le template {{selectedFrontTemplateName}}.</small>
+                              </ng-container>
                             </div>
                           </div>
                           <div class="checkbox-container">
@@ -119,7 +127,7 @@
                     </div>
                 </form>
             </mat-step>
-            <mat-step [stepControl]="thirdFormGroup" label="Téléverser le fichier csv de matricules">
+            <mat-step [stepControl]="thirdFormGroup" label="Téléverser le fichier csv de moodle">
                 <div class="breaker"></div>
                 <form [formGroup]="thirdFormGroup">
                     <div class="files-steps-options-container">

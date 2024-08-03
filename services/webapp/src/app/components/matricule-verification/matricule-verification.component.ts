@@ -72,10 +72,10 @@ export class MatriculeVerificationComponent implements OnInit {
     if (this.group == null) {
       this.group = "";
     }
-    this.groupsList = [this.group];
     // fetch job and documents
     this.job = await this.tasksService.getTask();
     if (this.job && this.job["job_id"]) {
+      this.groupsList = this.job['groups'];
       this.getMatriculeList();
       await this.getDocuments();
       this.getSubExamsList();
@@ -125,7 +125,6 @@ export class MatriculeVerificationComponent implements OnInit {
   async getDocuments() {
     await this.docService.getDocuments(this.tasksService.getvalidatingTaskId(), false);
     this.examsList = this.docService.documentsList;
-    this.groupsList = this.docService.groupsList;
     // compute sub exams list if any selected group
     this.getSubExamsList();
     // initialize initialCopyIndex and currentCopy

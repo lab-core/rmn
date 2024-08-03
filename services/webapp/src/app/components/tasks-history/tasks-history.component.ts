@@ -26,7 +26,7 @@ import { TaskRetryDialogComponent } from './task-retry-dialog/task-retry-dialog.
 export class TasksHistoryComponent implements OnInit {
 
   tasksList: Array<any> = [];
-  remainingTime: Number;
+  remainingTime: number;
   color: ThemePalette = 'primary';
   mode: ProgressSpinnerMode = 'determinate';
   diameter = 60;
@@ -36,7 +36,37 @@ export class TasksHistoryComponent implements OnInit {
   @ViewChild(MatPaginator) paginator: MatPaginator;
   @ViewChild(MatSort) sort: MatSort;
 
-  indicator_socket: Boolean = false;
+  indicator_socket: boolean = false;
+
+  task_hover: boolean = false;
+
+  statusInfo = {
+    SPLIT: 'En préparation',
+    RETRY: 'Rectifier les pdf',
+    CORRECTED: 'À nouveau en préparation',
+    IGNORED: 'Prêt à la correction',
+    QUEUED: 'Prêt à la correction',
+    RUN: 'Prêt à la correction et traitement en cours des matricules',
+    VALIDATION: 'Prêt à la correction et vérification des matricules',
+    VALIDATED: "En attente d'être finalisé",
+    FINALIZING: 'Finalisation en cours',
+    ARCHIVED: 'Archivée',
+    ERROR: 'Erreur'
+  }
+
+  statusColors = {
+    SPLIT: "yellow",
+    RETRY: "orange",
+    CORRECTED: "yellow",
+    IGNORED: "green",
+    QUEUED: "green",
+    RUN: "orange",
+    VALIDATION: "blue",
+    VALIDATED: "yellow",
+    FINALIZING: "green",
+    ARCHIVED: "gray",
+    ERROR: "red",
+  }
 
   constructor(
     private location: Location,
@@ -68,18 +98,13 @@ export class TasksHistoryComponent implements OnInit {
       let job_id = resp.job_id;
       let job_status = resp.status;
 
-      this.tasksList.forEach(x => {
-        if (x.job_id === job_id) {
-          x.job_status = job_status;
-          x.info = this.getTaskInfo(job_status);
-          if (job_status === 'RETRY') {
-              let cleanedInfos = resp.job_infos.slice(1, -1).replace(/['",]/g, '');
-              x.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
-          }
-          const message = "Le status de la tâche " + x.job_name + " a changé à: " + x.info + " !";
-          this.notificationService.showInfo(message, "Alerte!")
-        }
-      });
+      const task = this.tasksList.find(task => task.job_id === job_id);
+      if (task !== undefined) {
+        task.job_status = job_status;
+        this.updateTask(task);
+        const message = "Le status de la tâche " + task.job_name + " a changé à: " + task.info + " !";
+        this.notificationService.showInfo(message, "Alerte!")
+      };
     });
 
     // subscribe to all running jobs
@@ -128,17 +153,8 @@ export class TasksHistoryComponent implements OnInit {
     this.http.post<any>(`${SERVER_URL}jobs`, formdata).subscribe(
       (data) => {
         this.tasksList = data['response'];
-
-        this.tasksList.forEach(x => {
-          x.queued_time = new Date(x.queued_time + 'Z')
-        })
-
         this.tasksList.forEach((task: any) => {
-          task.info = this.getTaskInfo(task.job_status);
-          if (task.job_status === 'RETRY') {
-              let cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
-              task.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
-          }
+          this.updateTask(task, true);
         });
 
         this.tasksList.forEach(x => {
@@ -191,32 +207,16 @@ export class TasksHistoryComponent implements OnInit {
       });
   }
 
-  getTaskInfo(job_status) {
-    switch (job_status) {
-      case 'SPLIT':
-        return 'En préparation';
-      case 'RETRY':
-        return 'Rectifier les pdf';
-      case 'CORRECTED':
-          return 'À nouveau en préparation';
-      case 'IGNORED':
-        return 'Prêt à la correction';
-      case 'QUEUED':
-        return 'Prêt à la correction';
-      case 'RUN':
-        return 'Prêt à la correction et traitement en cours des matricules';
-      case 'VALIDATION':
-        return 'Prêt à la correction et vérification des matricules';
-      case 'VALIDATED':
-        return "En attente d'être finalisé";
-      case 'FINALIZING':
-        return 'Finalisation en cours';
-      case 'ARCHIVED':
-        return 'Archivée';
-      case 'ERROR':
-        return 'Erreur';
+  updateTask(task, updateTime: boolean=false) {
+    if (updateTime) {
+      task.queued_time = new Date(task.queued_time + 'Z');
     }
-    return 'Non reconnu: ' + job_status;
+    task.info = this.statusInfo[task.job_status];
+    if (task.job_status === 'RETRY') {
+        let cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
+        task.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
+    }
+    let elements = document.getElementsByClassName('dot');
   }
 
   deleteJob(jobId: string): void {
@@ -261,7 +261,7 @@ export class TasksHistoryComponent implements OnInit {
           this.notificationService.showError(message, "Erreur!");
         } else if (result !== "") {
           task.status = result;
-          task.info = this.getTaskInfo(result);
+          task.info = this.statusInfo[result];
           this.getTasks();  // re render
         }
       }, (error) => {
@@ -282,6 +282,17 @@ export class TasksHistoryComponent implements OnInit {
       this.retryJob(task);
     }
   }
+
+  // disableClick(task: any) {
+  //   if (task.job_status === 'ARCHIVED' ||
+  //       task.job_status === 'IGNORED' ||
+  //       task.job_status === 'QUEUED' ||
+  //       task.job_status === 'RUN' ||
+  //       task.job_status === 'VALIDATION') {
+  //         return "text-decoration: underline;";
+  //       }
+  //   return "text-decoration: none;";
+  // }
 
   openTaskFilesDialog(jobId: string): void {
     const formdata: FormData = new FormData();

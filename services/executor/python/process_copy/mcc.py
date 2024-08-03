@@ -59,7 +59,9 @@ def load_csv(grades_csv):
 
 def group_label(df):
     group_df = df.filter(regex=MF.group)
-    if group_df.shape[1] == 1:
+    if group_df.shape[1] >= 1:
+        if group_df.shape[1] > 1:
+            print(f"Warning: too many columns match the group regex (MF.group):", group_df.columns)
         return group_df.columns[0]
     return None
 

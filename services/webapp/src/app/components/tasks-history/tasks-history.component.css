@@ -218,24 +218,3 @@ mat-progress-spinner {
     border-radius: 50%;
     margin-left: 3%;
 }
-.dot-gray {
-    background-color: gray;
-}
-.dot-yellow {
-    background-color: yellow;
-}
-.dot-orange {
-    background-color: orange;
-}
-.dot-green {
-    background-color: rgba(21, 255, 0, 0.979);
-}
-.dot-blue {
-    background-color: rgba(0, 140, 255, 0.979);
-}
-.dot-red {
-    background-color: red;
-}
-
-
-

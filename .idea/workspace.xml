@@ -5,18 +5,28 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/job_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/job_executor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/executor/python/process_copy/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/python/process_copy/database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/executor/python/process_copy/mcc.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/python/process_copy/mcc.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/executor/python/process_copy/recognize.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/python/process_copy/recognize.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/utils/clients.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/clients.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/server/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/Dockerfile" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/server/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/socketIO/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/socketIO/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/socketIO/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/services/socketIO/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/matricule-verification/matricule-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/matricule-verification/matricule-verification.component.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-share-dialog/task-share-dialog.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-share-dialog/task-share-dialog.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/documents.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/services/documents.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,13 +68,14 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Python.app.executor": "Run",
     "Python.exec.executor": "Run",
     "Python.split_and_merge.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
     "git-widget-placeholder": "setup",
-    "last_opened_file_path": "/Users/legraina/git/rmn/services/executor/python",
+    "last_opened_file_path": "/Users/legraina/git/rmn/services/socketIO",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -76,18 +87,18 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/services/socketIO" />
       <recent name="$PROJECT_DIR$/storage/cover_pages/2d86b161-ac4f-437d-a5fb-ae3cbd090992" />
       <recent name="$PROJECT_DIR$/services/executor/tmp2/extract/copies" />
       <recent name="$PROJECT_DIR$/storage/documents" />
       <recent name="$PROJECT_DIR$/storage/cover_pages" />
-      <recent name="$PROJECT_DIR$/services/executor" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/storage/cover_pages/2d86b161-ac4f-437d-a5fb-ae3cbd090992" />
       <recent name="$PROJECT_DIR$/services/executor/utils" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.exec">
+  <component name="RunManager" selected="Python.app">
     <configuration name="app" type="PythonConfigurationType" factoryName="Python">
       <module name="rmn" />
       <option name="ENV_FILES" value="" />
@@ -97,8 +108,9 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Python 3.12 (rmn)" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/services/server" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
@@ -189,7 +201,7 @@
       <workItem from="1721438842268" duration="9927000" />
       <workItem from="1721762400378" duration="40128000" />
       <workItem from="1722217467983" duration="614000" />
-      <workItem from="1722218240744" duration="96906000" />
+      <workItem from="1722218240744" duration="110221000" />
     </task>
     <servers />
   </component>
@@ -227,12 +239,12 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/server/app.py</url>
-          <line>1172</line>
+          <line>1298</line>
           <option name="timeStamp" value="25" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/executor/python/process_copy/recognize.py</url>
-          <line>1124</line>
+          <line>1133</line>
           <option name="timeStamp" value="66" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -257,7 +269,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/executor/python/process_copy/recognize.py</url>
-          <line>341</line>
+          <line>350</line>
           <option name="timeStamp" value="167" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -276,7 +288,7 @@
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/rmn$exam_stats.coverage" NAME="exam_stats Coverage Results" MODIFIED="1721181412006" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
     <SUITE FILE_PATH="coverage/rmn$stats.coverage" NAME="stats Coverage Results" MODIFIED="1721444101878" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
-    <SUITE FILE_PATH="coverage/rmn$app.coverage" NAME="app Coverage Results" MODIFIED="1721616886063" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/server" />
+    <SUITE FILE_PATH="coverage/rmn$app.coverage" NAME="app Coverage Results" MODIFIED="1722621700114" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/server" />
     <SUITE FILE_PATH="coverage/rmn$config.coverage" NAME="config Coverage Results" MODIFIED="1721796042838" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/python/process_copy" />
     <SUITE FILE_PATH="coverage/rmn$test.coverage" NAME="test Coverage Results" MODIFIED="1721796076415" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
     <SUITE FILE_PATH="coverage/rmn$exec.coverage" NAME="exec Coverage Results" MODIFIED="1722614402841" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />

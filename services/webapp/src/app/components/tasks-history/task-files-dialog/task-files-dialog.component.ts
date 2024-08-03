@@ -1,7 +1,8 @@
 import { Component, OnInit, Inject } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
+import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
 import { saveAs } from 'file-saver';
 import { HttpClient, HttpEventType } from '@angular/common/http';
 import { SERVER_URL } from 'src/app/utils';
@@ -22,6 +23,7 @@ export class TaskFilesDialogComponent implements OnInit {
   downloadProgress = 0
   constructor(
     public dialogRef: MatDialogRef<TaskFilesDialogComponent>,
+    public dialog: MatDialog,
     private notifyService : NotificationService,
     private userService: UserService,
     private http: HttpClient,
@@ -54,7 +56,7 @@ export class TaskFilesDialogComponent implements OnInit {
     return value;
   }
 
-  checkInputBox(inputId : string, index : number){
+  checkInputBox(inputId : string, share: boolean, index : number = undefined){
     let inputValue : string;
 
     if(inputId === 'zip_file'){
@@ -67,21 +69,43 @@ export class TaskFilesDialogComponent implements OnInit {
 
     if(inputValue.trim() === ""){
       this.showNotificationError();
-    }else{
-      this.downloadFile(`${SERVER_URL}file/download`, inputValue, inputId, index);
+    } else if (share) {
+      this.shareTask(inputValue, inputId, index);
+    } else {
+      this.downloadFile(inputValue, inputId, index);
     }
   }
 
-  downloadFile(requestURL : string, filename : string, fileType: string, index : number){
+  shareTask(inputValue, inputId, index=undefined) {
+    let data = { taskId: this.data.taskId, taskName: inputValue, file: inputId, shareType: 'file', zip_index: index}
+    this.dialog.open(TaskShareDialogComponent, {
+      width: '30%',
+      height: '40%',
+      data: data
+    }).afterClosed().subscribe(resp => {
+      if (resp.success) {
+        if (resp.message)
+          this.notifyService.showSuccess(resp.message, "Succès!");
+      } else if (resp.message) {
+          this.notifyService.showError(resp.message, "Erreur!");
+      }
+    }, (error) => {
+      console.error(error);
+    });
+  }
+
+  downloadFile(filename : string, fileType: string, index : number){
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.data.taskId);
     formdata.append('file', fileType);
-    formdata.append('zip_index', index.toString());
+    if (index !== undefined) {
+      formdata.append('zip_index', index.toString());
+    }
     if ( !this.downloading) {
       this.downloading = true;
-      // this.notifyService.showInfo('Téléchargement...', "")
-      this.http.post(requestURL, formdata, {responseType: 'blob', reportProgress: true, observe: "events"}).subscribe(
+      this.notifyService.showInfo('Téléchargement...', "")
+      this.http.post('${SERVER_URL}file/download', formdata, {responseType: 'blob', reportProgress: true, observe: "events"}).subscribe(
         (data) => {
           if (data.type == HttpEventType.DownloadProgress) {
             this.downloadProgress = data.total ? Math.round(100 * data.loaded / data.total) : 0

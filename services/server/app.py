@@ -86,18 +86,22 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
     def _verify_token(f):
         @wraps(f)
         def __verify_token(*args, **kwargs):
+            if request.method == 'POST':
+                request_form = request.form
+            else:
+                request_form = request.args
             # check if any token share token provided
-            if "job_id" not in request.form:
+            if "job_id" not in request_form:
                 print("Error: job_id not provided.")
                 return Response(
                     response=json.dumps({"response": "Error: job_id not provided."}),
                     status=401,
                 )
-            job_id = request.form["job_id"]
+            job_id = request_form["job_id"]
             db = mongo["RMN"]
 
             # check if token valid
-            resp, user_id = check_token(request.form)
+            resp, user_id = check_token(request_form)
             # if resp is None => valid token
             if resp is None:
                 job = db["eval_jobs"].find_one({"job_id": job_id, "user_id": user_id})
@@ -107,7 +111,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                     if job:
                         print("Found job:", job)
                     # if there is a share token, try it after
-                    if "share_token" not in request.form:
+                    if "share_token" not in request_form:
                         return Response(
                             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
                             status=401
@@ -116,30 +120,39 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                     return f(None)
                 else:
                     return f()
+
             # check if any token share token provided
-            if "share_token" not in request.form:
+            token = request_form.get("share_token", request_form.get("token"))
+            if token is None:
                 return Response(
                     response=json.dumps({"response": "Error: token not provided."}),
                     status=401,
                 )
+
             # check if share token valid
             db = mongo["RMN"]
-            token = request.form["share_token"]
 
             keys = []
-            if question:
-                keys.append("all")
-                if "question_index" in request.form:
-                    keys.append(request.form["question_index"])
-            if matricule:
-                keys.append("mat")
-
             validity = None
-            job = db["eval_jobs"].find_one({"job_id": job_id})
-            if job:
-                for k, t in job.get("share_token", {}).items():
-                    if k in keys and t == token:
-                        validity = k
+            print(request.path)
+            if request.path.startswith('/file/'):
+                job = db["jobs_output"].find_one({"job_id": job_id})
+                print(job)
+                if job and job.get("share_token", None) == token:
+                    validity = 'file'
+            else:
+                if question:
+                    keys.append("all")
+                    if "question_index" in request_form:
+                        keys.append(request_form["question_index"])
+                if matricule:
+                    keys.append("mat")
+
+                job = db["eval_jobs"].find_one({"job_id": job_id})
+                if job:
+                    for k, t in job.get("share_token", {}).items():
+                        if k in keys and t == token:
+                            validity = k
             if validity is None:
                 print("Error: share token (", token, ") not valid for", job_id, "and keys", keys)
                 return Response(
@@ -499,7 +512,8 @@ def get_job():
         "job_infos": job.get("job_infos", ""),
         "n_max_points_per_question": job["n_max_points_per_question"],
         "n_pages_per_question": job["n_pages_per_question"],
-        "bonus_enabled_map": job["bonus_enabled_map"]
+        "bonus_enabled_map": job["bonus_enabled_map"],
+        "groups": job.get("groups", [""])
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
@@ -587,10 +601,7 @@ def unshare_job(user_id):
     job_id = str(request_form["job_id"])
 
     # Get all jobs from DB
-    if "questions" in request.form:
-        key = request_form.get("question_index", "all")
-    else:
-        key = "mat"
+    key = request_form.get("question_index", "all")
     res = collection.update_one({"job_id": job_id, "user_id": user_id}, {"$unset": {f"share_token.{key}": ""}})
     if res.matched_count == 0:
         return Response(
@@ -599,6 +610,7 @@ def unshare_job(user_id):
         )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
+
 
 @app.route("/job/ignore", methods=["POST"])
 @cross_origin()
@@ -725,23 +737,116 @@ def download_incorrect_files(user_id):
 
     return file_send
 
-@app.route("/file/download", methods=["POST"])
+
+@app.route("/file/share", methods=["POST"])
 @cross_origin()
 @verify_token()
-def download_file(user_id):
-    #
+def share_archive(user_id):
     request_form = request.form
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400
+        )
+    job_id = str(request_form["job_id"])
 
+    host = request.headers.get('Host')
+    if not host:
+        return Response(
+            response=json.dumps({"response": "Error: Host is not defined in the headers."}),
+            status=400
+        )
+
+    if "file" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: file not provided."}),
+            status=400,
+        )
+    target_file = str(request_form["file"])
+
+    zip_index = None
+    if 'zip' in target_file:
+        if "zip_index" not in request_form:
+            return Response(
+                response=json.dumps({"response": "Error: zip_index not provided."}),
+                status=400,
+            )
+        zip_index = str(request_form["zip_index"])
+
+    # Define db and collection used
+    db = mongo["RMN"]
+    output_collection = db["jobs_output"]
+    job = output_collection.find_one({"job_id": job_id, "user_id": user_id})
+
+    if job is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=400
+        )
+
+    if "share_token" not in job:
+        token = str(uuid.uuid4())
+        output_collection.update_one(
+            {"job_id": job_id},
+            {"$set": {"share_token": token}})
+    else:
+        token = job["share_token"]
+
+    protocol = "http" if host == "0.0.0.0" or host == "localhost" else "https"
+    share_url = f"{protocol}://{host}/api/file/download?job_id={job_id}&token={token}&file={target_file}"
+    if zip_index:
+        share_url += f"&zip_index={zip_index}"
+
+    resp = {
+        "job_id": job["job_id"],
+        "share_url": share_url
+    }
+    return Response(response=json.dumps({"response": resp}), status=200)
+
+@app.route("/file/unshare", methods=["POST"])
+@cross_origin()
+@verify_token()
+def unshare_file(user_id):
+    # Define db and collection used
+    db = mongo["RMN"]
+    collection = db["jobs_output"]
+
+    request_form = request.form
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400
+        )
+    job_id = str(request_form["job_id"])
+
+    # Get all jobs from DB
+    res = collection.update_one({"job_id": job_id, "user_id": user_id}, {"$unset": {"share_token": ""}})
+    if res.matched_count == 0:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=400
+        )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+@app.route("/file/download", methods=["GET", "POST"])
+@cross_origin()
+@verify_share_token()
+def download_file():
+    #
+    if request.method == 'POST':
+        request_form = request.form
+    else:
+        request_form = request.args
     print("RECEIVED FORM DATA:", request_form)
 
-    #
     if "job_id" not in request_form:
         return Response(
             response=json.dumps({"response": "Error: job_id not provided."}),
             status=400,
         )
 
-    #
     if "file" not in request_form:
         return Response(
             response=json.dumps({"response": "Error: file not provided."}),
@@ -770,10 +875,10 @@ def download_file(user_id):
     #
     db = mongo["RMN"]
     output_collection = db["jobs_output"]
-    output_files = output_collection.find_one({"job_id": job_id, "user_id": user_id})
+    output_files = output_collection.find_one({"job_id": job_id})
     if not output_files:
         return Response(
-            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            response=json.dumps({"response": f"Error: job {job_id} doesn't exist."}),
             status=400
         )
 
@@ -788,10 +893,9 @@ def download_file(user_id):
     target_output_file = output_file_mapping_dict[target_file]
 
     file_id = output_files[target_output_file]
-
     if target_file == Output_File.ZIP_FILE:
         zip_index = int(request_form["zip_index"])
-        file_id = output_files[target_output_file][zip_index]
+        file_id = file_id[zip_index]
 
     if not os.path.exists(TEMP_FOLDER):
         os.makedirs(TEMP_FOLDER)
@@ -804,6 +908,7 @@ def download_file(user_id):
     os.remove(filepath)
 
     return file_send
+
 
 @app.route("/job/batch/info", methods=["POST"])
 @cross_origin()
@@ -888,13 +993,6 @@ def share_matricule_verification(user_id):
         )
     job_id = str(request_form["job_id"])
 
-    if "user_id" not in request_form:
-        return Response(
-            response=json.dumps({"response": "Error: user_id not provided."}),
-            status=400
-        )
-    user_id = str(request_form["user_id"])
-
     host = request.headers.get('Host')
     if not host:
         return Response(
@@ -927,9 +1025,37 @@ def share_matricule_verification(user_id):
 
     resp = {
         "job_id": job["job_id"],
-        "share_url": share_url
+        "share_url": share_url,
+        "groups": job.get("groups", [""])
     }
     return Response(response=json.dumps({"response": resp}), status=200)
+
+
+@app.route("/matricule/unshare", methods=["POST"])
+@cross_origin()
+@verify_token()
+def unshare_matricule(user_id):
+    # Define db and collection used
+    db = mongo["RMN"]
+    collection = db["eval_jobs"]
+
+    request_form = request.form
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400
+        )
+    job_id = str(request_form["job_id"])
+
+    res = collection.update_one({"job_id": job_id, "user_id": user_id}, {"$unset": {f"share_token.mat": ""}})
+    if res.matched_count == 0:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=400
+        )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
 
 @app.route("/documents", methods=["POST"])
 @cross_origin()
@@ -1536,7 +1662,6 @@ def front_page(user_id):
             ),
             status=400,
         )
-
 
     user_id = str(request_form["user_id"])
     suffix = str(request_form["suffix"])

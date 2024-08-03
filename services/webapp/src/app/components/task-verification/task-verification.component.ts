@@ -111,6 +111,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
 
     // set job parameters
+    // this.groupsList = this.job['groups'];
     this.getMaxPointsPerQuestion();
     this.getBonusEnabledMap();
 
@@ -297,7 +298,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async getDocuments() {
     await this.docService.getDocuments(this.tasksService.getvalidatingTaskId(), true);
     this.examsList = this.docService.documentsList;
-    // this.groupsList = this.docService.groupsList;
     // compute sub exams list if any selected group
     this.getSubExamsList();
     // initialize initialCopyIndex and currentCopy
@@ -688,7 +688,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
             if (doc.getPageCount() > 0) {
                 const mergedPdfBytes = await doc.save();
                 const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-                zip.file(`${questionIndex}${i > 0 ? `_${i}` : ''}.pdf`, blob);
+                zip.file(`${questionIndex}/${questionIndex}${i > 0 ? `_${i}` : ''}.pdf`, blob);
             }
         }
     }

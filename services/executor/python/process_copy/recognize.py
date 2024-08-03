@@ -271,12 +271,21 @@ def process_all(
                 max_grade = s
 
     # Create a list of matricule-name
-    names_mat_df = pd.concat(grades_dfs).reset_index()[["Matricule", "Nom complet"]]
+    all_grades_dfs = pd.concat(grades_dfs)
+    names_mat_df = all_grades_dfs.reset_index()[["Matricule", "Nom complet"]]
     names_mat_df = names_mat_df.rename(columns={"Matricule": "matricule"})
     names_mat_json = names_mat_df.to_dict(orient="records")
 
+    # Create list of groups
+    groups = None
+    group_df = all_grades_dfs.filter(regex=MF.group)  # keep only the right column
+    if len(group_df.columns) > 0:
+        if len(group_df.columns) > 1:
+            print(f"Warning: several columns match the group regex ({MF.group}):", group_df.columns)
+        groups = np.unique(all_grades_dfs[group_df.columns[0]]).tolist()  # transform the column to a list with only one appearance
+
     # Update job status
-    job = db.update_job_status_to_run(job_id, names_mat_json)
+    job = db.update_job_status_to_run(job_id, names_mat_json, groups)
     new_job = (job["retry"] == 0)
     if new_job:
         print("Grade new job:", job_id)
@@ -1445,7 +1454,7 @@ def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7):
     # creating a mask
     mask = np.zeros(gray.shape, dtype="uint8")
     (x, y, w, h) = cv2.boundingRect(cnt)
-    print("bounding box: [", x, ",", x+w, "] x [", y, ",", y+h, "]")
+    # print("bounding box: [", x, ",", x+w, "] x [", y, ",", y+h, "]")
 
     hull = cv2.convexHull(cnt)
     cv2.drawContours(mask, [hull], -1, 255, -1)

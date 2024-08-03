@@ -35,7 +35,6 @@ export class DocumentsService {
 
   jobId: string;
   documentsList: Array<any>;
-  groupsList: Array<string>;
   questions: boolean;  // true if fetch question, false for documents
   refreshMinutes: number = 15;  // refresh document every X minutes
 
@@ -55,23 +54,11 @@ export class DocumentsService {
       formdata.append('documents_indices', JSON.stringify(docIndices));
     }
     this.userService.addTokens(formdata);
-    this.groupsList = [""];
 
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}documents`, formdata).toPromise();
       this.documentsList = promise['response'] || [];
       this.clearPdfSources();
-
-      // fetch groups if any
-      this.documentsList.forEach((exam: any) => {
-        if (exam.group && !this.groupsList.includes(exam.group)) {
-            this.groupsList.push(exam.group);
-        }
-      });
-      this.groupsList.sort((a, b) => {
-        if (a === "") return -1;
-        return a.localeCompare(b);
-      });
     } catch (error) {
       console.error(error);
     }

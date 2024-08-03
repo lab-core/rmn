@@ -37,12 +37,13 @@ export class NewExamCorrectionComponent implements OnInit {
   csvName: string = "";
   templates: Array<Map<string, string>>;
   selectedFrontTemplate: string = "";
+  selectedFrontTemplateName: string = "";
   selectedRegularTemplate: string = "";
   disabled: boolean = false;
   uploading: boolean = false;
   statisticsForStudents: boolean = true;
 
-  nQuestions: number = 0;
+  nQuestions: number;
   totalPages: number = 0;
   totalPoints: number = 0;
   totalBonus: number = 0;
@@ -97,6 +98,9 @@ export class NewExamCorrectionComponent implements OnInit {
     if (event.value) {
       const template = this.templates.find(t => t['template_id'] === event.value);
       this.nQuestions = template["n_questions"];
+      if (event.source.id == "mat-select-0") {
+        this.selectedFrontTemplateName = template["name"];
+      }
       this.updateQuestionsCount();
     }
   }

@@ -152,17 +152,18 @@ class Database:
             }}
         )
 
-    def update_job_status_to_run(self, job_id, students_list):
+    def update_job_status_to_run(self, job_id, students_list, groups=None):
         # try to change job status if first try
+        new_values = {
+            "job_status": Job_Status.RUN.value,
+            "alive_time": dt.datetime.now(dt.UTC),
+            "students_list": students_list
+        }
+        if groups is not None:
+            new_values["groups"] = groups
         self.eval_jobs_collection().update_one(
             {"job_id": job_id},
-            {
-                "$set": {
-                    "job_status": Job_Status.RUN.value,
-                    "alive_time": dt.datetime.now(dt.UTC),
-                    "students_list": students_list
-                }
-            }
+            {"$set": new_values}
         )
         return self.eval_jobs_collection().find_one({"job_id": job_id})
 

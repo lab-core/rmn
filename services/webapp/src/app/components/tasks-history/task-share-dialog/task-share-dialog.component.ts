@@ -2,7 +2,7 @@ import { Component, OnInit, Inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from "../../../services/notification.service";
 import { UserService } from "../../../services/user.service";
-import { DocumentsService } from 'src/app/services/documents.service';
+import { TasksService } from 'src/app/services/tasks.service';
 import { HttpClient } from '@angular/common/http';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { SERVER_URL } from 'src/app/utils';
@@ -12,6 +12,8 @@ export interface DialogData {
   taskName: string;
   shareType: 'job' | 'matricule';
   questionIndex?: number;
+  file?: string;
+  zip_index?: number;
 }
 
 @Component({
@@ -27,10 +29,9 @@ export class TaskShareDialogComponent implements OnInit {
   group: string;
 
   constructor(
-    public dialogRef: MatDialogRef<TaskShareDialogComponent>,
-    private notifyService: NotificationService,
+    private dialogRef: MatDialogRef<TaskShareDialogComponent>,
     private userService: UserService,
-    private docService: DocumentsService,
+    private tasksService: TasksService,
     private http: HttpClient,
     private clipboard: Clipboard,
     @Inject(MAT_DIALOG_DATA) public data: DialogData
@@ -39,28 +40,31 @@ export class TaskShareDialogComponent implements OnInit {
     this.group = "";
   }
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.data.taskId);
-    if (this.data.questionIndex) {
+    if (this.data.questionIndex !== undefined) {
       formdata.append('question_index', this.data.questionIndex.toString());
     }
+    if (this.data.file !== undefined) {
+      formdata.append('file', this.data.file);
+    }
+    if (this.data.zip_index !== undefined) {
+      formdata.append('zip_index', this.data.zip_index.toString());
+    }
 
-    const shareEndpoint = this.data.shareType === 'matricule' ? 'matricule/share' : 'job/share';
-
-    this.http.post<any>(`${SERVER_URL}${shareEndpoint}`, formdata).subscribe(
-      (data) => {
+    this.http.post<any>(`${SERVER_URL}${this.data.shareType}/share`, formdata).subscribe(
+      async data => {
         let resp = data['response'];
         if (resp.share_url) {
           this.shareUrl = resp.share_url;
-          this.docService.getDocuments(this.data.taskId, false).then(() => {
-            if (this.data.shareType === 'matricule') {
-              this.groupsList = this.docService.groupsList;
-            }
-            this.group = "";
-            this.getUrl();
-          });
+          this.group = "";
+          if (this.data.shareType === 'matricule') {
+            this.tasksService.setvalidatingTaskId(this.data.taskId);
+            this.groupsList = await this.tasksService.getTask()['groups'];
+          }
+          this.getUrl();
         } else {
           this.close({success: false, message: "Vous ne pouvez pas partager cette tâche."});
         }
@@ -79,13 +83,10 @@ export class TaskShareDialogComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.data.taskId);
-    if (this.data.shareType === 'job') {
-      formdata.append('questions', "true");
-    }
     if (this.data.questionIndex) {
       formdata.append('question_index', this.data.questionIndex.toString());
     }
-    this.http.post<any>(`${SERVER_URL}/job/unshare`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}${this.data.shareType}/unshare`, formdata).subscribe(
       (data) => {
         let resp = {success: data['response'] === "OK"};
         if (resp.success) {
