@@ -112,6 +112,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
     // set job parameters
     // this.groupsList = this.job['groups'];
+    // this.groupsList.unshift("");
     this.getMaxPointsPerQuestion();
     this.getBonusEnabledMap();
 
@@ -432,16 +433,18 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   updateScrollPosition() {
     let e = document.getElementById('files-list-container');  // scrollTop + clientHeight = scrollHeight
-    let child = e.firstElementChild;
-    let nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
-    let nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
-    let subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentCopy);
-    let currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
-    let distanceTop = e.scrollHeight * currentRow / nRows;
-    // goal is to be in the middle => clientHeight / 2
-    let targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
-    if (targetScrollTop > 0) {
-      e.scrollTop = targetScrollTop;
+    if (e) {
+      let child = e.firstElementChild;
+      let nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
+      let nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
+      let subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentCopy);
+      let currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
+      let distanceTop = e.scrollHeight * currentRow / nRows;
+      // goal is to be in the middle => clientHeight / 2
+      let targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
+      if (targetScrollTop > 0) {
+        e.scrollTop = targetScrollTop;
+      }
     }
   }
 

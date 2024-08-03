@@ -54,21 +54,25 @@ export class TaskShareDialogComponent implements OnInit {
       formdata.append('zip_index', this.data.zip_index.toString());
     }
 
-    this.http.post<any>(`${SERVER_URL}${this.data.shareType}/share`, formdata).subscribe(
-      async data => {
+    await this.http.post<any>(`${SERVER_URL}${this.data.shareType}/share`, formdata)
+    .toPromise()
+    .then(async (data: any) => {
         let resp = data['response'];
         if (resp.share_url) {
           this.shareUrl = resp.share_url;
           this.group = "";
           if (this.data.shareType === 'matricule') {
             this.tasksService.setvalidatingTaskId(this.data.taskId);
-            this.groupsList = await this.tasksService.getTask()['groups'];
+            const task = await this.tasksService.getTask();
+            this.groupsList = task['groups'];
+            this.groupsList.unshift("");
           }
           this.getUrl();
         } else {
           this.close({success: false, message: "Vous ne pouvez pas partager cette tâche."});
         }
-      }, (error) => {
+      })
+      .catch((error) => {
         console.error(error);
         this.close({success: false, message: "Une erreur est intervenue lors du partage de la tâche !"});
       });

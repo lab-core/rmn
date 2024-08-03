@@ -60,7 +60,7 @@ export class MatriculeVerificationComponent implements OnInit {
   subExamsList: Array<any>;
   matriculeList: Array<any>;
   group: string;
-  groupsList: Array<string>;
+  groupsList: Array<string> = [""];
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
@@ -68,14 +68,13 @@ export class MatriculeVerificationComponent implements OnInit {
     if (jobId) {
       this.tasksService.setvalidatingTaskId(jobId);
     }
-    this.group = this.route.snapshot.queryParams['group'];
-    if (this.group == null) {
-      this.group = "";
-    }
+    this.group = this.route.snapshot.queryParams['group'] || "";
+
     // fetch job and documents
     this.job = await this.tasksService.getTask();
     if (this.job && this.job["job_id"]) {
       this.groupsList = this.job['groups'];
+      this.groupsList.unshift("");
       this.getMatriculeList();
       await this.getDocuments();
       this.getSubExamsList();
@@ -197,17 +196,19 @@ export class MatriculeVerificationComponent implements OnInit {
 
   updateScrollPosition() {
     let e = document.getElementById('files-list-container');  // scrollTop + clientHeight = scrollHeight
-    let child = e.firstElementChild;
-    let r = e.clientWidth / child.clientWidth;
-    let nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
-    let nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
-    let subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentCopy);
-    let currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
-    let distanceTop = e.scrollHeight * currentRow / nRows;
-    // goal is to be in the middle => clientHeight / 2
-    let targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
-    if (targetScrollTop > 0) {
-      e.scrollTop = targetScrollTop;
+    if (e) {
+      let child = e.firstElementChild;
+      let r = e.clientWidth / child.clientWidth;
+      let nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
+      let nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
+      let subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentCopy);
+      let currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
+      let distanceTop = e.scrollHeight * currentRow / nRows;
+      // goal is to be in the middle => clientHeight / 2
+      let targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
+      if (targetScrollTop > 0) {
+        e.scrollTop = targetScrollTop;
+      }
     }
   }
 

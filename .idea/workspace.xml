@@ -4,30 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/python/process_copy/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/python/process_copy/database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/python/process_copy/mcc.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/python/process_copy/mcc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/python/process_copy/recognize.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/python/process_copy/recognize.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/socketIO/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/socketIO/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/socketIO/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/services/socketIO/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/matricule-verification/matricule-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/matricule-verification/matricule-verification.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-share-dialog/task-share-dialog.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-share-dialog/task-share-dialog.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/documents.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/services/documents.service.ts" afterDir="false" />
-    </list>
+    <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -201,7 +178,7 @@
       <workItem from="1721438842268" duration="9927000" />
       <workItem from="1721762400378" duration="40128000" />
       <workItem from="1722217467983" duration="614000" />
-      <workItem from="1722218240744" duration="110221000" />
+      <workItem from="1722218240744" duration="110877000" />
     </task>
     <servers />
   </component>

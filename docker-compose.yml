@@ -21,10 +21,12 @@ services:
    #   - "5001:5001"
    environment:
      STORAGE: /Executor/storage
-   volumes:
-     - ./storage:/Executor/storage
    depends_on:
      - redis
+     - mongo
+     - socketio
+   volumes:
+     - ./storage:/Executor/storage
   server:
     build: ./services/server
     restart: always
@@ -34,6 +36,8 @@ services:
       FLASK_ENV: development
     depends_on:
       - redis
+      - mongo
+      - socketio
     volumes:
       - ./storage:/Server/storage
   socketio:
@@ -57,6 +61,7 @@ services:
     depends_on:
       - webapp
       - server
+      - socketio
     build: ./services/nginx
     restart: always
     ports:
