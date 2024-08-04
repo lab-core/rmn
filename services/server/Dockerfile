@@ -3,11 +3,7 @@
 FROM python:3.12
 
 RUN apt-get update \
- && apt-get install -y sudo \
- && apt-get install -y nfs-common \
- && apt-get install -y poppler-utils \
- && apt install -y texlive-latex-recommended \
- && apt-get install -y texlive-lang-french \
+ && apt-get install -y nfs-common poppler-utils \
  && pip install --upgrade pip
 
 WORKDIR /Server

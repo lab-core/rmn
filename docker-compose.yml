@@ -21,10 +21,7 @@ services:
    #   - "5001:5001"
    environment:
      STORAGE: /Executor/storage
-   depends_on:
-     - redis
-     - mongo
-     - socketio
+     REDIS_POP: block
    volumes:
      - ./storage:/Executor/storage
   server:
@@ -34,10 +31,6 @@ services:
     #   - "5000:5000"
     environment:
       FLASK_ENV: development
-    depends_on:
-      - redis
-      - mongo
-      - socketio
     volumes:
       - ./storage:/Server/storage
   socketio:

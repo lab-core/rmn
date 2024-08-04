@@ -77,11 +77,11 @@ export class DashboardPageComponent {
     this.socketService.getSocket().on('doc_validated', async (params: any) => {
       const resp = JSON.parse(params)
       const questions: boolean = resp.questions;
-      const matricule: string = resp.matricule;
+      const matricule: boolean = resp.matricule;
       const docIndices: number[] = [resp.document_index]
       try {
         // matricule has been validated
-        if (matricule !== undefined) {
+        if (matricule) {
           await this.docService.getDocuments(this.taskId, false, docIndices);
           this.examsList[resp.document_index] = this.docService.documentsList[0];
           this.computeTotalMatricules();

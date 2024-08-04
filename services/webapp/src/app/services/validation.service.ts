@@ -16,7 +16,8 @@ export class ValidationService {
   ) { }
 
   async validateDocument(jobId: string, validatingCopy: number, file: File,
-                         questionIndex, grade, nMaxPointsPerQuestion, status) {
+                         questionIndex, grade, nMaxPointsPerQuestion, status,
+                         version, annotations) {
     const formData: FormData = new FormData();
     this.userService.addTokens(formData);
     formData.append('job_id', jobId);
@@ -27,18 +28,22 @@ export class ValidationService {
     }
     formData.append('grades', JSON.stringify([grade]));
     formData.append('status', status);
+    if (version !== undefined) {
+      formData.append('version', version.toString());
+    }
+    if (annotations !== undefined) {
+      formData.append('annotations', JSON.stringify(annotations));
+    }
 
     let response;
     try {
-        const promise = await this.http.post<any>(`${SERVER_URL}documents/update`, formData).toPromise();
+        const promise = await this.http.post<any>(`${SERVER_URL}document/update`, formData).toPromise();
         response = promise['response'];
     } catch (error) {
         console.error(error);
     }
     return response;
-}
-
-
+  }
 
   async validateJob(jobId, moodle_ind) {
     const formdata: FormData = new FormData();

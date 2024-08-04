@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { TasksService } from 'src/app/services/tasks.service';
+import { UserService } from 'src/app/services/user.service';
 import { NotificationService } from 'src/app/services/notification.service';
 
 @Component({
@@ -12,6 +13,7 @@ export class MainMenuComponent implements OnInit {
 
   constructor(
     private router: Router,
+    private userService: UserService,
     private notificationService: NotificationService
   ) { }
 
@@ -19,7 +21,7 @@ export class MainMenuComponent implements OnInit {
   async ngOnInit(): Promise<void> {}
 
   disconnect(): void {
-    localStorage.clear()
+    this.userService.logout()
     this.router.navigate(['/']);
     this.notificationService.showInfo("", "Déconnecté!")
   }

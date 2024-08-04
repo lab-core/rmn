@@ -76,6 +76,13 @@ export class UserService {
     this.warningShown = false;
   }
 
+  logout() {
+    localStorage.clear();
+    this.token = undefined;
+    this.currentUsername = undefined;
+    this.role = undefined;
+  }
+
   signup(username, password, role) {
     const formdata: FormData = new FormData();
     formdata.append('token', this.token);

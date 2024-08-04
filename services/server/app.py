@@ -282,7 +282,7 @@ def evaluate(user_id):
         "regular_template_id": regular_template_id,
         "front_template_name": front_template_name,
         "regular_template_name": regular_template_name,
-        "queued_time": dt.datetime.utcnow(),  # dt.datetime.now(dt.UTC)
+        "queued_time": dt.datetime.now(dt.UTC),
         "job_status": Job_Status.SPLIT.value,
         "retry": 0,
         "notes_file_id": notes_file_id,
@@ -459,7 +459,7 @@ def get_jobs(user_id):
     ]
 
     # wake up workers in case some jobs died
-    max_alive = dt.datetime.utcnow() - dt.timedelta(seconds=120)  # dt.datetime.now(dt.UTC)
+    max_alive = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=120)
 
     def requeue(job_id, c_status, n_status):
         print("Resubmit job", job_id)
@@ -472,7 +472,7 @@ def get_jobs(user_id):
            redis.lpush("job_queue", json.dumps({"job_id": job_id}))
 
     for job in jobs:
-        if job["job_status"] == Job_Status.RUN.value and job["alive_time"] < max_alive:
+        if job["job_status"] == Job_Status.RUN.value and job["alive_time"].replace(tzinfo=dt.UTC) < max_alive:
             requeue(job["job_id"], Job_Status.RUN.value, Job_Status.QUEUED.value)
 
     #
@@ -970,7 +970,7 @@ def update_matricule():
     sio.emit(
         "doc_validated",
         json.dumps(
-            {"job_id": job_id, "user_id": user_id, "document_index": document_index, "matricule": matricule}
+            {"job_id": job_id, "user_id": user_id, "document_index": document_index, "matricule": True}
         ),
     )
 
@@ -1124,89 +1124,6 @@ def get_documents(validity):
     return Response(response=json.dumps({"response": resp}), status=200)
 
 
-@app.route("/documents/update", methods=["POST"])
-@cross_origin()
-@verify_share_token(matricule=False)
-def update_document():
-    request_form = request.form
-    required_fields = ["job_id", "document_index", "grades", "status"]
-    for field in required_fields:
-        if field not in request_form:
-            return Response(
-                response=json.dumps({"response": f"Error: {field} not provided."}),
-                status=400,
-            )
-
-    job_id = str(request_form["job_id"])
-    document_index = int(request_form["document_index"])
-    grades = [float(g) for g in json.loads(request_form["grades"])]
-
-    # update the database
-    db = mongo["RMN"]
-    # first update question and job if any
-    if "question_index" in request_form:
-        grade = grades[0]
-        q_doc = db["job_questions"].find_one_and_update(
-            {"job_id": job_id, "document_index": document_index},
-            {"$set": {
-                "status": Document_Status.VALIDATED.value,
-                "grade": grade
-            }}
-        )
-        if q_doc is None:
-            return Response(response=json.dumps({"response": f"Error: question {document_index} not found."}),
-                            status=400)
-
-        q_index = int(request_form["question_index"]) - 1
-        r = db["job_documents"].update_one(
-            {"job_id": job_id, "filename": q_doc["basename"]},
-            {"$set": {
-                f"grades.{q_index}": grade
-            }}
-        )
-        if not r:
-            return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
-                            status=400)
-    else:
-        grades = [float(g) for g in request_form["grades"]]
-        r = db["job_documents"].update_one(
-            {"job_id": job_id, "document_index": document_index},
-            {"$set": {
-                "status": Document_Status.VALIDATED.value,
-                "grades": grades
-            }}
-        )
-        return Response(response=json.dumps({"response": f"Error: document {document_index} not found."}),
-                        status=400)
-
-    # replacing the previous file by the new one in storage if any
-    if "file" in request.files:
-        file = request.files["file"]
-        file_name = secure_filename(file.filename)
-
-        last_underscore_index = file_name.rfind('_')
-        extension_index = file_name.rfind('.pdf')
-        question = file_name[last_underscore_index + 1:extension_index]
-
-        file_path = os.path.join('documents', job_id, question, file_name)
-        print("file path ", storage.abs_path(file_path))
-        # save with default name as well as the latest version
-        abs_filename = storage.abs_path(file_path)
-        file.save(abs_filename)
-        save_new_version(abs_filename)
-
-    user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
-
-    sio.emit(
-        "doc_validated",
-        json.dumps(
-            {"job_id": job_id, "user_id": user_id, "document_index": document_index, "questions": True}
-        ),
-    )
-
-    return Response(response=json.dumps({"response": "OK"}), status=200)
-
-
 # @app.route("/documents/grade_all", methods=["POST"])
 # @cross_origin()
 # @verify_token()
@@ -1261,6 +1178,7 @@ def replace_document():
 
     job_id = str(request_form["job_id"])
 
+    db = mongo["RMN"]
     file = request_files["file"]
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
         temp_file.write(file.read())
@@ -1284,7 +1202,13 @@ def replace_document():
                         # moving the extracted file to the final destination
                         shutil.move(extracted_path, final_destination)
                         print("Moved to:", final_destination)
-                        save_new_version(final_destination)
+                        # save new version
+                        version_filepath = save_new_version(final_destination)
+                        last_version = get_last_version(job_id, storage_path)
+                        db["versions"].insert_one(
+                            {"job_id": job_id, "rel_filepath": storage_path, "version": last_version + 1,
+                             "version_filepath": version_filepath, "annotations": []}
+                        )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
@@ -1295,13 +1219,129 @@ def version_basename(filename):
     return os.path.join(version_dir, version_name)
 
 
-def save_new_version(filename, version=None):
+def save_new_version(filename):
     version_base = version_basename(filename)
     all_versions = glob.glob(version_base+"-*.pdf")
 
-    # create backup of the file if version does not already exist
-    if version is None or version >= len(all_versions):
-        shutil.copy(filename, version_base + "-%d.pdf" % len(all_versions))
+    # create backup of the file
+    n_version = len(all_versions)
+    version_filepath = version_base + "-%d.pdf" % n_version
+    print(f"Save new version ({n_version}):", version_filepath)
+    shutil.copy(filename, version_filepath)
+    return version_filepath
+
+
+@app.route("/document/update", methods=["POST"])
+@cross_origin()
+@verify_share_token(matricule=False)
+def update_document():
+    request_form = request.form
+    required_fields = ["job_id", "document_index", "grades", "status"]
+    for field in required_fields:
+        if field not in request_form:
+            return Response(
+                response=json.dumps({"response": f"Error: {field} not provided."}),
+                status=400,
+            )
+
+    version = None
+    annotations = []
+    if "annotations" in request_form:
+        if "version" not in request_form:
+            return Response(
+                response=json.dumps({"response": f"Error: field version not provided with annotations."}),
+                status=400,
+            )
+        version = int(request_form["version"])
+        annotations = json.loads(request_form.get("annotations", "[]"))
+
+    job_id = str(request_form["job_id"])
+    document_index = int(request_form["document_index"])
+    grades = [float(g) for g in json.loads(request_form["grades"])]
+
+    # update the database
+    db = mongo["RMN"]
+    # first update question and job if any
+    if "question_index" in request_form:
+        grade = grades[0]
+        q_doc = db["job_questions"].find_one_and_update(
+            {"job_id": job_id, "document_index": document_index},
+            {"$set": {
+                "status": Document_Status.VALIDATED.value,
+                "grade": grade
+            }}
+        )
+        if q_doc is None:
+            return Response(response=json.dumps({"response": f"Error: question {document_index} not found."}),
+                            status=400)
+
+        q_index = int(request_form["question_index"]) - 1
+        r = db["job_documents"].update_one(
+            {"job_id": job_id, "filename": q_doc["basename"]},
+            {"$set": {
+                f"grades.{q_index}": grade
+            }}
+        )
+        if not r:
+            return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
+                            status=400)
+    else:
+        grades = [float(g) for g in request_form["grades"]]
+        r = db["job_documents"].update_one(
+            {"job_id": job_id, "document_index": document_index},
+            {"$set": {
+                "status": Document_Status.VALIDATED.value,
+                "grades": grades
+            }}
+        )
+        return Response(response=json.dumps({"response": f"Error: document {document_index} not found."}),
+                        status=400)
+
+    # replacing the previous file by the new one in storage if any
+    if "file" in request.files:
+        file = request.files["file"]
+        file_name = secure_filename(file.filename)
+
+        last_underscore_index = file_name.rfind('_')
+        extension_index = file_name.rfind('.pdf')
+        question = file_name[last_underscore_index + 1:extension_index]
+
+        # save with default name
+        rel_filepath = os.path.join('documents', job_id, question, file_name)
+        abs_filepath = storage.abs_path(rel_filepath)
+        file.save(abs_filepath)
+
+        # get last version
+        last_version = get_last_version(job_id, rel_filepath)
+
+        # set version to last version by default
+        if version is None:
+            version = last_version
+
+        # fetch doc version
+        version_doc = db["versions"].find_one({"job_id": job_id, "rel_filepath": rel_filepath, "version": version})
+        version_filepath = version_doc["version_filepath"]
+
+        # save new version
+        db["versions"].insert_one(
+            {"job_id": job_id, "rel_filepath": rel_filepath, "version": last_version + 1,
+             "version_filepath": version_filepath, "annotations": annotations}
+        )
+
+        print(f"Saved new version ({last_version + 1}) for",
+              {"job_id": job_id, "rel_filepath": rel_filepath, "version": version},
+              "with %d annotation layers" % len(annotations))
+
+    user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
+
+    sio.emit(
+        "doc_validated",
+        json.dumps(
+            {"job_id": job_id, "user_id": user_id, "document_index": document_index, "questions": True}
+        ),
+    )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
 @app.route("/document/download", methods=["POST"])
@@ -1335,18 +1375,20 @@ def download_document(validity):
         if validity is not None and validity != "all" and doc["question"] != f"Q{validity}":
             return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=400)
 
-        # add the right version if requested
+        # add the right version if requested, otherwise use last one by default
+        # (without the annotations stored in the db)
         file_path = doc["rel_filepath"]
-        if "document_version" in request_form:
-            try:
-                version_name = version_basename(file_path) \
-                               + "-%s.pdf" % request_form["document_version"]
-                storage.copy_from(version_name, file_path)
-            except ValueError:
-                # if cannot find this version use default one (generally the last one)
-                storage.copy_from(file_path, file_path)
+        last_version = get_last_version(job_id, file_path)
+        version = int(request_form.get("version", last_version))  # use last_version by default
+        print("Query version for:", {"job_id": job_id, "rel_filepath": file_path, "version": version})
+        vers = db["versions"].find_one(
+            {"job_id": job_id, "rel_filepath": file_path, "version": version}
+        )
+        if vers:
+            print("Found version:", vers["version_filepath"])
+            file_path = vers["version_filepath"]
         else:
-            storage.copy_from(file_path, file_path)
+            return Response(response=json.dumps({"Error": "You don't request a valid version"}), status=400)
     else:
         if validity is not None and validity != "mat":
             return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=400)
@@ -1356,24 +1398,10 @@ def download_document(validity):
                 response=json.dumps({"response": "No document found!"}),
                 status=404,
             )
-
         file_path = doc["rel_filepath"]
-        storage.copy_from(file_path, file_path)
 
     print("document_file: ", doc)
-    file_send = send_file(file_path)
-
-    time.sleep(0.1)
-
-    @after_this_request
-    def add_close_action(response):
-        try:
-            os.remove(file_path)
-        except Exception as e:
-            print(e)
-        return response
-
-    return file_send
+    return send_file(storage.abs_path(file_path))
 
 
 @app.route("/document/last_version", methods=["POST"])
@@ -1399,12 +1427,67 @@ def last_version_document():
             status=404,
         )
 
-    version_base = version_basename(question_file["rel_filepath"])
-    filename_base = storage.abs_path(version_base)
-    print("file_base", filename_base)
-    all_versions = glob.glob(filename_base + "-*.pdf")
+    last_version = get_last_version(job_id, question_file["rel_filepath"])
 
-    return Response(response=json.dumps({"last_version": len(all_versions) - 1}), status=200)
+    return Response(response=json.dumps({"last_version": last_version}), status=200)
+
+
+def get_last_version_document(rel_filepath):
+    version_base = version_basename(rel_filepath)
+    filename_base = storage.abs_path(version_base)
+    # print("file_base", filename_base)
+    all_versions = glob.glob(filename_base + "-*.pdf")
+    return len(all_versions) - 1
+
+
+def get_last_version(job_id, rel_filepath):
+    db = mongo["RMN"]
+    return db["versions"].count_documents({"job_id": job_id, "rel_filepath": rel_filepath}) - 1
+
+
+@app.route("/document/annotations", methods=["POST"])
+@cross_origin()
+@verify_share_token(return_validity=True)
+def document_annotations(validity):
+    request_form = request.form
+
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400,
+        )
+    if "document_index" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: document_index not provided."}),
+            status=400,
+        )
+
+    job_id = str(request_form["job_id"])
+    document_index = int(request_form["document_index"])
+
+    db = mongo["RMN"]
+    coll = db["job_questions"] if request_form.get("questions") is not None else db["job_documents"]
+    doc = coll.find_one({"job_id": job_id, "document_index": document_index})
+
+    if doc is None:
+        return Response(
+            response=json.dumps({"response": "No document found!"}),
+            status=404,
+        )
+
+    rel_filepath = doc["rel_filepath"]
+    last_version = get_last_version(job_id, rel_filepath)
+    version = int(request_form.get("version", last_version))  # use last_version by default
+    query = {"job_id": job_id, "rel_filepath": rel_filepath, "version": version}
+    print("Query versions for", query)
+    vers = db["versions"].find_one(query)
+    if vers is None:
+        return Response(response=json.dumps({"response": "No version found!"}), status=200)
+
+    return Response(response=json.dumps({
+        'annotations': vers["annotations"],
+        "last_version": last_version}
+    ), status=200)
 
 
 @app.route("/job/validate", methods=["POST"])
@@ -1468,26 +1551,29 @@ def delete_job(job_id):
     except Exception as e:
         print(e)
 
-    #
     db = mongo["RMN"]
-    collection = db["job_documents"]
-    collection_eval_jobs = db["eval_jobs"]
-    collection_output = db["jobs_output"]
-
-    #
     try:
-        collection.delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
-
-    #
-    try:
-        collection_eval_jobs.delete_many({"job_id": job_id})
+        db["job_documents"].delete_many({"job_id": job_id})
     except Exception as e:
         print(e)
 
     try:
-        collection_output.delete_many({"job_id": job_id})
+        db["job_questions"].delete_many({"job_id": job_id})
+    except Exception as e:
+        print(e)
+
+    try:
+        db["eval_jobs"].delete_many({"job_id": job_id})
+    except Exception as e:
+        print(e)
+
+    try:
+        db["jobs_output"].delete_many({"job_id": job_id})
+    except Exception as e:
+        print(e)
+
+    try:
+        db["versions"].delete_many({"job_id": job_id})
     except Exception as e:
         print(e)
 
@@ -1526,7 +1612,7 @@ def delete_old_jobs(n_days_old=0, user_id=None):
     r = {} if user_id is None else {"user_id": user_id}
     jobs = collection.find(r)
 
-    now = dt.datetime.utcnow()  # dt.datetime.now(dt.UTC)
+    now = dt.datetime.now(dt.UTC)
     n = 0
     for j in jobs:
         delta = now - j["queued_time"]

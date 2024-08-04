@@ -1,12 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { EditorAnnotation } from 'ngx-extended-pdf-viewer';
 import { UserService } from './user.service';
 import { SERVER_URL } from '../utils';
 
 
-class PDFSource {
+export class PDFSource {
   index: number;
   version: number;
+  annotations: EditorAnnotation[];
   url: string;
   timestamp_min: number;
   lastVersion: number;
@@ -14,8 +16,16 @@ class PDFSource {
   constructor(index: number, url: string, version) {
     this.index = index;
     this.url = url;
-    this.version;
+    this.version = version;
     this.timestamp_min = Date.now() / 60000;
+    this.annotations = [];
+  }
+
+  setLastVersion(lastVersion: number) {
+    this.lastVersion = lastVersion;
+    if (this.version === undefined || this.version > this.lastVersion) {
+      this.version = this.lastVersion;
+    }
   }
 
   isOlderThan(minutes) {
@@ -24,7 +34,7 @@ class PDFSource {
   }
 
   canBeUsed(minutes, version=undefined) {
-    return !this.isOlderThan(minutes) && this.version === version && (version === undefined || version <= this.lastVersion);
+    return !this.isOlderThan(minutes) && (version === undefined || this.version === version);
   }
 }
 
@@ -74,39 +84,43 @@ export class DocumentsService {
     }
     if (version !== undefined) {
       if (version < 0) version = 0;
-      formdata.append('document_version', version.toString());
+      formdata.append('version', version.toString());
     }
 
     try {
       const data = await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).toPromise();
       const url = window.URL.createObjectURL(data);
-      this.pdfSources[index] = new PDFSource(index, url, version);
-      this.pdfSources[index].lastVersion = await this.getLastVersion(jobId, index);
-      return this.pdfSources[index];
+      const pdfSource = new PDFSource(index, url, version);
+      this.pdfSources[index] = pdfSource;
+      await this.getAnnotations(jobId, pdfSource);
+      return pdfSource;
     } catch (error) {
       console.error(error);
       return null;
     }
   }
 
-  async getLastVersion(jobId: string, index: number): Promise<number> {
+  async getAnnotations(jobId: string, pdfSource: PDFSource): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
-    formdata.append('document_index', index.toString());
+    formdata.append('document_index', pdfSource.index.toString());
+    if (pdfSource.version !== undefined) {
+      formdata.append('version', pdfSource.version.toString());
+    }
     if (this.questions) {
       formdata.append('questions', 'true');
     }
 
-    await this.http.post(`${SERVER_URL}document/last_version`, formdata)
+    await this.http.post(`${SERVER_URL}/document/annotations`, formdata)
       .toPromise()
       .then(async (data: any) => {
-           return data["last_version"];
+        pdfSource.setLastVersion(data["last_version"]);
+        pdfSource.annotations = data["annotations"] || [];
       })
       .catch((error) => {
           console.error(error);
       });
-      return null;
   }
 
   async getPdfSource(jobId: string, index: number, version=undefined, minutes=undefined): Promise<PDFSource> {

@@ -32,6 +32,8 @@ class Storage:
         print(f"Access for {self.path}: ", os.access(self.path, os.W_OK))
 
     def abs_path(self, r_path):
+        if os.path.isabs(r_path):
+            return r_path
         abs_path = str(self.path.joinpath(r_path))
         return abs_path
 

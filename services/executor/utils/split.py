@@ -54,6 +54,19 @@ def calculate_pages(pages_per_question):
     return results
 
 
+def save_initial_version(db, job_id, rel_filepath):
+    # save initial version document
+    rel_dir = os.path.dirname(rel_filepath)
+    base_filename = os.path.basename(rel_filepath).rsplit('.', 1)[0]
+    version_filepath = os.path.join(rel_dir, "versions", f"{base_filename}-0.pdf")
+    storage.copy_from(rel_filepath, storage.abs_path(version_filepath))
+    # save version in db
+    db.mongo_database["versions"].insert_one(
+        {"job_id": job_id, "rel_filepath": rel_filepath, "version": 0,
+         "version_filepath": version_filepath, "annotations": []}
+    )
+
+
 def verify_names_and_n_pages(n_pages_per_question, input_pdfs, job_id):
     """
     Verifies the number of pages in each input PDF file.
@@ -123,9 +136,7 @@ def split_and_save(n_pages_per_question, input_pdfs, job_id):
     total_expected_pages = calculate_total_expected_pages(n_pages_per_question)
     generated_pdfs_per_question = {question: [] for question in n_pages_per_question.keys()}
 
-    output_folder = storage.abs_path(os.path.join("documents", job_id))
-    os.makedirs(output_folder, exist_ok=True)
-
+    output_folder = os.path.join("documents", job_id)
     cover_page_folder = storage.abs_path(os.path.join("cover_pages", job_id))
     os.makedirs(cover_page_folder, exist_ok=True)
 
@@ -145,16 +156,15 @@ def split_and_save(n_pages_per_question, input_pdfs, job_id):
                         if page_index < len(reader.pages):
                             writer.add_page(reader.pages[page_index])
 
+                    # save file
                     question_folder = os.path.join(output_folder, question)
-                    os.makedirs(question_folder, exist_ok=True)
+                    os.makedirs(storage.abs_path(question_folder), exist_ok=True)
                     output_path = os.path.join(question_folder, f"{base_filename}_{question}.pdf")
-                    with open(output_path, 'wb') as output_file:
+                    with open(storage.abs_path(output_path), 'wb') as output_file:
                         writer.write(output_file)
-                    # save first backup
-                    backup_dir = os.path.join(os.path.dirname(output_path), "versions")
-                    os.makedirs(backup_dir, exist_ok=True)
-                    backup_name = os.path.basename(output_path).rsplit(".", 1)[0] + "-0.pdf"
-                    shutil.copy(output_path, os.path.join(backup_dir, backup_name))
+                    # save first version
+                    save_initial_version(db, job_id, output_path)
+                    # store pdf
                     generated_pdfs_per_question[question].append(output_path)
                 
                 # saving the first page as cover page

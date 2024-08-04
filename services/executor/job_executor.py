@@ -29,8 +29,8 @@ from utils.split import insert_copies
 
 
 ROOT_DIR = Path(__file__).resolve().parent
-MAX_RETRY = int(os.getenv("MAX_RETRY", "5")) # 5
-MAX_IDLE_TIME = 120  # 120
+MAX_RETRY = int(os.getenv("MAX_RETRY", "5"))
+MAX_IDLE_TIME = 120
 
 
 # override print
@@ -57,7 +57,7 @@ def save_number_images(storage, job_id, document_index, questions):
         print(e)
 
 
-def check_for_idle_jobs_to_requeue(db):
+def check_for_idle_jobs_to_requeue(db, sleep):
     alive_times = {}
     collection_check = db.get_collection("check")
     try:
@@ -105,6 +105,7 @@ def check_for_idle_jobs_to_requeue(db):
                         requeue(Job_Status.RUN.value, Job_Status.QUEUED.value)
                     else:
                         requeue(Job_Status.FINALIZING.value, Job_Status.VALIDATION.value)
+
                     old_idle_jobs = True
 
                 # continue if idle jobs
@@ -129,7 +130,7 @@ def check_for_idle_jobs_to_requeue(db):
                     all_jobs_idle = True
                     alive_times[job_id] = j["alive_time"]
                 # if one job alive -> stop
-                if not all_jobs_idle:
+                if not all_jobs_idle or not sleep:
                     print("All jobs are not idle.")
                     break
                 # otherwise, sleep
@@ -450,7 +451,7 @@ if __name__ == "__main__":
                         shutil.move(str(file), str(dest))
 
                         counter += 1
-                
+
                 # make moodle.zip
                 if moodle_ind:
                     shutil.make_archive(
@@ -694,35 +695,46 @@ if __name__ == "__main__":
 
     try:
         # retrieve job
-        print("Retrieving job from redis")
-        job = redis.lpop("job_queue")
+        blocking = os.getenv("REDIS_POP") == "block" or os.getenv("ENVIRONMENT") != "production"
+        while True:
+            print("Retrieving job from redis")
+            if blocking:
+                job = redis.blpop("job_queue", timeout=MAX_IDLE_TIME)
+                # output of blocking is a tuple (job_queue, job)
+                if job:
+                    job = job[1]
+            else:
+                job = redis.lpop("job_queue")
 
-        # process job if any
-        if job:
-            print("Job:", job)
-            job = json.loads(job)
+            # process job if any
+            if job:
+                print("Job:", job)
+                job = json.loads(job)
 
-            # create tmp work dir
-            jid = job["template_id"] if "template_id" in job else job["job_id"]
-            WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{jid}")
-            WORK_TMP_DIR.mkdir(exist_ok=True)
+                # create tmp work dir
+                jid = job["template_id"] if "template_id" in job else job["job_id"]
+                WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{jid}")
+                WORK_TMP_DIR.mkdir(exist_ok=True)
 
-            # process job
-            try:
-                if "template_id" in job:
-                    process_template(jid, WORK_TMP_DIR)
-                else:
-                    process(job, WORK_TMP_DIR)
-            except Exception as e:
-                print("Caught an error while processing job:")
-                print(e)
-                pass
+                # process job
+                try:
+                    if "template_id" in job:
+                        process_template(jid, WORK_TMP_DIR)
+                    else:
+                        process(job, WORK_TMP_DIR)
+                except Exception as e:
+                    print("Caught an error while processing job:")
+                    print(e)
+                    pass
 
-            # clean ENLEVER
-            shutil.rmtree(WORK_TMP_DIR)
+                # clean ENLEVER
+                shutil.rmtree(WORK_TMP_DIR)
 
-        # check if any job is idle and dangling
-        check_for_idle_jobs_to_requeue(db)
+            # check if any job is idle and dangling
+            check_for_idle_jobs_to_requeue(db, not blocking)
+
+            if not blocking:
+                break
 
     except Exception as e:
         print(e)

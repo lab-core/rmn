@@ -8,7 +8,7 @@ import { HttpClient } from '@angular/common/http';
 import { ValidationWarningDialogComponent } from './validation-warning-dialog/validation-warning-dialog.component';
 import { Router, ActivatedRoute } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
-import { DocumentsService } from 'src/app/services/documents.service';
+import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
 import { NgxExtendedPdfViewerService, EditorAnnotation, FreeTextEditorAnnotation, InkEditorAnnotation,  pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
 import { MatSelectChange } from '@angular/material/select';
@@ -55,9 +55,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   hasUploadedZip: boolean = false;
 
   job: Map<string, any>;
-  pdfSrc: string;
+  pdfSrc: PDFSource;
   pdfSize: number = 0;
-  zoomSetting: any;
+  pdfAlreadyRenderedOnce: boolean = false;
   pdfViewerInitialized: boolean = false;
 
   nMaxPointsPerQuestion = new Map<string, number>();
@@ -69,7 +69,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   currentQuestionIndex: string;
   index: string = "Tout sélectionner";
   currentVersion: number = 0;
-  lastVersion: number = 0;
   currentGrade: number | null;
   currentTotal: number;
   currentGrades: Map<string, number>;
@@ -157,23 +156,21 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   initializePdfViewer(retry = 0): void {
-    setTimeout(() => {
-      if (!this.pdfViewerInitialized) {
-        try {
-          this.ngxService.editorInkColor = '#FF0000';
-          this.ngxService.editorInkThickness = 2;
-          this.ngxService.editorFontColor = '#FF0000';
-          this.ngxService.editorFontSize = 14;
-          this.pdfViewerInitialized = true;
-        } catch (err) {
-          if (retry >= 10) {
-            console.error(err);
-          } else  {
-            setTimeout(() => { this.initializePdfViewer(retry+1); }, 200);
-          }
+    if (!this.pdfViewerInitialized) {
+      try {
+        this.ngxService.editorInkColor = '#FF0000';
+        this.ngxService.editorInkThickness = 2;
+        this.ngxService.editorFontColor = '#FF0000';
+        this.ngxService.editorFontSize = 14;
+        this.pdfViewerInitialized = true;
+      } catch (err) {
+        if (retry >= 10) {
+          console.error(err);
+        } else  {
+          setTimeout(() => { this.initializePdfViewer(retry+1); }, 100);
         }
       }
-    }, 100);
+    }
   }
 
   undoChange() {
@@ -375,18 +372,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.setPdfLoading(true);
       const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, version);
       if (pdfSource.url) {
-        this.pdfSrc = pdfSource.url;
-        this.lastVersion = pdfSource.lastVersion;
-        // set to last version if undefined or greater than last version
-        if (version === undefined || version >= this.lastVersion) {
-          this.currentVersion = this.lastVersion;
-        } else {
-          this.currentVersion = version;
-        }
+        this.pdfSrc = pdfSource;
+        this.pdfAlreadyRenderedOnce = false;
+        this.currentVersion = this.pdfSrc.version;
         this.pdfModified = false;
-        // initialize pdf viewer options
-        this.initializePdfViewer();
-        // console.log("Current Exam: ", this.examsList[this.currentIndex()])
       }
       this.setPdfLoading(false);
     }
@@ -395,12 +384,26 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   setPdfLoading(pdfLoading: boolean) {
     this.pdfLoading = pdfLoading;
     this.disablePrevious = pdfLoading || (this.currentVersion == 0);
-    this.disableNext = pdfLoading || (this.currentVersion >= this.lastVersion);
+    this.disableNext = pdfLoading || (this.currentVersion >= this.pdfSrc.lastVersion);
   }
 
   async pdfLoaded(e) {
     const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
     if (editedPdfData) this.pdfSize = editedPdfData.size;
+  }
+
+  async pageRendered(e) {
+    // add the annotations
+    // re add all of them minus the last element
+    setTimeout(() => {
+      if (!this.pdfAlreadyRenderedOnce) {
+        this.initializePdfViewer();
+        this.pdfSrc.annotations.forEach(a => {
+          this.ngxService.addEditorAnnotation(a);
+        });
+        this.pdfAlreadyRenderedOnce = true
+      }
+    }, 50);
   }
 
   async annotationEdited(e) {
@@ -513,10 +516,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
     try {
         const gradeChanged = this.addGradeToQuestion();
-        if (await this.saveCurrentCopy(gradeChanged)) {
-            this.setValidatedStatus();
-            this.nextCopy();
+        if (gradeChanged) {
+          this.pdfModified = true;  // ensure that the copy will be saved
         }
+        this.setValidatedStatus();
+        this.nextCopy();
     } catch (error) {
         console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
         this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
@@ -525,17 +529,17 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.checkValidationButton();
 }
 
-  async saveCurrentCopy(forceValidation: boolean = false) {
+  async saveCurrentCopy() {
     const currentExam = this.currentExam();
     if (currentExam) {
       const filename = currentExam["filename"] + ".pdf";
       const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
-      if (forceValidation || editedPdfData) {
+      if (editedPdfData) {
         // if file not modified, stop here and return true if not forcing validation
-        const saveFile = (editedPdfData.size !== this.pdfSize || this.pdfModified);
-        if (!forceValidation && !saveFile)
+        const skipFile = editedPdfData.size === this.pdfSize && !this.pdfModified;
+        if (skipFile)
           return true;
-        const file = saveFile ? new File([editedPdfData], filename, { type: editedPdfData.type }) : undefined;
+        const file = new File([editedPdfData], filename, { type: editedPdfData.type });
         let validationResponse = await this.validationService.validateDocument(
             this.tasksService.getvalidatingTaskId(),
             this.currentCopy,
@@ -543,8 +547,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
             this.currentQuestionIndex.slice(1),
             this.currentGrade,
             this.nMaxPointsPerQuestion,
-            this.currentStatus
+            this.currentStatus,
+            this.currentVersion,
+            this.ngxService.getSerializedAnnotations()
         );
+        this.pdfSrc.lastVersion++;
+        this.pdfSrc.version = this.pdfSrc.lastVersion;
 
         console.log('Save current copy and obtained response:', validationResponse);
 
@@ -657,7 +665,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
             await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' })
                 .toPromise()
-                .then(async (data: Blob) => {
+                .then(async data => {
                     const arrayBuffer = await data.arrayBuffer();
                     const pdfDoc = await PDFDocument.load(arrayBuffer);
                     const fileName = exam["filename"];

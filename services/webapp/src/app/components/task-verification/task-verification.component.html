@@ -107,13 +107,14 @@
             <div class="picture-container" *ngIf="!this.disabledValidationcontainer" [ngClass]="{'expanded': isSidebarHidden}">
                 <ngx-extended-pdf-viewer *ngIf="!this.pdfLoading"
                     #pdfViewer
-                    [src]="this.pdfSrc"
+                    [src]="this.pdfSrc.url"
                     [language]="'fr'"
                     [handTool]="false"
                     [textLayer]="false"
                     [zoom]="page-width"
                     (pdfLoaded)="pdfLoaded($event)"
                     (annotationEditorEvent)="annotationEdited($event)"
+                    (pageRendered)="pageRendered($event)"
                     [customToolbar]="additionalButtons"
                     [showFreeFloatingBar]="false"
                     [customFreeFloatingBar]="floatingZoombar">
