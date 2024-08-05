@@ -8,11 +8,12 @@ add_header X-Content-Type-Options nosniff always;
 # Defines a Content Security Policy, allowing resources only from the same origin and explicitly from some websites.
 # Modify the protocol according to your resource's availability.
 # Nonce strategy in angular: substitute 'random_nonce_value' by a unique value per request
+# Use unsafe-inline for style, as many dependencies ad pdf-viewer or angular/material would not work correctly otherwise
 set $cspNonce $request_id;
 sub_filter_types *;
 sub_filter_once off;
 sub_filter random_nonce_value $cspNonce;
-#add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'nonce-$cspNonce'; script-src 'self' 'nonce-$cspNonce'; img-src 'self' 'nonce-$cspNonce'; connect-src 'self' 'nonce-$cspNonce'; script-src-elem 'self' dropbox.com live.net;" always;
+add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'nonce-$cspNonce'; script-src 'self' 'nonce-$cspNonce'; img-src 'self' 'nonce-$cspNonce' blob: data:; connect-src 'self' 'nonce-$cspNonce' blob: data:; script-src-elem 'self' 'nonce-$cspNonce' https://www.dropbox.com https://js.live.net;" always;
 
 # 3- Specifies that cross-origin requests for the resource are allowed only when the request is same-site.
 add_header Cross-Origin-Resource-Policy same-site always;
