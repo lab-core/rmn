@@ -7,20 +7,135 @@
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/job_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/job_executor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/utils/split.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/split.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/nginx/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/nginx/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/nginx/default.conf" beforeDir="false" afterPath="$PROJECT_DIR$/services/nginx/default.conf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/service/user_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/service/user_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/utils/storage.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/utils/storage.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/dashboard-page/dashboard-page.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/dashboard-page/dashboard-page.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/main-menu/main-menu.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/main-menu/main-menu.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/documents.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/services/documents.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/user.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/services/user.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/validation.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/src/app/services/validation.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/.browserslistrc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/.editorconfig" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/Dockerfile-dev" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/Dockerfile-dev" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/angular.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/e2e/protractor.conf.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/e2e/src/app.e2e-spec.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/e2e/src/app.po.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/e2e/tsconfig.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/karma.conf.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/package-lock.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/package.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/app-routing.module.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/app.module.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/app/app.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/app/app.component.scss" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/app/app.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/dashboard-page/dashboard-page.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/dashboard-page/dashboard-page.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/dashboard-page/dashboard-page.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/login-page/login-page.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/login-page/login-page.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/login-page/login-page.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/main-menu/main-menu.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/main-menu/main-menu.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/main-menu/main-menu.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/matricule-verification/matricule-verification.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/matricule-verification/matricule-verification.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/matricule-verification/matricule-verification.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/new-exam-correction/new-exam-correction.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/presentation-page/presentation-page.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/presentation-page/presentation-page.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/presentation-page/presentation-page.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/task-verification.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/validation-warning-dialog/validation-warning-dialog.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/validation-warning-dialog/validation-warning-dialog.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/task-verification/validation-warning-dialog/validation-warning-dialog.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-retry-dialog/task-retry-dialog.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-retry-dialog/task-retry-dialog.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-retry-dialog/task-retry-dialog.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-share-dialog/task-share-dialog.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-share-dialog/task-share-dialog.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/task-share-dialog/task-share-dialog.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/tasks-history/tasks-history.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/template-editor/template-editor.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/template-editor/template-editor.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/template-editor/template-editor.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/delete-template-dialog/delete-template-dialog.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/delete-template-dialog/delete-template-dialog.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/delete-template-dialog/delete-template-dialog.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/new-template-dialog/new-template-dialog.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/new-template-dialog/new-template-dialog.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/new-template-dialog/new-template-dialog.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/templates-page.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/templates-page.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/templates-page/templates-page.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-guide/user-guide.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-guide/user-guide.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-guide/user-guide.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-profile/change-password-dialog/change-password-dialog.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-profile/change-password-dialog/change-password-dialog.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-profile/change-password-dialog/change-password-dialog.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-profile/create-user-dialog/create-user-dialog.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-profile/create-user-dialog/create-user-dialog.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-profile/create-user-dialog/create-user-dialog.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-profile/user-profile.component.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-profile/user-profile.component.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/components/user-profile/user-profile.component.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/documents.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/drawing/eraser.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/drawing/rectangle.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/drawing/selection.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/interceptor.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/notification.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/socket.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/tasks.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/template.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/user.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/services/validation.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/app/utils.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/LOGO.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/account.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/background-gradient.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/correction.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/csv-logo.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/dropbox_icon.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/login1.PNG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/login2.PNG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/material-icons.woff2" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/menu1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/onedrive_icon.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/pdf-logo.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/presentation.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/roboto-latin-ext.woff2" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/roboto-latin.woff2" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/scripts/dropbox.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/scripts/onedrive.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/taches.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/template.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/template0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/validation.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/assets/zip-logo.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/environments/environment.prod.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/environments/environment.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/favicon.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/index.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/main.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/polyfills.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/styles.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/styles/material-icons.scss" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/styles/roboto.scss" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/src/test.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/tsconfig.app.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/tsconfig.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/tsconfig.spec.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/tslint.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -196,7 +311,7 @@
       <workItem from="1721438842268" duration="9927000" />
       <workItem from="1721762400378" duration="40128000" />
       <workItem from="1722217467983" duration="614000" />
-      <workItem from="1722218240744" duration="145577000" />
+      <workItem from="1722218240744" duration="153718000" />
     </task>
     <servers />
   </component>
@@ -234,7 +349,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/server/app.py</url>
-          <line>1222</line>
+          <line>1221</line>
           <option name="timeStamp" value="25" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">

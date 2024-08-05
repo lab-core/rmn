@@ -1,0 +1,35 @@
+<div class="dialog-container" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
+    <h3>Veuillez importer le modèle d'une copie en format PDF</h3>
+
+    <!-- <div class="drop-zone" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
+      <p>Déposez votre fichier pdf ici</p>
+    </div>
+    <input #fileInput hidden="true" type="file" onclick="this.value=null" (change)="CopyFileEvent($event)" accept=".pdf"/>
+    <button id="copy-input-button" class="get-document-button" (click)="fileInput.click()">Importer un modèle d'une copie</button>
+    <div class="label-box">
+        <label for="copy-input-button">{{copyName}}</label>
+    </div> -->
+
+    <div class="upload-container"
+        (drop)="onDrop($event)"
+        (dragover)="onDragOver($event)">
+        <div class="upload-drop-zone" (click)="fileInput.click()">
+            <div class="label-help">
+              Glissez-déposez votre fichier pdf ici
+            </div>
+            <div class="label-box">
+              <h4>{{ copyName }}</h4>
+            </div>
+        </div>
+        <input #fileInput type="file" id="file-input" onclick="this.value=null" (change)="onFileSelected($event)" accept=".pdf">
+    </div>
+
+    <div class="num-pages-container">
+        <h3>Page pour le template (>0)</h3>
+        <div class="value-input-div">
+          <input id="page" type="number" min='1' [(ngModel)]="page" placeholder="Entrer la page" class="page-input" (ngModelChange)="setPage()" (click)="this.selectText($event)"/>
+          <p class="page-warning" [hidden]="hideWarning">Entrer une valeur positive (>0)</p>
+        </div>
+    </div>
+    <button class="confirm-document-button" mat-flat-button color="accent" [disabled]="disabled" (click)="confirm()">Confirmer</button>
+</div>

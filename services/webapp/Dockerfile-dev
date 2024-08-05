@@ -2,10 +2,10 @@
 FROM node:18.13 as node
 WORKDIR /app
 
-COPY package*.json ./
+COPY ng/package*.json ./
 RUN npm i @angular/cli && npm ci
 
-COPY . .
+COPY ng/ .
 
 EXPOSE 80
 

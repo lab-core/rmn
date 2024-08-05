@@ -1,0 +1,166 @@
+<div class="new-correction-container">
+    <app-main-menu></app-main-menu>
+    <div class="background">
+        <mat-horizontal-stepper #stepper class="stepper_horizontal">
+            <mat-step [stepControl]="firstFormGroup" label="Nommer la tâche">
+                <div class="breaker"></div>
+                <form [formGroup]="firstFormGroup">
+                    <div class="steps-container">
+                        <mat-form-field id="name-field" appearance="outline">
+                            <mat-label>Nom de la tâche</mat-label>
+                            <input matInput [(ngModel)]="this.taskName" [ngModelOptions]="{standalone: true}">
+                        </mat-form-field>
+                    </div>
+                    <div class="next-button">
+                        <button mat-button matStepperPrevious>Retour</button>
+                        <button mat-button matStepperNext>Suivant</button>
+                    </div>
+                </form>
+            </mat-step>
+            <mat-step [stepControl]="fourthFormGroup" label="Assigner le template voulu">
+                <div class="breaker"></div>
+                <form [formGroup]="fourthFormGroup">
+                    <div class="steps-container">
+                        <mat-form-field appearance="fill">
+                            <mat-label>Template pour la page de garde</mat-label>
+                            <mat-select [(value)]="selectedFrontTemplate" [disabled]="this.uploading" (selectionChange)="onQuestionIndexChange($event)">
+                                <mat-option *ngFor="let template of templates" [value]="template.template_id">
+                                    {{template.template_name}}
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="fill">
+                            <mat-label>Template pour les pages suivantes</mat-label>
+                            <mat-select [(value)]="selectedRegularTemplate" [disabled]="this.uploading">
+                                <mat-option *ngFor="let template of templates" [value]="template.template_id">
+                                    {{template.template_name}}
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div class="next-button">
+                        <button mat-button matStepperPrevious>Retour</button>
+                        <button mat-button matStepperNext>Suivant</button>
+                    </div>
+                </form>
+            </mat-step>
+            <mat-step [stepControl]="secondFormGroup" label="Téléverser les copies à corriger">
+                <div class="breaker"></div>
+                <form [formGroup]="secondFormGroup">
+                    <div class="files-steps-options-container">
+                        <input #copiesFileInput hidden="true" type="file" onclick="this.value=null"
+                            (change)="CopiesFileEvent($event)" accept=".zip,.pdf" />
+                        <button id="copies-input-button" mat-flat-button color="primary"
+                            (click)="copiesFileInput.click()" [disabled]="this.uploading">Téléverser localement</button>
+                        <button id="files-dropbox-input" (click)="getDropBoxUpload()"
+                                [disabled]="this.uploading" *ngIf="this.showDropbox">
+                            <img class="dropbox-logo" src="..\..\assets\dropbox_icon.png" />
+                            <div id="dropbox-title">Téléverser par Dropbox</div>
+                        </button>
+                        <button id="files-onedrive-input" type="button" (click)="getOneDriveUpload()"
+                                [disabled]="this.uploading" *ngIf="this.showOneDrive">
+                            <img class="dropbox-logo" src="..\..\assets\onedrive_icon.png" />
+                            <div id="onedrive-title">Téléverser par OneDrive</div>
+                        </button>
+                    </div>
+                    <span id="files-upload-label"></span>
+                    <div class="pages-number-div">
+                        <div class="number-pages-container" id="number-page-container">
+                          <div class="n-questions-container">
+                            <h3><u>Nombre de questions</u></h3>
+                            <input [(ngModel)]="this.nQuestions" [ngModelOptions]="{standalone: true}"
+                                   (click)="this.selectText($event)" id="nQuestions-input"
+                                   (change)="updateQuestionsCount()" type="number" min="1" step="1" required [readonly]="nQuestionsReadOnly">
+                            <div *ngIf="nQuestionsReadOnly">
+                              <div *ngIf="this.nQuestions>0" class="info">
+                                <small>Ce nombre est fixé par le template de la page de garde.</small>
+                              </div>
+                              <ng-container *ngIf="this.nQuestions === undefined">
+                                <small class="q-alert">Veuillez sélectionner en premier un template pour la page de garde.</small>
+                              </ng-container>
+                              <ng-container *ngIf="this.nQuestions<=0">
+                                <small class="q-alert">Veuillez sélectionner un rectangle qui permet de reconnaitre les boites des questions pour le template {{selectedFrontTemplateName}}.</small>
+                              </ng-container>
+                            </div>
+                          </div>
+                          <div class="checkbox-container">
+                            <label>
+                                <input type="checkbox" [(ngModel)]="statisticsForStudents" [ngModelOptions]="{standalone: true}">
+                                Statistiques pour les élèves
+                            </label>
+                          </div>
+                        </div>
+                        <table class="questions-table">
+                          <thead>
+                            <tr>
+                              <th>Questions</th>
+                              <th>Nombre de pages</th>
+                              <th>Nombre de points</th>
+                              <th>Bonus</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let key of questionKeys">
+                              <td>{{ key }}</td>
+                              <td>
+                                <input (change)="updatePageCount(key, $event)" type="number" min="1" step="1" required>
+                              </td>
+                              <td>
+                                <input (change)="updateMaxPoints(key, $event)" type="number" min="1" step="1" required>
+                              </td>
+                              <td>
+                                <input type="checkbox" [(ngModel)]="bonusEnabledMap[key]" [ngModelOptions]="{standalone: true}" (change)="toggleBonus(key)">
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Total</td>
+                              <td>{{ totalPages }}</td>
+                              <td>{{ totalPoints }}</td>
+                              <td></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    <div class="next-button">
+                        <button mat-button matStepperPrevious>Retour</button>
+                        <button mat-button matStepperNext>Suivant</button>
+                    </div>
+                </form>
+            </mat-step>
+            <mat-step [stepControl]="thirdFormGroup" label="Téléverser le fichier csv de moodle">
+                <div class="breaker"></div>
+                <form [formGroup]="thirdFormGroup">
+                    <div class="files-steps-options-container">
+                        <input #csvInput hidden="true" type="file" onclick="this.value=null"
+                            (change)="CsvFileEvent($event)" accept=".csv" />
+                        <button id="csv-input-button" mat-flat-button background-color="green"
+                            (click)="csvInput.click()" [disabled]="this.uploading">Téléverser localement</button>
+                        <button id="csv-dropbox-input" (click)="getDropBoxUploadCSV()"
+                                [disabled]="this.uploading" *ngIf="this.showDropbox">
+                            <img class="dropbox-logo" src="..\..\assets\dropbox_icon.png" />
+                            <div id="dropbox-title">Téléverser par Dropbox</div>
+                        </button>
+                        <button id="csv-onedrive-input" type="button" (click)="getOneDriveUploadCSV()"
+                                [disabled]="this.uploading" *ngIf="this.showOneDrive">
+                            <img class="dropbox-logo" src="..\..\assets\onedrive_icon.png" />
+                            <div id="onedrive-title">Téléverser par OneDrive</div>
+                        </button>
+                    </div>
+                    <span id="csv-upload-label"></span>
+                    <br>
+                    <div class="next-button">
+                        <button mat-button matStepperPrevious>Retour</button>
+                        <button mat-flat-button color="accent" (click)="createTask()" [disabled]="this.uploading"
+                            *ngIf="!this.disabled">Commencer</button>
+                        <button mat-flat-button color="accent" (click)="createTask()" *ngIf="this.disabled" disabled>Commencer</button>
+                    </div>
+                </form>
+            </mat-step>
+        </mat-horizontal-stepper>
+    </div>
+</div>
+<div id="overlay" *ngIf="this.uploading"></div>
+<mat-spinner *ngIf="this.uploading" color="accent" [diameter]="150" mode="determinate"
+    [value]="this.tasksService.getpercentageDone()"></mat-spinner>
+<div id="overlay" *ngIf="this.uploading"></div>
+<div class="files-uploading-steps" *ngIf="this.uploading">Téléversement des fichiers au serveur...</div>
