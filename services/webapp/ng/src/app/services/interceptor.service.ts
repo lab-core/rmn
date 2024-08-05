@@ -30,7 +30,11 @@ export class RequestInterceptor implements HttpInterceptor {
         if (error.status === 401) {
           this.notificationService.showError(error.error.response, "Erreur !")
           this.router.navigate(['/']);
-          console.warn("The http request has been intercepted as the response had a status 401.")
+          console.warn("The http request has been intercepted as the response had a status 401 (unauthorized).")
+        } else if (error.status === 404) {
+          this.notificationService.showError(error.error.response, "Erreur !")
+          this.router.navigate(['/']);
+          console.warn("The http request has been intercepted as the response had a status 404 (not found).")
         }
         return EMPTY;
       })

@@ -552,7 +552,7 @@ def share_job(user_id):
     if job is None:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
-            status=400
+            status=404
         )
 
     key = question_index if question_index else "all"
@@ -605,7 +605,7 @@ def unshare_job(user_id):
     if res.matched_count == 0:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
-            status=400
+            status=404
         )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
@@ -668,7 +668,7 @@ def continue_job(user_id):
     if job["job_status"] != Job_Status.RETRY.value:
         return Response(
             response=json.dumps({"response": f"Error: job status is not {Job_Status.RETRY.value}."}),
-            status=400,
+            status=404,
         )
 
     pdf_files = []
@@ -780,7 +780,7 @@ def share_archive(user_id):
     if job is None:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
-            status=400
+            status=404
         )
 
     if "share_token" not in job:
@@ -823,7 +823,7 @@ def unshare_file(user_id):
     if res.matched_count == 0:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
-            status=400
+            status=404
         )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
@@ -863,7 +863,7 @@ def download_file():
             response=json.dumps(
                 {"response": "Error: invalid value for 'file' param."}
             ),
-            status=400,
+            status=404,
         )
     if "zip_index" not in request_form and target_file == Output_File.ZIP_FILE:
         return Response(
@@ -878,7 +878,7 @@ def download_file():
     if not output_files:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} doesn't exist."}),
-            status=400
+            status=404
         )
 
     #
@@ -932,7 +932,7 @@ def get_info_zip(user_id):
     if not output_files:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
-            status=400
+            status=404
         )
     #
     resp = len(output_files["moodle_zip_id_list"])
@@ -1003,7 +1003,7 @@ def share_matricule_verification(user_id):
     if job is None:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
-            status=400
+            status=404
         )
 
     if "share_token" not in job:
@@ -1050,7 +1050,7 @@ def unshare_matricule(user_id):
     if res.matched_count == 0:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
-            status=400
+            status=404
         )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
@@ -1064,7 +1064,7 @@ def get_documents(validity):
     job_id = str(request_form["job_id"])
 
     if not job_id:
-        return Response(response=json.dumps({"Error": "job_id is missing"}), status=400)
+        return Response(response=json.dumps({"Error": "job_id not provided"}), status=400)
 
     #
     db = mongo["RMN"]
@@ -1074,7 +1074,7 @@ def get_documents(validity):
 
     if request_form.get("questions") is not None:
         if validity == "mat":
-            return Response(response=json.dumps({"Error": "You don't have access to these questions"}), status=400)
+            return Response(response=json.dumps({"Error": "You don't have access to these questions"}), status=401)
         question = None
         if validity is not None and validity != "all":
             question = f"Q{validity}"
@@ -1101,7 +1101,7 @@ def get_documents(validity):
             return Response(response=json.dumps({"Error": "The indices are not consecutive and increasing"}), status=400)
     else:
         if validity is not None and validity != "mat":
-            return Response(response=json.dumps({"Error": "You don't have access to these documents"}), status=400)
+            return Response(response=json.dumps({"Error": "You don't have access to these documents"}), status=401)
         count = db["job_documents"].count_documents(query)
         docs = db["job_documents"].find(query)
         resp = [
@@ -1232,8 +1232,8 @@ def save_new_version(filename):
 
 @app.route("/document/update", methods=["POST"])
 @cross_origin()
-@verify_share_token(matricule=False)
-def update_document():
+@verify_share_token(matricule=False, return_validity=True)
+def update_document(validity):
     request_form = request.form
     required_fields = ["job_id", "document_index", "grades", "status"]
     for field in required_fields:
@@ -1245,14 +1245,14 @@ def update_document():
 
     version = None
     annotations = []
-    if "annotations" in request_form:
+    if "annotations" in request_form and request_form["annotations"] is not None:
         if "version" not in request_form:
             return Response(
                 response=json.dumps({"response": f"Error: field version not provided with annotations."}),
                 status=400,
             )
         version = int(request_form["version"])
-        annotations = json.loads(request_form.get("annotations", "[]"))
+        annotations = json.loads(request_form.get("annotations"))
 
     job_id = str(request_form["job_id"])
     document_index = int(request_form["document_index"])
@@ -1272,7 +1272,10 @@ def update_document():
         )
         if q_doc is None:
             return Response(response=json.dumps({"response": f"Error: question {document_index} not found."}),
-                            status=400)
+                            status=404)
+
+        if validity != "all" and int(validity) != q_doc["question_index"]:
+            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=401)
 
         q_index = int(request_form["question_index"]) - 1
         r = db["job_documents"].update_one(
@@ -1283,7 +1286,7 @@ def update_document():
         )
         if not r:
             return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
-                            status=400)
+                            status=404)
     else:
         grades = [float(g) for g in request_form["grades"]]
         r = db["job_documents"].update_one(
@@ -1294,7 +1297,7 @@ def update_document():
             }}
         )
         return Response(response=json.dumps({"response": f"Error: document {document_index} not found."}),
-                        status=400)
+                        status=404)
 
     # replacing the previous file by the new one in storage if any
     if "file" in request.files:
@@ -1361,7 +1364,7 @@ def download_document(validity):
     db = mongo["RMN"]
     if request_form.get("questions") is not None:
         if validity == "mat":
-            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=400)
+            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=401)
 
         question_collection = db["job_questions"]
         doc = question_collection.find_one({"job_id": job_id, "document_index": document_index})
@@ -1372,7 +1375,7 @@ def download_document(validity):
             )
 
         if validity is not None and validity != "all" and doc["question"] != f"Q{validity}":
-            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=400)
+            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=401)
 
         # add the right version if requested, otherwise use last one by default
         # (without the annotations stored in the db)
@@ -1390,7 +1393,7 @@ def download_document(validity):
             return Response(response=json.dumps({"Error": "You don't request a valid version"}), status=400)
     else:
         if validity is not None and validity != "mat":
-            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=400)
+            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=401)
         doc = db["job_documents"].find_one({"job_id": job_id, "document_index": document_index})
         if doc is None:
             return Response(
@@ -1473,6 +1476,9 @@ def document_annotations(validity):
             response=json.dumps({"response": "No document found!"}),
             status=404,
         )
+
+    if validity != "all" and int(validity) != doc["question_index"]:
+        return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=404)
 
     rel_filepath = doc["rel_filepath"]
     last_version = get_last_version(job_id, rel_filepath)
@@ -1597,7 +1603,7 @@ def delete(user_id):
     if collection.count_documents({"user_id": user_id, "job_id": job_id}) == 0:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
-            status=400
+            status=404
         )
     delete_job(job_id)
 

@@ -44,7 +44,7 @@ services:
     # command: bash -c "while true; do echo hello; sleep 2; done"
     build:
       context: ./services/webapp
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile-dev
     restart: always
     volumes:
       - ./services/webapp/ng/src:/app/src:rw

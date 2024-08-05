@@ -551,6 +551,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
             this.currentVersion,
             this.ngxService.getSerializedAnnotations()
         );
+        if (validationResponse === undefined) {
+          this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
+        }
         this.pdfSrc.lastVersion++;
         this.pdfSrc.version = this.pdfSrc.lastVersion;
 
