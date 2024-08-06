@@ -105,76 +105,17 @@
           </div>
             <p *ngIf="this.disabledValidationcontainer">Aucune copie n'est prête à être validée.</p>
             <div class="picture-container" *ngIf="!this.disabledValidationcontainer" [ngClass]="{'expanded': isSidebarHidden}">
-                <ngx-extended-pdf-viewer *ngIf="!this.pdfLoading"
-                    #pdfViewer
-                    [src]="this.pdfSrc.url"
-                    [language]="'fr'"
-                    [handTool]="false"
-                    [textLayer]="false"
-                    [zoom]="page-width"
-                    (pdfLoaded)="pdfLoaded($event)"
-                    (annotationEditorEvent)="annotationEdited($event)"
-                    (pageRendered)="pageRendered($event)"
-                    [customToolbar]="additionalButtons"
-                    [showFreeFloatingBar]="false"
-                    [customFreeFloatingBar]="floatingZoombar">
-                    <!-- [showToolbar]="true"
-                    [showDownloadButton]="false"
-                    [showPrintButton]="false"
-                    [showOpenFileButton]="false"
-                    [showHandToolButton]="false"
-                    [showZoomButtons]="true"
-                    [showSidebarButton]="false"
-                    [showFindButton]="false"
-                    [showPagingButtons]="false"
-                    [showHighlightEditor]="false"
-                    [showDrawEditor]="true"
-                    [showStampEditor]="false"
-                    [showTextEditor]="true"
-                    [showPresentationModeButton]="false"
-                    [showSecondaryToolbarButton]="false"
-                    [showRotateButton]="undefined"
-                    [showRotateCwButton]="false"
-                    [showRotateCcwButton]="false"
-                    [showHandToolButton]="false"
-                    [showScrollingButton]="false"
-                    [showSpreadButton]="false"
-                    [showPropertiesButton]="false"> -->
-                    <!-- [customToolbar]="additionalButtons"> -->
-
-                </ngx-extended-pdf-viewer>
-                <ng-template #additionalButtons>
-                  <div id="toolbarViewer">
-                    <div id="toolbarViewerLeft"></div>
-                    <pdf-zoom-toolbar ></pdf-zoom-toolbar> <!-- toolbar viewer middle -->
-                    <div id="toolbarViewerRight">
-                      <pdf-draw-editor id="drawEditorTool"></pdf-draw-editor>
-                      <pdf-text-editor id="drawEditorTool"></pdf-text-editor>
-                      <div class="verticalToolbarSeparator hiddenSmallView"></div>
-                      <div class="toolbarButtonSpacer"></div>
-                      <pdf-shy-button
-                        [cssClass]="'always-visible' | responsiveCSSClass"
-                        class="Undo"
-                        title="Undo"
-                        primaryToolbarId="undo"
-                        l10nId="infinite_scroll"
-                        [order]="1"
-                        [closeOnClick]="true"
-                        (click)="undoChange()"
-                        image="<svg xmlns='http://www.w3.org/2000/svg' height='20' width='20' viewBox='0 0 512 512'><path fill='#747474' path d='M205 34.8c11.5 5.1 19 16.6 19 29.2v64H336c97.2 0 176 78.8 176 176c0 113.3-81.5 163.9-100.2 174.1c-2.5 1.4-5.3 1.9-8.1 1.9c-10.9 0-19.7-8.9-19.7-19.7c0-7.5 4.3-14.4 9.8-19.5c9.4-8.8 22.2-26.4 22.2-56.7c0-53-43-96-96-96H224v64c0 12.6-7.4 24.1-19 29.2s-25 3-34.4-5.4l-160-144C3.9 225.7 0 217.1 0 208s3.9-17.7 10.6-23.8l160-144c9.4-8.5 22.9-10.6 34.4-5.4z'/></svg>"
-                      ></pdf-shy-button>
-                      <div class="toolbarButtonSpacer"></div>
-                    </div>
-                  </div>
-                </ng-template>
+                <app-pdf-viewer
+                  [pdfUrl]="pdfUrl"
+                  (onAnnotationsLoaded)="checkNavigationArrows($event)">
+                </app-pdf-viewer>
                 <button mat-button *ngIf="!isSidebarHidden" (click)="previousCopy()" class="back-button2" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_back_ios</mat-icon></button>
                 <button mat-button *ngIf="!isSidebarHidden" (click)="nextCopy()" class="back-button3" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_forward_ios</mat-icon></button>
-                <mat-spinner *ngIf="this.pdfLoading"></mat-spinner>
             </div>
         </div>
     </div>
 </div>
-<div class="page-count" *ngIf="!this.pictureLoading || !this.disabledValidationcontainer">
+<div class="page-count" *ngIf="!this.disabledValidationcontainer">
     {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
 </div>
 </div>

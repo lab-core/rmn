@@ -35,6 +35,7 @@ import { TaskFilesDialogComponent } from './components/tasks-history/task-files-
 import { UserProfileComponent } from './components/user-profile/user-profile.component';
 import { ChangePasswordDialogComponent } from './components/user-profile/change-password-dialog/change-password-dialog.component';
 import { CreateUserDialogComponent } from './components/user-profile/create-user-dialog/create-user-dialog.component';
+import { PDFViewerComponent } from './components/pdf-viewer/pdf-viewer.component';
 import { TaskVerificationComponent } from './components/task-verification/task-verification.component';
 import { ValidationWarningDialogComponent } from './components/task-verification/validation-warning-dialog/validation-warning-dialog.component';
 import { TemplatesPageComponent } from './components/templates-page/templates-page.component';
@@ -64,6 +65,7 @@ import { RequestInterceptor } from './services/interceptor.service';
     UserProfileComponent,
     ChangePasswordDialogComponent,
     CreateUserDialogComponent,
+    PDFViewerComponent,
     TaskVerificationComponent,
     ValidationWarningDialogComponent,
     TemplatesPageComponent,

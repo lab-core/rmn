@@ -34,7 +34,7 @@ export class PDFSource {
   }
 
   canBeUsed(minutes, version=undefined) {
-    return !this.isOlderThan(minutes) && (version === undefined || this.version === version);
+    return this.annotations.length == 0 && !this.isOlderThan(minutes) && (version === undefined || this.version === version);
   }
 }
 

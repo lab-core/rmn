@@ -1235,7 +1235,7 @@ def save_new_version(filename):
 @verify_share_token(matricule=False, return_validity=True)
 def update_document(validity):
     request_form = request.form
-    required_fields = ["job_id", "document_index", "grades", "status"]
+    required_fields = ["job_id", "document_index", "status"]
     for field in required_fields:
         if field not in request_form:
             return Response(
@@ -1256,48 +1256,50 @@ def update_document(validity):
 
     job_id = str(request_form["job_id"])
     document_index = int(request_form["document_index"])
-    grades = [float(g) for g in json.loads(request_form["grades"])]
 
     # update the database
     db = mongo["RMN"]
     # first update question and job if any
-    if "question_index" in request_form:
-        grade = grades[0]
-        q_doc = db["job_questions"].find_one_and_update(
-            {"job_id": job_id, "document_index": document_index},
-            {"$set": {
-                "status": Document_Status.VALIDATED.value,
-                "grade": grade
-            }}
-        )
-        if q_doc is None:
-            return Response(response=json.dumps({"response": f"Error: question {document_index} not found."}),
-                            status=404)
+    if "grades" in request_form:
+        grades = [float(g) for g in json.loads(request_form["grades"])]
+        if "question_index" in request_form:
+            grade = grades[0]
+            q_doc = db["job_questions"].find_one_and_update(
+                {"job_id": job_id, "document_index": document_index},
+                {"$set": {
+                    "status": Document_Status.VALIDATED.value,
+                    "grade": grade
+                }}
+            )
+            if q_doc is None:
+                return Response(response=json.dumps({"response": f"Error: question {document_index} not found."}),
+                                status=404)
 
-        if validity != "all" and int(validity) != q_doc["question_index"]:
-            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=401)
+            # validity = None => logged user
+            if validity is not None and validity != "all" and int(validity) != q_doc["question_index"]:
+                return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=401)
 
-        q_index = int(request_form["question_index"]) - 1
-        r = db["job_documents"].update_one(
-            {"job_id": job_id, "filename": q_doc["basename"]},
-            {"$set": {
-                f"grades.{q_index}": grade
-            }}
-        )
-        if not r:
-            return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
+            q_index = int(request_form["question_index"]) - 1
+            r = db["job_documents"].update_one(
+                {"job_id": job_id, "filename": q_doc["basename"]},
+                {"$set": {
+                    f"grades.{q_index}": grade
+                }}
+            )
+            if not r:
+                return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
+                                status=404)
+        else:
+            grades = [float(g) for g in request_form["grades"]]
+            r = db["job_documents"].update_one(
+                {"job_id": job_id, "document_index": document_index},
+                {"$set": {
+                    "status": Document_Status.VALIDATED.value,
+                    "grades": grades
+                }}
+            )
+            return Response(response=json.dumps({"response": f"Error: document {document_index} not found."}),
                             status=404)
-    else:
-        grades = [float(g) for g in request_form["grades"]]
-        r = db["job_documents"].update_one(
-            {"job_id": job_id, "document_index": document_index},
-            {"$set": {
-                "status": Document_Status.VALIDATED.value,
-                "grades": grades
-            }}
-        )
-        return Response(response=json.dumps({"response": f"Error: document {document_index} not found."}),
-                        status=404)
 
     # replacing the previous file by the new one in storage if any
     if "file" in request.files:
@@ -1477,7 +1479,8 @@ def document_annotations(validity):
             status=404,
         )
 
-    if validity != "all" and int(validity) != doc["question_index"]:
+    # validity = None => logged user
+    if validity is not None and validity != "all" and int(validity) != doc["question_index"]:
         return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=404)
 
     rel_filepath = doc["rel_filepath"]

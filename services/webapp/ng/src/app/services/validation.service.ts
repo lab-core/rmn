@@ -26,7 +26,9 @@ export class ValidationService {
     if (questionIndex) {
       formData.set('question_index', questionIndex);
     }
-    formData.append('grades', JSON.stringify([grade]));
+    if (grade !== undefined) {
+      formData.append('grades', JSON.stringify([grade]));
+    }
     formData.append('status', status);
     if (version !== undefined) {
       formData.append('version', version.toString());
