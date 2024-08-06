@@ -34,33 +34,9 @@
         <div class="validation-container">
             <p *ngIf="this.disabledValidationcontainer">Aucune copie n'est prête à être validée.</p>
             <div class="picture-container" *ngIf="!this.disabledValidationcontainer">
-                <ngx-extended-pdf-viewer *ngIf="!this.pdfLoading"
-                    [src]="this.pdfSrc"
-                    [language]="'fr'"
-                    [showToolbar]="false"
-                    [showSidebarButton]="false"
-                    [showFindButton]="true"
-                    [showPagingButtons]="false"
-                    [showDrawEditor]="false"
-                    [showStampEditor]="false"
-                    [showTextEditor]="false"
-                    [showZoomButtons]="false"
-                    [showPresentationModeButton]="false"
-                    [showOpenFileButton]="false"
-                    [showPrintButton]="false"
-                    [showDownloadButton]="false"
-                    [showSecondaryToolbarButton]="false"
-                    [showRotateButton]="undefined"
-                    [showRotateCwButton]="false"
-                    [showRotateCcwButton]="false"
-                    [showHandToolButton]="false"
-                    [showScrollingButton]="false"
-                    [showSpreadButton]="false"
-                    [showPropertiesButton]="false">
-                </ngx-extended-pdf-viewer>
-                <button mat-button (click)="previousCopy()"class="back-button2"><mat-icon>arrow_back_ios</mat-icon></button>
-                <button mat-button (click)="nextCopy()"class="back-button3"><mat-icon>arrow_forward_ios</mat-icon></button>
-                <mat-spinner *ngIf="this.pdfLoading"></mat-spinner>
+              <app-pdf-viewer [pdfUrl]="pdfUrl" [hideToolbar]="true"></app-pdf-viewer>
+              <button mat-button (click)="previousCopy()"class="back-button2"><mat-icon>arrow_back_ios</mat-icon></button>
+              <button mat-button (click)="nextCopy()"class="back-button3"><mat-icon>arrow_forward_ios</mat-icon></button>
             </div>
             <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer">
                 <div class="check-list-container">

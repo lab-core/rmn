@@ -41,7 +41,7 @@ export class MatriculeVerificationComponent implements OnInit {
   validating: boolean = false;
 
   job: Map<string, any>;
-  pdfSrc: string;
+  pdfUrl: string;
 
   initialCopyIndex: number = -1;
   currentCopy: number = -1;
@@ -167,7 +167,7 @@ export class MatriculeVerificationComponent implements OnInit {
       this.pdfLoading = true;
       const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy);
       if (pdfSource.url) {
-        this.pdfSrc = pdfSource.url;
+        this.pdfUrl = pdfSource.url;
         // this.pdfModified = false;
         // // initialize pdf viewer options
         // if (!this.pdfViewerInitialized)

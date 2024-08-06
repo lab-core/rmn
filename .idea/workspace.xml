@@ -5,13 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/validation.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/validation.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/matricule-verification/matricule-verification.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/matricule-verification/matricule-verification.component.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/matricule-verification/matricule-verification.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/matricule-verification/matricule-verification.component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/matricule-verification/matricule-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/matricule-verification/matricule-verification.component.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
