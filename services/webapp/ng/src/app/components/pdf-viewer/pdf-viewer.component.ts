@@ -1,8 +1,14 @@
-import { Component, ElementRef, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from '@angular/core';
-import { NgxExtendedPdfViewerService, EditorAnnotation, FreeTextEditorAnnotation, InkEditorAnnotation,  pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
+import { Component, ElementRef, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ViewChild } from '@angular/core';
+import { NgxExtendedPdfViewerService, EditorAnnotation, FreeTextEditorAnnotation, InkEditorAnnotation,  PdfTextEditorComponent, PdfDrawEditorComponent, pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
 import { NotificationService } from 'src/app/services/notification.service';
 import { PDFSource } from 'src/app/services/documents.service';
 
+
+class AnnotationsChange {
+  path: any = undefined;
+  annotation: EditorAnnotation = undefined;
+  annotationsSnapshot: EditorAnnotation[] = undefined;
+}
 
 @Component({
   selector: 'app-pdf-viewer',
@@ -19,9 +25,22 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   pdfModified: boolean = false;
   pdfRendered: boolean = false;
 
+  annotationsHistory: AnnotationsChange[] = [];
+  nInkAnnotations: number;
+
   timeout: number = 50;
 
   @Output() onAnnotationsLoaded = new EventEmitter<boolean>();
+
+  @ViewChild(PdfTextEditorComponent)
+  pdfTextEditor: PdfTextEditorComponent;
+
+  @ViewChild(PdfDrawEditorComponent)
+  pdfDrawEditor: PdfDrawEditorComponent;
+
+  private listenersAdded = false;
+  private isDrawing = false;
+  private isErasing = false;
 
   constructor(private notificationService: NotificationService,
     private ngxService: NgxExtendedPdfViewerService) {
@@ -30,13 +49,16 @@ export class PDFViewerComponent implements OnInit, OnChanges {
       pdfDefaultOptions.doubleTapResetsZoomOnSecondDoubleTap = false;
   }
 
-  async ngOnInit(): Promise<void> {
-    console.log("Init pdf viewer");
-  }
+  async ngOnInit(): Promise<void> {}
 
   async ngOnChanges(changes: SimpleChanges) {
     this.pdfModified = false;
     this.pdfRendered = false;
+    this.listenersAdded = false;
+  }
+
+  public isWriting() {
+    return this.pdfTextEditor.isSelected;
   }
 
   public async renderAnnotations(annotations: EditorAnnotation[]) {
@@ -52,7 +74,8 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   }
 
   public async getRenderedPdfFile(filename: string, onlyIfModified: boolean=false) {
-    if (onlyIfModified && !this.pdfModified) {
+    // check if pdf has been modified
+    if (onlyIfModified && !this.pdfModified && this.annotationsHistory.length == 0) {
       return undefined;
     } else {
       const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
@@ -75,6 +98,10 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   }
 
   async onAnnotationEdited(e) {
+    const annotations: EditorAnnotation[] = this.getInkAnnotations();
+    if (!this.isWriting() && annotations.length != this.nInkAnnotations) {
+      this.annotationsHistory = [];  // flush history as at least one ink annotation has been added
+    }
     this.pdfModified = true;
   }
 
@@ -103,70 +130,95 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   }
 
   undoChange() {
-    let annotations: EditorAnnotation[] = this.ngxService.getSerializedAnnotations() || [];
-    // search for all InkEditorAnnotation (annotationType = 15)
-    const inkAnnotations: EditorAnnotation[] = annotations.filter(a => a.annotationType == 15);
-
+    const inkAnnotations: EditorAnnotation[] = this.getInkAnnotations();
+    this.nInkAnnotations = inkAnnotations.length;
     // if any ink annotations to remove
     if (inkAnnotations.length > 0) {
+      const change = new AnnotationsChange();
       // remove last element
       let lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1] as InkEditorAnnotation;
       if (lastInkAnnotation.paths.length > 1) {
-        lastInkAnnotation.paths.pop();  // remove last element
+        change.path = lastInkAnnotation.paths.pop();  // remove last element
       } else {
         // remove last annotation
-        inkAnnotations.pop();
+        change.annotation = inkAnnotations.pop();
       }
-      // remove all InkEditorAnnotation (annotationType = 15)
-      const filter = (serial: any) => serial.annotationType === 15;
-      this.ngxService.removeEditorAnnotations(filter);
-      // re add all of them minus the last element
-      inkAnnotations.forEach(a => {
-        this.ngxService.addEditorAnnotation(a);
-      });
+      this.annotationsHistory.push(change);
+      this.replaceAllInkAnnotations(inkAnnotations);
     } else {
       this.notificationService.showInfo("Aucune annotation à enlever. Veuillez utiliser une version précédente si nécessaire.", "Info");
     }
   }
 
   redoChange() {
-    let annotations: EditorAnnotation[] = this.ngxService.getSerializedAnnotations() || [];
-    // search for all InkEditorAnnotation (annotationType = 15)
-    const inkAnnotations: EditorAnnotation[] = annotations.filter(a => a.annotationType == 15);
-
-    // if any ink annotations to remove
-    if (inkAnnotations.length > 0) {
-      // remove last element
-      let lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1] as InkEditorAnnotation;
-      if (lastInkAnnotation.paths.length > 1) {
-        lastInkAnnotation.paths.pop();  // remove last element
-      } else {
-        // remove last annotation
-        inkAnnotations.pop();
+    if (this.annotationsHistory.length > 0) {
+      const change: AnnotationsChange = this.annotationsHistory.pop();
+      if (change.path) {
+        const inkAnnotations: EditorAnnotation[] = this.getInkAnnotations();
+        let lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1] as InkEditorAnnotation;
+        lastInkAnnotation.paths.push(change.path);
+        this.replaceAllInkAnnotations(inkAnnotations);
+      } else if (change.annotation) {
+        this.ngxService.addEditorAnnotation(change.annotation);
+        this.nInkAnnotations += 1;
       }
-      // remove all InkEditorAnnotation (annotationType = 15)
-      const filter = (serial: any) => serial.annotationType === 15;
-      this.ngxService.removeEditorAnnotations(filter);
-      // re add all of them minus the last element
-      inkAnnotations.forEach(a => {
-        this.ngxService.addEditorAnnotation(a);
-      });
     } else {
-      this.notificationService.showInfo("Aucune annotation à enlever. Veuillez utiliser une version précédente si nécessaire.", "Info");
+      this.notificationService.showInfo("Aucune annotation à rajouter.", "Info");
     }
   }
 
-  // function getMousePos(canvas, evt) {
-  //     var rect = canvas.getBoundingClientRect();
-  //     return {
-  //       x: evt.clientX - rect.left,
-  //       y: evt.clientY - rect.top
-  //     };
-  //   }
-  //   canvas.addEventListener('mousemove', function(evt) {
-  //     var mousePos = getMousePos(canvas, evt);
-  //     console.log('Mouse position: ' + mousePos.x + ',' + mousePos.y);
-  //   }, false);
+  getInkAnnotations(): EditorAnnotation[] {
+    let annotations: EditorAnnotation[] = this.ngxService.getSerializedAnnotations() || [];
+    // search for all InkEditorAnnotation (annotationType = 15)
+    return annotations.filter(a => a.annotationType == 15);
+  }
 
+  replaceAllInkAnnotations(inkAnnotations: EditorAnnotation[]) {
+    // remove all InkEditorAnnotation (annotationType = 15)
+    const filter = (serial: any) => serial.annotationType === 15;
+    this.ngxService.removeEditorAnnotations(filter);
+    // re add all of them minus the last element
+    inkAnnotations.forEach(a => {
+      this.ngxService.addEditorAnnotation(a);
+    });
+  }
 
+  erase() {
+    this.addCanvasListeners();
+    this.isErasing = !this.isErasing;
+    
+  }
+
+  private addCanvasListeners() {
+    const canvasColl = document.getElementsByClassName("canvasWrapper");
+    // add new rendered canvas (there are 2 canvas per page)
+    if (!this.listenersAdded) {
+      for (let i = 0; i < canvasColl.length; i++) {
+        const element = canvasColl[i];
+        const canvas: HTMLCanvasElement = element["childNodes"][0] as HTMLCanvasElement;
+        canvas.addEventListener('mousedown', (event) => this.onMouseDown(i, event));
+        canvas.addEventListener('mouseup', () => this.onMouseUp(i));
+        canvas.addEventListener('mousemove', (event) => this.onMouseMove(i, event));
+      }
+      this.listenersAdded = true;
+    }
+  }
+
+    private onMouseDown(page: number, event: MouseEvent): void {
+      this.isDrawing = true;
+
+    }
+
+    private onMouseUp(page: number): void {
+      this.isDrawing = false;
+
+    }
+
+    private onMouseMove(page: number, event: MouseEvent): void {
+      if (!this.isDrawing) return;
+
+      if (this.isErasing) {
+
+      }
+    }
 }

@@ -146,7 +146,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.enter', ['$event'])
   onKeydownHandler(event: KeyboardEvent) {
-    this.validateCurrentCopy();
+    if (!this.pdfViewer.isWriting()) {
+      this.validateCurrentCopy();
+    }
   }
 
   toggleSidebar() {
