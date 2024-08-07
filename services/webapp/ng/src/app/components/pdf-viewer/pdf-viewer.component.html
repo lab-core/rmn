@@ -6,11 +6,11 @@
     [handTool]="false"
     [textLayer]="false"
     [zoom]="page-width"
+    [customToolbar]="additionalButtons"
+    [showToolbar]="!hideToolbar"
     (pdfLoaded)="onPdfLoaded($event)"
     (annotationEditorEvent)="onAnnotationEdited($event)"
     (pageRendered)="onPageRendered($event)"
-    [customToolbar]="additionalButtons"
-    [showToolbar]="!hideToolbar"
     >
   </ngx-extended-pdf-viewer>
   <ng-template #additionalButtons>
@@ -18,12 +18,14 @@
       <div id="toolbarViewerLeft">
         <div class="toolbarButtonSpacer hiddenSmallView"></div>
         <pdf-text-editor id="textEditorTool"></pdf-text-editor>
+        <div class="toolbarButtonSpacer hiddenSmallView"></div>
+        <div class="verticalToolbarSeparator hiddenSmallView"></div>
       </div>
-      <pdf-zoom-toolbar></pdf-zoom-toolbar> <!-- toolbar viewer middle -->
+      <!-- <pdf-zoom-toolbar></pdf-zoom-toolbar> <!-- toolbar viewer middle -->
       <div id="toolbarViewerRight">
-        <pdf-draw-editor id="drawEditorTool"></pdf-draw-editor>
+        <pdf-draw-editor id="drawEditorTool" [cssClass]="'always-visible' | responsiveCSSClass"></pdf-draw-editor>
         <pdf-shy-button
-          [cssClass]="'always-visible' | responsiveCSSClass"
+          [cssClass]="'always-visible'"
           class="EraserTool"
           title="EraserTool"
           primaryToolbarId="eraserTool"

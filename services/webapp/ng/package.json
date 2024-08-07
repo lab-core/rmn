@@ -41,7 +41,7 @@
     "karma": "~6.3.0",
     "karma-chrome-launcher": "^3.1.0",
     "karma-coverage": "^2.0.3",
-    "ngx-extended-pdf-viewer": "^19.7.1",
+    "ngx-extended-pdf-viewer": "^21.1.0",
     "pdf-lib": "^1.17.1",
     "protractor": "~7.0.0",
     "semver": "^7.6.2",
