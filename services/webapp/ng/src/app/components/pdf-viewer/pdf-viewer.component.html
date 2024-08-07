@@ -23,6 +23,14 @@
       </div>
       <!-- <pdf-zoom-toolbar></pdf-zoom-toolbar> <!-- toolbar viewer middle -->
       <div id="toolbarViewerRight">
+        <div class="editorParamsToolbar hidden doorHangerRight" id="eraserParamsToolbar">
+          <div class="editorParamsToolbarContainer">
+            <div class="editorParamsSetter">
+              <label for="eraserThickness" class="editorParamsLabel">Épaisseur</label>
+              <input type="range" id="eraserThickness" class="editorParamsSlider" value="15" min="5" max="50" step="5" [(ngModel)]="radius"/>
+            </div>
+          </div>
+        </div>
         <pdf-draw-editor id="drawEditorTool" (click)="stopEraser()" [closeOnClick]="true" [cssClass]="'always-visible' | responsiveCSSClass"></pdf-draw-editor>
         <pdf-shy-button
           [cssClass]="'always-visible'"

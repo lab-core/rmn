@@ -367,14 +367,39 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   stopEraser() {
     this.isErasing = false;
     this.isDrawing = false;
+    this.closeEraserParams();
+  }
+
+  closeAll() {
+    let paramsColl = document.getElementsByClassName('editorParamsToolbar');
+    for (let i = 0; i < paramsColl.length; i++) {
+      paramsColl[i]['classList'].add('hidden');
+    }
+    let toolColl = document.getElementsByClassName('toolbarButton');
+    for (let i = 0; i < toolColl.length; i++) {
+      toolColl[i]['classList'].remove('toggled');
+    }
+  }
+
+  openEraserParams() {
+    document.getElementById('eraserParamsToolbar')['classList'].remove('hidden');
+    document.getElementById('eraserTool')['classList'].add('toggled');
+  }
+
+  closeEraserParams() {
+    document.getElementById('eraserParamsToolbar')['classList'].add('hidden');
+    document.getElementById('eraserTool')['classList'].remove('toggled');
   }
 
   erase() {
+    this.closeAll();
     this.isErasing = !this.isErasing;
     this.isDrawing = false;
     if (this.isErasing) {
+      this.openEraserParams();
       this.addCanvasListeners();
     } else {
+      this.closeEraserParams();
       this.disableCanvasInkEditor();
     }
   }
