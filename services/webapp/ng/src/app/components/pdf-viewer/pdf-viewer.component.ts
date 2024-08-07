@@ -7,7 +7,13 @@ import { PDFSource } from 'src/app/services/documents.service';
 class AnnotationsChange {
   path: any = undefined;
   annotation: InkEditorAnnotation = undefined;
-  annotationsSnapshot: InkEditorAnnotation[] = undefined;
+  eraser: EraserChange = undefined;
+
+  isEmpty() {
+    return this.path === undefined &&
+           this.annotation === undefined &&
+           this.eraser === undefined;
+  }
 }
 
 class EraserChange {
@@ -15,7 +21,7 @@ class EraserChange {
   annotationsSnapshot: InkEditorAnnotation[] = undefined;
   newAnnotations: BezierAnnotation[] = undefined;
   // number of annotation added after erasing (usefull when undo)
-  nAnnotationsAdded: number = 0;
+  nInkAnnotations: number = 0;
 
   constructor(annotationsSnapshot: InkEditorAnnotation[]) {
     this.annotationsSnapshot = annotationsSnapshot;
@@ -165,7 +171,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   private scaleFactor: number;
   private pageDefaultWidth = 612;
   private timeout: number = 50;
-  radius: number = 10;
+  radius: number = 20;
 
   constructor(private notificationService: NotificationService,
     private ngxService: NgxExtendedPdfViewerService) {
@@ -185,6 +191,13 @@ export class PDFViewerComponent implements OnInit, OnChanges {
 
   public isWriting() {
     return this.pdfTextEditor.isSelected;
+  }
+
+  getLastEraserChange() {
+    if (this.eraserHistory.length == 0) {
+      return undefined;
+    }
+    return this.eraserHistory[this.eraserHistory.length - 1];
   }
 
   public async renderAnnotations(annotations: EditorAnnotation[]) {
@@ -225,11 +238,13 @@ export class PDFViewerComponent implements OnInit, OnChanges {
 
   async onAnnotationEdited(e) {
     const annotations: EditorAnnotation[] = this.getInkAnnotations();
-    if (!this.isWriting() && annotations.length != this.nInkAnnotations) {
-      this.annotationsHistory = [];  // flush history as at least one ink annotation has been added
+    if (!this.isWriting()) {
+      if (annotations.length != this.nInkAnnotations) {
+        this.annotationsHistory = [];  // flush history as at least one ink annotation has been added
+        this.cleanInkEditors();
+      }
     }
     this.pdfModified = true;
-    this.cleanInkEditors();
   }
 
   initializePdfViewer(): void {
@@ -258,12 +273,21 @@ export class PDFViewerComponent implements OnInit, OnChanges {
 
   undoChange() {
     const inkAnnotations: InkEditorAnnotation[] = this.getInkAnnotations();
+    const eraserChange: EraserChange = this.getLastEraserChange();
     this.nInkAnnotations = inkAnnotations.length;
+    const change = new AnnotationsChange();
+    // if any eraser to remove
+    if (eraserChange !== undefined && eraserChange.nInkAnnotations === this.nInkAnnotations) {
+      this.eraserHistory.pop();
+      this.replaceAllInkAnnotations(eraserChange.annotationsSnapshot);
+      change.eraser = eraserChange;
+      this.annotationsHistory.push(change);
+    }
     // if any ink annotations to remove
-    if (inkAnnotations.length > 0) {
-      const change = new AnnotationsChange();
-      // remove last element
+    else if (inkAnnotations.length > 0) {
+      // get last annotation
       let lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1];
+      // remove last element
       if (lastInkAnnotation.paths.length > 1) {
         change.path = lastInkAnnotation.paths.pop();  // remove last element
       } else {
@@ -288,6 +312,11 @@ export class PDFViewerComponent implements OnInit, OnChanges {
       } else if (change.annotation) {
         this.ngxService.addEditorAnnotation(change.annotation);
         this.nInkAnnotations += 1;
+      } else {
+        let eraserChange: EraserChange = change.eraser;
+        let inkAnnotations = eraserChange.getInkAnnotations();
+        this.replaceAllInkAnnotations(inkAnnotations);
+        this.eraserHistory.push(eraserChange);
       }
     } else {
       this.notificationService.showInfo("Aucune annotation à rajouter.", "Info");
@@ -324,11 +353,20 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     for (let i = 0; i < editorColl.length; i++) {
       const element = editorColl[i];
       element['__zone_symbol__pointerdownfalse'] = [];  // remove drag
-      // if (element['childNodes'].length > 2) {
-      //   // element.removeChild(element['childNodes'][2]);
-      //   element.removeChild(element['childNodes'][0]);
-      // }
+      element['style']['pointerEvents'] = 'none';
+      element['classList'].remove('selectedEditor');
     }
+
+    // disable ink annotation pointers event
+    let annotationColl = document.getElementsByClassName('inkAnnotation');
+    for (let i = 0; i < annotationColl.length; i++) {
+      annotationColl[i]['style']['pointerEvents'] = 'none';
+    }
+  }
+
+  stopEraser() {
+    this.isErasing = false;
+    this.isDrawing = false;
   }
 
   erase() {
@@ -336,37 +374,12 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     this.isDrawing = false;
     if (this.isErasing) {
       this.addCanvasListeners();
-      // store a snapshot of the annotations
-      const inkAnnotations: InkEditorAnnotation[] = this.getInkAnnotations();
-      const eraserChange = new EraserChange(inkAnnotations);
-      this.eraserHistory.push(eraserChange);
     } else {
       this.disableCanvasInkEditor();
-      // remove the old annotations and add the new annotations if any
-      const eraserChange = this.eraserHistory[this.eraserHistory.length - 1];
-      if (eraserChange.used) {
-        this.pdfModified = true;
-        this.removeAllInkAnnotations();
-        let inkAnnotations = eraserChange.getInkAnnotations();
-        inkAnnotations.forEach((annotation: InkEditorAnnotation) => {
-            this.ngxService.addEditorAnnotation(annotation);
-        });
-        let annnottt = this.getInkAnnotations();
-        let jjj = 0;
-      } else {
-        // as it has not been used -> remove it
-        this.eraserHistory.pop();
-      }
     }
   }
 
   private addCanvasListeners() {
-    // disable ink annotation pointers event
-    let annotationColl = document.getElementsByClassName('inkAnnotation');
-    for (let i = 0; i < annotationColl.length; i++) {
-      annotationColl[i]['style']['pointerEvents'] = 'none';
-    }
-
     // register event for each page canvas
     this.canvases = new Map<number, HTMLCanvasElement[]>();
     let wrapperColl = document.getElementsByClassName('canvasWrapper');
@@ -401,12 +414,26 @@ export class PDFViewerComponent implements OnInit, OnChanges {
 
   private onMouseDown(e: Event): void {
     this.isDrawing = true;
-    this.eraserHistory[this.eraserHistory.length - 1].used = true;
-    this.annotationsHistory = [];  // flush history as erasing
+    // store a snapshot of the annotations
+    const inkAnnotations: InkEditorAnnotation[] = this.getInkAnnotations();
+    const eraserChange = new EraserChange(inkAnnotations);
+    this.eraserHistory.push(eraserChange);
   }
 
   private onMouseUp(): void {
     this.isDrawing = false;
+    // remove the old annotations and add the new annotations if any
+    const eraserChange = this.getLastEraserChange();
+    if (eraserChange.used) {
+      this.pdfModified = true;
+      this.annotationsHistory = [];  // flush history as erasing
+      let inkAnnotations = eraserChange.getInkAnnotations();
+      this.replaceAllInkAnnotations(inkAnnotations);
+      eraserChange.nInkAnnotations = inkAnnotations.length;
+    } else {
+      // as it has not been used -> remove it
+      this.eraserHistory.pop();
+    }
   }
 
   private onMouseMove(i: number, e: MouseEvent): void {
@@ -446,7 +473,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   }
 
   private eraseAnnotations(i: number, centerX: number, centerY: number) {
-    const eraserChange = this.eraserHistory[this.eraserHistory.length - 1];
+    const eraserChange = this.getLastEraserChange();
     const annotations: BezierAnnotation[] = eraserChange.newAnnotations;
     let modified = false;
     annotations.forEach(annotation => {
