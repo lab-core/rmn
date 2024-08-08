@@ -5,20 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/services/server/default_templates/config.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/server/default_templates/couverture/page_couverture_exam.docx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/server/default_templates/interieur/template_exam.tex" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/service/template_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/service/template_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/utils/box_converter.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/utils/box_converter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/new-exam-correction/new-exam-correction.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/new-exam-correction/new-exam-correction.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/template-editor/template-editor.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/template-editor/template-editor.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/templates-page/templates-page.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/templates-page/templates-page.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/templates-page/templates-page.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/templates-page/templates-page.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/template.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/template.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/user.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/user.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -197,7 +184,7 @@
       <workItem from="1721762400378" duration="40128000" />
       <workItem from="1722217467983" duration="614000" />
       <workItem from="1722218240744" duration="159557000" />
-      <workItem from="1723083701015" duration="10116000" />
+      <workItem from="1723083701015" duration="10724000" />
     </task>
     <servers />
   </component>

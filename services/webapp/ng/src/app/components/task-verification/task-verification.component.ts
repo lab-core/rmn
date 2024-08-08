@@ -465,7 +465,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       const filename = currentExam["filename"] + ".pdf";
       const file = await this.pdfViewer.getRenderedPdfFile(filename, !this.currentGradeModified);
       if (file !== undefined) {
-        this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations();
+        this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
         let validationResponse = await this.validationService.validateDocument(
             this.tasksService.getvalidatingTaskId(),
             this.currentCopy,

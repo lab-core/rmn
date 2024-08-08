@@ -167,6 +167,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   private isDrawing = false;
   private isErasing = false;
   private canvases: Map<number, HTMLCanvasElement[]>;
+  private touchId;
 
   private scaleFactor: number;
   private pageDefaultWidth = 612;
@@ -185,7 +186,6 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   async ngOnChanges(changes: SimpleChanges) {
     this.pdfModified = false;
     this.pdfRendered = false;
-    this.isErasing = false;
     this.isDrawing = false;
   }
 
@@ -268,6 +268,9 @@ export class PDFViewerComponent implements OnInit, OnChanges {
       });
       this.pdfAnnotations = [];
       this.onAnnotationsLoaded.emit(true);
+      if (this.isErasing) {
+        setTimeout(() => { this.addCanvasListeners() });
+      }
     });
   }
 
@@ -367,6 +370,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   stopEraser() {
     this.isErasing = false;
     this.isDrawing = false;
+    this.touchId = undefined;
     this.closeEraserParams();
   }
 
@@ -399,6 +403,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
       this.openEraserParams();
       this.addCanvasListeners();
     } else {
+      this.touchId = undefined;
       this.closeEraserParams();
       this.disableCanvasInkEditor();
     }
@@ -411,9 +416,12 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     for (let i = 0; i < wrapperColl.length; i++) {
       const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
       this.canvases.set(i, []);
-      canvas.addEventListener('mousedown', (event) => this.onMouseDown(event));
-      canvas.addEventListener('mouseup', () => this.onMouseUp());
+      canvas.addEventListener('mousedown', () => this.onEraserStart());
+      canvas.addEventListener('mouseup', () => this.onEraserEnd());
       canvas.addEventListener('mousemove', (event) => this.onMouseMove(i, event));
+      canvas.addEventListener('touchstart', (event) => this.onTouchStart(event));
+      canvas.addEventListener('touchend', (event) => this.onTouchEnd(event));
+      canvas.addEventListener('touchmove', (event) => this.onTouchMove(i, event));
     }
 
     // store ink editor canvas associated with each page
@@ -437,7 +445,15 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     }
   }
 
-  private onMouseDown(e: Event): void {
+  private onTouchStart(e: TouchEvent) {
+    if (this.touchId === undefined) {
+      const touch = e.targetTouches[0];
+      this.touchId = touch.identifier;
+      this.onEraserStart();
+    }
+  }
+
+  private onEraserStart(): void {
     this.isDrawing = true;
     // store a snapshot of the annotations
     const inkAnnotations: InkEditorAnnotation[] = this.getInkAnnotations();
@@ -445,7 +461,18 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     this.eraserHistory.push(eraserChange);
   }
 
-  private onMouseUp(): void {
+  private onTouchEnd(e: TouchEvent) {
+    for (let t=0; t<e.targetTouches.length; t++) {
+      const touch = e.targetTouches[t];
+      if (touch.identifier === this.touchId) {
+        this.onEraserEnd();
+        this.touchId = undefined;
+        break;
+      }
+    }
+  }
+
+  private onEraserEnd(): void {
     this.isDrawing = false;
     // remove the old annotations and add the new annotations if any
     const eraserChange = this.getLastEraserChange();
@@ -461,7 +488,21 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     }
   }
 
+  private onTouchMove(i: number, e: TouchEvent): void {
+    for (let t=0; t<e.touches.length; t++) {
+      const touch = e.touches[t];
+      if (touch.identifier === this.touchId) {
+        this.onMouve(i, touch.target, touch.clientX, touch.clientY);
+        break;
+      }
+    }
+  }
+
   private onMouseMove(i: number, e: MouseEvent): void {
+    this.onMouve(i, e.target, e.clientX, e.clientY);
+  }
+
+  private onMouve(i: number, target, clientX, clientY): void {
     // console.log(i, this.isErasing, this.isDrawing);
     if (!this.isDrawing || !this.isErasing) return;
     // erase drawing
@@ -469,15 +510,17 @@ export class PDFViewerComponent implements OnInit, OnChanges {
       // bounding box in browser
       const rect = canvas.getBoundingClientRect();
       // use position in browser
-      if (rect.left <= e.clientX && e.clientX <= rect.right &&
-          rect.top <= e.clientY && e.clientY <= rect.bottom) {
+      if (rect.left <= clientX && clientX <= rect.right &&
+          rect.top <= clientY && clientY <= rect.bottom) {
         // the mouse move on this canvas
-        this.eraseDraw(canvas, e.clientX - rect.left, e.clientY - rect.top);
+        this.eraseDraw(canvas, clientX - rect.x, clientY - rect.y);
       }
     });
     // erase annotations
-    const canvas: HTMLCanvasElement = e.target as HTMLCanvasElement;
-    const center = this.canvasToPdf(e.offsetX, e.offsetY, canvas);
+    const canvas: HTMLCanvasElement = target as HTMLCanvasElement;
+    const rect = canvas.getBoundingClientRect();
+    const offsetX = clientX - rect.x, offsetY = clientY - rect.y;
+    const center = this.canvasToPdf(offsetX, offsetY, canvas);
     this.eraseAnnotations(i, center[0], center[1]);
   }
 
@@ -512,13 +555,19 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     if (annotation.rect[1] < centerX && centerX < annotation.rect[3] &&
         annotation.rect[0] < centerY && centerY < annotation.rect[2]) {
       let newAnnotationPaths: BezierPath[] = [];
+      let modified = false;
       annotation.paths.forEach(path => {
         const newPaths: BezierPath[] = this.erasePoints(centerX, centerY, path);
-        newAnnotationPaths = [...newAnnotationPaths, ...newPaths];
+        if (newPaths === undefined) {
+          newAnnotationPaths.push(path);  // keep old unmodified path
+        } else {
+          modified = true;
+          newAnnotationPaths = [...newAnnotationPaths, ...newPaths];
+        }
       });
       annotation.paths = newAnnotationPaths;
       this.setRectangle(annotation);
-      return true;
+      return modified;
     }
     return false;
   }
@@ -528,22 +577,31 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     const newPaths: BezierPath[] = [];
     let newPath: BezierPath = new BezierPath();
     let bezierIndex = 0, radius2 = Math.pow(this.radius, 2);
+    let modified = false;
     for (let [x, y] of path.points) {
       // keep this (x,y) if far enough from center
       let dist = Math.pow(x-centerX, 2) + Math.pow(y-centerY, 2);
       if (dist >= radius2) {
         newPath.pushPoints(x, y);
-      } else if (newPath.points.length > 1) {
-        // do not consider a path too small or empty
-        newPaths.push(newPath);
-        newPath = new BezierPath();
+      } else {
+        modified = true;
+        if (newPath.points.length > 1) {
+          // do not consider a path too small or empty
+          newPaths.push(newPath);
+          newPath = new BezierPath();
+        }
       }
     }
     // add last new path
     if (newPath.points.length > 1) {
       newPaths.push(newPath);
     }
-    return newPaths;
+
+    if (modified) {
+      return newPaths;
+    } else {
+      return undefined;
+    }
   }
 
   private setRectangle(annotation: BezierAnnotation) {
