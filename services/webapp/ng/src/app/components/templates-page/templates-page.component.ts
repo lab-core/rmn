@@ -9,6 +9,8 @@ import { NewTemplateDialogComponent } from './new-template-dialog/new-template-d
 import { DeleteTemplateDialogComponent } from './delete-template-dialog/delete-template-dialog.component';
 import { SERVER_URL } from 'src/app/utils';
 import { filter } from 'rxjs/operators';
+import { saveAs } from 'file-saver';
+
 
 @Component({
   selector: 'app-templates-page',
@@ -86,6 +88,7 @@ export class TemplatesPageComponent implements OnInit {
 
         this.templateService.setTemplateName(data["response"]["template_name"]);
         this.templateService.setTemplateId(data["response"]["template_id"]);
+        this.templateService.setLocked(data["response"]["locked"]);
 
         const formdata: FormData = new FormData();
         this.userService.addTokens(formdata);
@@ -99,6 +102,20 @@ export class TemplatesPageComponent implements OnInit {
     });
   }
 
+  downloadSource(template: Map<string, string>): void {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('template_id', template["template_id"]);
+    this.http.post(`${SERVER_URL}template/download/src`, formdata, {responseType: 'blob'}).subscribe(
+      (data) => {
+        const file = new Blob([data]);
+        let downloadURL = window.URL.createObjectURL(file);
+        saveAs(downloadURL, template["src_name"]);
+      },
+      (error) => {
+        console.error(error);
+    });
+  }
 
   openNewTemplateDialog(): void {
     this.dialog.open(NewTemplateDialogComponent, {

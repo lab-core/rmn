@@ -237,7 +237,7 @@ export class NewExamCorrectionComponent implements OnInit {
     this.userService.addTokens(formdata);
     this.http.post<any>(`${SERVER_URL}user/template`, formdata).subscribe(
       (data) => {
-        this.templates = data['response'];
+        this.templates = data['response'].filter((temp) => { return !temp.locked; });
         if (this.templates.length === 0) {
           this.notifyService.showWarning("Veuillez créer un template avant de commencer une correction.", "Avertissement");
           this.disabled = true;

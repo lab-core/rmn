@@ -12,6 +12,7 @@ export class TemplateService {
 
   templateName: string;
   templateId: string;
+  locked: boolean = false;
 
   constructor() { }
 
@@ -51,5 +52,13 @@ export class TemplateService {
 
   getTemplateId() {
     return this.templateId;
+  }
+
+  setLocked(locked: boolean) {
+    this.locked = locked;
+  }
+
+  getLocked() {
+    return this.locked;
   }
 }

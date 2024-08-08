@@ -5,10 +5,20 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/services/server/default_templates/config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/services/server/default_templates/couverture/page_couverture_exam.docx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/services/server/default_templates/interieur/template_exam.tex" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/server/service/template_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/service/template_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/server/utils/box_converter.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/utils/box_converter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/new-exam-correction/new-exam-correction.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/new-exam-correction/new-exam-correction.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/template-editor/template-editor.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/template-editor/template-editor.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/templates-page/templates-page.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/templates-page/templates-page.component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/templates-page/templates-page.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/templates-page/templates-page.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/template.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/template.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/user.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/user.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -57,7 +67,7 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
     &quot;git-widget-placeholder&quot;: &quot;setup&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/legraina/git/rmn/services/socketIO&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/legraina/git/rmn/services/server/default_templates&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -69,16 +79,18 @@
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/services/server/default_templates" />
+      <recent name="$PROJECT_DIR$/templates" />
       <recent name="$PROJECT_DIR$/services/socketIO" />
       <recent name="$PROJECT_DIR$/services/server" />
       <recent name="$PROJECT_DIR$/storage/cover_pages/2d86b161-ac4f-437d-a5fb-ae3cbd090992" />
-      <recent name="$PROJECT_DIR$/services/executor/tmp2/extract/copies" />
-      <recent name="$PROJECT_DIR$/storage/documents" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/services/server/default_templates" />
+      <recent name="$PROJECT_DIR$/services/server/default_templates/page_couverture" />
+      <recent name="$PROJECT_DIR$/services/server/default_templates/page_cahier_examen" />
       <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/storage/cover_pages/2d86b161-ac4f-437d-a5fb-ae3cbd090992" />
-      <recent name="$PROJECT_DIR$/services/executor/utils" />
     </key>
   </component>
   <component name="RunManager" selected="Python.exec">
@@ -185,6 +197,7 @@
       <workItem from="1721762400378" duration="40128000" />
       <workItem from="1722217467983" duration="614000" />
       <workItem from="1722218240744" duration="159557000" />
+      <workItem from="1723083701015" duration="10116000" />
     </task>
     <servers />
   </component>
@@ -222,7 +235,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/server/app.py</url>
-          <line>1221</line>
+          <line>1228</line>
           <option name="timeStamp" value="25" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -264,7 +277,7 @@
     <SUITE FILE_PATH="coverage/rmn$app.coverage" NAME="app Coverage Results" MODIFIED="1722621700114" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/server" />
     <SUITE FILE_PATH="coverage/rmn$config.coverage" NAME="config Coverage Results" MODIFIED="1721796042838" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/python/process_copy" />
     <SUITE FILE_PATH="coverage/rmn$test.coverage" NAME="test Coverage Results" MODIFIED="1721796076415" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
-    <SUITE FILE_PATH="coverage/rmn$exec.coverage" NAME="exec Coverage Results" MODIFIED="1722748795250" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
+    <SUITE FILE_PATH="coverage/rmn$exec.coverage" NAME="exec Coverage Results" MODIFIED="1723092825243" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
     <SUITE FILE_PATH="coverage/rmn$split_and_merge.coverage" NAME="split_and_merge Coverage Results" MODIFIED="1716597389703" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/utils" />
     <SUITE FILE_PATH="coverage/rmn$recognize.coverage" NAME="recognize Coverage Results" MODIFIED="1721795247863" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/python/process_copy" />
   </component>

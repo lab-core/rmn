@@ -58,7 +58,7 @@ def check_token(form, role=None):
             status=401,
         ), None
     if ("user_id" in form and form["user_id"] != username) or \
-            ("username" in form and form["username"] != username):
+            ("username" in form and form["username"] != username and "user_id" not in form):
         print(f"Error: token belongs to username {username}.")
         return Response(
             response=json.dumps({"response": "Error: token belongs to another username."}),
@@ -387,7 +387,7 @@ def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_n
 @verify_token()
 def create_template(user_id):
     db = mongo["RMN"]
-    return TemplateService.create_template(request, db, storage)
+    return TemplateService.create_user_template(request, db, storage)
 
 
 @app.route("/user/template", methods=["POST"])
@@ -420,6 +420,13 @@ def get_template_info(user_id):
 def download_template(user_id):
     db = mongo["RMN"]
     return TemplateService.download_template_file(request, db, storage)
+
+@app.route("/template/download/src", methods=["post"])
+@cross_origin()
+@verify_token()
+def download_template_source(user_id):
+    db = mongo["RMN"]
+    return TemplateService.download_template_source(request, db)
 
 
 @app.route("/template/modify", methods=["POST"])
@@ -1724,6 +1731,11 @@ def admin_change_password():
     db = mongo["RMN"]
     return UserService.change_password(request, db, False)
 
+@app.route("/admin/template", methods=["POST"])
+@cross_origin()
+def create_default_template():
+    db = mongo["RMN"]
+    return TemplateService.add_default_templates(request.form.get('user_id'), db, storage)
 
 @app.route("/front_page", methods=["POST"])
 @cross_origin()

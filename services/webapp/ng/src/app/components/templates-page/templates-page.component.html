@@ -25,7 +25,8 @@
                     </div>
                     <div class="template-actions">
                         <mat-icon class="edit-icon" (click)="editTemplate(template)">edit</mat-icon>
-                        <mat-icon class="delete-icon" (click)="openDeleteDialog(template)">delete</mat-icon>
+                        <mat-icon class="download-icon" (click)="downloadSource(template)" *ngIf="template.src_name">download</mat-icon>
+                        <mat-icon class="delete-icon" (click)="openDeleteDialog(template)" *ngIf="!template.locked">delete</mat-icon>
                     </div>
                 </div>
             </div>

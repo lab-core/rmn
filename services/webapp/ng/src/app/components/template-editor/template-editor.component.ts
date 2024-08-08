@@ -43,6 +43,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
     } else {
       this.templateName = this.templateService.getTemplateName();
       this.rectangleService.initExistingRects();
+      this.disabled = this.templateService.getLocked();
     }
 
     this.joinSocket();
@@ -81,7 +82,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
           await this.templateService.createNewTemplate(file);
           await this.loadTemplate();
           this.notifyService.showSuccess("Le template a été mis à jour.", "Rendu");
-          this.disabled = false;
+          this.disabled = this.templateService.getLocked();
       });
     });
   }

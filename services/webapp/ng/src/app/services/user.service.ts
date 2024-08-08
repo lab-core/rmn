@@ -85,7 +85,7 @@ export class UserService {
 
   signup(username, password, role) {
     const formdata: FormData = new FormData();
-    formdata.append('token', this.token);
+    this.addTokens(formdata);
     formdata.append('username', username);
     formdata.append('password', password);
     formdata.append('role', role);
