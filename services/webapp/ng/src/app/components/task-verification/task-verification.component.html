@@ -52,7 +52,7 @@
               </div>
         </div>
         <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
-          <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer">
+          <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer" [ngClass]="{'expanded': isSidebarHidden}">
             <div class="validation-block">
               <div *ngIf="isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
                   <mat-icon>visibility</mat-icon>
@@ -85,7 +85,7 @@
                     </button>
                 </div>
               </div>
-              <div class="validation-block">
+              <div class="version-block" [ngClass]="{'expanded': isSidebarHidden}">
                 <div class="version-container">
                   <h3>Version ({{currentVersion}})</h3>
                   <!-- <input type="number"

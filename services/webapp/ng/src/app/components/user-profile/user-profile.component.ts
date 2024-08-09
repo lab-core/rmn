@@ -26,7 +26,6 @@ export class UserProfileComponent implements OnInit {
         width: '30%',
         height: '60%'
       })
-
   }
 
   openCreateUserDialog(): void {
@@ -34,7 +33,6 @@ export class UserProfileComponent implements OnInit {
       width: '30%',
       height: '73%'
     })
-
   }
 
   updateSaveVerifiedImagesValue(saveVerifiedImages: boolean): void {

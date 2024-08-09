@@ -83,11 +83,13 @@ export class TaskFilesDialogComponent implements OnInit {
       height: '40%',
       data: data
     }).afterClosed().subscribe(resp => {
-      if (resp.success) {
-        if (resp.message)
-          this.notifyService.showSuccess(resp.message, "Succès!");
-      } else if (resp.message) {
-          this.notifyService.showError(resp.message, "Erreur!");
+      if (resp !== undefined) {
+        if (resp.success) {
+          if (resp.message)
+            this.notifyService.showSuccess(resp.message, "Succès!");
+        } else if (resp.message) {
+            this.notifyService.showError(resp.message, "Erreur!");
+        }
       }
     }, (error) => {
       console.error(error);

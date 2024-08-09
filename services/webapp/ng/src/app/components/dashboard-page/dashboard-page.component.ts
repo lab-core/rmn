@@ -310,11 +310,13 @@ export class DashboardPageComponent {
       height: '40%',
       data: data
     }).afterClosed().subscribe(resp => {
-      if (resp.success) {
-        if (resp.message)
-          this.notificationService.showSuccess(resp.message, "Succès!");
-      } else if (resp.message) {
-          this.notificationService.showError(resp.message, "Erreur!");
+      if (resp !== undefined) {
+        if (resp.success) {
+          if (resp.message)
+            this.notificationService.showSuccess(resp.message, "Succès!");
+        } else if (resp.message) {
+            this.notificationService.showError(resp.message, "Erreur!");
+        }
       }
     }, (error) => {
       console.error(error);
