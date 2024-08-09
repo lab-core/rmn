@@ -32,3 +32,9 @@ ngx-extended-pdf-viewer {
   -ms-user-select: none; /* IE 10 and IE 11 */
   user-select: none; /* Standard syntax */
 }
+
+@media (max-width: 800px) {
+  pdf-zoom-toolbar {
+    visibility: hidden;
+  }
+}

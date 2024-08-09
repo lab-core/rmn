@@ -21,7 +21,7 @@
         <div class="toolbarButtonSpacer hiddenSmallView"></div>
         <div class="verticalToolbarSeparator hiddenSmallView"></div>
       </div>
-      <!-- <pdf-zoom-toolbar></pdf-zoom-toolbar> <!-- toolbar viewer middle -->
+      <pdf-zoom-toolbar></pdf-zoom-toolbar>
       <div id="toolbarViewerRight">
         <div class="editorParamsToolbar hidden doorHangerRight" id="eraserParamsToolbar">
           <div class="editorParamsToolbarContainer">
@@ -31,7 +31,7 @@
             </div>
           </div>
         </div>
-        <pdf-draw-editor id="drawEditorTool" (click)="closeEraser()" [closeOnClick]="true" [cssClass]="'always-visible' | responsiveCSSClass"></pdf-draw-editor>
+        <pdf-draw-editor id="drawEditorTool" (click)="closeEraser()" [closeOnClick]="true" [cssClass]="'always-visible'"></pdf-draw-editor>
         <pdf-shy-button
           [cssClass]="'always-visible'"
           class="EraserTool"
