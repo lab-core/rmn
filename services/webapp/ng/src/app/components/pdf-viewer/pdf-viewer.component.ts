@@ -60,10 +60,6 @@ class BezierPath {
     this.points.push([x,y]);
   }
 
-  pushBezier(x, y) {
-    this.bezier.push([x, y]);
-  }
-
   toObject() {
     let points = [], bezier = [];
     this.points.forEach(([x,y]) => {
@@ -83,7 +79,7 @@ class BezierPath {
   generateBezierPoints() {
     const path = this.points;
     if (path.length <= 2) {
-      this.bezier = [path[0], path[0], path[1], path[1]];
+      this.bezier = [path[0], path[0], path[path.length-1], path[path.length-1]];
       return;
     }
     this.bezier = [];
@@ -130,6 +126,9 @@ class BezierAnnotation {
     this.inkAnnotation.rect = this.rect;
     this.inkAnnotation.paths = [];
     this.paths.forEach(path => {
+      if (path === undefined) {
+        console.log('path undefined')
+      }
       path.generateBezierPoints();
       this.inkAnnotation.paths.push(path.toObject());
     });
@@ -272,8 +271,8 @@ export class PDFViewerComponent implements OnInit, OnChanges {
       });
       this.pdfAnnotations = [];
       this.onAnnotationsLoaded.emit(true);
+      this.cleanInkEditors();
       if (this.isErasing) {
-        this.cleanInkEditors();
         this.addCanvasListeners();
       }
       this.observeAnnotationEditorLayer();
@@ -357,6 +356,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   }
 
   private cleanInkEditors() {
+    // disable ink annotation pointers event
     let editorColl = document.getElementsByClassName('inkEditor');
     // add new rendered canvas
     for (let i = 0; i < editorColl.length; i++) {
@@ -462,9 +462,11 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     this.removeCanvasListeners();
     // register event for each page canvas
     this.eventListeners = [];
-    let wrapperColl = document.getElementsByClassName('canvasWrapper');
+    let wrapperColl = document.getElementsByClassName('textLayer');
     for (let i = 0; i < wrapperColl.length; i++) {
-      const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
+      // const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
+      const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
+
       var self = this;
       const eventListeners = {};
       eventListeners['mousedown'] = function() { return self.onEraserStart() };
@@ -482,11 +484,16 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   }
 
   private removeCanvasListeners() {
-    let wrapperColl = document.getElementsByClassName('canvasWrapper');
+    let wrapperColl = document.getElementsByClassName('textLayer');
     for (let i = 0; i < this.eventListeners.length; i++) {
-      const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
-      for (let k in this.eventListeners[i]) {
-        canvas.removeEventListener(k, this.eventListeners[i][k]);
+      // remove the listeners on the child if the canvas still exists
+      if (wrapperColl[i]) {
+        // const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
+        const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
+
+        for (let k in this.eventListeners[i]) {
+          canvas.removeEventListener(k, this.eventListeners[i][k]);
+        }
       }
     }
     this.eventListeners = [];
