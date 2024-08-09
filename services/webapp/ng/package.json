@@ -1,14 +1,15 @@
 {
-  "name": "cadriciel",
+  "name": "rmn",
   "version": "1.0.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --poll 1",
-    "build": "ng build --watch -c development",
-    "prod": "ng build",
+    "build": "ng build",
+    "watch": "ng build --watch -c development",
     "test": "ng test",
     "lint": "ng lint",
-    "e2e": "ng e2e"
+    "e2e": "ng e2e",
+    "profile": "ng build --stats-json && webpack-bundle-analyzer dist/rmn/stats.json"
   },
   "private": true,
   "dependencies": {
@@ -51,6 +52,7 @@
     "semver": "^7.6.3",
     "ts-node": "~10.9.2",
     "typescript": "^5.5.4",
-    "typescript-eslint": "^8.0.0"
+    "typescript-eslint": "^8.0.0",
+    "webpack-bundle-analyzer": "^4.10.2"
   }
 }

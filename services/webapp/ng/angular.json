@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "cadriciel": {
+    "rmn": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -13,7 +13,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "outputPath": "dist/cadriciel",
+            "outputPath": "dist/rmn",
             "index": "src/index.html",
             "main": "src/main.ts",
             "polyfills": "src/polyfills.ts",
@@ -81,14 +81,14 @@
           "options": {
             "port": 80,
             "host": "0.0.0.0",
-            "buildTarget": "cadriciel:build:development",
+            "buildTarget": "rmn:build:development",
             "verbose": true
           }
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "buildTarget": "cadriciel:build"
+            "buildTarget": "rmn:build"
           }
         },
         "test": {
@@ -123,11 +123,11 @@
           "builder": "@angular-devkit/build-angular:protractor",
           "options": {
             "protractorConfig": "e2e/protractor.conf.js",
-            "devServerTarget": "cadriciel:serve"
+            "devServerTarget": "rmn:serve"
           },
           "configurations": {
             "production": {
-              "devServerTarget": "cadriciel:serve:production"
+              "devServerTarget": "rmn:serve:production"
             }
           }
         }

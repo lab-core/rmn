@@ -6,7 +6,7 @@ COPY ng/package*.json ./
 RUN npm install
 
 COPY ng/ .
-RUN npm run prod
+RUN npm run build
 
 #stage 2
 FROM nginx:stable-alpine
