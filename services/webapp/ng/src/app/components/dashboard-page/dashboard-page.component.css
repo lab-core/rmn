@@ -125,11 +125,6 @@ button:hover {
   font-size: 90%;
   transition: 0.3s;
   padding: 10px;
-  box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
-  -moz-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52 0.7);
-  -webkit-box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
-  -o-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
-  -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
 }
 
 /* .validate-job-button:hover {
