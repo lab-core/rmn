@@ -400,16 +400,16 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     var that = this;
 
     // Select the node that will be observed for mutations
-    // const editorColl = document.getElementsByClassName("annotationEditorLayer");
-    // for (let i = 0; i < editorColl.length; i++) {
-    //   // Create an observer instance linked to the callback function
-    //   const observer = new MutationObserver((mutationList, observer) => {
-    //     // this.cleanInkEditors();
-    //   });
-    //   // Start observing the target node for configured mutations
-    //   observer.observe(editorColl[i], config);
-    //   this.observers.push(observer);
-    // }
+    const editorColl = document.getElementsByClassName("annotationEditorLayer");
+    for (let i = 0; i < editorColl.length; i++) {
+      // Create an observer instance linked to the callback function
+      const observer = new MutationObserver((mutationList, observer) => {
+        setTimeout(() => { this.cleanInkEditors() });
+      });
+      // Start observing the target node for configured mutations
+      observer.observe(editorColl[i], config);
+      this.observers.push(observer);
+    }
   }
 
   stopObservers() {
@@ -655,7 +655,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
         newPath.pushPoints(x, y);
       } else {
         modified = true;
-        if (newPath.points.length > 1) {
+        if (newPath.points.length > 0) {
           // do not consider a path too small or empty
           newPaths.push(newPath);
           newPath = new BezierPath();
@@ -665,7 +665,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
 
     if (modified) {
       // add last new path if necessary
-      if (newPath.points.length > 1) {
+      if (newPath.points.length > 0) {
         newPaths.push(newPath);
       }
       return newPaths;
