@@ -110,13 +110,10 @@
           }
         },
         "lint": {
-          "builder": "@angular-devkit/build-angular:tslint",
+          "builder": "@angular-eslint/builder:lint",
           "options": {
-            "tsConfig": [
-              "tsconfig.app.json",
-              "tsconfig.spec.json",
-              "e2e/tsconfig.json"
-            ],
+            "eslintConfig": "eslint.config.mjs",
+            "lintFilePatterns": ["**/*.spec.ts", "**/*.ts"],
             "exclude": [
               "**/node_modules/**"
             ]
@@ -137,7 +134,6 @@
       }
     }
   },
-  "defaultProject": "cadriciel",
   "cli": {
     "analytics": false
   }

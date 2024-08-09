@@ -5,7 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/services/webapp/.dockerignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/Dockerfile-dev" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/Dockerfile-dev" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/angular.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/angular.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/interceptor.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/interceptor.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

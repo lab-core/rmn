@@ -1,5 +1,5 @@
 #stage 1
-FROM node:18.13 as node
+FROM node:22 as node
 WORKDIR /app
 
 COPY ng/package*.json ./

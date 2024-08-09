@@ -229,7 +229,9 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     return this.ngxService.getSerializedAnnotations();
   }
 
-  async onPdfLoaded(e) {}
+  async onPdfLoaded(e) {
+    console.log("Loaded");
+  }
 
   async onPageRendered(e) {
     if (!this.pdfRendered) {

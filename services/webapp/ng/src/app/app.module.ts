@@ -1,6 +1,6 @@
 // modules
 import { BrowserModule } from '@angular/platform-browser';
-import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { CSP_NONCE, NgModule } from '@angular/core';
 import { AppRoutingModule } from './app-routing.module';
 import { MatCardModule } from "@angular/material/card";
@@ -54,69 +54,63 @@ import { MatriculeVerificationComponent } from './components/matricule-verificat
 import { RequestInterceptor } from './services/interceptor.service';
 
 
-@NgModule({
-  declarations: [
-    AppComponent,
-    LoginPageComponent,
-    MainMenuComponent,
-    TasksHistoryComponent,
-    TaskFilesDialogComponent,
-    TaskShareDialogComponent,
-    UserProfileComponent,
-    ChangePasswordDialogComponent,
-    CreateUserDialogComponent,
-    PDFViewerComponent,
-    TaskVerificationComponent,
-    ValidationWarningDialogComponent,
-    TemplatesPageComponent,
-    NewTemplateDialogComponent,
-    TemplateEditorComponent,
-    DeleteTemplateDialogComponent,
-    PresentationPageComponent,
-    UserGuideComponent,
-    NewExamCorrectionComponent,
-    TaskRetryDialogComponent,
-    DashboardPageComponent,
-    MatriculeVerificationComponent,
-  ],
-  imports: [
-    BrowserModule,
-    HttpClientModule,
-    AppRoutingModule,
-    BrowserAnimationsModule,
-    MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatTableModule,
-    MatCheckboxModule,
-    MatPaginatorModule,
-    MatSortModule,
-    MatProgressSpinnerModule,
-    MatListModule,
-    FormsModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatSelectModule,
-    MatStepperModule,
-    MatInputModule,
-    NgSelectModule,
-    MatButtonToggleModule,
-    MatSlideToggleModule,
-    ReactiveFormsModule,
-    NgxExtendedPdfViewerModule,
-    ToastrModule.forRoot()
-  ],
-  providers: [
-    // {
-    //   provide: CSP_NONCE,
-    //   useValue: 'random_nonce_value'
-    // },
-    {
-      provide: HTTP_INTERCEPTORS,
-      useClass: RequestInterceptor,
-      multi: true,
-    }
-  ],
-  bootstrap: [AppComponent]
-})
+@NgModule({ declarations: [
+        AppComponent,
+        LoginPageComponent,
+        MainMenuComponent,
+        TasksHistoryComponent,
+        TaskFilesDialogComponent,
+        TaskShareDialogComponent,
+        UserProfileComponent,
+        ChangePasswordDialogComponent,
+        CreateUserDialogComponent,
+        PDFViewerComponent,
+        TaskVerificationComponent,
+        ValidationWarningDialogComponent,
+        TemplatesPageComponent,
+        NewTemplateDialogComponent,
+        TemplateEditorComponent,
+        DeleteTemplateDialogComponent,
+        PresentationPageComponent,
+        UserGuideComponent,
+        NewExamCorrectionComponent,
+        TaskRetryDialogComponent,
+        DashboardPageComponent,
+        MatriculeVerificationComponent,
+    ],
+    bootstrap: [AppComponent], imports: [BrowserModule,
+        AppRoutingModule,
+        BrowserAnimationsModule,
+        MatCardModule,
+        MatButtonModule,
+        MatIconModule,
+        MatTableModule,
+        MatCheckboxModule,
+        MatPaginatorModule,
+        MatSortModule,
+        MatProgressSpinnerModule,
+        MatListModule,
+        FormsModule,
+        MatDialogModule,
+        MatFormFieldModule,
+        MatSelectModule,
+        MatStepperModule,
+        MatInputModule,
+        NgSelectModule,
+        MatButtonToggleModule,
+        MatSlideToggleModule,
+        ReactiveFormsModule,
+        NgxExtendedPdfViewerModule,
+        ToastrModule.forRoot()], providers: [
+        // {
+        //   provide: CSP_NONCE,
+        //   useValue: 'random_nonce_value'
+        // },
+        {
+            provide: HTTP_INTERCEPTORS,
+            useClass: RequestInterceptor,
+            multi: true,
+        },
+        provideHttpClient(withInterceptorsFromDi())
+    ] })
 export class AppModule { }
