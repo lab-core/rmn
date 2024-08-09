@@ -167,12 +167,13 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   private isDrawing = false;
   private isErasing = false;
   private canvases: Map<number, HTMLCanvasElement[]>;
-  private touchId;
+  private eventListeners = [];
+  private touchType = undefined;   // 'direct' -> finger
 
-  private scaleFactor: number;
-  private pageDefaultWidth = 612;
   private timeout: number = 50;
   radius: number = 20;
+
+  observers = [];
 
   constructor(private notificationService: NotificationService,
     private ngxService: NgxExtendedPdfViewerService) {
@@ -187,6 +188,8 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     this.pdfModified = false;
     this.pdfRendered = false;
     this.isDrawing = false;
+    this.removeCanvasListeners();
+    this.stopObservers();
   }
 
   public isWriting() {
@@ -241,7 +244,6 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     if (!this.isWriting()) {
       if (annotations.length != this.nInkAnnotations) {
         this.annotationsHistory = [];  // flush history as at least one ink annotation has been added
-        this.cleanInkEditors();
       }
     }
     this.pdfModified = true;
@@ -269,8 +271,10 @@ export class PDFViewerComponent implements OnInit, OnChanges {
       this.pdfAnnotations = [];
       this.onAnnotationsLoaded.emit(true);
       if (this.isErasing) {
-        setTimeout(() => { this.addCanvasListeners() });
+        this.cleanInkEditors();
+        this.addCanvasListeners();
       }
+      this.observeAnnotationEditorLayer();
     });
   }
 
@@ -355,9 +359,21 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     // add new rendered canvas
     for (let i = 0; i < editorColl.length; i++) {
       const element = editorColl[i];
+      // do not touch to the editing canvas as necessary to draw etc ...
       element['__zone_symbol__pointerdownfalse'] = [];  // remove drag
-      element['style']['pointerEvents'] = 'none';
-      element['classList'].remove('selectedEditor');
+      if (element['childNodes'].length > 1) {
+        element['style']['pointerEvents'] = 'none';
+        element['classList'].remove('selectedEditor');
+        element['classList'].remove('draggable');
+        element['childNodes'][0]['classList'].add('disabled');
+        element['childNodes'][2]['classList'].add('disabled');
+        element['childNodes'][0]['classList'].add('hidden');
+        element['childNodes'][2]['classList'].add('hidden');
+      } else if (this.isErasing) {
+        // disable drawing canvas
+        // element['style']['pointerEvents'] = 'none';
+        // element['classList'].remove('selectedEditor');
+      }
     }
 
     // disable ink annotation pointers event
@@ -367,94 +383,145 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     }
   }
 
-  stopEraser() {
-    this.isErasing = false;
-    this.isDrawing = false;
-    this.touchId = undefined;
-    this.closeEraserParams();
+  private enableCanvasInkEditor() {
+    // let annotationColl = document.getElementsByClassName('inkEditor');
+    // for (let i = 0; i < annotationColl.length; i++) {
+    //   if (annotationColl[i]['childNodes'].length <= 1) {
+    //     annotationColl[i]['style']['pointerEvents'] = '';
+    //   }
+    // }
   }
 
-  closeAll() {
-    let paramsColl = document.getElementsByClassName('editorParamsToolbar');
-    for (let i = 0; i < paramsColl.length; i++) {
-      paramsColl[i]['classList'].add('hidden');
-    }
+  private observeAnnotationEditorLayer() {
+    // Options for the observer (which mutations to observe)
+    const config = { childList: true };
+    var that = this;
+
+    // Select the node that will be observed for mutations
+    // const editorColl = document.getElementsByClassName("annotationEditorLayer");
+    // for (let i = 0; i < editorColl.length; i++) {
+    //   // Create an observer instance linked to the callback function
+    //   const observer = new MutationObserver((mutationList, observer) => {
+    //     // this.cleanInkEditors();
+    //   });
+    //   // Start observing the target node for configured mutations
+    //   observer.observe(editorColl[i], config);
+    //   this.observers.push(observer);
+    // }
+  }
+
+  stopObservers() {
+    this.observers.forEach(observer => {
+      // Later, you can stop observing
+      observer.disconnect();
+    });
+    this.observers = [];
+  }
+
+  closeOpenEditors() {
     let toolColl = document.getElementsByClassName('toolbarButton');
     for (let i = 0; i < toolColl.length; i++) {
-      toolColl[i]['classList'].remove('toggled');
+      let eTool = toolColl[i] as HTMLButtonElement;
+      // toolColl[i]['classList'].remove('toggled');
+      if (eTool['id'].includes('Editor') && eTool['classList'].contains('toggled')) {
+        eTool.click();
+      }
     }
   }
 
-  openEraserParams() {
+  openEraser() {
+    this.isErasing = true;
+    this.isDrawing = false;
     document.getElementById('eraserParamsToolbar')['classList'].remove('hidden');
     document.getElementById('eraserTool')['classList'].add('toggled');
+    this.cleanInkEditors();
+    this.addCanvasListeners();
   }
 
-  closeEraserParams() {
+  closeEraser() {
+    this.isErasing = false;
+    this.isDrawing = false;
     document.getElementById('eraserParamsToolbar')['classList'].add('hidden');
     document.getElementById('eraserTool')['classList'].remove('toggled');
+    this.removeCanvasListeners();
+    this.enableCanvasInkEditor();
   }
 
   erase() {
-    this.closeAll();
-    this.isErasing = !this.isErasing;
-    this.isDrawing = false;
-    if (this.isErasing) {
-      this.openEraserParams();
-      this.addCanvasListeners();
+    if (!this.isErasing) {
+      this.closeOpenEditors();
+      setTimeout(() => { this.openEraser() });
     } else {
-      this.touchId = undefined;
-      this.closeEraserParams();
-      this.disableCanvasInkEditor();
+      this.closeEraser();
     }
   }
 
   private addCanvasListeners() {
+    this.removeCanvasListeners();
     // register event for each page canvas
-    this.canvases = new Map<number, HTMLCanvasElement[]>();
+    this.eventListeners = [];
     let wrapperColl = document.getElementsByClassName('canvasWrapper');
     for (let i = 0; i < wrapperColl.length; i++) {
       const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
-      this.canvases.set(i, []);
-      canvas.addEventListener('mousedown', () => this.onEraserStart());
-      canvas.addEventListener('mouseup', () => this.onEraserEnd());
-      canvas.addEventListener('mousemove', (event) => this.onMouseMove(i, event));
-      canvas.addEventListener('touchstart', (event) => this.onTouchStart(event));
-      canvas.addEventListener('touchend', (event) => this.onTouchEnd(event));
-      canvas.addEventListener('touchmove', (event) => this.onTouchMove(i, event));
-    }
-
-    // store ink editor canvas associated with each page
-    this.cleanInkEditors();
-    let inkEditorColl = document.getElementsByClassName('inkEditor');
-    // add new rendered canvas
-    for (let i = 0; i < inkEditorColl.length; i++) {
-      const element = inkEditorColl[i];
-      const canvas: HTMLCanvasElement = element['childNodes'][1] as HTMLCanvasElement;
-      let grandParent = element['parentNode']['parentNode'];
-      let label = grandParent['ariaLabel'];
-      let page = parseInt(label.match(/\d+/)[0]) - 1;
-      this.canvases.get(page).push(canvas);
+      var self = this;
+      const eventListeners = {};
+      eventListeners['mousedown'] = function() { return self.onEraserStart() };
+      eventListeners['mouseup'] = function() { return self.onEraserEnd() };
+      eventListeners['mousemove'] = function(event) { return self.onMouseMove(i, event) };
+      eventListeners['touchstart'] = function(event) { return self.onTouchStart(event) };
+      eventListeners['touchend'] = function(event) { return self.onTouchEnd(event) };
+      eventListeners['touchleave'] = function(event) { return self.onTouchEnd(event) };
+      eventListeners['touchmove'] = function(event) { return self.onTouchMove(i, event) };
+      for (let k in eventListeners) {
+        canvas.addEventListener(k, eventListeners[k]);
+      }
+      this.eventListeners.push(eventListeners);
     }
   }
 
-  private disableCanvasInkEditor() {
-    let annotationColl = document.getElementsByClassName('inkAnnotation');
-    for (let i = 0; i < annotationColl.length; i++) {
-      delete annotationColl[i]['style']['pointerEvents'];
+  private removeCanvasListeners() {
+    let wrapperColl = document.getElementsByClassName('canvasWrapper');
+    for (let i = 0; i < this.eventListeners.length; i++) {
+      const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
+      for (let k in this.eventListeners[i]) {
+        canvas.removeEventListener(k, this.eventListeners[i][k]);
+      }
+    }
+    this.eventListeners = [];
+  }
+
+  private updateCanvas() {
+    // clear canvases and one array per page
+    this.canvases = new Map<number, HTMLCanvasElement[]>();
+    for (let i = 0; i<this.eventListeners.length; i++) {
+      this.canvases.set(i, []);
+    }
+    // store ink editor canvas associated with each page
+    let inkEditorColl = document.getElementsByClassName('inkEditor');
+    for (let i = 0; i < inkEditorColl.length; i++) {
+      const element = inkEditorColl[i];
+      if (element['childNodes'].length > 1) {
+        const canvas: HTMLCanvasElement = element['childNodes'][1] as HTMLCanvasElement;
+        let grandParent = element['parentNode']['parentNode'];
+        let label = grandParent['ariaLabel'];
+        let page = parseInt(label.match(/\d+/)[0]) - 1;
+        this.canvases.get(page).push(canvas);
+      }
     }
   }
 
   private onTouchStart(e: TouchEvent) {
-    if (this.touchId === undefined) {
-      const touch = e.targetTouches[0];
-      this.touchId = touch.identifier;
+    const touch = e.targetTouches[0];
+    if (this.touchType === undefined) {
+      this.touchType = true; // touch.touchType;
       this.onEraserStart();
     }
   }
 
   private onEraserStart(): void {
     this.isDrawing = true;
+    // fetch canvases
+    this.updateCanvas();
     // store a snapshot of the annotations
     const inkAnnotations: InkEditorAnnotation[] = this.getInkAnnotations();
     const eraserChange = new EraserChange(inkAnnotations);
@@ -462,13 +529,10 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   }
 
   private onTouchEnd(e: TouchEvent) {
-    for (let t=0; t<e.targetTouches.length; t++) {
-      const touch = e.targetTouches[t];
-      if (touch.identifier === this.touchId) {
-        this.onEraserEnd();
-        this.touchId = undefined;
-        break;
-      }
+    const touch = e.targetTouches[0];
+    if (true === this.touchType) {  // touch.touchType
+      this.onEraserEnd();
+      this.touchType = undefined;
     }
   }
 
@@ -489,12 +553,10 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   }
 
   private onTouchMove(i: number, e: TouchEvent): void {
-    for (let t=0; t<e.touches.length; t++) {
-      const touch = e.touches[t];
-      if (touch.identifier === this.touchId) {
-        this.onMouve(i, touch.target, touch.clientX, touch.clientY);
-        break;
-      }
+    e.preventDefault();
+    const touch = e.touches[0];
+    if (true === this.touchType) { // touch.touchType
+      this.onMouve(i, touch.target, touch.clientX, touch.clientY);
     }
   }
 
@@ -503,7 +565,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   }
 
   private onMouve(i: number, target, clientX, clientY): void {
-    // console.log(i, this.isErasing, this.isDrawing);
+    console.log(i, this.isErasing, this.isDrawing);
     if (!this.isDrawing || !this.isErasing) return;
     // erase drawing
     this.canvases.get(i).forEach(canvas => {
@@ -528,8 +590,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     let viewer = document.getElementById('viewer');
     let style = viewer['style']['cssText'];
     let matches = style.match(/\d+\.\d+/);
-    this.scaleFactor = parseFloat(matches[0]);
-    return this.scaleFactor;
+    return parseFloat(matches[0]);
   }
 
   private eraseDraw(canvas: HTMLCanvasElement, centerX: number, centerY: number) {
@@ -592,12 +653,12 @@ export class PDFViewerComponent implements OnInit, OnChanges {
         }
       }
     }
-    // add last new path
-    if (newPath.points.length > 1) {
-      newPaths.push(newPath);
-    }
 
     if (modified) {
+      // add last new path if necessary
+      if (newPath.points.length > 1) {
+        newPaths.push(newPath);
+      }
       return newPaths;
     } else {
       return undefined;
@@ -621,18 +682,19 @@ export class PDFViewerComponent implements OnInit, OnChanges {
 
   private canvasToPdf(cX, cY, canvas) {
     // rewrite current pointer position into the points coordinates with the right scale
-    this.getScaleFactor();
+    const scaleFactor = this.getScaleFactor();
     // 1- flip origin. Canvas => top left, Annotations => bottom right
-    let pX = canvas.width - cX, pY = canvas.height - cY;
+    const rect = canvas.getBoundingClientRect();
+    let pX = rect.width - cX, pY = rect.height - cY;
     // 2- Change scale
-    return [pX / this.scaleFactor, pY / this.scaleFactor]
+    return [pX / scaleFactor, pY / scaleFactor]
   }
 
   private pdfToCanvas(pX, pY, canvas) {
     // rewrite current pointer position into the points coordinates with the right scale
-    const scaleFactor = this.pageDefaultWidth / canvas.width;
+    const scaleFactor = this.getScaleFactor();
     // 1- Change scale
-    let cX = pX * this.scaleFactor, cY = pY * this.scaleFactor;
+    let cX = pX * scaleFactor, cY = pY * scaleFactor;
     // 2- flip origin. Canvas => top left, Annotations => bottom right
     return [canvas.width - cX, canvas.height - cY]
   }

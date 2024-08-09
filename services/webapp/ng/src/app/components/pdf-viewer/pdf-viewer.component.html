@@ -17,7 +17,7 @@
     <div id="toolbarViewer" *ngIf="!hideToolbar">
       <div id="toolbarViewerLeft">
         <div class="toolbarButtonSpacer hiddenSmallView"></div>
-        <pdf-text-editor id="textEditorTool" (click)="stopEraser()" [closeOnClick]="true"></pdf-text-editor>
+        <pdf-text-editor id="textEditorTool" (click)="closeEraser()" [closeOnClick]="true"></pdf-text-editor>
         <div class="toolbarButtonSpacer hiddenSmallView"></div>
         <div class="verticalToolbarSeparator hiddenSmallView"></div>
       </div>
@@ -31,7 +31,7 @@
             </div>
           </div>
         </div>
-        <pdf-draw-editor id="drawEditorTool" (click)="stopEraser()" [closeOnClick]="true" [cssClass]="'always-visible' | responsiveCSSClass"></pdf-draw-editor>
+        <pdf-draw-editor id="drawEditorTool" (click)="closeEraser()" [closeOnClick]="true" [cssClass]="'always-visible' | responsiveCSSClass"></pdf-draw-editor>
         <pdf-shy-button
           [cssClass]="'always-visible'"
           class="EraserTool"
