@@ -10,5 +10,5 @@ RUN npm run build
 
 #stage 2
 FROM nginx:stable-alpine
-COPY --from=node /app/dist/cadriciel /usr/share/nginx/html
+COPY --from=node /app/dist/rmn /usr/share/nginx/html
 COPY default.conf /etc/nginx/conf.d

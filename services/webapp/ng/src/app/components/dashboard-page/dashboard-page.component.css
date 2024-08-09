@@ -121,9 +121,10 @@ button:hover {
 .validate-job-button {
   width: fit-content;
   border-radius: 5px;
-  height: 80%;
-  font-size: 100%;
+  height: 100%;
+  font-size: 90%;
   transition: 0.3s;
+  padding: 10px;
   box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
   -moz-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52 0.7);
   -webkit-box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
@@ -131,11 +132,11 @@ button:hover {
   -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
 }
 
-.validate-job-button:hover {
+/* .validate-job-button:hover {
   background-color: #d2d8e6;
   transform: scale(1.05, 1.05);
   transition: 0.3s;
-}
+} */
 
 /* @media screen and (min-width: 1024px) and (max-width: 1366px) {
   .validate-job-button {

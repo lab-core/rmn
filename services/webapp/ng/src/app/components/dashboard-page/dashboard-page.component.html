@@ -27,8 +27,8 @@
             <td>{{ question.validatedCount }} / {{ question.count }}</td>
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
             <td class="action-buttons">
-              <button class="correct-button" (click)="correctQuestion(i)">Corriger</button>
-              <button class="correct-button" (click)="shareQuestion(i)">Partager</button>
+              <button class="correct-button" mat-raised-button color="primary" (click)="correctQuestion(i)">Corriger</button>
+              <button class="correct-button" mat-raised-button color="primary" (click)="shareQuestion(i)">Partager</button>
             </td>
           </tr>
           <tr>
@@ -36,14 +36,14 @@
             <td>{{ totalVerifiedMatricules }} / {{ examsCount }}</td>
             <td></td>
             <td class="action-buttons">
-              <button class="correct-button" (click)="verifyMatricules()">Verifier</button>
-              <button class="correct-button" (click)="shareMatricule()">Partager</button>
+              <button class="correct-button" mat-raised-button color="primary" (click)="verifyMatricules()">Verifier</button>
+              <button class="correct-button" mat-raised-button color="primary" (click)="shareMatricule()">Partager</button>
             </td>
           </tr>
         </tbody>
       </table>
       <div class="validate-job-container" *ngIf="this.loggued()">
-        <button class="validate-job-button" mat-flat-button (click)="validateJob()">Finaliser</button>
+        <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()">Finaliser</button>
       </div>
     </div>
   </div>
