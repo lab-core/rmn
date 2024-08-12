@@ -1,0 +1,87 @@
+.dialog-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.text-container {
+    width: 90%;
+    height: 30%;
+    margin-left: 5%;
+    margin-top: 5%;
+}
+
+.value-input-div {
+  margin-top: 5%;
+}
+
+p {
+    text-align: justify;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    font-size: 15px;
+}
+
+input {
+  width: 100%;
+}
+
+.warning-buttons-container {
+  width: 90%;
+  height: 30%;
+  margin-left: 5%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+
+.confirm-button{
+    border-radius: 10px;
+    width: fit-content;
+    background-color: #005FB4;
+    color:white;
+    font-size: 100%;
+    transition: 0.3s;
+
+
+    box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
+    -moz-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52 0.7);
+    -webkit-box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
+    -o-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
+    -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
+}
+
+.confirm-button:hover{
+    color: white;
+    background-color: #00315C;
+    border: 2px solid black;
+    transform: scale(1.05,1.05);
+    transition: 0.3s;
+}
+
+
+.cancel-button{
+    border-radius: 10px;
+    width: fit-content;
+    background-color: #f02853;
+    color:white;
+    font-size: 100%;
+    transition: 0.3s;
+
+
+    box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
+    -moz-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52 0.7);
+    -webkit-box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
+    -o-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
+    -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
+}
+
+.cancel-button:hover{
+    background-color: #BB190C;
+    border: 2px solid black;
+    transform: scale(1.05,1.05);
+    transition: 0.3s;
+}

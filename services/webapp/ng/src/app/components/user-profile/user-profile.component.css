@@ -1,0 +1,164 @@
+.user-profile-container {
+    width: 100%;
+    height: 100%;
+    background-image: url("~src/assets/background-gradient.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+app-main-menu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  margin: auto;
+}
+
+.back-button {
+  position: absolute;
+  top:0;
+  left: 0;
+  bottom: 0;
+  transition: 3s;
+  z-index: 1;
+}
+
+.back-button:hover {
+  background: linear-gradient(to right, rgba(170, 169, 169, 0.326), rgba(255,0,0,0));
+  transition: 3s;
+}
+
+
+.background {
+    width: 100%;
+    height: 90%;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+}
+
+    mat-card   {
+    /*background-color:  rgba(0, 0, 0, 0.255);*/
+    background: #ffffff;
+    border: 2px inset rgb(0, 0, 0);
+    border-style: solid;
+    border-radius: 50px;
+    text-align: center;
+    padding: 0;
+    width : 35%;
+    height : 90%;
+    top: 15%;
+    z-index: 1;
+
+
+    box-shadow: 0 5px 10px 0px rgb(0 0 0 / 10%);
+    -moz-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.1);
+    -webkit-box-shadow: 0 5px 10px 0px rgb(0 0 0 / 10%);
+    -o-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.1);
+    -ms-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.1);
+ }
+
+  mat-card-title{
+    background: -webkit-linear-gradient(right,#2e59e9, #21d4fd);
+    padding: 45px;
+    color:#000000;
+    border-top-left-radius: 50px;
+    border-top-right-radius: 50px;
+    font-size: 250%;
+    font-weight: 100;
+    text-align: center;
+  }
+
+  mat-card-content{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+  }
+
+  .info-container {
+    width: 80%;
+    margin-top: 2.5%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+
+  .text-box-definition {
+    width: 40%;
+    text-align: center;
+    text-decoration: underline;
+    font-size: 18px;
+    padding: 10px;
+  }
+
+  .buttons-container {
+    width: 30%;
+    margin-top: 5%;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+
+  .change-password {
+    height: fit-content;
+    width: fit-content;
+    padding: 5px 10px;
+    margin-bottom: 15px;
+  }
+
+  .profile-button {
+    height: fit-content;
+    width: fit-content;
+    padding: 5px 10px;
+  }
+
+  #logo{
+    position: absolute;
+    top:-63%;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+    z-index: 2;
+  }
+
+  .text-box {
+    width: 40%;
+    /*border: 2px inset rgb(0, 0, 0);*/
+    /*border-style: solid;*/
+    border-left: 3px dotted rgba(91, 89, 89, 0.319);
+    text-align: center;
+    font-size: 18px;
+    padding: 10px;
+  }
+
+  .text-box-check {
+    width: 40%;
+    /*border: 2px inset rgb(0, 0, 0);*/
+    /*border-style: solid;*/
+    border-left: 3px dotted rgba(91, 89, 89, 0.319);
+    text-align: center;
+    font-size: 18px;
+    padding: 10px;
+  }
+
+  .bar {
+    width: 75%;
+  }
+
+  ::ng-deep .mat-checkbox .mat-checkbox-frame {
+    border-color: rgb(0, 0, 0);
+  }
+
+  ::ng-deep .mat-checkbox-checked .mat-checkbox-background {
+    background-color: rgb(0, 255, 0) !important;
+  }

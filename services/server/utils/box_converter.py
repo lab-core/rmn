@@ -1,6 +1,6 @@
 def convert_box_to_list(position_dict):
     # Check if all the keys are in the dictionary
-    if position_dict is None or not position_dict.keys() & { "x1", "x2", "y1", "y2"}:
+    if position_dict is None or not position_dict.keys() & {"x1", "x2", "y1", "y2"}:
         return None
     if position_dict['x1'] == None or position_dict['x2'] == None or position_dict['y1'] == None or position_dict['y2'] == None :
         return None

@@ -1,0 +1,50 @@
+<div class="main-container">
+  <app-main-menu></app-main-menu>
+  <div class="task-container">
+    <div class="task-header">
+      <h1 (click)="getTaskInfo()">{{ taskName }}</h1>
+    </div>
+    <div class="task-content">
+      <table>
+        <thead>
+          <tr>
+            <th>Questions</th>
+            <th>Copies corrigées</th>
+            <th>Moyennes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let question of questions; let i = index">
+            <td>
+              <div *ngIf="question.bonus">
+                {{ question.name }} (Bonus)
+              </div>
+              <div *ngIf="!question.bonus">
+                {{ question.name }}
+              </div>
+            </td>
+            <td>{{ question.validatedCount }} / {{ question.count }}</td>
+            <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
+            <td class="action-buttons">
+              <button class="correct-button" mat-raised-button color="primary" (click)="correctQuestion(i)">Corriger</button>
+              <button class="correct-button" mat-raised-button color="primary" (click)="shareQuestion(i)">Partager</button>
+            </td>
+          </tr>
+          <tr>
+            <td>Matricules</td>
+            <td>{{ totalVerifiedMatricules }} / {{ examsCount }}</td>
+            <td></td>
+            <td class="action-buttons">
+              <button class="correct-button" mat-raised-button color="primary" (click)="verifyMatricules()">Verifier</button>
+              <button class="correct-button" mat-raised-button color="primary" (click)="shareMatricule()">Partager</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="validate-job-container" *ngIf="this.loggued()">
+        <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()">Finaliser</button>
+      </div>
+    </div>
+  </div>
+</div>

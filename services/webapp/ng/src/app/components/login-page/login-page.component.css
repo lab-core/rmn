@@ -1,0 +1,136 @@
+ .background {
+    min-height: 100%;
+    background-image: url("~src/assets/background-gradient.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+
+    height: 100%;
+    filter: brightness(70%);
+    opacity: 0.9;
+  }
+
+  mat-card   {
+    /*background-color:  rgba(0, 0, 0, 0.255);*/
+    border: 1px inset rgb(157, 156, 157);
+    border-style: solid;
+    border-radius: 50px;
+    position: absolute;
+    top:0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+    text-align: center;
+    padding: 0;
+    
+
+    box-shadow: 0 5px 10px 0px rgb(0 0 0 / 10%);
+    -moz-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.1);
+    -webkit-box-shadow: 0 5px 10px 0px rgb(0 0 0 / 10%);
+    -o-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.1);
+    -ms-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.1);
+  }
+
+
+  @media screen and (min-width: 1024px) and (max-width: 1366px) {
+      mat-card {
+          width : 45%;
+          height : 40%;
+      }
+
+      #logo {
+        top: -45%;
+      }
+  }
+
+
+  @media screen and (max-width: 1023px), (min-width: 1367px) {
+      mat-card {
+          width : 25%;
+          height : 60%;
+      }
+
+      #logo {
+        top: -65%;
+      }
+  }
+
+  mat-card-title{
+    background-color: #1aebb6;
+    padding: 45px;
+    color:#000000;
+    border-top-left-radius: 50px;
+    border-top-right-radius: 50px;
+    font-size: 250%;
+    font-weight: 100;
+    text-align: center;
+  }
+
+  mat-card-content{
+    /*background-color:  rgba(255, 255, 255, 0.15);*/
+    padding: 10%;
+  }
+
+  mat-form-field{
+    width: 80%;
+  }
+
+  /* .login-button-box{
+    height: 100%;
+  } */
+  .login-button{
+    margin-top: 8%;
+    padding: 6%;
+    border-radius: 10px;
+    font-weight: 500;
+    width: 80%;
+    height: 100%;
+    background-color: #0051ff;
+    color: white;
+    font-size: 185%;
+    transition: 0.3s;
+
+
+    box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
+    -moz-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52 0.7);
+    -webkit-box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
+    -o-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
+    -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
+  }
+  .login-button:hover{
+    background: -webkit-linear-gradient(right,#2e59e9, #21d4fd);
+    transition: 0.3s;
+  }
+
+  .email{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  #logo{
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+    z-index: 2;
+  }
+
+  .icon-display {
+    transform: scale(1);
+    color: #000000;
+    font-size: 24px;
+  }
+  
+  mat-form-field.mat-form-field {
+    font-size: 25px;
+  }
+  
+
+  /*
+  *   Source of the animated buttons code:
+  *   https://www.fabriziovanmarciano.com/button-styles/?cn-reloaded=1
+  */
+  

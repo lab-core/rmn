@@ -3,11 +3,15 @@ import shutil
 from pathlib import Path
 
 
+# either service root or project root depending on the environment
 ROOT_DIR = Path(__file__).resolve().parent.parent
+if os.getenv("ENVIRONMENT") != "production":
+    ROOT_DIR = ROOT_DIR.parent.parent
 
 
 def create_tree(file_path):
-    os.makedirs(file_path.rsplit("/",1)[0], exist_ok=True)
+    split = file_path.rsplit(os.sep, 1)
+    os.makedirs(split[0], exist_ok=True)
 
 
 # use this method to avoid Invalid cross-device link error
@@ -25,11 +29,12 @@ class Storage:
         elif os.getenv('STORAGE'):
             self.path = Path(os.getenv('STORAGE'))
         else:
-            ROOT_DIR_PROJECT = ROOT_DIR.parent.parent
-            self.path = ROOT_DIR_PROJECT.joinpath("storage")
+            self.path = ROOT_DIR.joinpath("storage")
 
     def abs_path(self, r_path):
-        return str(self.path.joinpath(r_path))
+        abs_p = os.path.join(str(self.path), r_path)
+        # abs_p =f'/Executor/storage/{r_path}'
+        return str(abs_p)
 
     def move_to(self, l_file, s_file):
         s_abs_file = self.abs_path(s_file)
@@ -46,3 +51,18 @@ class Storage:
 
     def remove_tree(self, s_dir):
         shutil.rmtree(self.abs_path(s_dir))
+
+    def clean_storage(self, job_id):
+        try:
+            self.remove_tree(os.path.join('documents', job_id))
+        except Exception as e:
+            print(e)
+        try:
+            self.remove_tree(os.path.join('cover_pages', job_id))
+        except Exception as e:
+            print(e)
+        if os.path.exists(os.path.join(self.abs_path('incorrect_files'), job_id)):
+            try:
+                self.remove_tree(os.path.join('incorrect_files', job_id))
+            except Exception as e:
+                print(e)

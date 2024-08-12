@@ -36,11 +36,23 @@ def handle_message(data):
     print(f"Received data: {data} to room : {job_id}")
 
 
-@socketio.on("jobs_status")
+@socketio.on("job_status")
 def handle_job_status_change(data):
     user_id = json.loads(data)["user_id"]
-    emit("jobs_status", data, room=user_id)
+    emit("job_status", data, room=user_id)
     print(f"Received data: {data} to room : {user_id}")
+
+@socketio.on("template_rendered")
+def handle_template_rendered_change(data):
+    template_id = json.loads(data)["template_id"]
+    emit("template_rendered", data, room=template_id)
+    print(f"Received data: {data} to room : {template_id}")
+
+@socketio.on("doc_validated")
+def handle_doc_validated(data):
+    job_id = json.loads(data)["job_id"]
+    emit("doc_validated", data, room=job_id)
+    print(f"Received data: {data} to room : {job_id}")
 
 
 if __name__ == "__main__":

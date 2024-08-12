@@ -1,0 +1,98 @@
+.dialog-container {
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.upload-container {
+    width: 90%;
+    margin-left: 5%;
+    border: 2px dashed #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.upload-drop-zone {
+    width: 100%;
+    height: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #666;
+    font-size: 16px;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.upload-drop-zone:hover {
+    background: #f0f0f0;
+}
+
+.label-help {
+  flex-grow: 1;  /* Grow to fill available space */
+  margin-bottom: auto;  /* Push following elements to the bottom */
+}
+
+.label-box {
+  color: #000000;
+}
+
+.get-document-button {
+    height: 15%;
+    width: 30%;
+    border: none;
+    border-radius: 3%/12%;
+    background-color: #007cbb;
+    color: #ffffff;
+    font-size: 15px;
+}
+
+.get-document-button:hover {
+    cursor: pointer;
+    transform: scale(1.05,1.05);
+}
+
+.num-pages-container {
+  margin-top: 2.5%;
+  margin-bottom: 5%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.page-warning {
+  color: red;
+  font-size: 15px;
+}
+
+
+.confirm-document-button {
+    height: 10%;
+    width: 30%;
+    border: none;
+    border-radius: 3%/12%;
+    background-color: #00bb64;
+    color: #ffffff;
+    font-size: 15px;
+}
+
+.confirm-document-button:hover {
+    cursor: pointer;
+    transform: scale(1.05,1.05);
+}
+
+#file-input {
+  display: none;
+}

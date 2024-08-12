@@ -49,7 +49,7 @@ def load_csv(grades_csv):
             df = df.drop(dup_index)
             df.to_csv(g)
         grades_dfs.append(df.set_index(MF.mat))
-    grades_names = [g.rsplit("/")[-1].split(".")[0] for g in grades_csv]
+    grades_names = [g.rsplit(os.sep)[-1].split(".")[0] for g in grades_csv]
 
     for g in grades_dfs:
         g.index = g.index.map(str)
@@ -59,7 +59,9 @@ def load_csv(grades_csv):
 
 def group_label(df):
     group_df = df.filter(regex=MF.group)
-    if group_df.shape[1] == 1:
+    if group_df.shape[1] >= 1:
+        if group_df.shape[1] > 1:
+            print(f"Warning: too many columns match the group regex (MF.group):", group_df.columns)
         return group_df.columns[0]
     return None
 
@@ -68,9 +70,9 @@ def copy_file(file, dest):
     # extract folder and name if dest is not a folder
     old_name = None
     folder = dest
-    if "." in dest.rsplit("/")[-1]:
-        old_name = file.rsplit("/")[-1]
-        folder = dest.rsplit("/", 1)[0]
+    if "." in dest.rsplit(os.sep)[-1]:
+        old_name = file.rsplit(os.sep)[-1]
+        folder = dest.rsplit(os.sep, 1)[0]
         if not folder:
             folder = "./"
 
@@ -87,7 +89,7 @@ def copy_file(file, dest):
 def copy_file_with_front_page(file, dfile, name=None, mat=None, latex_front_page=None):
     # add front page if any
     if latex_front_page:
-        f = file.rsplit("/")[-1]
+        f = file.rsplit(os.sep)[-1]
         f_page = None
         try:
             f_page = create_front_page(latex_front_page, name, mat)
@@ -329,10 +331,6 @@ def zipdirbatch(path, archive="moodle", batch=None):
 def create_front_page(
     latex_file, name, matricule, latex_input_file=None, tmp_dir="tmp/"
 ):
-    tmp_dir = os.path.abspath(tmp_dir)
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
-
     # define default input file
     if latex_input_file is None:
         latex_input_file = os.path.join(tmp_dir, Latex.input_file)
@@ -342,6 +340,15 @@ def create_front_page(
     input_data = Latex.input_content % (no_accent_name, matricule)
     with open(latex_input_file, "w") as f:
         f.write(input_data)
+
+    # compile latex file
+    return create_tex_pdf(latex_file, tmp_dir)
+
+
+def create_tex_pdf(latex_file, tmp_dir="tmp/"):
+    tmp_dir = os.path.abspath(tmp_dir)
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
 
     # compile latex file
     current = os.getcwd()

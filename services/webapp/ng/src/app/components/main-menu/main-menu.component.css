@@ -1,0 +1,120 @@
+.menu-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    display: flex;                  
+    flex-direction: row;            
+    flex-wrap: nowrap;              
+    justify-content: space-between; 
+
+    width: 100%;
+    height: 10%;
+    background: -webkit-linear-gradient(right,#2e59e9, #21d4fd);
+    border-bottom: 2px solid gray;
+}
+
+.disconnect-button {
+    position: relative;
+    text-align: center;
+    width: 5%;
+    height: 90%;
+    /* margin-top: 0.25%; */
+    /* margin-right: -5%; */
+    float: right;
+}
+
+.disconnect-button > mat-icon {
+    height: 50px;
+    width: 50px;
+    font-size: 50px;
+    /* margin-top: 10%; */
+    /* margin-left: 80%; */
+    color: #000000;
+}
+.disconnect-button > mat-icon:hover {
+    cursor: pointer;
+    transform: scale(1.1,1.1);
+}
+
+.disconnect-button > span {
+    margin-top: 0.25%;
+    font-size: 15px;
+}
+
+.background {
+    width: 100%;
+    height: 90%;
+    background-image: url("~src/assets/background-gradient.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.buttons-container {
+    width: 93%;
+    height: 60%;
+    margin-top: 0.75%;
+    display: flex;                  
+    flex-direction: row;            
+    flex-wrap: nowrap;              
+    justify-content: space-between; 
+    align-items: center;
+}
+
+.buttons-container > div {
+    width: 12%; 
+    height: auto;
+    border-radius: 6%;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+}
+
+.buttons-container > div > .badge {
+    position: absolute;
+    top: +17%;
+    right: +66%;
+    padding: 10px 15px;
+    border-radius: 100%;
+    background-color: red;
+    color: white;
+}
+
+
+.buttons-container > div:hover {
+    cursor: pointer;
+    transform: scale(1.1,1.1);
+    color: #21d4fd;
+}
+
+.buttons-container > div:hover > mat-icon {
+    color: #21d4fd;
+}
+
+.buttons-container > div:hover > .badge {
+    top: -14%;
+    right: -7%;
+}
+
+.buttons-container > div > mat-icon {
+    color: black;
+    height: 40px;
+    width: 40px;  
+    font-size: 40px; 
+}
+
+.buttons-container > div > span {
+    margin-top: 0.25%;
+    font-size: 15px;
+    
+}

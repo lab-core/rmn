@@ -48,11 +48,15 @@ from process_copy.config import MoodleFields as MF
 from process_copy.mcc import get_name, load_csv, group_label
 from process_copy.preview import PreviewHandler
 from process_copy.database import Database
+from utils.storage import Storage
 from utils.utils import Document_Status, Job_Status
 from utils.clients import socketio_client
 
 
+ignoreWrite = sys.gettrace() is None and "Debug" not in str(sys.stdin)
+
 DIRPATH = Path(__file__).resolve().parent.joinpath("documents")
+storage = Storage()
 
 allowed_decimals = ["0", "25", "5", "75"]
 allowed_decimals_part = [.25, .5, .75]
@@ -93,8 +97,26 @@ def get_max_question(max_grade, max_nb_questions):
     return g
 
 
-def find_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
+def find_all_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
+
+    # box_list, box_matricule_list = None, None
+    # regular_box_matricule = box_matricule_default  
+    # front_box_matricule = box_matricule_default
+    # box_matricule = box_matricule_default
+    # box = box_default  
+
+    # box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
+
+    # if regular_box_matricule_list is not None:
+    #     regular_box_matricule = convert_to_regular_box_config(regular_box_matricule_list)
+    # if box_matricule_list is not None:
+    #     front_box_matricule = convert_to_front_box_config(box_matricule_list)
+    # if box_list is not None:
+    #     box = convert_grade_box_config(box_list)
+   
+    # box_matricule['front'] = front_box_matricule['front']
+    # box_matricule['regular'] = regular_box_matricule['regular']
 
     # loading our CNN model
     from keras.models import load_model
@@ -112,7 +134,7 @@ def find_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
         r = os.path.dirname(path)
         if not root_dir:
             root_dir = r
-        elif root_dir.count("/") > r.count("/"):
+        elif root_dir.count(os.sep) > r.count(os.sep):
             root_dir = r
 
         for root, dirs, files in os.walk(path):
@@ -169,7 +191,7 @@ def find_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
             name,
             None,
             None,
-            "%d: %s" % (i, file.rsplit("/")[-1]),
+            "%d: %s" % (i, file.rsplit(os.sep)[-1]),
             dpi,
             align_matricule_left=False,
             name_bottom=False,
@@ -216,36 +238,18 @@ def find_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
         wf.write(csvf)
 
 
-def convert_to_box_config(list_matricule_box):
-    return {
-        "front": tuple(list_matricule_box),
-        "separate_box": True,
-        "regular": (0.55, 0.95, 0.05, 0.13),
-    }
-
-
-def convert_grade_box_config(list_grade_box):
-    return {"grade": tuple(list_grade_box)}
-
-
-def grade_all(
+def process_all(
     paths,
     grades_csv,
-    box_matricule_default,
+    box_matricule,
+    box,
     job_id,
     user_id,
-    template_id,
+    process_func,
     dpi=300,
-    shape=(8.5, 11),
-):
+    shape=(8.5, 11)):
     db = Database()
-    box_list, box_matricule_list = db.get_template_info(template_id)
-    box_matricule = (
-        convert_to_box_config(box_matricule_list)
-        if box_matricule_list is not None
-        else box_matricule_default
-    )
-    box = convert_grade_box_config(box_list)
+    sio = socketio_client()
 
     # load csv
     grades_dfs, grades_names = load_csv(grades_csv)
@@ -267,47 +271,64 @@ def grade_all(
                 max_grade = s
 
     # Create a list of matricule-name
-    names_mat_df = pd.concat(grades_dfs).reset_index()[["Matricule", "Nom complet"]]
+    all_grades_dfs = pd.concat(grades_dfs)
+    names_mat_df = all_grades_dfs.reset_index()[["Matricule", "Nom complet"]]
     names_mat_df = names_mat_df.rename(columns={"Matricule": "matricule"})
-    names_mat_json = names_mat_df.to_json(orient="records")
+    names_mat_json = names_mat_df.to_dict(orient="records")
+
+    # Create list of groups
+    groups = None
+    group_df = all_grades_dfs.filter(regex=MF.group)  # keep only the right column
+    if len(group_df.columns) > 0:
+        if len(group_df.columns) > 1:
+            print(f"Warning: several columns match the group regex ({MF.group}):", group_df.columns)
+        groups = np.unique(all_grades_dfs[group_df.columns[0]]).tolist()  # transform the column to a list with only one appearance
 
     # Update job status
-    job = db.update_job_status_to_run(job_id, names_mat_json)
+    job = db.update_job_status_to_run(job_id, names_mat_json, groups)
     new_job = (job["retry"] == 0)
     if new_job:
-        try:
-            # Create SocketIO connection
-            sio = socketio_client()
-            print("Grade new job:", job_id)
-            sio.emit(
-                "jobs_status",
-                json.dumps(
-                    {"job_id": job_id, "user_id": user_id, "status": Job_Status.RUN.value}
-                ),
-            )
-        finally:
-            sio.disconnect()
+        print("Grade new job:", job_id)
+        sio.emit(
+            "job_status",
+            json.dumps(
+                {"job_id": job_id, "user_id": user_id, "status": Job_Status.RUN.value}
+            ),
+        )
     else:
         print("Retry grading old job:", job_id)
 
     # Create DB entry for each pdf file
     print("Retrieving files to grade and initializing entry in Mongo")
-    doc_index = 0
-    g_files = []
-    for path in paths:
-        for root, dirs, files in os.walk(path):
-            for f in files:
-                if "__MACOSX" in f or not f.endswith(".pdf") or f.startswith("."):
-                    continue
-                file = os.path.join(root, f)
-                if not os.path.isfile(file):
-                    continue
-                g_files.append(file)
-                if new_job:
-                    db.insert_document(job_id, doc_index, [], 0, "",
+    docs = {doc["filename"]: doc for doc in db.documents_collection().find({"job_id": job_id})}
+    if len(docs.keys()) > 0:
+        g_files = [""] * len(docs.keys())
+        for path in paths:
+            for root, dirs, files in os.walk(path):
+                for f in files:
+                    if "__MACOSX" in f or not f.endswith(".pdf") or f.startswith("."):
+                        continue
+                    filename = f.rsplit(".", 1)[0]
+                    doc = docs.get(filename)
+                    if doc:
+                        g_files[doc["document_index"]] = os.path.join(root, f)
+    else:
+        doc_index = 0
+        g_files = []
+        for path in paths:
+            for root, dirs, files in os.walk(path):
+                for f in files:
+                    if "__MACOSX" in f or not f.endswith(".pdf") or f.startswith("."):
+                        continue
+                    file = os.path.join(root, f)
+                    if not os.path.isfile(file):
+                        continue
+                    g_files.append(file)
+                    db.insert_document(job_id, doc_index, [], "",
                                        Document_Status.NOT_READY, "", 0, f)
-                doc_index += 1
+                    doc_index += 1
     db.close()
+    sio.disconnect()
 
     if not os.path.exists(DIRPATH):
         os.makedirs(DIRPATH)
@@ -327,7 +348,8 @@ def grade_all(
                   dpi, shape, max_RAM_GB, q_results)
         print("Run batch", batch)
 
-        p = Process(target=grade_files, args=g_args)
+        # process_func(*g_args)
+        p = Process(target=process_func, args=g_args)
         p.start()
         p.join()
 
@@ -361,17 +383,17 @@ def grade_all(
             + Style.RESET_ALL
         )
 
-    # add summarry
-    # sumarries = [[] for f in grades_csv]
+    # add summary
+    # summaries = [[] for f in grades_csv]
     # def add_summary(file, grades, mat, numbers, total_matched, id_group, id_img=None, initial_index=2):
-    #     lsum = sumarries[id_group]
+    #     lsum = summaries[id_group]
     #     # rename file
     #     name = "%d: %s" % (len(lsum)+initial_index, file)  # recover id box if provided
     #     if id_img is not None:
-    #         sumarry = create_summary2(id_img, grades, mat, numbers, total_matched, name, dpi)
+    #         summary = create_summary2(id_img, grades, mat, numbers, total_matched, name, dpi)
     #     else:
-    #         sumarry = create_summary(grades, mat, numbers, total_matched, name, dpi)
-    #     lsum.append(sumarry)
+    #         summary = create_summary(grades, mat, numbers, total_matched, name, dpi)
+    #     lsum.append(summary)
     # handler.createSummary(DIRPATH, "notes_summary.pdf")
 
     shutil.rmtree(DIRPATH)
@@ -412,7 +434,7 @@ def grade_files(
     grades_dfs, grades_names = load_csv(grades_csv)
 
     # grade files
-    # grades_data = []
+    grades_data = []
     dt = get_date()
     trim = box["trim"] if "trim" in box else None
     max_nb_questions = db.get_job_max_questions(job_id)
@@ -424,9 +446,12 @@ def grade_files(
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
     # loading our CNN model
     from keras.models import load_model
-    classifier = load_model("digit_recognizer.h5")
+    # classifier = load_model("digit_recognizer.h5")
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    model_path = os.path.join(base_dir, 'digit_recognizer.h5')
+    classifier = load_model(model_path)
 
-    handler = PreviewHandler()
+    # handler = PreviewHandler()
 
     try:
         # Create SocketIO connection
@@ -435,70 +460,19 @@ def grade_files(
         n_questions = {}
         max_question = get_max_question(max_grade, max_nb_questions)
         for file in files:
-            # check if document has already been processed
-            doc = db.get_document(job_id, doc_index)
-            if doc and doc['status'] != Document_Status.NOT_READY.value:
-                print("Document", doc_index, "is ready with status", doc['status'])
-                n_questions[doc_index] = list(doc["subquestion_predictions"].values())
-                m = doc["matricule"]
-                if m not in matricules_data:
-                    matricules_data[m] = [file]
-                else:
-                    matricules_data[m].append(file)
-                doc_index += 1
-                continue
-
             # Start timer
             start_time = time.time()
 
-            # search matricule in filename
-            filename = file.rsplit("/", 1)[-1]
-            m = re.search(re_mat, filename)
-            is_matricule_valid = True
-            use_mat_box = False
+            is_matricule_valid, m = find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_dfs,
+                                                        box_matricule, matricules_data, n_questions)
 
-            # search matricule in forlder name
-            # use folder name: "Nom complet_Identifiant_Matricule_assignsubmission_file_"
-            if not m:
-                par_dir = file.rsplit('/', 2)[-2]
-                dir_split = par_dir.split("_")
-                if len(dir_split) > 3:
-                    m = re.search(re_mat, dir_split[2])
+            # if doc already processed
+            if is_matricule_valid and m is None:
+                doc_index += 1
+                continue
 
-            if not m:
-                # Find matricule in pdf filename
-                for s in file.split("_"):
-                    m = re.search(re_mat, s)
-                    if m:
-                        break
-
-            if not m:
-                # Find matricule in pdf file
-                print("Matricule wasn't found in " + filename)
-                grays = gray_images(file, shape=shape)
-                if box_matricule is None:
-                    raise Exception
-                use_mat_box = True
-                m, id_box, id_csv = find_matricule(
-                    grays,
-                    box_matricule["front"],
-                    box_matricule.get("regular"),
-                    classifier,
-                    grades_dfs,
-                    separate_box=box_matricule["separate_box"],
-                )
-
-                m = m if m else "NA"
-                if m not in matricules_data:
-                    matricules_data[m] = []
-                    # if no valid matricule has been found
-                    if m != "NA" and grades_dfs and id_csv is None:
-                        is_matricule_valid = False
-                elif m != "NA":
-                    is_matricule_valid = False
-                matricules_data[m].append(file)
-            else:
-                m = m.group()
+            # getting filename
+            filename = file.rsplit(os.sep, 1)[-1]
 
             # try to recognize each grade and verify the total
             grays = gray_images(file, [0], straighten=False, shape=shape)
@@ -533,9 +507,9 @@ def grade_files(
             if numbers and len(numbers) > 1:
                 print("Found numbers:", numbers)
 
-                db.save_unverified_number_images(
-                    job_id, doc_index, number_images[:-1]
-                )
+                # db.save_unverified_number_images(
+                #     job_id, doc_index, number_images[:-1]
+                # )
                 number_images.clear()  # delete numbers picture
 
                 # fill csv for all the subquestion
@@ -573,17 +547,17 @@ def grade_files(
                 grades_dfs[i].at[m, MF.mdate] = dt
 
             # Display in the summary the identity box if provided
-            # id_img = None
-            # grades_data.append(
-            #     (m, i, file, grades, numbers, total_matched, id_img)
-            # )
+            id_img = None
+            grades_data.append(
+                (m, i, file, grades, numbers, total_matched, id_img)
+            )
 
             results = [(f"Matricule: {m}", is_matricule_valid)]
 
             # Check there were no grades existing
             if not numbers or len(numbers) < 1:
                 if max_nb_questions:
-                    numbers = [0] * (max_nb_questions + 1)
+                    numbers = [0] * (int(max_nb_questions) + 1)
                 else:
                     # come back later when max_nb_questions found
                     numbers = [0]
@@ -595,38 +569,33 @@ def grade_files(
                 ]
             )
             results.append((f"Total: {numbers[-1]}", total_matched))
-            src = handler.createDocumentPreview(file, DIRPATH, results, dpi=dpi,
-                                                box=box["grade"], boxes=boxes,
-                                                mat_box=box_matricule["front"] if use_mat_box else None)
-            print(f"src: {src}")
+            # src = handler.createDocumentPreview(file, DIRPATH, results, dpi=dpi,
+            #                                     box=box["grade"], boxes=boxes,
+            #                                     mat_box=box_matricule["front"] if use_mat_box else None)
+            # print(f"src: {src}")
             # DB update
 
-            image_id = db.save_preview_image(src, job_id, doc_index)
+            # rel_filepath = db.save_preview_image(src, job_id, doc_index)
             doc_status = (
                 Document_Status.HIGH_ACCURACY
-                if total_matched and is_matricule_valid
+                if is_matricule_valid
                 else Document_Status.TO_VALIDATE
             )
             numbers[:-1] = try_fix_n_questions(max_nb_questions, numbers[:-1])
-            subquestions = {
-                f"Question {index_sub + 1}": sub
-                for index_sub, sub in enumerate(numbers[:-1])
-            }
             n_questions[doc_index] = numbers[:-1]
 
             exec_time = time.time() - start_time
-
+            
             if not db.update_document(
                 job_id,
                 doc_index,
-                subquestions,
-                numbers[-1],
-                image_id,
+                numbers[:-1],
                 doc_status,
                 m,
                 exec_time,
-                group):
-                raise KeyError(f"Document {doc_index} was not found.")
+                group
+                ):
+                raise KeyError(f"Document {filename} was not found.")
 
             sio.emit(
                 "document_ready",
@@ -649,10 +618,12 @@ def grade_files(
             print('RAM Used once grade found (GB):', RAM_used)
 
             if max_nb_questions is None and len(n_questions) > min_documents_for_max_questions:
+                print("--n_questions:", n_questions)
                 max_nb_questions = median(len(v) for v in n_questions.values())
                 db.set_job_max_questions(job_id, max_nb_questions)
 
                 # fix previous documents that were not with the right number of questions
+                print("--max_nb_questions:", max_nb_questions)
                 max_question = get_max_question(max_grade, max_nb_questions)
                 for index, doc_questions in n_questions.items():
                     n_doc_q = len(doc_questions)
@@ -662,11 +633,7 @@ def grade_files(
                     if len(doc_questions) != n_doc_q or changed2:
                         n_questions[index] = doc_questions
                         # update document
-                        subquestions = {
-                            f"Question {index_sub + 1}": sub
-                            for index_sub, sub in enumerate(doc_questions)
-                        }
-                        db.update_document_predictions(job_id, index, subquestions)
+                        db.update_document_grades(job_id, index, doc_questions)
 
                         doc = db.get_document(job_id, index)
                         sio.emit(
@@ -698,6 +665,237 @@ def grade_files(
         q_results.put((doc_index, matricules_data))
 
     return doc_index
+
+
+def find_matricules(
+        files,
+        doc_index,
+        grades_csv,
+        max_grade,
+        min_documents_for_max_questions,
+        job_id,
+        user_id,
+        box_matricule,
+        box,
+        matricules_data={},
+        dpi=300,
+        shape=(8.5, 11),
+        max_RAM_GB=1000,
+        q_results=None
+):
+    db = Database()
+    # load csv
+    grades_dfs, grades_names = load_csv(grades_csv)
+
+    # find matricules
+    shape = (int(dpi * shape[0]), int(dpi * shape[1]))
+    # loading our CNN model
+    from keras.models import load_model
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    model_path = os.path.join(base_dir, 'digit_recognizer.h5')
+    classifier = load_model(model_path)
+
+    try:
+        # Create SocketIO connection
+        sio = socketio_client()
+
+        n_questions = {}
+        for file in files:
+            # Start timer
+            start_time = time.time()
+
+            is_matricule_valid, m = find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_dfs,
+                                                        box_matricule, matricules_data, n_questions)
+
+            # if doc already processed
+            if is_matricule_valid and m is None:
+                doc_index += 1
+                continue
+
+            # rel_filepath = db.save_preview_image(src, job_id, doc_index)
+            doc_status = (
+                Document_Status.HIGH_ACCURACY
+                if is_matricule_valid
+                else Document_Status.TO_VALIDATE
+            )
+
+            # getting filename and group
+            filename = os.path.basename(file)
+            i, name = get_name(m, grades_dfs)
+            group = ""
+            if i < 0:
+                print(
+                    Fore.RED
+                    + "%s: Matricule (%s) not found in csv files" % (filename, m)
+                    + Style.RESET_ALL
+                )
+            else:
+                l_group = group_label(grades_dfs[i])
+                if l_group:
+                    group = str(grades_dfs[i].at[m, l_group])
+                    print("Group:", group)
+
+            exec_time = time.time() - start_time
+            if not db.update_document(
+                    job_id,
+                    doc_index,
+                    None,
+                    doc_status,
+                    m,
+                    exec_time,
+                    group
+            ):
+                raise KeyError(f"Document {filename} was not found.")
+
+            sio.emit(
+                "document_ready",
+                json.dumps(
+                    {
+                        "job_id": job_id,
+                        "user_id": user_id,
+                        "document_index": doc_index,
+                        "execution_time": exec_time,
+                        "status": doc_status.value,
+                        "n_total_doc": doc_index + 1,
+                    }
+                ),
+            )
+
+            doc_index += 1
+
+            # Getting usage of virtual_memory in GB ( 4th field)
+            RAM_used = psutil.virtual_memory()[3] / 1000000000
+            print('RAM Used once grade found (GB):', RAM_used)
+
+            if RAM_used >= max_RAM_GB:
+                print('RAM limit exceeded')
+                break
+    finally:
+        sio.disconnect()
+        db.close()
+
+    if q_results:
+        q_results.put((doc_index, matricules_data))
+
+    return doc_index
+
+
+def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_dfs, box_matricule, matricules_data, n_questions):
+    # check if document has already been processed
+    doc = db.get_document(job_id, doc_index)
+    if doc and doc['status'] != Document_Status.NOT_READY.value:
+        print("Document", doc['filename'], "is ready with status", doc['status'])
+        n_questions[doc_index] = list(doc["grades"])
+        m = doc["matricule"]
+        if m not in matricules_data:
+            matricules_data[m] = [file]
+        else:
+            matricules_data[m].append(file)
+        return True, None
+
+    # search matricule in filename
+    m = re.search(re_mat, doc['filename'])
+    is_matricule_valid = True
+
+    # search matricule in forlder name
+    # use folder name: "Nom complet_Identifiant_Matricule_assignsubmission_file_"
+    if not m:
+        par_dir = file.rsplit(os.sep, 2)[-2]
+        dir_split = par_dir.split("_")
+        if len(dir_split) > 3:
+            m = re.search(re_mat, dir_split[2])
+
+    if not m:
+        # Find matricule in pdf filename
+        for s in file.split("_"):
+            m = re.search(re_mat, s)
+            if m:
+                break
+
+    if not m:
+        # Find matricule in pdf file
+        print("Matricule wasn't found in " + doc['filename'])
+        grays = gray_images(file, shape=shape)
+        if box_matricule is None:
+            raise Exception
+        m, id_box, id_csv = find_matricule(
+            grays,
+            box_matricule["front"],
+            box_matricule.get("regular"),
+            classifier,
+            grades_dfs,
+            separate_box=box_matricule["separate_box"],
+        )
+
+        m = m if m else "NA"
+        if m not in matricules_data:
+            matricules_data[m] = []
+        # if no valid matricule has been found
+        if m == "NA" or (grades_dfs and id_csv is None):
+            is_matricule_valid = False
+        matricules_data[m].append(file)
+    else:
+        m = m.group()
+
+    return is_matricule_valid, m
+
+
+def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'intermediate_image.png',
+               trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11), grade_ratio: float = 0.5):
+    grays = gray_images(pdf_path, [0], straighten=False, shape=shape)
+    img = convert_from_path(pdf_path, dpi=300, first_page=0, last_page=1)[0]
+    np_img = np.array(img)
+    x0 = int(box[0] * np_img.shape[1])
+    y0 = int(box[2] * np_img.shape[0])
+    original_shape = np_img.shape
+    cv2.resize(np_img, shape, interpolation=cv2.INTER_LINEAR)
+    if grays is None:
+        print(Fore.RED + "%s: No valid pdf" % pdf_path + Style.RESET_ALL)
+        return False
+    gray = grays[0]
+
+    def find_right_boxes(box, retry=5):
+        cropped = fetch_box(gray, box)
+        boxes = find_grade_boxes(cropped, add_border, thick=0)
+        print(f"Number of boxes : {len(boxes)}")
+
+        if len(boxes) != len(numbers):
+            print(f'The number of boxes ({len(boxes)}) found is different from the number of grades ({len(numbers)})')
+            if retry > 0:
+                print("Retry grading", retry)
+                box2 = (box[0]-.01, box[1]+.01, box[2]-.01, box[3]+.01)
+                return find_right_boxes(box2, retry-1)
+            return False, cropped, [], boxes
+
+        number_images = []
+        font_scale = None
+        for i, b in enumerate(boxes):
+            (x, y, w, h) = cv2.boundingRect(b)
+            if h <= 10 or w <= 10:
+                print("An invalid box number has been found (too small or too thin)")
+                if retry > 0:
+                    print("Retry grading", retry)
+                    box2 = (box[0]-.01, box[0]+.01, box[0]-.01, box[0]+.01)
+                    return find_right_boxes(box2, retry-1)
+                return False, cropped, number_images, boxes
+
+            thickness = 2
+            number_text = str(numbers[i])
+            size, _ = cv2.getTextSize(number_text, cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
+            nw, nh = size
+            if font_scale is None:
+                font_scale=grade_ratio/max(nh/h, nw/w)
+            x_anchor = int(x + (w-nw*font_scale)/2)
+            y_anchor = int(y + (h+nh*font_scale)/2)
+            color = (0, 0, 255)
+            cv2.putText(np_img, number_text, (x0 + x_anchor, y0 + y_anchor),
+                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+
+        return True, cropped, number_images, boxes
+
+    find_right_boxes(box)
+    cv2.resize(np_img, (original_shape[1], original_shape[0]), interpolation=cv2.INTER_LINEAR)
+    cv2.imwrite(img_path, np_img)
 
 
 def compare_all(paths, grades_csv, box, dpi=300, shape=(8.5, 11)):
@@ -770,8 +968,9 @@ def find_matricule(
     grays, front_box, regular_box, classifier, grades_dfs=[], separate_box=True
 ):
     possible_digits = [{} for i in range(len_mat)]
+    id_box = None
 
-    def find_digits(gray_box, split=False):
+    def find_digits(gray_box, cnt, split=True):
         try:
             # find contours of the numbers.
             # If separate_box, each number of the matricule is in its separate box
@@ -782,6 +981,7 @@ def find_matricule(
                 max_cnts=len_mat,
                 split_on_semi_column=split,
                 min_box_before_split=6,
+                ctrl_size_variation=True
             )
             # check length
             if len(cnts) != len_mat:
@@ -829,26 +1029,13 @@ def find_matricule(
         return True
 
     # find the id box
-    cropped = fetch_box(grays[0], front_box)
-    cnts, hierarchy = cv2.findContours(
-        find_edges(cropped, thick=0), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-    )
-    cnts = imutils.grab_contours((cnts, hierarchy))
-    imwrite_contours("rgray", cropped, cnts, thick=5)
-    # Find the biggest contour for the front box
-    pos, biggest_c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
-    id_box = get_image_from_contour(cropped, biggest_c)
-    for cnt in biggest_children(cnts, hierarchy, pos):
-        cnt_cropped = get_image_from_contour(cropped, cnt)
-        if find_digits(cnt_cropped, True):
-            break
+    biggest_c, ret = find_matricule_box_contours(grays[0], front_box, find_digits, True)
 
     # try to find a matricule on the next page
     if regular_box != None:
+        print("Trying to find matricule on the next page...")
         for gray in grays[1:]:
-            cropped = fetch_box(gray, regular_box)
-            # mgray = find_edges(cropped, thick=3, line_on_original=True, max_gap=5, min_lenth=150)
-            find_digits(cropped, True)
+            find_matricule_box_contours(gray, regular_box, find_digits)
 
     # build matricules and sort them by probabilities
     matricules = [(0, "")]
@@ -857,6 +1044,9 @@ def find_matricule(
             (c + p, "%s%d" % (m, d)) for c, m in matricules for d, p in distri.items()
         ]
     smats = sorted(matricules, reverse=True)
+
+    cropped = fetch_box(grays[0], front_box)
+    id_box = get_image_from_contour(cropped, biggest_c)
 
     # find the most probable matricule that exists
     if grades_dfs:
@@ -870,6 +1060,92 @@ def find_matricule(
             return mat, id_box, None
 
     return None, id_box, None
+
+
+def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False):
+    # find the id box
+    cropped = fetch_box(gray, regular_box)
+    if biggest_child:
+        cnts, hierarchy = cv2.findContours(
+            find_edges(cropped, thick=0), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )
+        cnts = imutils.grab_contours((cnts, hierarchy))
+        imwrite_contours("rgray", cropped, cnts, thick=5)
+        # Find the biggest contour for the front box
+        pos, biggest_c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
+        for cnt in biggest_children(cnts, hierarchy, pos):
+            gray_box = get_image_from_contour(cropped, cnt)
+            if callback(gray_box, cnt):
+                return biggest_c, True
+        return biggest_c, False
+    else:
+        return None, callback(cropped, None)
+
+
+def write_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False, matricule=True):
+    # create a gray copy of the image
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # fetch only the part in the box
+    b_x = int(box[0] * img.shape[1])
+    b_y = int(box[2] * img.shape[0])
+    # draw the box
+    cv2.rectangle(
+        img,
+        (b_x, b_y),
+        (int(box[1] * img.shape[1]), int(box[3] * img.shape[0])),
+        color,
+        2*thick
+    )
+
+    def draw_contour_on_img(x0, y0, cnt):
+        # draw the contour on the whole image
+        (x, y, w, h) = cv2.boundingRect(cnt)
+        cv2.rectangle(
+            img,
+            (x0 + x, y0 + y),
+            (x0 + x + w, y0 + y + h),
+            color,
+            thick
+        )
+
+    def draw_contour(gray_box, cnt):
+        # find contours of the numbers of the matricule is in its separate box
+        try:
+            cnts, dot, thresh = find_digit_contours(
+                gray_box,
+                max_cnts=len_mat,
+                split_on_semi_column=True,
+                min_box_before_split=6,
+                ctrl_size_variation=True
+            )
+            # check length
+            if len(cnts) != len_mat:
+                return False
+
+            # each number is in a separate box, draw it individually
+            x = y = 0
+            if cnt is not None:
+                (x, y, _, _) = cv2.boundingRect(cnt)
+            for c in cnts:
+                draw_contour_on_img(b_x + x, b_y + y, c)
+                imwrite_png("rendered", img)
+
+        except cv2.error as e:
+            print(e)
+            print("Got an error while finding digits.")
+            return False
+
+        return True
+
+    if matricule:
+        return find_matricule_box_contours(gray, box, draw_contour, biggest_child)
+
+    cropped = fetch_box(gray, box)
+    cnts = find_grade_boxes(cropped, False, thick=1)
+    for c in cnts:
+        draw_contour_on_img(b_x, b_y, c)
+        imwrite_png("rendered", img)
+    return len(cnts), True
 
 
 def try_fix_n_questions(max_nb_questions, predictions):
@@ -931,8 +1207,6 @@ def correct_decimals(p):
 
 def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=None, max_question=None, retry=0):
     cropped = fetch_box(gray, box)
-    print(f"box: {box}")
-    print(f"cropped: {cropped}")
     boxes = find_grade_boxes(cropped, add_border, thick=0)
     print(f"Number of boxes : {len(boxes)}")
 
@@ -1069,6 +1343,7 @@ def clean_and_sort_digit_contours(
     min_box_before_split=0,
     max_cnts=None,
     trim=None,
+    ctrl_size_variation=True
 ):
     # remove thin contours
     ccnts = []
@@ -1129,9 +1404,14 @@ def clean_and_sort_digit_contours(
             scnts = scnts[semi_column + 1 :]
     cnts = [c[-1] for c in scnts]
 
+    if not scnts:
+        return [], 0
+
     # keep centered contours
     # look for the middle line and remove anything above or below
     # and check for a dot
+    w_median = median(w for _, w, h, _ in scnts)
+    h_median = median(h for _, w, h, _ in scnts)
     dot = len(cnts)
     ccnts = []
     if gray is not None:
@@ -1145,6 +1425,9 @@ def clean_and_sort_digit_contours(
                 len(ccnts) < dot
             ):  # store position of the first one, as it could be a dot
                 dot = len(ccnts)
+            continue
+        # remove contours that are too different
+        if ctrl_size_variation and (abs(w_median - w) > 20 or abs(h_median - h) > 20):
             continue
         ccnts.append(c)
     if gray is not None:
@@ -1171,7 +1454,7 @@ def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7):
     # creating a mask
     mask = np.zeros(gray.shape, dtype="uint8")
     (x, y, w, h) = cv2.boundingRect(cnt)
-    print("bounding box: [", x, ",", x+w, "] x [", y, ",", y+h, "]")
+    # print("bounding box: [", x, ",", x+w, "] x [", y, ",", y+h, "]")
 
     hull = cv2.convexHull(cnt)
     cv2.drawContours(mask, [hull], -1, 255, -1)
@@ -1339,14 +1622,19 @@ def find_grade_boxes(cropped, add_border=False, max_diff=50, thick=5):
         find_edges(cropped2, thick=thick), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
     )
     cnts = imutils.grab_contours((cnts, hierarchy))
-    imwrite_contours("cropped_all_boxes", cropped2, cnts, thick=thick + 1)
+    imwrite_contours("cropped_all_boxes", cropped2, cnts, thick=thick+2)
 
     # check if any contour
     if not cnts:
         return []
 
     # keep only the children of the biggest contour
-    pos, c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
+    areas = [cv2.contourArea(cnt) for cnt in cnts]
+    areas = []
+    for cnt in cnts:
+        (x, y, w, h) = cv2.boundingRect(cnt)
+        areas.append(w*h)
+    pos, c = max(enumerate(cnts), key=lambda cnt: areas[cnt[0]])
     imwrite_png("main_cropped", get_image_from_contour(cropped, c))
     ccnts = biggest_children(cnts, hierarchy, pos)
 
@@ -1357,7 +1645,10 @@ def find_grade_boxes(cropped, add_border=False, max_diff=50, thick=5):
     ref = None
     horizontal = None
     imwrite_contours("cropped_boxes", cropped2, ccnts, thick=thick + 1)
+    # ic=0
     for c in sorted(ccnts, key=cv2.contourArea, reverse=True):
+        # imwrite_contours("cropped_boxes_%d" %ic, cropped2, [c], thick=thick + 1)
+        # ic+=1
         (x, y, w, h) = cv2.boundingRect(c)
         # set the reference box
         if ref is None:
@@ -1427,7 +1718,7 @@ def find_grade_boxes(cropped, add_border=False, max_diff=50, thick=5):
             prev = x + w if horizontal else y + h
         boxes = boxes2
     imwrite_contours(
-        "cropped_boxes", cropped2, boxes, thick=2 * (thick + 1), padding=-thick - 1
+        "cropped_boxes2", cropped2, boxes, thick=2 * (thick + 1), padding=-thick - 1
     )
     return boxes
 
@@ -1542,9 +1833,7 @@ def get_image_from_contour(img, cnt, border=0):
     return img
 
 
-def imwrite_contours(
-    name, gray, cnts, thick=2, padding=0, ignore=(sys.gettrace() is None)
-):
+def imwrite_contours(name, gray, cnts, thick=2, padding=0, ignore=ignoreWrite):
     if ignore:
         return
     gray = gray.copy()
@@ -1561,7 +1850,7 @@ def imwrite_contours(
 
 
 def biggest_children(cnts, hierarchy, parent_positon):
-    # Look only to the children (startng with the biggest contours) to try to find a matricule
+    # Look only to the children (starting with the biggest contours) to try to find a matricule
     n = hierarchy[0][parent_positon][2]  # first child index of the biggest contour
     scnts = []
     while n != -1:
@@ -1571,7 +1860,7 @@ def biggest_children(cnts, hierarchy, parent_positon):
 
 
 def find_digit_contours(
-    gray, split_on_semi_column=True, min_box_before_split=0, max_cnts=None, trim=None
+    gray, split_on_semi_column=True, min_box_before_split=0, max_cnts=None, trim=None, ctrl_size_variation=False
 ):
     thresh = get_clean_thresh(gray)
 
@@ -1584,7 +1873,8 @@ def find_digit_contours(
 
     # clean cnts
     scnts, dot = clean_and_sort_digit_contours(
-        cnts, gray, split_on_semi_column, min_box_before_split, max_cnts, trim=trim
+        cnts, gray, split_on_semi_column, min_box_before_split, max_cnts,
+        trim=trim, ctrl_size_variation=ctrl_size_variation
     )
 
     return scnts, dot, thresh
@@ -1616,7 +1906,7 @@ def make_square(img, size=28, margin=0.1):
     return cv2.resize(square, (size, size))
 
 
-def imwrite_png(name, img, ignore=(sys.gettrace() is None)):
+def imwrite_png(name, img, ignore=ignoreWrite):
     if ignore:
         return
     if img.shape[0] == 0 or img.shape[1] == 0:

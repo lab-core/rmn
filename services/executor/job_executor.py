@@ -1,15 +1,3 @@
-from pathlib import Path
-from python.process_copy.parser import parse_run_args
-from python.process_copy.recognize import get_date
-from python.process_copy.config import MoodleFields as MF
-from python.process_copy.mcc import group_label
-from python.process_copy.database import Database
-from utils.utils import Job_Status, Document_Status
-from utils.storage import Storage
-from utils.stop_handler import StopHandler
-from utils.clients import redis_client, socketio_client
-from zipfile import ZipFile
-
 import os
 import re
 import shutil
@@ -17,16 +5,42 @@ import json
 import pandas as pd
 import uuid
 import time
-from datetime import datetime, timedelta
+import datetime as dt
+import numpy as np, cv2
+from pdf2image import convert_from_path
+from PIL import Image
+from pathlib import Path
+import copy
+
+from python.process_copy.parser import parse_run_args, grade_box, matricule_box
+from python.process_copy.recognize import get_date, write_box_contours, imwrite_png
+from python.process_copy.config import MoodleFields as MF
+from python.process_copy.mcc import group_label
+from python.process_copy.database import Database
+from python.process_copy.add_grades import process_writing
+from utils.stats import create_all_boxplots, create_stats_latex, remove_non_pdfs
+from utils.merge import process_merge
+from utils.utils import Job_Status, Document_Status
+from utils.storage import Storage
+from utils.stop_handler import StopHandler
+from utils.clients import redis_client, socketio_client, update_status
+from zipfile import ZipFile
+from utils.split import insert_copies
 
 
 ROOT_DIR = Path(__file__).resolve().parent
 MAX_RETRY = int(os.getenv("MAX_RETRY", "5"))
+MAX_IDLE_TIME = 120
 
-storage = Storage()
+
+# override print
+old_print = print
+def timestamped_print(*args, **kwargs):
+  old_print(dt.datetime.now(), *args, **kwargs)
+print = timestamped_print
 
 
-def save_number_images(job_id, document_index, questions):
+def save_number_images(storage, job_id, document_index, questions):
     try:
         numbers = [n for n in questions.values()]
 
@@ -34,8 +48,8 @@ def save_number_images(job_id, document_index, questions):
             number = float(number)
             if number.is_integer() and 0 <= int(number) <= 9:
                 try:
-                    unverified_filename = f"unverified_numbers/{job_id}/{document_index}/{index}.png"
-                    new_filename = f"numbers/{int(number)}/{uuid.uuid4()}.png"
+                    unverified_filename = os.path.join("unverified_numbers", job_id, str(document_index),f"{index}.png")
+                    new_filename = os.path.join("numbers", str(int(number)), f"{uuid.uuid4()}.png")
                     storage.move_to(storage.abs_path(unverified_filename), new_filename)
                 except Exception as e:
                     print(e)
@@ -43,16 +57,173 @@ def save_number_images(job_id, document_index, questions):
         print(e)
 
 
+def check_for_idle_jobs_to_requeue(db, sleep):
+    alive_times = {}
+    collection_check = db.get_collection("check")
+    try:
+        if collection_check.count_documents({}) == 0:
+            collection_check.insert_one({'locked': True})
+            locked = True
+        else:
+            res = collection_check.update_one({'locked': False}, {'$set': {'locked': True}})
+            locked = res.matched_count > 0
+
+        if locked:
+            while True:
+                print("Check idle running jobs")
+                # search idle jobs
+                max_alive = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=MAX_IDLE_TIME)
+                jobs = db.eval_jobs_collection().find({
+                    "job_status": Job_Status.RUN.value,
+                    "alive_time": {"$lt": max_alive}
+                })
+
+                job = db.eval_jobs_collection().find_one({
+                    "job_status": Job_Status.IGNORED.value,
+                })
+                if job:
+                    # Set Job status from IGNORED to VALIDATION
+                    job_id = job["job_id"]
+                    user_id = job["user_id"]
+
+                    update_status(db, sio, user_id, job_id, Job_Status.VALIDATION)
+
+                # requeue old idle jobs
+                old_idle_jobs = False
+                for j in jobs:
+                    def requeue(c_status, n_status):
+                        print("Resubmit job", j["job_id"])
+                        # change status to ensure that a job is not resubmitted several times
+                        res = db.eval_jobs_collection().update_one(
+                            {"job_id": j["job_id"], "job_status": c_status},
+                            {"$inc": {"retry": 1}, "$set": {"job_status": n_status}}
+                        )
+                        if res.matched_count > 0:
+                            redis.lpush("job_queue", json.dumps({"job_id": j["job_id"]}))
+
+                    if j["job_status"] == Job_Status.RUN.value:
+                        requeue(Job_Status.RUN.value, Job_Status.QUEUED.value)
+                    else:
+                        requeue(Job_Status.FINALIZING.value, Job_Status.VALIDATION.value)
+
+                    old_idle_jobs = True
+
+                # continue if idle jobs
+                if old_idle_jobs:
+                    break
+
+                # check if all running jobs are idle. If yes, sleep, otherwise break
+                print("Check alive running jobs")
+
+                jobs = db.eval_jobs_collection().find({
+                    "job_status": Job_Status.RUN.value
+                })
+                all_jobs_idle = False
+                for j in jobs:
+                    job_id = j["job_id"]
+                    alive_t = alive_times.get(job_id, dt.datetime.now(dt.UTC))
+                    # check if alive_time has increased, and thus job is alived
+                    j["alive_time"] = j["alive_time"].replace(tzinfo=dt.UTC)
+                    if j["alive_time"] > alive_t:
+                        all_jobs_idle = False
+                        break
+                    all_jobs_idle = True
+                    alive_times[job_id] = j["alive_time"]
+                # if one job alive -> stop
+                if not all_jobs_idle or not sleep:
+                    print("All jobs are not idle.")
+                    break
+                # otherwise, sleep
+                print("Sleep before checking again running jobs.")
+                time.sleep(5)
+    finally:
+        collection_check.update_one({'locked': True}, {'$set': {'locked': False}})
+
+
 if __name__ == "__main__":
     # Connect to Mongo
     print("Setting up MongoClient...")
     db = Database()
 
-    # Create SocketIO connection
-    sio = socketio_client()
-
     # create redis connection
     redis = redis_client()
+
+    # create storage connection (local or NFS)
+    storage = Storage()
+
+    # create socketio connection
+    sio = socketio_client()
+
+    def process_template(temp_id, WORK_TMP_DIR):
+        template = db.get_collection("template").find_one({"template_id": temp_id})
+        if not template:
+            raise KeyError(f"Template {temp_id} not found in mongodb.")
+
+        template_file = str(WORK_TMP_DIR.joinpath(template["template_file_id"]))
+        storage.copy_from(template["template_file_id"], template_file)
+        if template_file.endswith(".pdf"):
+            img = convert_from_path(template_file, dpi=300)[0]
+        else:
+            img = Image.open(template_file)
+
+        def draw_boxes_on_template(box, np_img, mat):
+            box = tuple([round(x, 2) for x in box])
+            np_img2 = np.copy(np_img)
+            b, r = write_box_contours(np_img2, box, matricule=mat)
+            if not r and mat:
+                np_img2 = np.copy(np_img)
+                write_box_contours(np_img2, box, matricule=mat, biggest_child=True)
+            return np_img2, b
+
+        # fetch the user-defined boxes
+        np_img = np.array(img)
+        matricule_box = template.get("matricule_box", None)
+        if matricule_box:
+            np_img, _ = draw_boxes_on_template(matricule_box, np_img, True)
+
+        # number of grade boxes found
+        n_questions = 0
+        grade_box = template.get("grade_box", None)
+        if grade_box:
+            np_img, n_questions = draw_boxes_on_template(grade_box, np_img, False)
+
+        tmp_img = str(WORK_TMP_DIR.joinpath("rendered.png"))
+        cv2.imwrite(tmp_img, np_img)
+
+        # For a png
+        rendered_path = template["template_file_id"].rsplit(".", 1)[0] + "-rendered.png"
+        storage.move_to(tmp_img, rendered_path)
+
+        # # For a pdf
+        # rendered_path = template["template_file_id"].rsplit(".", 1)[0] + "-rendered.pdf"
+        # tmp_rendered = str(WORK_TMP_DIR.joinpath(rendered_path))
+        # with open(tmp_rendered, "wb") as f:
+        #     layout = img2pdf.get_fixed_dpi_layout_fun((300, 300))
+        #     f.write(img2pdf.convert(tmp_img, layout_fun=layout))
+        # storage.move_to(tmp_rendered, rendered_path)
+
+        try:
+            # update doc
+            db.get_collection("template").update_one(
+                {"template_id": temp_id},
+                {"$set": {
+                    "template_rendered_file_id": rendered_path,
+                    "n_questions": n_questions - 1
+                }
+            })
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
+
+        sio.emit(
+            "template_rendered",
+            json.dumps(
+                {
+                    "user_id": template["user_id"],
+                    "template_id": temp_id
+                }
+            ),
+        )
 
     def process(p_job, TMP_DIR):
         job_id = p_job["job_id"]
@@ -66,15 +237,29 @@ if __name__ == "__main__":
         OUTPUT_FOLDER = TMP_DIR.joinpath("output")
         EXTRACT_FOLDER = TMP_DIR.joinpath("extract")
         VALIDATE_FOLDER = TMP_DIR.joinpath("validate")
+        TEX_FOLDER = TMP_DIR.joinpath("tex")
 
         stopH = StopHandler(db.eval_jobs_collection(), job_id)
 
-        if job["job_status"] == Job_Status.VALIDATION.value:
-            # Set Job status to VALIDATION
-            db.eval_jobs_collection().update_one(
-                {"job_id": job_id},
-                {"$set": {"job_status": Job_Status.FINALIZING.value}}
-            )
+        if job["job_status"] == Job_Status.VALIDATED.value or job["job_status"] == Job_Status.FINALIZING.value:
+            # Set Job status to FINALIZING
+            if job["job_status"] != Job_Status.FINALIZING.value:
+                update_status(db, sio, user_id, job_id, Job_Status.FINALIZING)
+
+            if os.path.exists(storage.abs_path(os.path.join("documents", job_id))):
+                # adding grades
+                print("Adding grades...")
+                process_writing(job_id, TMP_DIR)
+
+                # merging copies
+                print("Merging copies...")
+                process_merge(job_id)
+
+                # cleaning storage
+                print("Cleaning storage...")
+                storage.clean_storage(job_id)
+            else:
+                print("Merging already performed")
 
             #
             user = db.users_collection().find_one({"username": user_id})
@@ -108,17 +293,35 @@ if __name__ == "__main__":
 
             #
             docs = db.documents_collection().find({"job_id": job_id})
+            eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
+            n_max_points_per_question = eval_job["n_max_points_per_question"]
+            statistics_for_students = eval_job["statistics_for_students"]
+            # print("statistics_for_students", statistics_for_students)
+            n_questions = len(n_max_points_per_question)
+            n_max_points_per_question = [q[1] for q in sorted(n_max_points_per_question)]
+            question_bonus = [q[1] for q in sorted(eval_job["bonus_enabled_map"])]
+            question_totals = copy.copy(n_max_points_per_question)
+            question_totals.append(sum(s for i, s in enumerate(n_max_points_per_question) if not question_bonus[i]))
 
-            #
             print(f"Col: {df.columns}")
-            dt = get_date()
-            for document_index, doc in enumerate(docs):
+            date = get_date()
+
+            # print("docs", docs)
+            grades_dict = {}
+            for doc in docs:
                 mat = str(doc["matricule"])
+                # print("mat", mat)
                 if mat in df.index.values:
-                    for key in doc["subquestion_predictions"].keys():
-                        df.loc[mat, key] = doc["subquestion_predictions"][key]
-                    df.loc[mat, MF.grade] = doc["total"]
-                    df.loc[mat, MF.mdate] = dt
+                    grades = doc["grades"]
+                    if grades:
+                        grades_dict[doc["filename"]] = grades
+                        for i, g in enumerate(grades):
+                            df.loc[mat, f"Q{i+1}"] = g
+                        total_score = sum(grades)
+                        # print("TOTAL SCORE FOR ", doc["filename"], ":", total_score)
+                        df.loc[mat, MF.grade] = total_score
+                        df.loc[mat, MF.mdate] = date
+
             df.to_csv(csv_file_path, mode="w+")
 
             #
@@ -134,7 +337,19 @@ if __name__ == "__main__":
             counter = 0
             all_copies_folder_path = validated_copies_folder_path.joinpath("all")
             all_copies_folder_path.mkdir(exist_ok=True)
-            print("All folder:", str(all_copies_folder_path))
+            # print("All folder:", str(all_copies_folder_path))
+
+            # create box plots
+            filenames = []
+            all_grades = [[] for _ in range(n_questions)]
+            for filename, grades in grades_dict.items():
+                filenames.append(filename)
+                for i in range(n_questions):
+                    all_grades[i].append(grades[i])
+            all_grades = np.array(all_grades)
+            f_boxplots = create_all_boxplots(all_grades, str(TMP_DIR))
+            TEX_FOLDER.mkdir(exist_ok=True)
+
             for i, id in enumerate(moodle_zip_id_list):
                 # moodle_i
                 moodle_folder_name = f"moodle_{i}"
@@ -147,9 +362,9 @@ if __name__ == "__main__":
                 file_p = str(VALIDATE_FOLDER.joinpath(moodle_filename))
                 storage.copy_from(id, file_p)
                 # validated_tmp_folder/copies/[1.pdf, 2.pdf]
-                with ZipFile(file_p, 'r') as zip_ref:
-                    zip_ref.extractall(tmp_copies_folder_path)
-                curr_moodle_folder_path = tmp_copies_folder_path
+                # with ZipFile(file_p, 'r') as zip_ref:
+                #     zip_ref.extractall(tmp_copies_folder_path)
+                curr_moodle_folder_path = os.path.join(storage.abs_path('corrected_copies'), job_id)
 
                 if len(os.listdir(str(curr_moodle_folder_path))) == 0:
                     continue
@@ -158,7 +373,7 @@ if __name__ == "__main__":
                     for f in files:
                         file = os.path.join(root, f)
 
-                        print("file", str(file))
+                        # print("file", str(file))
 
                         if (
                             not os.path.isfile(file)
@@ -167,19 +382,18 @@ if __name__ == "__main__":
                         ):
                             continue
 
-                        doc = db.documents_collection().find_one({"job_id": job_id, "filename": str(f)})
+                        filename = str(f).rsplit('.', 1)[0]
+                        doc = db.documents_collection().find_one({"job_id": job_id, "filename": filename})
 
                         if doc is None:
                             continue
 
-                        doc_idx = doc["document_index"]
-
-                        start_time = time.time()
-
-                        if save_verified_images:
-                            save_number_images(
-                                job_id, doc_idx - 1, doc["subquestion_predictions"]
-                            )
+                        # doc_idx = doc["document_index"]
+                        # start_time = time.time()
+                        # if save_verified_images:
+                        #     save_number_images(
+                        #         storage, job_id, doc_idx - 1, doc["grades"]
+                        #     )
 
                         matricule = str(doc["matricule"])
                         try:
@@ -197,6 +411,7 @@ if __name__ == "__main__":
                             nom = nom_complet
                             prenom = ""
 
+                        # print("moodle_ind", moodle_ind)
                         if moodle_ind:
                             # create folder
                             identifiant = df.at[matricule, MF.id]
@@ -206,16 +421,26 @@ if __name__ == "__main__":
                             else:
                                 identifiant = m_id.group()
                                 folder_name = f"{nom_complet}_{identifiant}_{matricule}_assignsubmission_file_"
-                                print("folder name", folder_name)
                                 m_folder = moodle_folder_path.joinpath(folder_name)
                                 m_folder.mkdir(exist_ok=True)
-                                print("folder path", str(m_folder))
-
                                 m_dest = m_folder.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
-                                print("destination", m_dest)
 
-                                # transfert file to folder
+                                # transfer file to folder
                                 shutil.copy(str(file), str(m_dest))
+
+                                # adding stats file
+                                filename = os.path.basename(file).rsplit(".", 1)[0]
+                                if statistics_for_students:
+                                    try:
+                                        file_index = filenames.index(filename)
+                                        fpdf = create_stats_latex(nom_complet, file_index, n_questions,
+                                                                  all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER)
+                                        # print("Stats for", nom_complet, "created:", fpdf)
+                                        shutil.move(fpdf, m_folder.joinpath("statistiques.pdf"))
+                                    except ValueError:
+                                        # file not found
+                                        print(f"File {filename} does not correspond to a valid document.")
+                                        pass
 
                         copies_path = all_copies_folder_path
                         if l_group:
@@ -225,25 +450,9 @@ if __name__ == "__main__":
                         dest = copies_path.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
                         shutil.move(str(file), str(dest))
 
-                        exec_time = time.time() - start_time
                         counter += 1
 
-                        db.documents_collection().update_one(
-                            {
-                                "job_id": job_id,
-                                "document_index": doc_idx,
-                                "status": Document_Status.VALIDATED.value,
-                            },
-                            {
-                                "$set": {
-                                    "document_index": counter,
-                                    "execution_time": exec_time,
-                                    "status": Document_Status.READY.value,
-                                }
-                            },
-                        )
-
-                #
+                # make moodle.zip
                 if moodle_ind:
                     shutil.make_archive(
                         str(VALIDATE_FOLDER.joinpath(moodle_folder_name)),
@@ -259,13 +468,21 @@ if __name__ == "__main__":
                 else:
                     storage.remove(id)
 
+            # adding stats for professors
+            fpdf = create_stats_latex('Statistiques', None, n_questions, all_grades, question_totals,
+                                      f_boxplots, TMP_DIR=TEX_FOLDER)
+            print("General stats created:", fpdf)
+            stats_file_id = os.path.normpath(f"output_stats{os.sep}{job_id}.pdf")
+            storage.move_to(fpdf, stats_file_id)
+
             # create zip with all copies (gathered by group if enabled)
             shutil.make_archive(
                 str(VALIDATE_FOLDER.joinpath("all")),
                 "zip",
                 str(all_copies_folder_path)
             )
-            zip_file_id = f"output_zip/{job_id}_all.zip"
+
+            zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_all.zip")
             try:
                 all_zip_name = str(VALIDATE_FOLDER.joinpath("all"))
                 c_zip = f"{all_zip_name}.zip"
@@ -283,7 +500,8 @@ if __name__ == "__main__":
                 return
 
             try:
-                n_csv = f"output_csv/{job_id}.csv"
+                #
+                n_csv = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
                 storage.move_to(csv_file_path, n_csv)
 
                 #
@@ -291,30 +509,13 @@ if __name__ == "__main__":
                     {"job_id": job_id},
                     {"$set": {
                         "notes_csv_file_id": notes_csv_file_id,
+                        "stats_file_id": stats_file_id,
                         "moodle_zip_id_list": zip_id_list
                     }})
 
                 #
-                db.eval_jobs_collection().update_one(
-                    {"job_id": job_id},
-                    {
-                        "$set": {
-                            "job_status": Job_Status.ARCHIVED.value,
-                            "notes_file_id": notes_csv_file_id,
-                        }
-                    },
-                )
+                update_status(db, sio, user_id, job_id, Job_Status.ARCHIVED, db_infos={"notes_file_id": notes_csv_file_id})
 
-                sio.emit(
-                    "jobs_status",
-                    json.dumps(
-                        {
-                            "job_id": job_id,
-                            "status": Job_Status.ARCHIVED.value,
-                            "user_id": user_id,
-                        }
-                    ),
-                )
             except Exception as e:
                 print("Error while moving file to storage")
                 db.eval_jobs_collection().update_one(
@@ -327,25 +528,28 @@ if __name__ == "__main__":
                 )
 
             # delete preview image
-            print("Clean documents and unverified_numbers")
-            docs = db.documents_collection().find({"job_id": job_id})
-            for doc in docs:
-                # delete unverified numbers for job
-                document_index = doc["document_index"] - 1
-                for image_index in range(len(doc["subquestion_predictions"].keys())):
-                    try:
-                        storage.remove(f"unverified_numbers/{job_id}/{document_index}/{image_index}.png")
-                    except:
-                        continue
+            # print("Clean documents and unverified_numbers")
+            # docs = db.documents_collection().find({"job_id": job_id})
+            # for doc in docs:
+            #     # delete unverified numbers for job
+            #     document_index = doc["document_index"] - 1
+            #     for image_index in range(len(doc["grades"].keys())):
+            #         try:
+            #             storage.remove(os.path.normpath(
+            #                 f"unverified_numbers{os.sep}{job_id}{os.sep}{document_index}{os.sep}{image_index}.png"))
+            #         except:
+            #             continue
 
             try:
-                storage.remove_tree(f"documents/{job_id}")
+                storage.remove_tree(os.path.normpath(f"documents{os.sep}{job_id}"))
+                storage.remove_tree(os.path.normpath(f"corrected_copies{os.sep}{job_id}"))
             except:
                 pass
 
+            db.questions_collection().delete_many({"job_id": job_id})
             db.documents_collection().delete_many({"job_id": job_id})
 
-        elif job["job_status"] == Job_Status.QUEUED.value:
+        elif job["job_status"] == Job_Status.QUEUED.value or job["job_status"] == Job_Status.IGNORED.value:
             # make directories
             MOODLE_FOLDER.mkdir(exist_ok=True)
             OUTPUT_FOLDER.mkdir(exist_ok=True)
@@ -365,35 +569,42 @@ if __name__ == "__main__":
                 {
                     "$set": {
                         "job_status": Job_Status.RUN.value,
-                        "alive_time": datetime.utcnow()
+                        "alive_time": dt.datetime.now(dt.UTC)
                     }
                 }
             )
 
             # Save notes.csv file to local
             storage.copy_from(job_params["notes_file_id"], str(OUTPUT_FOLDER.joinpath("notes.csv")))
-
             # Save zip file to local
             storage.copy_from(job_params["zip_file_id"], str(OUTPUT_FOLDER.joinpath("content.zip")))
 
-            with ZipFile(str(OUTPUT_FOLDER.joinpath("content.zip")), "r") as zip_ref:
+            with ZipFile(str(OUTPUT_FOLDER.joinpath("content.zip")), 'r') as zip_ref:
                 zip_ref.extractall(EXTRACT_FOLDER)
+
+            # fetch the user-defined boxes
+            box_grade_list, box_matricule_list, regular_box_matricule_list = \
+                db.get_templates_info(job_params["front_template_id"],
+                                      job_params["regular_template_id"])
+            if regular_box_matricule_list is not None:
+                matricule_box['exam']['regular'] = tuple([round(x, 2) for x in regular_box_matricule_list])
+            if box_matricule_list is not None:
+                matricule_box['exam']['front'] = tuple([round(x, 2) for x in box_matricule_list])
+            if box_grade_list is not None:
+                grade_box['exam']['grade'] = tuple([round(x, 2) for x in box_grade_list])
 
             args = [
                 str(EXTRACT_FOLDER),
                 "-m",
                 str(MOODLE_FOLDER),
-                "-g",
+                "-f",
                 "exam",
                 "--grades",
                 str(OUTPUT_FOLDER.joinpath("notes.csv")),
-                "-e",
                 "--job_id",
                 job_id,
                 "--user_id",
                 user_id,
-                "--template_id",
-                job_params["template_id"],
                 "--export",
                 "--batch",
                 "500",
@@ -407,8 +618,9 @@ if __name__ == "__main__":
 
                 if stopH.stop():
                     print("Job has been deleted.")
-                    storage.remove(f"csv/{job_id}.csv")
-                    storage.remove(f"zips/{job_id}.zip")
+
+                    storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+                    storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
                     return
 
                 # check if should retry
@@ -417,47 +629,30 @@ if __name__ == "__main__":
                     raise e
 
                 # Error handling
-                db.eval_jobs_collection().update_one(
-                    {"job_id": job_id},
-                    {"$set": {"job_status": Job_Status.ERROR.value}}
-                )
+                update_status(db, sio, user_id, job_id, Job_Status.ERROR)
 
-                sio.emit(
-                    "jobs_status",
-                    json.dumps(
-                        {
-                            "job_id": job_id,
-                            "user_id": user_id,
-                            "status": Job_Status.ERROR.value,
-                        }
-                    ),
-                )
-
-                storage.remove(f"csv/{job_id}.csv")
-                storage.remove(f"zips/{job_id}.zip")
+                storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
+                storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
                 return
 
             print("Module Done")
 
             # Save output files in storage
-            folder = "output_csv/"
-            filename = f"{job_id}.csv"
-            notes_csv_file_id = f"{folder}{filename}"
-            storage.move_to(str(OUTPUT_FOLDER.joinpath("notes.csv")), notes_csv_file_id)
+            notes_csv_file_id = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
+            storage.move_to(os.path.join(OUTPUT_FOLDER, "notes.csv"), notes_csv_file_id)
 
-            folder = "output_zip/"
-            filename = f"{job_id}.zip"
-            moodle_zip_file_id = f"{folder}{filename}"
-            storage.move_to(str(MOODLE_ZIP), moodle_zip_file_id)
+            moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}.zip")
+            storage.move_to(MOODLE_ZIP, moodle_zip_file_id)
 
             moodle_zip_id_list = [moodle_zip_file_id]
             i = 1
             for file_path in TMP_DIR.glob("moodle*.zip"):
-                moodle_zip_file_id = f"{folder}{job_id}_{i}.zip"
+                moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_{i}.zip")
                 storage.move_to(str(file_path), moodle_zip_file_id)
                 moodle_zip_id_list.append(moodle_zip_file_id)
                 i = i + 1
 
+            # finalize job
             db.jobs_output_collection().insert_one(
                 {
                     "job_id": job_id,
@@ -469,119 +664,77 @@ if __name__ == "__main__":
             )
 
             # Set Job status to VALIDATION
-            db.eval_jobs_collection().update_one(
-                {"job_id": job_id}, {"$set": {"job_status": Job_Status.VALIDATION.value}}
-            )
+            update_status(db, sio, user_id, job_id, Job_Status.VALIDATION, sio_infos={"job_infos": "Validation matricule prête"})
 
-            sio.emit(
-                "jobs_status",
-                json.dumps(
-                    {
-                        "job_id": job_id,
-                        "status": Job_Status.VALIDATION.value,
-                        "user_id": user_id,
-                    }
-                ),
-            )
+        elif job["job_status"] == Job_Status.SPLIT.value or job["job_status"] == Job_Status.CORRECTED.value:
+            job_params = db.eval_jobs_collection().find_one({"job_id": job_id})
+            n_pages_per_question = {key: value for key, value in job_params["n_pages_per_question"]}
 
-            storage.remove(f"csv/{job_id}.csv")
-            storage.remove(f"zips/{job_id}.zip")
+            try:
+                insert_copies('zips', job_id, n_pages_per_question, TMP_DIR)
+                print("Copies inserted in database")
+
+                # Set Job status to QUEUED as no error have been raised. Process can continue
+                update_status(db, sio, user_id, job_id, Job_Status.QUEUED)
+
+                # push the job to the queue to be continued
+                redis.rpush("job_queue", json.dumps({"job_id": job_id}))
+            except ValueError as e:
+                error_messages = str(e)
+                print(e)
+                # Set Job status to RETRY
+                update_status(db, sio, user_id, job_id, Job_Status.RETRY, infos={"job_infos": error_messages})
+
+            except Exception as e:
+                print(e)
+                # Set Job status to ERROR
+                update_status(db, sio, user_id, job_id, Job_Status.ERROR)
+
         else:
             print("Job status "+job["job_status"]+" not handled.")
 
     try:
         # retrieve job
-        print("Retrieving job from redis")
-        job = redis.lpop("job_queue")
-
-        # process job if any
-        if job:
-            print("Job:", job)
-            job = json.loads(job)
-
-            # create tmp work dir
-            job_id = job["job_id"]
-            WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{job_id}")
-            WORK_TMP_DIR.mkdir(exist_ok=True)
-
-            # process job
-            try:
-                process(job, WORK_TMP_DIR)
-            except Exception as e:
-                print("Caught an error while processing job:")
-                print(e)
-                pass
-
-            # clean
-            shutil.rmtree(WORK_TMP_DIR)
-
-        # check if any job is idle and dangling
-        alive_times = {}
-        collection_check = db.get_collection("check")
-        try:
-            locked = False
-            if collection_check.count_documents({}) == 0:
-                collection_check.insert_one({'locked': True})
-                locked = True
+        blocking = os.getenv("REDIS_POP") == "block" or os.getenv("ENVIRONMENT") != "production"
+        while True:
+            print("Retrieving job from redis")
+            if blocking:
+                job = redis.blpop("job_queue", timeout=MAX_IDLE_TIME)
+                # output of blocking is a tuple (job_queue, job)
+                if job:
+                    job = job[1]
             else:
-                res = collection_check.update_one({'locked': False}, {'$set': {'locked': True}})
-                locked = res.matched_count > 0
+                job = redis.lpop("job_queue")
 
-            if locked:
-                while True:
-                    print("Check idle running jobs")
-                    # search idle jobs
-                    max_alive = datetime.utcnow() - timedelta(seconds=120)
-                    jobs = db.eval_jobs_collection().find({
-                        "job_status": Job_Status.RUN.value,
-                        "alive_time": {"$lt": max_alive}
-                    })
-                    # requeue old idle jobs
-                    old_idle_jobs = False
-                    for j in jobs:
-                        def requeue(c_status, n_status):
-                            print("Resubmit job", j["job_id"])
-                            # change status to ensure that a job is not resubmitted several times
-                            res = db.eval_jobs_collection().update_one(
-                                {"job_id": j["job_id"], "job_status": c_status},
-                                {"$inc": {"retry": 1}, "$set": {"job_status": n_status}}
-                            )
-                            if res.matched_count > 0:
-                                redis.lpush("job_queue", json.dumps({"job_id": j["job_id"]}))
-                        if j["job_status"] == Job_Status.RUN.value:
-                            requeue(Job_Status.RUN.value, Job_Status.QUEUED.value)
-                        else:
-                            requeue(Job_Status.FINALIZING.value, Job_Status.VALIDATION.value)
-                        old_idle_jobs = True
+            # process job if any
+            if job:
+                print("Job:", job)
+                job = json.loads(job)
 
-                    # continue if idle jobs
-                    if old_idle_jobs:
-                        break
+                # create tmp work dir
+                jid = job["template_id"] if "template_id" in job else job["job_id"]
+                WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{jid}")
+                WORK_TMP_DIR.mkdir(exist_ok=True)
 
-                    # check if all running jobs are idle. If yes, sleep, otherwise break
-                    print("Check alive running jobs")
-                    jobs = db.eval_jobs_collection().find({
-                        "job_status": Job_Status.RUN.value
-                    })
-                    all_jobs_idle = False
-                    for j in jobs:
-                        job_id = j["job_id"]
-                        alive_t = alive_times.get(job_id, datetime.utcnow())
-                        # check if alive_time has increased, and thus job is alived
-                        if j["alive_time"] > alive_t:
-                            all_jobs_idle = False
-                            break
-                        all_jobs_idle = True
-                        alive_times[job_id] = j["alive_time"]
-                    # if one job alive -> stop
-                    if not all_jobs_idle:
-                        print("All jobs are not idle.")
-                        break
-                    # otherwise, sleep
-                    print("Sleep before checking again running jobs.")
-                    time.sleep(5)
-        finally:
-            collection_check.update_one({'locked': True}, {'$set': {'locked': False}})
+                # process job
+                try:
+                    if "template_id" in job:
+                        process_template(jid, WORK_TMP_DIR)
+                    else:
+                        process(job, WORK_TMP_DIR)
+                except Exception as e:
+                    print("Caught an error while processing job:")
+                    print(e)
+                    pass
+
+                # clean ENLEVER
+                shutil.rmtree(WORK_TMP_DIR)
+
+            # check if any job is idle and dangling
+            check_for_idle_jobs_to_requeue(db, not blocking)
+
+            if not blocking:
+                break
 
     except Exception as e:
         print(e)

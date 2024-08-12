@@ -1,3 +1,4 @@
+
 services:
   redis:
     image: redis:4.0.6-alpine
@@ -12,36 +13,50 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: example
     ports:
       - "27017:27017"
-#  executor:
-#    build: ./services/executor
-#    restart: unless-stopped
-#    # ports:
-#    #   - "5001:5001"
-#    volumes:
-#      - ./storage:/Executor/storage
-#    depends_on:
-#      - redis
+  executor:
+   build: ./services/executor
+#   command: bash -c "while true; do echo hello; sleep 2; done"
+   restart: always
+   # ports:
+   #   - "5001:5001"
+   environment:
+     STORAGE: /Executor/storage
+     REDIS_POP: block
+   volumes:
+     - ./storage:/Executor/storage
   server:
     build: ./services/server
-    restart: unless-stopped
+    restart: always
     # ports:
     #   - "5000:5000"
-    depends_on:
-      - redis
+    environment:
+      FLASK_ENV: development
     volumes:
       - ./storage:/Server/storage
   socketio:
     build: ./services/socketIO
-    restart: unless-stopped
+    restart: always
     ports:
       - '7000:7000'
     # network_mode: "host"
   webapp:
-    build: ./services/webapp
-    restart: unless-stopped
+    # build: ./services/webapp
+    # command: bash -c "while true; do echo hello; sleep 2; done"
+    build:
+      context: ./services/webapp
+      dockerfile: Dockerfile-dev
+    restart: always
+    volumes:
+      - ./services/webapp/ng/src:/app/src:rw
+    ports:
+      - "8080:80"
   nginx:
+    # depends_on:
+    #   - webapp
+    #   - server
+    #   - socketio
     build: ./services/nginx
-    restart: unless-stopped
+    restart: always
     ports:
       - 80:80
 volumes:

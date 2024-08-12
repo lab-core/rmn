@@ -125,3 +125,9 @@ curl -X POST -H "Content-Type:multipart/form-data" --form "username=admin" --for
 ```
 curl -X POST -H "Content-Type:multipart/form-data" --form "username=admin" --form "n_days_old=5" http://localhost/api/admin/delete/jobs
 ```
+
+##### Add default template
+"user_id" is required. It will add the default templates defined on the server default_templates folder:
+```
+curl -X POST -H "Content-Type:multipart/form-data" --form "user_id=admin" http://localhost/api/admin/template
+```

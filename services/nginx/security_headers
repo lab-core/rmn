@@ -1,0 +1,41 @@
+# From https://medium.com/@muhammadjameeghauri/enhancing-kubernetes-ingress-security-with-nginx-and-content-security-policy-fd22dbf3a004
+# and https://javascript.plainenglish.io/angular-generating-accessing-and-using-csp-nonces-with-nginx-14e0da87b20e
+# and https://webdock.io/en/docs/how-guides/security-guides/how-to-configure-security-headers-in-nginx-and-apache
+# 1- Prevents browsers from interpreting files as a different MIME type, enhancing security.
+add_header X-Content-Type-Options nosniff always;
+
+# 2- Content-Security-Policy -> use nonce strategy for angular (tough to implement)
+# Defines a Content Security Policy, allowing resources only from the same origin and explicitly from some websites.
+# Modify the protocol according to your resource's availability.
+# Nonce strategy in angular: substitute 'random_nonce_value' by a unique value per request
+# Use unsafe-inline for style, as many dependencies ad pdf-viewer or angular/material would not work correctly otherwise
+set $cspNonce $request_id;
+sub_filter_types *;
+sub_filter_once off;
+sub_filter random_nonce_value $cspNonce;
+#add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'nonce-$cspNonce'; script-src 'self' 'nonce-$cspNonce'; img-src 'self' 'nonce-$cspNonce' blob: data:; connect-src 'self' 'nonce-$cspNonce' blob: data:; script-src-elem 'self' 'nonce-$cspNonce' https://www.dropbox.com https://js.live.net;" always;
+add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-$cspNonce'; img-src 'self' 'nonce-$cspNonce' blob: data:; connect-src 'self' 'nonce-$cspNonce' blob: data:; script-src-elem 'self' 'unsafe-inline' https://www.dropbox.com https://js.live.net;" always;
+
+# 3- Specifies that cross-origin requests for the resource are allowed only when the request is same-site.
+add_header Cross-Origin-Resource-Policy same-site always;
+
+# 4- Enforces the use of HTTPS and provides additional security by specifying a strict transport security policy.
+# add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+# 5- Disables the browser’s built-in Cross-Site Scripting (XSS) protection. Ensure this is used judiciously.
+# WARNING can be dangerous -> needs to be 0 (https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection)
+add_header X-Xss-Protection 0 always;
+
+# 6- Protects against clickjacking attacks by denying the framing of the content.
+add_header X-Frame-Options DENY always;
+
+# 7- Conceals the server information from the response headers, adding a layer of security through obscurity.
+add_header Server hide always;
+
+# 8- Permissions-Policy is a header that allows site to control which APIs or features can be used in the browser.
+add_header Permissions-Policy "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()" always;
+
+# 9- The Referrer-Policy is a security header field that identifies the address of the webpage that requested the current webpage.
+# By checking the referrer, the new webpage can see where the request originated.
+# The Referrer-Policy can be configured to cause the browser to not inform the destination site any URL information.
+add_header Referrer-Policy strict-origin always;

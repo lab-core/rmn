@@ -1,6 +1,6 @@
 import os
 import shutil
-from datetime import datetime
+import datetime as dt
 import cv2
 from utils.utils import Document_Status, Job_Status
 from utils.storage import Storage, ROOT_DIR
@@ -22,6 +22,9 @@ class Database:
     def documents_collection(self):
         return self.get_collection("job_documents")
 
+    def questions_collection(self):
+        return self.get_collection("job_questions")
+
     def eval_jobs_collection(self):
         return self.get_collection("eval_jobs")
 
@@ -31,13 +34,40 @@ class Database:
     def users_collection(self):
         return self.get_collection("users")
 
+    def insert_question(
+        self,
+        job_id,
+        doc_index,
+        rel_filepath,
+        status,
+        filename,
+        question,
+        basename,
+        question_index=None,
+        grade=None
+    ):
+        if question_index is None:
+            question_index = int(question[1:])  # 'Q1' -> index of 1
+        return self.questions_collection().insert_one(
+            {
+                "job_id": job_id,
+                "document_index": doc_index,
+                "rel_filepath": rel_filepath,
+                "status": status.value,
+                "filename": filename,
+                "question": question,
+                "question_index": question_index,
+                "basename": basename,
+                "grade": grade
+            }
+        )
+
     def insert_document(
         self,
         job_id,
         doc_index,
-        subquestion_pred,
-        total,
-        image_id,
+        grades,
+        rel_filepath,
         status,
         matricule,
         time,
@@ -48,9 +78,8 @@ class Database:
                 "job_id": job_id,
                 "document_index": doc_index,
                 "matricule": str(matricule),
-                "subquestion_predictions": subquestion_pred,
-                "total": total,
-                "image_id": image_id,
+                "grades": grades,
+                "rel_filepath": rel_filepath,
                 "status": status.value,
                 "execution_time": time,
                 "filename": filename,
@@ -66,42 +95,43 @@ class Database:
         self,
         job_id,
         doc_index,
-        subquestion_pred,
-        total,
-        image_id,
+        grades,
         status,
         matricule,
         time,
         group
     ):
-        # return updated doc
-        return self.documents_collection().update_one(
-            {"job_id": job_id, "document_index": doc_index},
-            {
-                "$set": {
-                    "matricule": str(matricule),
-                    "subquestion_predictions": subquestion_pred,
-                    "total": total,
-                    "image_id": image_id,
-                    "status": status.value,
-                    "execution_time": time,
-                    "group": group
-                }
-            },
-        ).matched_count > 0
+        try:
+            # return updated doc
+            set = {
+                "matricule": str(matricule),
+                "status": status.value,
+                "execution_time": time,
+            }
+            if grades is not None:
+                set["grades"] = grades
+            if group is not None:
+                set["group"] = group
+            return self.documents_collection().update_one(
+                {"job_id": job_id, "document_index": doc_index},
+                {"$set": set},
+            ).matched_count > 0
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
 
-    def update_document_predictions(
+    def update_document_grades(
         self,
         job_id,
         doc_index,
-        subquestion_pred
+        grades
     ):
         # return updated doc
         return self.documents_collection().update_one(
             {"job_id": job_id, "document_index": doc_index},
             {
                 "$set": {
-                    "subquestion_predictions": subquestion_pred
+                    "grades": grades
                 }
             },
         ).matched_count > 0
@@ -117,29 +147,30 @@ class Database:
         self.eval_jobs_collection().update_one(
             {"job_id": job_id},
             {"$set": {
-                "alive_time": datetime.utcnow(),
+                "alive_time": dt.datetime.now(dt.UTC),
                 "max_questions": max_nb_question
             }}
         )
 
-    def update_job_status_to_run(self, job_id, students_list):
+    def update_job_status_to_run(self, job_id, students_list, groups=None):
         # try to change job status if first try
+        new_values = {
+            "job_status": Job_Status.RUN.value,
+            "alive_time": dt.datetime.now(dt.UTC),
+            "students_list": students_list
+        }
+        if groups is not None:
+            new_values["groups"] = groups
         self.eval_jobs_collection().update_one(
             {"job_id": job_id},
-            {
-                "$set": {
-                    "job_status": Job_Status.RUN.value,
-                    "alive_time": datetime.utcnow(),
-                    "students_list": students_list
-                }
-            }
+            {"$set": new_values}
         )
         return self.eval_jobs_collection().find_one({"job_id": job_id})
 
-    def save_preview_image(self, src, job_id, document_index):
-        filename = f"documents/{job_id}/{document_index}.png"
-        self.storage.move_to(str(src), filename)
-        return filename
+    # def save_preview_image(self, src, job_id, document_index):
+    #     filename = f"documents/{job_id}/Q{document_index+1}.pdf"
+    #     # self.storage.move_to(str(src), filename)
+    #     return filename
 
     def save_unverified_number_images(self, job_id, document_index, images):
         for index, img in enumerate(images):
@@ -150,14 +181,20 @@ class Database:
 
         shutil.rmtree(os.path.join("numbers"))
 
-    def get_template_info(self, template_id):
-        template = self.mongo_database["template"].find_one(
-            {"template_id": template_id}
+    def get_templates_info(self, front_template_id, regular_template_id=None):
+        front_template = self.mongo_database["template"].find_one(
+            {"template_id": front_template_id}
         )
-        template_matricule_box = (
-            template["matricule_box"] if "matricule_box" in template else None
+        front_template_matricule_box = front_template.get("matricule_box", None)
+        front_template_grade_box = front_template.get("grade_box", None)
+
+        regular_template = self.mongo_database["template"].find_one(
+            {"template_id": regular_template_id}
         )
-        return template["grade_box"], template_matricule_box
+        regular_template_matricule_box = regular_template.get("matricule_box", None) if regular_template else None
+
+        return front_template_grade_box, front_template_matricule_box, regular_template_matricule_box
+
 
     def imwrite_png(self, name, img):
         if not os.path.exists("numbers"):

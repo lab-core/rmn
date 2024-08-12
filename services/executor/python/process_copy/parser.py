@@ -8,6 +8,8 @@ sys.path.insert(0, parent_dir)
 
 from process_copy import config
 
+grade_box = config.grade_box
+matricule_box = config.matricule_box
 
 parser = argparse.ArgumentParser(description='Move the copy to moodle folders.',
                                  formatter_class=argparse.RawTextHelpFormatter)
@@ -39,7 +41,7 @@ parser.add_argument('-g', '--grade', type=str,
                          "Usage to grade all copies in 'all' with the configuration 'devoir': "
                          "-r '/root/path' --grades notes.csv -g devoir all\n"
                          "Here the current configurations available:\n"
-                         "%s" % "\n".join(["  - \"%s\": %s" % (k, str(v)) for k, v in config.grade_box.items()]))
+                         "%s" % "\n".join(["  - \"%s\": %s" % (k, str(v)) for k, v in grade_box.items()]))
 parser.add_argument('--grades', type=str,
                     help="Path to a csv file to add the grades or a folder containing some csv files or "
                          "a list of files/folders separated by a comma. "
@@ -67,7 +69,6 @@ parser.add_argument('-t', '--train', default=False, action='store_true', help='t
 parser.add_argument('-j', '--job_id', type=str, help='Id of the job.')
 
 parser.add_argument('-u', '--user_id', type=str, help='Id of the user.')
-parser.add_argument('-v', '--template_id', type=str, help='Id of the template to use.')
 
 
 def check_path(path):
@@ -80,7 +81,7 @@ def try_alternative_root_paths(path, root=None, check=True):
     if not path:
         return []
 
-    if path.startswith('/'):
+    if path.startswith(os.sep):
         if not check:
             return [path]
         return glob.glob(path)
@@ -172,8 +173,13 @@ def run_args(args):
 
     if args.find:
         print('Find the matricule for the pdf files in %s' % args.path)
-        from process_copy.recognize import find_matricules
-        find_matricules(args.path, config.matricule_box[args.find], args.grades)
+        from process_copy.recognize import process_all, find_matricules, find_all_matricules
+        # find_all_matricules(args.path, matricule_box[args.find], args.grades)
+        try:
+            process_all(args.path, args.grades, matricule_box[args.find], grade_box[args.find],
+                        args.job_id, args.user_id, find_matricules)
+        except KeyError:
+            raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
 
     if args.import_files:
         print('Import the pdf files from %s to %s' % (args.mpath, args.path))
@@ -186,12 +192,13 @@ def run_args(args):
 
     if args.grade:
         print('Find the grade for the pdf files in %s' % args.path)
-        from process_copy.recognize import grade_all, compare_all
+        from process_copy.recognize import process_all, compare_all, grade_files
         try:
             if args.compare:
-                compare_all(args.path, args.grades, config.grade_box[args.grade])
+                compare_all(args.path, args.grades, grade_box[args.grade])
             else:
-                grade_all(args.path, args.grades, config.matricule_box["exam"], args.job_id, args.user_id, args.template_id)
+                process_all(args.path, args.grades, matricule_box[args.grade], grade_box[args.grade],
+                            args.job_id, args.user_id, grade_files)
         except KeyError:
             raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
 

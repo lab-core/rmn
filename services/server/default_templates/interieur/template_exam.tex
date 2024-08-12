@@ -1,0 +1,90 @@
+\documentclass[10pt]{article}
+
+
+%---------------------------------%
+% packages												%
+%---------------------------------%
+
+\usepackage[english,french]{babel}
+\usepackage{geometry}
+\usepackage{fancybox}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+
+% mise en page %
+
+\setlength{\parindent}{0cm}
+
+\renewcommand{\baselinestretch}{1}
+
+%\setlength{\parskip}{50mm}
+\geometry{letterpaper, tmargin=2.5cm, bmargin=2.0cm, lmargin=2.25cm, rmargin=2.25cm, headsep=1.0cm}
+
+
+\newcommand{\matbox}{\begin{tabular}{|c|c@{}|c|c@{}|c|c@{}|c|c@{}|c|c@{}|c|c@{}|c|}
+\cline{1-1} \cline{3-3} \cline{5-5} \cline{7-7} \cline{9-9} \cline{11-11} \cline{13-13}
+ ~ &  & ~  &  &  ~  &  &  ~  &  &  ~  &  & ~ &  & ~ \\ &  &   &  &    &  &    &  &    &  & &  &   \\
+\cline{1-1} \cline{3-3} \cline{5-5} \cline{7-7} \cline{9-9} \cline{11-11} \cline{13-13} \end{tabular}}
+
+\renewcommand{\headrulewidth}{0pt}
+
+\pagestyle{fancy}
+\lhead{\emph{\bfseries Polytechnique Montr\'eal \hfill \bfseries page \thepage \\
+D\'epartement de math\'ematiques et de g\'enie industriel \\
+Calcul II - MTH1102/MTH1102D \\
+Contr\^ole p\'eriodique - Automne 2021} \\
+\rule{.57\linewidth}{.5pt}
+}
+\chead{}
+\rhead{\emph{ \bfseries Matricule :} \matbox \vspace{0mm}}
+\fancyfoot{}
+
+%--- ajoute une page verso non corrigée
+
+\newcommand{\verso}
+{
+\
+\newpage
+\thispagestyle{empty}
+
+\vspace*{\fill}
+
+\begin{center}
+{\fontsize{50}{60}\selectfont \bf \textcolor{lightgray}{BROUILLON}}
+
+\bigskip
+
+{\huge \bf \textcolor{lightgray}{Ne sera pas num\'eris\'e, ni corrig\'e}}
+
+\end{center}
+
+\vspace*{\fill}
+
+\addtocounter{page}{-1}
+\newpage
+}
+
+\begin{document}
+
+
+\
+
+\
+
+\
+
+%-------------------------------------------------------------------------
+{\large \bf Question 1 [10 points]}
+
+\bigskip
+
+{\em Blah blah blah.}
+
+\bigskip
+
+{\bf R\'eponse:}
+
+
+\verso
+
+\end{document}

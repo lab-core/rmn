@@ -1,13 +1,14 @@
 #stage 1
-FROM node:16.13.0 as node
+FROM node:22 as node
 WORKDIR /app
 
-COPY package*.json ./
+COPY ng/package*.json ./
 RUN npm install
 
-COPY . .
-RUN npm run prod
+COPY ng/ .
+RUN npm run build
 
 #stage 2
-FROM nginx:alpine
-COPY --from=node /app/dist/cadriciel /usr/share/nginx/html
+FROM nginx:stable-alpine
+COPY --from=node /app/dist/rmn /usr/share/nginx/html
+COPY default.conf /etc/nginx/conf.d

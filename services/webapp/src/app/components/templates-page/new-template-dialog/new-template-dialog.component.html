@@ -1,9 +1,0 @@
-<div class="dialog-container">
-    <h3>Veuillez importer le modèle d'une copie en format PDF...</h3>
-    <input #fileInput hidden="true" type="file" onclick="this.value=null" (change)="CopyFileEvent($event)" accept=".pdf"/>
-    <button id="copy-input-button" class="get-document-button" (click)="fileInput.click()">Importer un modèle d'une copie</button>
-    <div class="label-box">
-        <label for="copy-input-button">{{this.copyName}}</label>
-    </div>
-    <button class="confirm-document-button" mat-flat-button color="accent" [disabled]="this.disabled" (click)="confirm()">Confirmer</button>
-</div>

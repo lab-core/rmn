@@ -1,6 +1,6 @@
 from flask import Flask, request, Response, json, send_file
-from werkzeug.security import generate_password_hash,check_password_hash
-from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+import datetime as dt
 import uuid
 from enum import Enum
 
@@ -14,6 +14,16 @@ class Role(Enum):
 
 
 class UserService:
+    # def addAutoExpiration(database, expire_after_days=7):
+    #     try:
+    #         database["tokens"].createIndex(
+    #             {"creation_time": 1},
+    #             {'expireAfterSeconds': expire_after_days*24*60*60}
+    #         )
+    #     except Exception as e:
+    #         print(e)
+    #         pass
+
     def create_token(username, role, database):
         token = str(uuid.uuid4())
         collection = database["tokens"]
@@ -21,11 +31,11 @@ class UserService:
           "token": token,
           "username": username,
           "role": role,
-          "creation_time": datetime.utcnow()
+          "creation_time": dt.datetime.now(dt.UTC)
         })
         return token
 
-    def verify_token(token, database, role = None):
+    def verify_token(token, database, role=None):
         collection = database["tokens"]
         tokenDB = collection.find_one({"token": token})
         if tokenDB is None:
@@ -42,7 +52,7 @@ class UserService:
        collection = database["tokens"]
        if n_days_old > 0:
            tokens = collection.find(r)
-           now = datetime.utcnow()
+           now = dt.datetime.now(dt.UTC)
            delete_tokens = []
            for t in tokens:
                delta = now - t["creation_time"]
@@ -74,7 +84,7 @@ class UserService:
                 response=json.dumps({"response": f"Nom d'utilisateur/Mot de passe invalide"}),
                 status=404,
             )
-        if check_password_hash(userDB['password'], password) :
+        if check_password_hash(userDB['password'], password):
             token = UserService.create_token(userDB['username'], userDB['role'], database)
             response = {
                     "username": userDB['username'],
@@ -93,7 +103,6 @@ class UserService:
                 response=json.dumps({"response": f"Nom d'utilisateur/Mot de passe invalide"}),
                 status=404,
             )
-
 
     def signup(request, database):
         request_form = request.form
@@ -133,14 +142,14 @@ class UserService:
                 status=404,
             )
 
-        hashed_password = generate_password_hash(password, method='sha256')
+        hashed_password = generate_password_hash(password)
 
         user = {
             "username": username,
             "password": hashed_password,
             "role": role,
-            "saveVerifiedImages": "saveVerifiedImages" in request_form,
-            "moodleStructureInd": "moodleStructureInd" in request_form
+            "saveVerifiedImages": False,  # "saveVerifiedImages" in request_form,
+            "moodleStructureInd": True  # "moodleStructureInd" in request_form
         }
         collection.insert_one(user)
 
@@ -236,19 +245,18 @@ class UserService:
 
         if verify_old_password:
             old_password = request_form['old_password']
-            if not check_password_hash(userDB['password'], old_password) :
+            if not check_password_hash(userDB['password'], old_password):
                 return Response(
                     response=json.dumps({"response": 'Le mot de passe entré est incorrect!'}),
                     status=500
                 )
-
 
         collection.update_one(
             {
                 'username': username
             },
             {
-                "$set": { 'password': generate_password_hash(new_password, method='sha256')  }
+                "$set": {'password': generate_password_hash(new_password)}
             }
         )
 
