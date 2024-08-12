@@ -5,14 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/services/webapp/.dockerignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/Dockerfile-dev" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/Dockerfile-dev" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/angular.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/angular.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/interceptor.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/interceptor.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -159,8 +153,8 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.exec" />
       <item itemvalue="Python.app" />
+      <item itemvalue="Python.exec" />
       <item itemvalue="Python.stats" />
     </list>
   </component>
@@ -192,6 +186,7 @@
       <workItem from="1722217467983" duration="614000" />
       <workItem from="1722218240744" duration="159557000" />
       <workItem from="1723083701015" duration="10724000" />
+      <workItem from="1723429240471" duration="247000" />
     </task>
     <servers />
   </component>
@@ -229,7 +224,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/server/app.py</url>
-          <line>1228</line>
+          <line>1227</line>
           <option name="timeStamp" value="25" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">

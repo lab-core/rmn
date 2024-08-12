@@ -11,15 +11,7 @@ spec:
     - host: rmn.mgi.polymtl.ca
       http:
         paths:
-          # retrieve any file with an extansion
-          - path: /(.*\..*)
-            pathType: Prefix
-            backend:
-              service:
-                name: webapp
-                port:
-                  number: 80
-          # route any path to the root of the application
+          # route any path to the web application
           - path: /
             pathType: Prefix
             backend:

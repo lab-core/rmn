@@ -20,7 +20,6 @@ import uuid
 import os
 import json
 import shutil
-import time
 import tempfile
 from functools import wraps
 
@@ -452,13 +451,13 @@ def get_jobs(user_id):
     resp = [
         {
             "job_id": job["job_id"],
-            "front_template_id": job["front_template_id"],
-            "regular_template_id": job["regular_template_id"],
+            "front_template_id": job.get("front_template_id"),
+            "regular_template_id": job.get("regular_template_id"),
             "queued_time": str(job["queued_time"]),
             "job_status": job["job_status"],
             "job_name": job["job_name"],
-            "front_template_name": job["front_template_name"],
-            "regular_template_name": job["regular_template_name"],
+            "front_template_name": job.get("front_template_name"),
+            "regular_template_name": job.get("regular_template_name"),
             "job_infos": job.get("job_infos", "")
         }
         for job in jobs
@@ -507,13 +506,13 @@ def get_job():
     #
     resp = {
         "job_id": job["job_id"],
-        "front_template_id": job["front_template_id"],
-        "regular_template_id": job["regular_template_id"],
+        "front_template_id": job.get("front_template_id"),
+        "regular_template_id": job.get("regular_template_id"),
         "queued_time": str(job["queued_time"]),
         "job_status": job["job_status"],
         "job_name": job["job_name"],
-        "front_template_name": job["front_template_name"],
-        "regular_template_name": job["regular_template_name"],
+        "front_template_name": job.get("front_template_name"),
+        "regular_template_name": job.get("regular_template_name"),
         "students_list": job["students_list"],
         "job_infos": job.get("job_infos", ""),
         "n_max_points_per_question": job["n_max_points_per_question"],
@@ -1630,7 +1629,7 @@ def delete_old_jobs(n_days_old=0, user_id=None):
     now = dt.datetime.now(dt.UTC)
     n = 0
     for j in jobs:
-        delta = now - j["queued_time"]
+        delta = now - j["queued_time"].replace(tzinfo=dt.UTC)
         if delta.days >= n_days_old:
             delete_job(j["job_id"])
             n = n + 1
