@@ -37,6 +37,7 @@ import { ChangePasswordDialogComponent } from './components/user-profile/change-
 import { CreateUserDialogComponent } from './components/user-profile/create-user-dialog/create-user-dialog.component';
 import { PDFViewerComponent } from './components/pdf-viewer/pdf-viewer.component';
 import { TaskVerificationComponent } from './components/task-verification/task-verification.component';
+import { PdfManagementDialogComponent } from './components/task-verification/pdf-management/pdf-management-dialog.component';
 import { ValidationWarningDialogComponent } from './components/task-verification/validation-warning-dialog/validation-warning-dialog.component';
 import { TemplatesPageComponent } from './components/templates-page/templates-page.component';
 import { NewTemplateDialogComponent } from './components/templates-page/new-template-dialog/new-template-dialog.component';

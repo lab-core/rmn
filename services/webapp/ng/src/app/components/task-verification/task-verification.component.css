@@ -126,46 +126,6 @@
     justify-content: center;
 }
 
-.download-zip-button {
-    border-radius: 5px;
-    height: 5%;
-    width: 80%;
-    font-size: 100%;
-    transition: 0.3s;
-    margin-top: 10%;
-    box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
-    -moz-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52 0.7);
-    -webkit-box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
-    -o-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
-    -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
-}
-
-.download-zip-button:hover {
-    background-color: #d2d8e6;
-    transform: scale(1.05, 1.05);
-    transition: 0.3s;
-}
-
-.replace-zip-button {
-    border-radius: 5px;
-    height: 20%;
-    width: 80%;
-    margin-top: 5%;
-    font-size: 100%;
-    transition: 0.3s;
-    box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
-    -moz-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52 0.7);
-    -webkit-box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
-    -o-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
-    -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
-}
-
-.replace-zip-button:hover {
-    background-color: #d2d8e6;
-    transform: scale(1.05, 1.05);
-    transition: 0.3s;
-}
-
 .files-list-container {
     width: 100%;
     overflow-y: auto;
@@ -180,23 +140,6 @@
     max-height: 9%;
     margin: 2%;
 }
-
-.upload-container {
-    text-align: center;
-  }
-
-  .drop-zone {
-    margin-top: 20px;
-    margin-bottom: 10px;
-    border: 2px dashed #ccc;
-    padding: 15px;
-    cursor: pointer;
-  }
-
-  .drop-zone p {
-    margin: 0;
-    color: #aaa;
-  }
 
 .validated-copy {
     width: 100%;
@@ -264,6 +207,20 @@
 .chosen-copy {
     transform: scale(1.15, 1.15);
     border: 3px solid black;
+}
+
+.pdf-management-button {
+    border-radius: 5px;
+    height: 7%;
+    width: 80%;
+    margin-top: 5%;
+    font-size: 100%;
+    transition: 0.3s;
+    box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
+    -moz-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52 0.7);
+    -webkit-box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
+    -o-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
+    -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
 }
 
 .helper-container {
@@ -636,15 +593,6 @@ input::-webkit-inner-spin-button {
     transition: 3s;
 }
 
-.max-copies-container {
-    margin-top: 5%;
-    margin-bottom: 5%;
-    width: 70%;
-}
-
-.max-copies-container label {
-    margin-right: 10%;
-}
 
 app-pdf-viewer {
     width: 100%;
