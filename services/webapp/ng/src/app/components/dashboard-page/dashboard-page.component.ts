@@ -261,6 +261,10 @@ export class DashboardPageComponent {
     return qMax;
   }
 
+  async reroute() {
+    this.router.navigate(['/task-history']);
+  }
+
   openTaskFilesDialog(jobId: string): void {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);

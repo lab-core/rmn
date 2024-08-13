@@ -22,17 +22,8 @@ app-main-menu {
 
 .task-container {
   z-index: 2;
-  background-color: white;
-  border-radius: 1%;
-  border: 2px solid black;
-  box-shadow: 0 5px 10px 0px rgb(0 0 0 / 70%);
-  -moz-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
-  -webkit-box-shadow: 0 5px 10px 0px rgb(0 0 0 / 70%);
-  -o-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
-  -ms-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.7);
-  padding: 20px;
-  height: auto;
-  max-height: 90vh;
+  height: 100%;
+  margin-top: 10%;
   overflow: auto;
   text-align: center;
   font-size: 1.2em;
@@ -88,14 +79,9 @@ tbody td {
   padding: 5px 10px;
   border: 1px solid black;
   border-radius: 10px;
-  background-color: white;
   cursor: pointer;
   font-size: 0.75em;
   margin-left: 5px;
-}
-
-button:hover {
-  background-color: #e0e0e0;
 }
 
 .totals {
@@ -125,6 +111,21 @@ button:hover {
   font-size: 90%;
   transition: 0.3s;
   padding: 10px;
+}
+
+.back-button {
+    position: absolute;
+    top: 10%;
+    width: 1%;
+    left: 0;
+    transition: 3s;
+    height: 90%;
+    z-index: 1;
+}
+
+.back-button:hover {
+    background: linear-gradient(to right, rgba(170, 169, 169, 0.326), rgba(255,0,0,0));
+    transition: 3s;
 }
 
 /* .validate-job-button:hover {
