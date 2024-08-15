@@ -34,7 +34,9 @@ export class PDFSource {
   }
 
   canBeUsed(minutes, version=undefined) {
-    return this.annotations.length == 0 && !this.isOlderThan(minutes) && (version === undefined || this.version === version);
+    return this.annotations.length == 0 &&
+    (minutes === undefined || !this.isOlderThan(minutes)) &&
+    (version === undefined || this.version === version);
   }
 }
 
@@ -74,6 +76,17 @@ export class DocumentsService {
     }
   }
 
+  async readBlobSync(blob: Blob): Promise<string | ArrayBuffer> {
+     return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(reader.result);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+
   async downloadPdf(jobId: string, index: number, version=undefined): Promise<PDFSource> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
@@ -89,6 +102,7 @@ export class DocumentsService {
 
     try {
       const data = await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).toPromise();
+      // const src = base64Src ? await this.readBlobSync(data) : window.URL.createObjectURL(data);
       const url = window.URL.createObjectURL(data);
       const pdfSource = new PDFSource(index, url, version);
       this.pdfSources[index] = pdfSource;
@@ -124,13 +138,21 @@ export class DocumentsService {
   }
 
   async getPdfSource(jobId: string, index: number, version=undefined, minutes=undefined): Promise<PDFSource> {
-    let pdfSource = this.pdfSources[index];
-    if (pdfSource && pdfSource.canBeUsed(minutes || this.refreshMinutes, version)) {
+    let pdfSource = this.getAvailablePdfSource(jobId, index, version, minutes || this.refreshMinutes);
+    if (pdfSource !== undefined) {
       return pdfSource;
     } else {
       let pdfSource = await this.downloadPdf(jobId, index, version);
       return pdfSource;
     }
+  }
+
+  getAvailablePdfSource(jobId: string, index: number, version=undefined, minutes=undefined) {
+    let pdfSource = this.pdfSources[index];
+    if (pdfSource && pdfSource.canBeUsed(minutes, version)) {
+      return pdfSource;
+    }
+    return undefined;
   }
 
   clearPdfSources() {

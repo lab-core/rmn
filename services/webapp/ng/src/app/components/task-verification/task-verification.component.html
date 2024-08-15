@@ -38,7 +38,9 @@
                     </div>
                 </div>
             </div>
-            <button class="pdf-management-button" mat-flat-button (click)="managePdfs()">Gestion des pdfs</button>
+            <button class="offline-button" mat-raised-button color="primary" *ngIf="!offline" (click)="correctOffline()">Corriger hors ligne</button>
+            <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="uploadOffline()">Finaliser hors ligne</button>
+            <button class="pdf-management-button" mat-flat-button (click)="managePdfs()">Gérer mes copies</button>
         </div>
         <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
           <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer" [ngClass]="{'expanded': isSidebarHidden}">

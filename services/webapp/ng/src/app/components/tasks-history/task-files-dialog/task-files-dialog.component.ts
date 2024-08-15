@@ -51,7 +51,10 @@ export class TaskFilesDialogComponent implements OnInit {
     if (index == 0) {
       value = "copies";
     } else {
-      value = "moodle-" + index.toString();
+      value = "moodle";
+      if (index > 1) {
+        value += "-${index}";
+      }
     }
     return value;
   }

@@ -1,5 +1,5 @@
-import { Component, ElementRef, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ViewChild } from '@angular/core';
-import { NgxExtendedPdfViewerService, EditorAnnotation, FreeTextEditorAnnotation, InkEditorAnnotation,  PdfTextEditorComponent, PdfDrawEditorComponent, pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
+import { Component, ElementRef, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy, ViewChild } from '@angular/core';
+import { NgxExtendedPdfViewerService, EditorAnnotation, FreeTextEditorAnnotation, InkEditorAnnotation,  PdfTextEditorComponent, PdfDrawEditorComponent, PDFWorker, pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
 import { NotificationService } from 'src/app/services/notification.service';
 import { PDFSource } from 'src/app/services/documents.service';
 
@@ -138,6 +138,7 @@ class BezierAnnotation {
 
 @Component({
   selector: 'app-pdf-viewer',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pdf-viewer.component.html',
   styleUrls: ['./pdf-viewer.component.css']
 })
@@ -181,7 +182,9 @@ export class PDFViewerComponent implements OnInit, OnChanges {
       pdfDefaultOptions.doubleTapResetsZoomOnSecondDoubleTap = false;
   }
 
-  async ngOnInit(): Promise<void> {}
+  async ngOnInit(): Promise<void> {
+    console.log("PDF viewer init");
+  }
 
   async ngOnChanges(changes: SimpleChanges) {
     this.pdfModified = false;
@@ -214,7 +217,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     }
   }
 
-  public async getRenderedPdfFile(filename: string, onlyIfModified: boolean=false) {
+  public async getRenderedPdfFile(filename: string, onlyIfModified: boolean=false): Promise<File> {
     // check if pdf has been modified
     if (onlyIfModified && !this.pdfModified && this.annotationsHistory.length == 0) {
       return undefined;
@@ -371,10 +374,6 @@ export class PDFViewerComponent implements OnInit, OnChanges {
         element['childNodes'][2]['classList'].add('disabled');
         element['childNodes'][0]['classList'].add('hidden');
         element['childNodes'][2]['classList'].add('hidden');
-      } else if (this.isErasing) {
-        // disable drawing canvas
-        // element['style']['pointerEvents'] = 'none';
-        // element['classList'].remove('selectedEditor');
       }
     }
 
@@ -383,15 +382,6 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     for (let i = 0; i < annotationColl.length; i++) {
       annotationColl[i]['style']['pointerEvents'] = 'none';
     }
-  }
-
-  private enableCanvasInkEditor() {
-    // let annotationColl = document.getElementsByClassName('inkEditor');
-    // for (let i = 0; i < annotationColl.length; i++) {
-    //   if (annotationColl[i]['childNodes'].length <= 1) {
-    //     annotationColl[i]['style']['pointerEvents'] = '';
-    //   }
-    // }
   }
 
   private observeAnnotationEditorLayer() {
@@ -446,7 +436,6 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     document.getElementById('eraserParamsToolbar')['classList'].add('hidden');
     document.getElementById('eraserTool')['classList'].remove('toggled');
     this.removeCanvasListeners();
-    this.enableCanvasInkEditor();
   }
 
   erase() {
@@ -488,9 +477,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     for (let i = 0; i < this.eventListeners.length; i++) {
       // remove the listeners on the child if the canvas still exists
       if (wrapperColl[i]) {
-        // const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
         const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
-
         for (let k in this.eventListeners[i]) {
           canvas.removeEventListener(k, this.eventListeners[i][k]);
         }
@@ -606,7 +593,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     const ctx = canvas.getContext("2d");
     ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
-    ctx.arc(centerX, centerY, this.radius, 0, Math.PI*2, false);
+    ctx.arc(centerX, centerY, this.radius+5, 0, Math.PI*2, false);
     ctx.fill();
   }
 
@@ -655,7 +642,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
         newPath.pushPoints(x, y);
       } else {
         modified = true;
-        if (newPath.points.length > 0) {
+        if (newPath.points.length > 1) {
           // do not consider a path too small or empty
           newPaths.push(newPath);
           newPath = new BezierPath();
@@ -665,7 +652,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
 
     if (modified) {
       // add last new path if necessary
-      if (newPath.points.length > 0) {
+      if (newPath.points.length > 1) {
         newPaths.push(newPath);
       }
       return newPaths;

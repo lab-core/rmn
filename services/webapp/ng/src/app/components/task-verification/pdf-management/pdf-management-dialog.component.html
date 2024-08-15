@@ -2,9 +2,9 @@
   <div class="pdf-container">
     <h3> Gestion des PDFs </h3>
 
-    <div class="max-copies-container">
+    <div class="max-copies-container form-group">
         <label for="maxCopies">Nombre max de copies par pdf</label>
-        <input id="maxCopies" type="number"  placeholder="Nombre max de copies par pdf">
+        <input class="form-control" id="maxCopies" type="number" (change)="setmaxCopies($event)" placeholder="Nombre max de copies par pdf">
     </div>
     <button class="download-zip-button" mat-flat-button (click)="downloadAllFilesAsZip()">Tout télécharger</button>
 

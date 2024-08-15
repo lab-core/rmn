@@ -12,6 +12,16 @@ import { PDFViewerComponent } from 'src/app/components/pdf-viewer/pdf-viewer.com
 import { MatSelectChange } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 
+
+interface OfflineCopy {
+  pdfSrc: PDFSource;
+  grade: number;
+  status: string;
+  file: File;
+  questionIndex: string;
+}
+
+
 @Component({
   providers: [PDFViewerComponent],
   selector: 'app-task-verification',
@@ -45,6 +55,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   hasUploadedZip: boolean = false;
 
   job: Map<string, any>;
+
+  offline: boolean = false;
+  offlineCopies = new Map<number, OfflineCopy>();
 
   nMaxPointsPerQuestion = new Map<string, number>();
   bonusEnabledMap = new Map<string, boolean>();
@@ -314,7 +327,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async loadPdf(version: number = undefined): Promise<void> {
     if (this.currentExam()["status"] !== "NOT_READY") {
       this.checkNavigationArrows(false);
-      const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, version);
+      let pdfSource;
+      if (this.offline) {
+        pdfSource = this.docService.getAvailablePdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy)
+      } else {
+        pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, version);
+      }
       if (pdfSource) {
         this.currentPdfSrc = pdfSource;
         this.pdfUrl = pdfSource.url;
@@ -385,9 +403,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.currentGradeModified = false;
     this.getCurrentStatus();
     // try to load the following copy
-    let nextIndex = this.nextCopyIndex();
-    if (nextIndex < this.examsList.length) {
-      this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex);
+    if (!this.offline) {
+      let nextIndex = this.nextCopyIndex();
+      if (nextIndex < this.examsList.length) {
+        this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex);
+      }
     }
   }
 
@@ -432,7 +452,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
 
   async validateCurrentCopy() {
-    if (this.hasDownloadedZip && !this.hasUploadedZip && this.currentIndex() === this.examsList.length - 1) {
+    if (!this.offline && this.hasDownloadedZip && !this.hasUploadedZip && this.currentIndex() === this.examsList.length - 1) {
       this.notificationService.showWarning("Vous n'avez téléversé aucun nouveaux fichiers.", 'Attention!');
     }
 
@@ -459,29 +479,49 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       const file = await this.pdfViewer.getRenderedPdfFile(filename, !this.currentGradeModified);
       if (file !== undefined) {
         this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
-        let validationResponse = await this.validationService.validateDocument(
-            this.tasksService.getvalidatingTaskId(),
-            this.currentCopy,
+        if (this.offline) {
+          this.offlineCopies.set(this.currentCopy, {
+            pdfSrc: this.currentPdfSrc,
+            file: file,
+            grade: this.currentGradeModified ? this.currentGrade : undefined,
+            status: this.currentStatus,
+            questionIndex: this.currentQuestionIndex
+          });
+        } else {
+          let validationResponse = await this.saveCopy(
+            this.currentPdfSrc,
             file,
-            this.currentQuestionIndex.slice(1),
             this.currentGradeModified ? this.currentGrade : undefined,
-            this.nMaxPointsPerQuestion,
             this.currentStatus,
-            this.currentVersion,
-            this.currentPdfSrc.annotations
-        );
-        if (validationResponse === undefined) {
-          this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
+            this.currentQuestionIndex);
+          if (validationResponse === undefined) {
+            this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
+          }
+          this.currentPdfSrc.lastVersion++;
+          this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
+
+          console.log('Save current copy and obtained response:', validationResponse);
+
+          return validationResponse;
         }
-        this.currentPdfSrc.lastVersion++;
-        this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
-
-        console.log('Save current copy and obtained response:', validationResponse);
-
-        return (validationResponse === "OK");
       }
     }
     return true;  // nothing to do -> true
+  }
+
+  async saveCopy(pdfSource, file, grade, status, questionIndex): Promise<any> {
+    let validationResponse = await this.validationService.validateDocument(
+        this.tasksService.getvalidatingTaskId(),
+        pdfSource.index,
+        file,
+        questionIndex.slice(1),
+        grade,
+        this.nMaxPointsPerQuestion,
+        status,
+        pdfSource.version,
+        pdfSource.annotations
+    );
+    return (validationResponse === "OK");
   }
 
   updateTotal(key, value): void {
@@ -577,7 +617,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       width: '30%',
       height: '60%',
       data: {
-        jobId: this.tasksService.getvalidatingTaskId,
+        jobId: this.tasksService.getvalidatingTaskId(),
         index: this.index,
         jobName: this.job['job_name'],
         nPagesPerQuestion: this.job["n_pages_per_question"],
@@ -585,15 +625,46 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       }
     });
     dialogRef.afterClosed().subscribe(async result => {
-      if (result.hasDownloadedZip) {
-        this.hasDownloadedZip = true;
-      } else if (result.hasUploadedZip) {
-        this.hasUploadedZip = true;
-        this.docService.clearPdfSources();
-        this.loadCopy();
+      if (result) {
+        if (result.hasDownloadedZip) {
+          this.hasDownloadedZip = true;
+        } else if (result.hasUploadedZip) {
+          this.hasUploadedZip = true;
+          this.docService.clearPdfSources();
+          this.loadCopy();
+        }
       }
     }, (error) => {
       console.error(error);
     });
+  }
+
+  async correctOffline() {
+    this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
+    for (const exam of this.subExamsList) {
+      await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), exam['document_index']);
+    }
+    this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
+    this.offline = true;
+  }
+
+  async uploadOffline() {
+    this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
+    for (const offlineCopy of this.offlineCopies.values()) {
+      let validationResponse = await this.saveCopy(
+        offlineCopy.pdfSrc,
+        offlineCopy.file,
+        offlineCopy.grade,
+        offlineCopy.status,
+        offlineCopy.questionIndex);
+      if (!validationResponse) {
+        this.notificationService.showError(`La copie ${offlineCopy.pdfSrc.index} n'a pu être sauvegardée.`, 'Error');
+        return;
+      }
+    }
+    this.notificationService.showSuccess('Téléversement terminé!', 'Success');
+    this.docService.clearPdfSources();
+    this.offlineCopies = new Map<number, OfflineCopy>();
+    this.offline = false;
   }
 }

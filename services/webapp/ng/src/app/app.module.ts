@@ -1,6 +1,6 @@
 // modules
 import { BrowserModule } from '@angular/platform-browser';
-import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi, withInterceptors } from '@angular/common/http';
 import { CSP_NONCE, NgModule } from '@angular/core';
 import { AppRoutingModule } from './app-routing.module';
 import { MatCardModule } from "@angular/material/card";
@@ -52,7 +52,7 @@ import { DashboardPageComponent } from './components/dashboard-page/dashboard-pa
 import { MatriculeVerificationComponent } from './components/matricule-verification/matricule-verification.component';
 
 // providers
-import { RequestInterceptor } from './services/interceptor.service';
+import { ErrorInterceptor, CacheInterceptor } from './services/interceptor.service';
 
 
 @NgModule({ declarations: [
@@ -92,7 +92,6 @@ import { RequestInterceptor } from './services/interceptor.service';
         MatProgressSpinnerModule,
         MatListModule,
         FormsModule,
-        MatDialogModule,
         MatFormFieldModule,
         MatSelectModule,
         MatStepperModule,
@@ -100,6 +99,7 @@ import { RequestInterceptor } from './services/interceptor.service';
         NgSelectModule,
         MatButtonToggleModule,
         MatSlideToggleModule,
+        MatDialogModule,
         ReactiveFormsModule,
         NgxExtendedPdfViewerModule,
         ToastrModule.forRoot()], providers: [
@@ -107,11 +107,8 @@ import { RequestInterceptor } from './services/interceptor.service';
         //   provide: CSP_NONCE,
         //   useValue: 'random_nonce_value'
         // },
-        {
-            provide: HTTP_INTERCEPTORS,
-            useClass: RequestInterceptor,
-            multi: true,
-        },
-        provideHttpClient(withInterceptorsFromDi())
+        provideHttpClient(withInterceptorsFromDi()),
+        { provide: HTTP_INTERCEPTORS, useClass: CacheInterceptor, multi: true },
+        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true }
     ] })
 export class AppModule { }

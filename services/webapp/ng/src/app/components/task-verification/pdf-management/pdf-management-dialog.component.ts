@@ -24,18 +24,23 @@ export interface DialogData {
 })
 export class PdfManagementDialogComponent implements OnInit {
 
+  // default max copies per pdf value
+  maxCopiesPerPdf: number = 40;
+  setmaxCopies(event: any) {
+    this.maxCopiesPerPdf = event.target.valueAsNumber;
+  }
+
   constructor(public dialogRef: MatDialogRef<PdfManagementDialogComponent>,
     private http: HttpClient,
     private userService: UserService,
     private notificationService: NotificationService,
     @Inject(MAT_DIALOG_DATA) public data: DialogData) { }
 
-  // default max copies per pdf value
-  maxCopiesPerPdf: number = 40;
+  async ngOnInit() {
+    let e = document.getElementById('maxCopies') as HTMLInputElement;
+    e.value = this.maxCopiesPerPdf.toString();
+  }
 
-  ngOnInit(): void {}
-
-  
   async downloadAllFilesAsZip() {
     this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
     const zip = new JSZip();

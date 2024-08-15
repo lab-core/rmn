@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest } from '@angular/common/http';
-import { EMPTY, Observable } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest, HttpResponse } from '@angular/common/http';
+import { EMPTY, Observable, of } from 'rxjs';
+import { catchError, tap  } from 'rxjs/operators';
 import { NotificationService } from 'src/app/services/notification.service';
 
 
@@ -10,7 +10,7 @@ import { NotificationService } from 'src/app/services/notification.service';
 @Injectable({
   providedIn: 'root',
 })
-export class RequestInterceptor implements HttpInterceptor {
+export class ErrorInterceptor implements HttpInterceptor {
   constructor(
     private readonly router: Router,
     private notificationService: NotificationService,
@@ -32,6 +32,33 @@ export class RequestInterceptor implements HttpInterceptor {
           console.warn("The http request has been intercepted as the response had a status 404 (not found).")
         }
         return EMPTY;
+      })
+    );
+  }
+}
+
+@Injectable({
+  providedIn: 'root',
+})
+export class CacheInterceptor implements HttpInterceptor {
+  private cache = new Map<string, HttpResponse<any>>();
+
+  intercept(request: HttpRequest<any>, next: HttpHandler) {
+    if (request.method !== 'GET') {
+      return next.handle(request);
+    }
+
+    const cachedResponse = this.cache.get(request.url);
+
+    if (cachedResponse) {
+      return of(cachedResponse);
+    }
+
+    return next.handle(request).pipe(
+      tap((event) => {
+        if (event instanceof HttpResponse) {
+          this.cache.set(request.url, event);
+        }
       })
     );
   }
