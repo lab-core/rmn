@@ -107,9 +107,9 @@
     </div>
 </div>
 <div class="page-count" *ngIf="!this.disabledValidationcontainer">
-    {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
+    {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 - this.subExamsList[0]['document_index'] : 0)}} / {{this.subExamsList.length}}
 </div>
 </div>
-<button mat-button *ngIf="this.loggued() && !isSidebarHidden" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
-<div id="overlay" *ngIf="this.validating"></div>
-<mat-spinner class="overlay-spinner" *ngIf="this.validating" color="accent" [diameter]="150"></mat-spinner>
+<button mat-button *ngIf="loggued() && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+<div id="overlay" *ngIf="validating"></div>
+<mat-spinner class="overlay-spinner" *ngIf="validating" color="accent" [diameter]="150"></mat-spinner>

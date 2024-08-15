@@ -38,7 +38,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private userService: UserService,
-    private docService: DocumentsService) {}
+    private docService: DocumentsService) {
+      window.addEventListener('beforeunload', (event) => {
+        if (this.offline) {
+          event.preventDefault();
+          event.returnValue = '';
+        }
+      });
+    }
 
   @ViewChild(PDFViewerComponent)
   pdfViewer: PDFViewerComponent;
@@ -658,7 +665,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         offlineCopy.status,
         offlineCopy.questionIndex);
       if (!validationResponse) {
-        this.notificationService.showError(`La copie ${offlineCopy.pdfSrc.index} n'a pu être sauvegardée.`, 'Error');
+        const index = offlineCopy.pdfSrc.index - this.subExamsList[0]['document_index'] + 1;
+        this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
         return;
       }
     }
