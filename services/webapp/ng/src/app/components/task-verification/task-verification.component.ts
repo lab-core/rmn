@@ -1,6 +1,7 @@
 import { Component, HostListener, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { PdfManagementDialogComponent } from './pdf-management/pdf-management-dialog.component'
+import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';
 import { SocketService } from 'src/app/services/socket.service';
@@ -757,5 +758,25 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         }
       }
     }
+  }
+
+  cancelOffline() {
+    let dialogRef = this.dialog.open(WarningDialogComponent, {
+      width: '40%',
+      height: '50%',
+      data: "Êtes-vous sur de vouloir annuler la correction?"
+    })
+    dialogRef.afterClosed().subscribe(async result => {
+      if (result !== undefined && result === true) {
+        for (const offlineCopy of this.offlineCopies.values()) {
+          this.eraseOfflineCopy(offlineCopy);
+        }
+        this.notificationService.showSuccess('Correction annulée!', 'Success');
+        this.docService.clearPdfSources();
+        this.offlineCopies = new Map<number, OfflineCopy>();
+        this.offline = false;
+        localStorage.removeItem('offline')
+      }
+    });
   }
 }

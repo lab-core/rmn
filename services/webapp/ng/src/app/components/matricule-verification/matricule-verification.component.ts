@@ -11,7 +11,8 @@ import { DocumentsService } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
 import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { MatSelectChange } from '@angular/material/select';
-import { ValidationWarningDialogComponent } from '../task-verification/validation-warning-dialog/validation-warning-dialog.component';
+import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
+
 
 @Component({
   selector: 'app-matricule-verification',
@@ -349,9 +350,10 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   openwarningDialog(): void {
-    let dialogRef = this.dialog.open(ValidationWarningDialogComponent, {
+    let dialogRef = this.dialog.open(WarningDialogComponent, {
       width: '30%',
       height: '40%',
+      data: "Êtes-vous sûr de vouloir finaliser même si toutes les copies n'ont pas été validées ?"
     });
     dialogRef.afterClosed().subscribe(async result => {
         if (result !== undefined && result === true) {

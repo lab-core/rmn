@@ -6,7 +6,7 @@ import { UserService } from 'src/app/services/user.service';
 import { TemplateService } from 'src/app/services/template.service';
 import { RectangleService } from 'src/app/services/drawing/rectangle.service';
 import { NewTemplateDialogComponent } from './new-template-dialog/new-template-dialog.component';
-import { DeleteTemplateDialogComponent } from './delete-template-dialog/delete-template-dialog.component';
+import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { SERVER_URL } from 'src/app/utils';
 import { filter } from 'rxjs/operators';
 import { saveAs } from 'file-saver';
@@ -126,9 +126,10 @@ export class TemplatesPageComponent implements OnInit {
 
 
   openDeleteDialog(template: Map<string, string>): void {
-    let dialogRef = this.dialog.open(DeleteTemplateDialogComponent, {
-      width: '25%',
-      height: '35%',
+    let dialogRef = this.dialog.open(WarningDialogComponent, {
+      width: '40%',
+      height: '50%',
+      data: "Êtes-vous sur de vouloir supprimer le template?"
     })
     dialogRef.afterClosed().subscribe(async result => {
       if (result !== undefined && result === true) {

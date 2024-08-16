@@ -38,11 +38,9 @@ import { CreateUserDialogComponent } from './components/user-profile/create-user
 import { PDFViewerComponent } from './components/pdf-viewer/pdf-viewer.component';
 import { TaskVerificationComponent } from './components/task-verification/task-verification.component';
 import { PdfManagementDialogComponent } from './components/task-verification/pdf-management/pdf-management-dialog.component';
-import { ValidationWarningDialogComponent } from './components/task-verification/validation-warning-dialog/validation-warning-dialog.component';
 import { TemplatesPageComponent } from './components/templates-page/templates-page.component';
 import { NewTemplateDialogComponent } from './components/templates-page/new-template-dialog/new-template-dialog.component';
 import { TemplateEditorComponent } from './components/template-editor/template-editor.component';
-import { DeleteTemplateDialogComponent } from './components/templates-page/delete-template-dialog/delete-template-dialog.component';
 import { PresentationPageComponent } from './components/presentation-page/presentation-page.component';
 import { UserGuideComponent } from './components/user-guide/user-guide.component';
 import { TaskShareDialogComponent } from "./components/tasks-history/task-share-dialog/task-share-dialog.component";
@@ -50,6 +48,7 @@ import { NewExamCorrectionComponent } from './components/new-exam-correction/new
 import { TaskRetryDialogComponent } from './components/tasks-history/task-retry-dialog/task-retry-dialog.component';
 import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
 import { MatriculeVerificationComponent } from './components/matricule-verification/matricule-verification.component';
+import { WarningDialogComponent } from './components/warning-dialog/warning-dialog.component';
 
 // providers
 import { ErrorInterceptor, CacheInterceptor } from './services/interceptor.service';
@@ -67,17 +66,16 @@ import { ErrorInterceptor, CacheInterceptor } from './services/interceptor.servi
         CreateUserDialogComponent,
         PDFViewerComponent,
         TaskVerificationComponent,
-        ValidationWarningDialogComponent,
         TemplatesPageComponent,
         NewTemplateDialogComponent,
         TemplateEditorComponent,
-        DeleteTemplateDialogComponent,
         PresentationPageComponent,
         UserGuideComponent,
         NewExamCorrectionComponent,
         TaskRetryDialogComponent,
         DashboardPageComponent,
         MatriculeVerificationComponent,
+        WarningDialogComponent,
     ],
     bootstrap: [AppComponent], imports: [BrowserModule,
         AppRoutingModule,

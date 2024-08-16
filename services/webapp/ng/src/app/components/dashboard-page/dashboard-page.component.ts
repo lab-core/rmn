@@ -11,7 +11,6 @@ import { SocketService } from 'src/app/services/socket.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { DocumentsService } from 'src/app/services/documents.service';
 import { ValidationService } from 'src/app/services/validation.service';
-import { ValidationWarningDialogComponent } from '../task-verification/validation-warning-dialog/validation-warning-dialog.component';
 
 
 interface Question {
