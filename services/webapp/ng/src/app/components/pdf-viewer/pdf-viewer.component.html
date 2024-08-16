@@ -2,6 +2,7 @@
   <ngx-extended-pdf-viewer *ngIf="pdfUrl !== undefined"
     #pdfViewer
     [src]="pdfUrl"
+    [useInlineScripts]="false"
     [language]="'fr'"
     [handTool]="false"
     [textLayer]="false"

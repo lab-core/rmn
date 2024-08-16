@@ -14,7 +14,7 @@ sub_filter_types *;
 sub_filter_once off;
 sub_filter random_nonce_value $cspNonce;
 #add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'nonce-$cspNonce'; script-src 'self' 'nonce-$cspNonce'; img-src 'self' 'nonce-$cspNonce' blob: data:; connect-src 'self' 'nonce-$cspNonce' blob: data:; script-src-elem 'self' 'nonce-$cspNonce' https://www.dropbox.com https://js.live.net;" always;
-add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-$cspNonce'; img-src 'self' 'nonce-$cspNonce' blob: data:; connect-src 'self' 'nonce-$cspNonce' blob: data:; script-src-elem 'self' 'unsafe-inline' https://www.dropbox.com https://js.live.net;" always;
+add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-$cspNonce'; img-src 'self' 'nonce-$cspNonce' blob: data:; connect-src 'self' 'nonce-$cspNonce' blob: data:; script-src-elem 'self' 'nonce-$cspNonce' https://www.dropbox.com https://js.live.net;" always;
 
 # 3- Specifies that cross-origin requests for the resource are allowed only when the request is same-site.
 add_header Cross-Origin-Resource-Policy same-site always;
