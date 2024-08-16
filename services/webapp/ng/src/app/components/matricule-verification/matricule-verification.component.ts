@@ -109,6 +109,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
 
   ngOnDestroy(): void {
+    this.docService.clearPdfSources();
     if (this.socketService.getSocket()){
       this.socketService.getSocket().off('document_ready');
       this.socketService.getSocket().off('job_status');

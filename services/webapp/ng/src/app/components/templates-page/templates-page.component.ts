@@ -108,9 +108,9 @@ export class TemplatesPageComponent implements OnInit {
     formdata.append('template_id', template["template_id"]);
     this.http.post(`${SERVER_URL}template/download/src`, formdata, {responseType: 'blob'}).subscribe(
       (data) => {
-        const file = new Blob([data]);
-        let downloadURL = window.URL.createObjectURL(file);
+        const downloadURL = window.URL.createObjectURL(data);
         saveAs(downloadURL, template["src_name"]);
+        URL.revokeObjectURL(downloadURL);
       },
       (error) => {
         console.error(error);

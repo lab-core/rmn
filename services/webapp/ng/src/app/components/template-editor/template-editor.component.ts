@@ -51,6 +51,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
   }
 
   ngOnDestroy(): void {
+    this.templateService.revokeTemplate();
     this.socketService.getSocket().off('template_rendered');
     this.socketService.disconnectSocket();
   }

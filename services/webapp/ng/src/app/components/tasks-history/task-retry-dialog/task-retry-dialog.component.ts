@@ -196,7 +196,7 @@ export class TaskRetryDialogComponent implements OnInit {
                 const file = new Blob([data.body as any], { type: typeExport });
                 const downloadURL = window.URL.createObjectURL(file);
                 saveAs(downloadURL, filename);
-
+                URL.revokeObjectURL(downloadURL);
                 this.downloading = false;
                 this.downloadProgress = 0;
             }

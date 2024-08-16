@@ -150,6 +150,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async ngOnDestroy(): Promise<any> {
+    this.docService.clearPdfSources();
     if (this.socketService.getSocket()){
       this.socketService.getSocket().off('document_ready');
       this.socketService.getSocket().off('job_status');

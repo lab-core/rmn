@@ -38,6 +38,46 @@ export class PDFSource {
     (minutes === undefined || !this.isOlderThan(minutes)) &&
     (version === undefined || this.version === version);
   }
+
+  async toJSONDict() {
+    const blob = await fetch(this.url).then(r => r.blob());
+    return {
+      index: this.index,
+      version: this.version,
+      annotations: this.annotations,
+      timestamp_min: this.timestamp_min,
+      lastVersion: this.lastVersion,
+      base64: await this.readBlobSync(blob),
+    }
+  }
+
+  async readBlobSync(blob: Blob): Promise<string | ArrayBuffer> {
+     return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(reader.result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);  // base64 string of the pdf
+    });
+  }
+
+  async loadJSONDict(dict) {
+    const blob = await fetch(dict['base64']).then(r => r.blob());
+    this.revokeURL();
+    this.url = window.URL.createObjectURL(blob);
+    this.index = dict['index'];
+    this.version = dict['version'];
+    this.annotations = dict['annotations'];
+    this.timestamp_min = dict['timestamp_min'];
+    this.lastVersion = dict['lastVersion'];
+  }
+
+  revokeURL() {
+    if (this.url) {
+      URL.revokeObjectURL(this.url);
+    }
+  }
 }
 
 @Injectable({
@@ -76,17 +116,6 @@ export class DocumentsService {
     }
   }
 
-  async readBlobSync(blob: Blob): Promise<string | ArrayBuffer> {
-     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        resolve(reader.result);
-      };
-      reader.onerror = reject;
-      reader.readAsArrayBuffer(blob);
-    });
-  }
-
   async downloadPdf(jobId: string, index: number, version=undefined): Promise<PDFSource> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
@@ -105,6 +134,9 @@ export class DocumentsService {
       // const src = base64Src ? await this.readBlobSync(data) : window.URL.createObjectURL(data);
       const url = window.URL.createObjectURL(data);
       const pdfSource = new PDFSource(index, url, version);
+      if (this.pdfSources[index]) {
+        this.pdfSources[index].revokeURL();
+      }
       this.pdfSources[index] = pdfSource;
       await this.getAnnotations(jobId, pdfSource);
       return pdfSource;
@@ -156,6 +188,9 @@ export class DocumentsService {
   }
 
   clearPdfSources() {
+    for (let pdfSrc of Object.values(this.pdfSources)) {
+      pdfSrc.revokeURL();
+    }
     this.pdfSources = new Map<number, PDFSource>();
   }
 }

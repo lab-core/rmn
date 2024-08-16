@@ -124,7 +124,7 @@ export class TaskFilesDialogComponent implements OnInit {
             const file = new Blob([data.body as any], { type: typeExport });
             let downloadURL = window.URL.createObjectURL(file);
             saveAs(downloadURL, filename);
-
+            URL.revokeObjectURL(downloadURL);
             this.downloading = false;
             this.downloadProgress = 0;
           }

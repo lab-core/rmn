@@ -80,15 +80,12 @@ export class PresentationPageComponent implements OnInit {
       formdata.append('suffix', this.suffix);
       formdata.append('moodle_zip', this.copies);
       formdata.append('latex_front_page', this.latexFrontPage);
-
-      let file: Blob;
-
       this.http.post(`${SERVER_URL}front_page`, formdata, { responseType: 'blob' }).subscribe(
         (data) => {
           // moodle.zip in data
-          file = data;
-          let downloadURL = window.URL.createObjectURL(data);
+          const downloadURL = window.URL.createObjectURL(data);
           saveAs(downloadURL, this.copiesName);
+          URL.revokeObjectURL(downloadURL);
           this.disabled = false;
         },
         (error) => {
