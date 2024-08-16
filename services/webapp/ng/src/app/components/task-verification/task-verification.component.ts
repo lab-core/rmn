@@ -125,6 +125,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     // fetch job and documents
     await this.getDocuments();
 
+    // load offline information
+    if (localStorage.getItem('offline')) {
+      this.offline = true;
+      await this.loadOfflineCopies();
+    }
+
     this.socketService.join(this.job["job_id"]);
     this.socketService.getSocket().on('document_ready', async (params: any) => {
       await this.getDocuments();
@@ -197,6 +203,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (this.currentExam()["grade"] !== this.currentGrade) {
       this.currentExam()["grade"] = this.currentGrade;
       return true;
+    } else if (this.offline) {
+      const offlineCopy = this.offlineCopies.get(this.currentCopy);
+      return offlineCopy !== undefined && offlineCopy.grade !== undefined;
     }
     return false;
   }
@@ -332,7 +341,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return false;
   }
 
-  async loadPdf(version: number = undefined): Promise<void> {
+  async loadPdf(version: number = undefined): Promise<boolean> {
     if (this.currentExam()["status"] !== "NOT_READY") {
       this.checkNavigationArrows(false);
       let pdfSource;
@@ -344,10 +353,16 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       if (pdfSource) {
         this.currentPdfSrc = pdfSource;
         this.pdfUrl = pdfSource.url;
-        this.pdfViewer.renderAnnotations(pdfSource.annotations);
+        setTimeout(() => {
+          this.pdfViewer.renderAnnotations(pdfSource.annotations)
+        });
         this.currentVersion = pdfSource.version;
+        return true;
       } else {
-        this.checkNavigationArrows(true);
+        this.currentPdfSrc = undefined;
+        this.pdfUrl = undefined;
+        this.checkNavigationArrows(false);
+        return false;
       }
     }
   }
@@ -367,13 +382,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.currentCopy = copyIndex;
         console.log("Current copy", this.currentCopy);
         this.disabledValidationcontainer = false;
-        await this.loadCopy();
-        if (updateScroll) {
-          this.updateScrollPosition();
+        if (await this.loadCopy()) {
+          if (updateScroll) {
+            this.updateScrollPosition();
+          }
+          this.setChosenColor(status);
+          this.loadScore();
+          this.verifyIfQuestionIsBonus();
         }
-        this.setChosenColor(status);
-        this.loadScore();
-        this.verifyIfQuestionIsBonus();
       } else {
           console.error('Erreur lors de l\'obtention du document PDF modifié.');
           this.notificationService.showError('Échec de la sauvegarde du document PDF modifié.', 'Erreur de validation');
@@ -406,8 +422,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     await this.loadPdf(event.target.value);
   }
 
-  async loadCopy(): Promise<void> {
-    await this.loadPdf();
+  async loadCopy(): Promise<boolean> {
+    const pdfLoaded = await this.loadPdf();
     this.currentGradeModified = false;
     this.getCurrentStatus();
     // try to load the following copy
@@ -417,6 +433,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex);
       }
     }
+    return pdfLoaded;
   }
 
   verifyIfQuestionIsBonus(): void {
@@ -495,6 +512,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
             status: this.currentStatus,
             questionIndex: this.currentQuestionIndex
           });
+          this.saveOfflineCopy(this.offlineCopies.get(this.currentCopy));
         } else {
           let validationResponse = await this.saveCopy(
             this.currentPdfSrc,
@@ -650,10 +668,19 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async correctOffline() {
     this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
     for (const exam of this.subExamsList) {
-      await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), exam['document_index']);
+      const pdfSrc = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), exam['document_index']);
+      const copy: OfflineCopy = {
+        pdfSrc: pdfSrc,
+        file: undefined,
+        grade: undefined,
+        status: exam['status'],
+        questionIndex: exam['question_index']
+      };
+      this.saveOfflineCopy(copy);
     }
     this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
     this.offline = true;
+    localStorage.setItem('offline', '1');
   }
 
   async uploadOffline() {
@@ -669,11 +696,66 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         const index = offlineCopy.pdfSrc.index - this.subExamsList[0]['document_index'] + 1;
         this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
         return;
+      } else {
+        this.eraseOfflineCopy(offlineCopy);
       }
     }
     this.notificationService.showSuccess('Téléversement terminé!', 'Success');
     this.docService.clearPdfSources();
     this.offlineCopies = new Map<number, OfflineCopy>();
     this.offline = false;
+    localStorage.removeItem('offline')
+  }
+
+  async saveOfflineCopy(copy: OfflineCopy) {
+    const copyJSONdict = {
+      pdfSrc: await copy.pdfSrc.toJSONDict(),
+      status: copy.status,
+      questionIndex: copy.questionIndex,
+    };
+    if (copy.file) {
+      copyJSONdict['filename'] = copy.file.name;
+      copyJSONdict['file64'] = await copy.pdfSrc.readBlobSync(copy.file);
+    }
+    if (copy.grade !== undefined) {
+      copyJSONdict['grade'] = `${copy.grade}`;
+    }
+    const key = `${this.tasksService.getvalidatingTaskId()}_${copy.pdfSrc.index}`;
+    localStorage.setItem(key, JSON.stringify(copyJSONdict));
+  }
+
+  eraseOfflineCopy(copy: OfflineCopy) {
+    const key = `${this.tasksService.getvalidatingTaskId()}_${copy.pdfSrc.index}`;
+    localStorage.removeItem(key);
+  }
+
+  async loadOfflineCopies() {
+    const keyPattern = `${this.tasksService.getvalidatingTaskId()}_`;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith(keyPattern)) {
+        const dict = JSON.parse(localStorage.getItem(key));
+        const pdfSrc = await this.docService.parsePDFSourceDict(dict['pdfSrc']);
+        let file;
+        if (dict['file64']) {
+          file = await fetch(dict['file64'])
+              .then(r => r.blob())
+              .then(b => new File([b], dict['filename'], { type: 'application/pdf' }));
+        }
+        const grade = dict['grade'];
+        if (grade) {
+          this.examsList[pdfSrc.index]["grade"] = parseFloat(grade);
+        }
+        if (file || grade) {
+          this.offlineCopies.set(pdfSrc.index, {
+            pdfSrc: pdfSrc,
+            file: file,
+            grade: grade ? parseFloat(grade) : undefined,
+            status: dict['status'],
+            questionIndex: dict['questionIndex']
+          });
+        }
+      }
+    }
   }
 }

@@ -170,7 +170,7 @@ export class PDFViewerComponent implements OnInit, OnChanges {
   private eventListeners = [];
   private touchType = undefined;   // 'direct' -> finger
 
-  private timeout: number = 50;
+  private timeout: number = 80;
   radius: number = 20;
 
   observers = [];

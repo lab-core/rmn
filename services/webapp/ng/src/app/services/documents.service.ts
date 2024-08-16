@@ -13,7 +13,7 @@ export class PDFSource {
   timestamp_min: number;
   lastVersion: number;
 
-  constructor(index: number, url: string, version) {
+  constructor(index: number=undefined, url: string=undefined, version=undefined) {
     this.index = index;
     this.url = url;
     this.version = version;
@@ -34,9 +34,8 @@ export class PDFSource {
   }
 
   canBeUsed(minutes, version=undefined) {
-    return this.annotations.length == 0 &&
-    (minutes === undefined || !this.isOlderThan(minutes)) &&
-    (version === undefined || this.version === version);
+    return (minutes === undefined || !this.isOlderThan(minutes)) &&
+          (version === undefined || this.version === version);
   }
 
   async toJSONDict() {
@@ -51,7 +50,7 @@ export class PDFSource {
     }
   }
 
-  async readBlobSync(blob: Blob): Promise<string | ArrayBuffer> {
+  async readBlobSync(blob: Blob | File): Promise<string | ArrayBuffer> {
      return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -185,6 +184,13 @@ export class DocumentsService {
       return pdfSource;
     }
     return undefined;
+  }
+
+  async parsePDFSourceDict(dict) {
+    const pdfSrc = new PDFSource();
+    await pdfSrc.loadJSONDict(dict);
+    this.pdfSources[pdfSrc.index] = pdfSrc;
+    return pdfSrc;
   }
 
   clearPdfSources() {
