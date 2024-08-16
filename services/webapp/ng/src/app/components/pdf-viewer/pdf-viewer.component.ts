@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy, ViewChild } from '@angular/core';
 import { NgxExtendedPdfViewerService, EditorAnnotation, FreeTextEditorAnnotation, InkEditorAnnotation,  PdfTextEditorComponent, PdfDrawEditorComponent, PDFWorker, pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
 import { NotificationService } from 'src/app/services/notification.service';
 import { PDFSource } from 'src/app/services/documents.service';
@@ -142,7 +142,7 @@ class BezierAnnotation {
   templateUrl: './pdf-viewer.component.html',
   styleUrls: ['./pdf-viewer.component.css']
 })
-export class PDFViewerComponent implements OnInit, OnChanges {
+export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
 
   @Input({required: true}) pdfUrl: string;
   @Input() hideToolbar: boolean = false;
@@ -190,6 +190,11 @@ export class PDFViewerComponent implements OnInit, OnChanges {
     this.pdfModified = false;
     this.pdfRendered = false;
     this.isDrawing = false;
+    this.removeCanvasListeners();
+    this.stopObservers();
+  }
+
+  async ngOnDestroy() {
     this.removeCanvasListeners();
     this.stopObservers();
   }
