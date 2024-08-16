@@ -12,6 +12,7 @@ import { DocumentsService, PDFSource } from 'src/app/services/documents.service'
 import { PDFViewerComponent } from 'src/app/components/pdf-viewer/pdf-viewer.component';
 import { MatSelectChange } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
+import { first } from 'rxjs/operators';
 
 
 interface OfflineCopy {
@@ -223,7 +224,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.isIndexProvided = true;
       }
     } else {
-      this.route.params.subscribe(params => {
+      this.route.params.pipe(first()).subscribe(params => {
         const index = params['index'];
         if (index) {
           this.index = index;
@@ -651,7 +652,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         examsList: this.subExamsList
       }
     });
-    dialogRef.afterClosed().subscribe(async result => {
+    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
       if (result) {
         if (result.hasDownloadedZip) {
           this.hasDownloadedZip = true;
@@ -668,6 +669,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async correctOffline() {
     this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
+    this.offline = true;
     for (const exam of this.subExamsList) {
       const pdfSrc = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), exam['document_index']);
       const copy: OfflineCopy = {
@@ -681,7 +683,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       exam['offline'] = true;
     }
     this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
-    this.offline = true;
     localStorage.setItem('offline', '1');
   }
 
@@ -771,7 +772,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       height: '50%',
       data: "Êtes-vous sur de vouloir annuler la correction?"
     })
-    dialogRef.afterClosed().subscribe(async result => {
+    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
       if (result !== undefined && result === true) {
         for (const offlineCopy of this.offlineCopies.values()) {
           this.eraseOfflineCopy(offlineCopy);

@@ -6,6 +6,7 @@ import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog
 import { saveAs } from 'file-saver';
 import { HttpClient, HttpEventType } from '@angular/common/http';
 import { SERVER_URL } from 'src/app/utils';
+import { first } from 'rxjs/operators';
 
 export interface DialogData {
   taskId: string;
@@ -85,7 +86,7 @@ export class TaskFilesDialogComponent implements OnInit {
       width: '30%',
       height: '40%',
       data: data
-    }).afterClosed().subscribe(resp => {
+    }).afterClosed().pipe(first()).subscribe(resp => {
       if (resp !== undefined) {
         if (resp.success) {
           if (resp.message)
@@ -94,8 +95,10 @@ export class TaskFilesDialogComponent implements OnInit {
             this.notifyService.showError(resp.message, "Erreur!");
         }
       }
+
     }, (error) => {
       console.error(error);
+
     });
   }
 
@@ -110,7 +113,7 @@ export class TaskFilesDialogComponent implements OnInit {
     if ( !this.downloading) {
       this.downloading = true;
       this.notifyService.showInfo('Téléchargement...', "")
-      this.http.post(`${SERVER_URL}file/download`, formdata, {responseType: 'blob', reportProgress: true, observe: "events"}).subscribe(
+      this.http.post(`${SERVER_URL}file/download`, formdata, {responseType: 'blob', reportProgress: true, observe: "events"}).pipe(first()).subscribe(
         (data) => {
           if (data.type == HttpEventType.DownloadProgress) {
             this.downloadProgress = data.total ? Math.round(100 * data.loaded / data.total) : 0

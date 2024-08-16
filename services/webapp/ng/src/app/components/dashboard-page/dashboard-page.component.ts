@@ -11,6 +11,7 @@ import { SocketService } from 'src/app/services/socket.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { DocumentsService } from 'src/app/services/documents.service';
 import { ValidationService } from 'src/app/services/validation.service';
+import { first } from 'rxjs/operators';
 
 
 interface Question {
@@ -56,7 +57,7 @@ export class DashboardPageComponent {
   }
 
   async ngOnInit() {
-    this.route.params.subscribe(params => {
+    this.route.params.pipe(first()).subscribe(params => {
       this.taskId = params['taskId'];
     });
     if (this.taskId) {
@@ -268,7 +269,7 @@ export class DashboardPageComponent {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
-    this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).pipe(first()).subscribe(
       (data) => {
         const nbZipFile = data['response']
         this.dialog.open(TaskFilesDialogComponent, {
@@ -312,7 +313,7 @@ export class DashboardPageComponent {
       width: '30%',
       height: '40%',
       data: data
-    }).afterClosed().subscribe(resp => {
+    }).afterClosed().pipe(first()).subscribe(resp => {
       if (resp !== undefined) {
         if (resp.success) {
           if (resp.message)

@@ -6,6 +6,8 @@ import { HttpClient, HttpEventType } from '@angular/common/http';
 import { SERVER_URL } from 'src/app/utils';
 import { saveAs } from 'file-saver';
 import * as JSZip from 'jszip';
+import { first } from 'rxjs/operators';
+
 
 export interface DialogData {
   taskId: string;
@@ -140,14 +142,16 @@ export class TaskRetryDialogComponent implements OnInit {
     formData.append('job_id', job_id);
 
     const requestURL = `${SERVER_URL}job/ignore`;
-    this.http.post(requestURL, formData).subscribe(
+    this.http.post(requestURL, formData).pipe(first()).subscribe(
         (data) => {
             this.notifyService.showSuccess('Reprise de la tâche', 'SUCCÈS');
             this.dialogRef.close('IGNORED');
+
         },
         (error) => {
             console.error('Ignore error', error);
             this.notifyService.showError('Erreur dans la reprise de la tâche', 'ERREUR');
+
         }
     );
   }
@@ -164,7 +168,7 @@ export class TaskRetryDialogComponent implements OnInit {
     this.http.post(`${SERVER_URL}job/continue`, formData, {
       reportProgress: true,
       observe: 'events'
-    }).subscribe(event => {
+    }).pipe(first()).subscribe(event => {
       if (event.type === HttpEventType.UploadProgress) {
         this.downloadProgress = Math.round(100 * event.loaded / (event.total ?? 1));
       } else if (event.type === HttpEventType.Response) {
@@ -173,8 +177,10 @@ export class TaskRetryDialogComponent implements OnInit {
         this.uploadedFiles.push(...this.selectedFiles.map(file => file.name));
         this.selectedFiles = [];
       }
+
     }, error => {
       this.notifyService.showError('Échec du téléversement du/des fichier(s)', 'ERREUR');
+
     });
   }
 
@@ -187,7 +193,7 @@ export class TaskRetryDialogComponent implements OnInit {
 
     const requestURL = `${SERVER_URL}incorrect/download`;
 
-    this.http.post(requestURL, formData, { responseType: 'blob', reportProgress: true, observe: "events" }).subscribe(
+    this.http.post(requestURL, formData, { responseType: 'blob', reportProgress: true, observe: "events" }).pipe(first()).subscribe(
         (data) => {
             if (data.type === HttpEventType.DownloadProgress) {
                 this.downloadProgress = data.total ? Math.round(100 * data.loaded / data.total) : 0;
@@ -200,12 +206,14 @@ export class TaskRetryDialogComponent implements OnInit {
                 this.downloading = false;
                 this.downloadProgress = 0;
             }
+
         },
         (error) => {
             console.error('Download error', error);
             this.downloading = false;
             this.downloadProgress = 0;
             this.notifyService.showError('Échec du téléchargement du fichier', 'ERREUR');
+
         }
     );
   }
@@ -224,7 +232,7 @@ export class TaskRetryDialogComponent implements OnInit {
 
       const requestURL = `${SERVER_URL}incorrect/download`;
 
-      this.http.post(requestURL, formData, { responseType: 'blob' }).subscribe(
+      this.http.post(requestURL, formData, { responseType: 'blob' }).pipe(first()).subscribe(
         (data: Blob) => {
           zip.file(filename, data);
           count++;
@@ -233,10 +241,12 @@ export class TaskRetryDialogComponent implements OnInit {
               saveAs(content, 'all_pdfs.zip');
             });
           }
+
         },
         (error) => {
           console.error('Download error', error);
           this.notifyService.showError("Certains fichiers n'ont pas pu être téléchargés", 'ERREUR');
+
         }
       );
     });

@@ -12,6 +12,7 @@ import { SERVER_URL } from 'src/app/utils';
 import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { MatSelectChange } from '@angular/material/select';
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
+import { first } from 'rxjs/operators';
 
 
 @Component({
@@ -355,7 +356,7 @@ export class MatriculeVerificationComponent implements OnInit {
       height: '40%',
       data: "Êtes-vous sûr de vouloir finaliser même si toutes les copies n'ont pas été validées ?"
     });
-    dialogRef.afterClosed().subscribe(async result => {
+    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
         if (result !== undefined && result === true) {
           this.disabledValidationcontainer = true;
           this.validating = true;
@@ -368,8 +369,10 @@ export class MatriculeVerificationComponent implements OnInit {
             // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
           }
         }
+
       }, (error) => {
         console.error(error);
+
       });
   }
 

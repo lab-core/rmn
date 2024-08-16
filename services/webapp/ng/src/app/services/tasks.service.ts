@@ -4,7 +4,7 @@ import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { UserService } from './user.service';
 import { NotificationService } from './notification.service';
 import { SERVER_URL } from '../utils';
-import { map, tap } from 'rxjs/operators';
+import { first, map, tap } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root'
@@ -83,7 +83,7 @@ export class TasksService {
     this.percentDone = 0;
 
     this.http.post<any>(`${SERVER_URL}evaluate`, formdata, {reportProgress: true, observe: "events"})
-    .subscribe(
+    .pipe(first()).subscribe(
       (data) => {
         this.uploadPart1 = true;
         if (data.type == HttpEventType.UploadProgress) {
@@ -95,16 +95,18 @@ export class TasksService {
           let message: string = "Tâche créée avec succès!"
           this.notification.showInfo(message, "Alerte!")
         }
+
       },
       (error) => {
         console.error(error.error);
+
       });
 
     let tasks: Array<any> = [];
 
     const formdataJobs: FormData = new FormData();
     this.userService.addTokens(formdataJobs);
-    this.http.post<any>(`${SERVER_URL}jobs`, formdataJobs).subscribe(
+    this.http.post<any>(`${SERVER_URL}jobs`, formdataJobs).pipe(first()).subscribe(
       (data) => {
         tasks = data['response']
       });

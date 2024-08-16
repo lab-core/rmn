@@ -9,6 +9,7 @@ import { EraserService } from 'src/app/services/drawing/eraser.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { SERVER_URL } from 'src/app/utils';
+import { first } from 'rxjs/operators';
 
 @Component({
   selector: 'app-template-editor',
@@ -77,13 +78,14 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
       const formdata: FormData = new FormData();
       this.userService.addTokens(formdata);
       formdata.append('template_id', this.templateService.getTemplateId());
-       this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).subscribe(async data => {
+       this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
           var file = new File([data], this.templateService.getTemplateName());
           this.templateService.setFile(file);
           await this.templateService.createNewTemplate(file);
           await this.loadTemplate();
           this.notifyService.showSuccess("Le template a été mis à jour.", "Rendu");
           this.disabled = this.templateService.getLocked();
+
       });
     });
   }
@@ -175,11 +177,12 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
         }
 
         formdata.append('template_id', this.templateService.getTemplateId());
-        this.http.post<any>(`${SERVER_URL}template/modify`, formdata).subscribe(
+        this.http.post<any>(`${SERVER_URL}template/modify`, formdata).pipe(first()).subscribe(
             (data) => {
               this.disabled = true;
               this.showTemplateNotificationInfo();
                 // this.router.navigate(['/templates']);
+
             }
         );
         this.rectangleService.resetRects();
