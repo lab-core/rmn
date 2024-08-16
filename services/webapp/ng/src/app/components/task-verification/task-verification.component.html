@@ -23,18 +23,22 @@
                     (click)="changeCurrentCopy(exam.document_index, exam.status, false)">
                     <div class="disabled-copy" *ngIf="exam.status == 'NOT_READY'">
                         <strong>{{formattedIndexes[i]}}</strong>
+                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
                         *ngIf="exam.status == 'VALIDATED'">
                         <strong>{{formattedIndexes[i]}}</strong>
+                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
                         *ngIf="exam.status == 'TO VALIDATE'">
                         <strong>{{formattedIndexes[i]}}</strong>
+                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
                         *ngIf="exam.status == 'HIGH ACCURACY'">
                         <strong>{{formattedIndexes[i]}}</strong>
+                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
                 </div>
             </div>

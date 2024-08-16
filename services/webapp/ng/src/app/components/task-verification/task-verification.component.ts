@@ -678,6 +678,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         questionIndex: exam['question_index']
       };
       this.saveOfflineCopy(copy);
+      exam['offline'] = true;
     }
     this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
     this.offline = true;
@@ -700,6 +701,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       } else {
         this.eraseOfflineCopy(offlineCopy);
       }
+    }
+    for (const exam of this.subExamsList) {
+      exam['offline'] = false;
     }
     this.notificationService.showSuccess('Téléversement terminé!', 'Success');
     this.docService.clearPdfSources();
@@ -747,6 +751,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         if (grade) {
           this.examsList[pdfSrc.index]["grade"] = parseFloat(grade);
         }
+        this.examsList[pdfSrc.index]['offline'] = true;
         if (file || grade) {
           this.offlineCopies.set(pdfSrc.index, {
             pdfSrc: pdfSrc,
@@ -770,6 +775,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       if (result !== undefined && result === true) {
         for (const offlineCopy of this.offlineCopies.values()) {
           this.eraseOfflineCopy(offlineCopy);
+        }
+        for (const exam of this.subExamsList) {
+          exam['offline'] = false;
         }
         this.notificationService.showSuccess('Correction annulée!', 'Success');
         this.docService.clearPdfSources();
