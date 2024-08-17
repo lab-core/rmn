@@ -34,7 +34,7 @@ spec:
           nfs:
             server: 10.105.99.184  # ip of the nfs service
             path: /
-            readOnly: no
+            readOnly: false
       containers:
         - image: rmni/server:main
           name: server
