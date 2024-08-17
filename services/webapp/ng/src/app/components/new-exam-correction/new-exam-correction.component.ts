@@ -7,6 +7,7 @@ import { SERVER_URL } from 'src/app/utils';
 import { NotificationService } from 'src/app/services/notification.service';
 import { FormBuilder, Validators } from '@angular/forms';
 import { MatSelectChange } from '@angular/material/select';
+import { first } from 'rxjs/operators';
 
 import * as saveAs from 'file-saver';
 
@@ -235,7 +236,7 @@ export class NewExamCorrectionComponent implements OnInit {
   async getTemplates() {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
-    this.http.post<any>(`${SERVER_URL}user/template`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}user/template`, formdata).pipe(first()).subscribe(
       (data) => {
         this.templates = data['response'].filter((temp) => { return !temp.locked; });
         if (this.templates.length === 0) {
@@ -245,6 +246,7 @@ export class NewExamCorrectionComponent implements OnInit {
           // this.selectedFrontTemplate = this.templates[0]['template_id'];
           // this.selectedRegularTemplate = this.templates[0]['template_id'];
         }
+
       });
   }
 
@@ -401,20 +403,19 @@ export class NewExamCorrectionComponent implements OnInit {
       formdata.append('suffix', this.suffix);
       formdata.append('moodle_zip', this.presentationCopies);
       formdata.append('latex_front_page', this.latexFrontPage);
-
-      let file: Blob;
-
-      this.http.post(`${SERVER_URL}front_page`, formdata, { responseType: 'blob' }).subscribe(
+      this.http.post(`${SERVER_URL}front_page`, formdata, { responseType: 'blob' }).pipe(first()).subscribe(
         (data) => {
           // moodle.zip in data
-          file = data;
-          let downloadURL = window.URL.createObjectURL(data);
+          const downloadURL = window.URL.createObjectURL(data);
           saveAs(downloadURL, this.presentationCopiesName);
+          URL.revokeObjectURL(downloadURL);
           this.disabled = false;
+
         },
         (error) => {
           this.notifyService.showError(error.message, "ERREUR");
           this.disabled = false;
+
         });
     }
   }

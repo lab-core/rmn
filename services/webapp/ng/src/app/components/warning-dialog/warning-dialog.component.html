@@ -2,10 +2,10 @@
     <div class="warning-logo-container">
         <mat-icon>warning</mat-icon>
     </div>
-    <div class="warning-text-container">
-        <p>Vous avez des copies qui n'ont pas encore été validées. Êtes-vous sûr de vouloir finaliser la vérification manuelle?</p>
+    <div class="delete-text-container">
+        <p>{{data}}</p>
     </div>
-    <div class="warning-buttons-container">
+    <div class="delete-buttons-container">
         <button class="cancel-button" mat-flat-button (click)="cancel()">NON</button>
         <button class="confirm-button" mat-flat-button (click)="confirm()">OUI</button>
     </div>

@@ -17,13 +17,15 @@ export class TemplateService {
   constructor() { }
 
   async createNewTemplate(data: Blob) {
+    this.revokeTemplate();
     let url = window.URL.createObjectURL(data);
     this.templateUrl = url;
+  }
 
-    // let loadingTask = pdfjs.getDocument(url);
-    // let pdf = await loadingTask.promise;
-    // let page = await pdf.getPage(1);
-    // this.template = page;
+  revokeTemplate() {
+    if (this.templateUrl) {
+      URL.revokeObjectURL(this.templateUrl);
+    }
   }
 
   setFile(file: File) {

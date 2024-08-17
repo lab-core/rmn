@@ -23,33 +23,29 @@
                     (click)="changeCurrentCopy(exam.document_index, exam.status, false)">
                     <div class="disabled-copy" *ngIf="exam.status == 'NOT_READY'">
                         <strong>{{formattedIndexes[i]}}</strong>
+                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
                         *ngIf="exam.status == 'VALIDATED'">
                         <strong>{{formattedIndexes[i]}}</strong>
+                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
                         *ngIf="exam.status == 'TO VALIDATE'">
                         <strong>{{formattedIndexes[i]}}</strong>
+                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
                     <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
                         *ngIf="exam.status == 'HIGH ACCURACY'">
                         <strong>{{formattedIndexes[i]}}</strong>
+                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
                 </div>
             </div>
-            <button class="download-zip-button" mat-flat-button (click)="downloadAllFilesAsZip()">Tout télécharger</button>
-            <div class="max-copies-container">
-                <label for="maxCopies">Nombre max de copies par pdf</label>
-                <input id="maxCopies" type="number" [(ngModel)]="maxCopiesPerPdf" placeholder="Nombre max de copies par pdf">
-            </div>
-            <div class="upload-container">
-                <button class="replace-zip-button" mat-flat-button (click)="fileInput.click()">Tout téléverser</button>
-                <input #fileInput type="file" id="file-input" accept=".zip,.pdf" (change)="onFileSelected($event)">
-                <div class="drop-zone" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
-                  <p>Déposez votre fichier pdf ou zip ici</p>
-                </div>
-              </div>
+            <button class="offline-button" mat-raised-button color="primary" *ngIf="!offline" (click)="correctOffline()">Corriger hors ligne</button>
+            <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline()">Finaliser hors ligne</button>
+            <button class="pdf-management-button" mat-flat-button *ngIf="!offline" (click)="managePdfs()">Gérer mes copies</button>
+            <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="cancelOffline()">Annuler</button>
         </div>
         <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
           <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer" [ngClass]="{'expanded': isSidebarHidden}">
@@ -116,9 +112,9 @@
     </div>
 </div>
 <div class="page-count" *ngIf="!this.disabledValidationcontainer">
-    {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
+    {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 - this.subExamsList[0]['document_index'] : 0)}} / {{this.subExamsList.length}}
 </div>
 </div>
-<button mat-button *ngIf="this.loggued() && !isSidebarHidden" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
-<div id="overlay" *ngIf="this.validating"></div>
-<mat-spinner class="overlay-spinner" *ngIf="this.validating" color="accent" [diameter]="150"></mat-spinner>
+<button mat-button *ngIf="loggued() && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+<div id="overlay" *ngIf="validating"></div>
+<mat-spinner class="overlay-spinner" *ngIf="validating" color="accent" [diameter]="150"></mat-spinner>

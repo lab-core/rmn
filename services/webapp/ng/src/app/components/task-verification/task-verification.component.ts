@@ -1,20 +1,20 @@
 import { Component, HostListener, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
+import { PdfManagementDialogComponent } from './pdf-management/pdf-management-dialog.component'
+import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';
 import { SocketService } from 'src/app/services/socket.service';
 import { NotificationService } from 'src/app/services/notification.service';
-import { HttpClient } from '@angular/common/http';
 import { Router, ActivatedRoute } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { PDFViewerComponent } from 'src/app/components/pdf-viewer/pdf-viewer.component';
-import { SERVER_URL } from 'src/app/utils';
 import { MatSelectChange } from '@angular/material/select';
-import * as saveAs from 'file-saver';
-import * as JSZip from 'jszip';
-import { PDFDocument } from 'pdf-lib';
 import { MatIconModule } from '@angular/material/icon';
+import { first } from 'rxjs/operators';
+import { db, OfflineCopy } from './offline-db';
+
 
 @Component({
   providers: [PDFViewerComponent],
@@ -28,12 +28,18 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     private validationService: ValidationService,
     private socketService: SocketService,
     private notificationService: NotificationService,
-    private http: HttpClient,
     public dialog: MatDialog,
     private router: Router,
     private route: ActivatedRoute,
     private userService: UserService,
-    private docService: DocumentsService) {}
+    private docService: DocumentsService) {
+      window.addEventListener('beforeunload', (event) => {
+        if (this.offline) {
+          event.preventDefault();
+          event.returnValue = '';
+        }
+      });
+    }
 
   @ViewChild(PDFViewerComponent)
   pdfViewer: PDFViewerComponent;
@@ -50,6 +56,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   hasUploadedZip: boolean = false;
 
   job: Map<string, any>;
+
+  offline: boolean = false;
+  offlineCopies = new Map<number, OfflineCopy>();
 
   nMaxPointsPerQuestion = new Map<string, number>();
   bonusEnabledMap = new Map<string, boolean>();
@@ -76,8 +85,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   groupsList: Array<string>;
   questionIndexes: Array<string> = [];
   formattedIndexes: Array<string> = [];
-  // default max copies per pdf value
-  maxCopiesPerPdf: number = 40;
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
@@ -112,6 +119,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     // fetch job and documents
     await this.getDocuments();
 
+    // create indexedDB store
+    db.setCurrentJobId(this.tasksService.getvalidatingTaskId());
+
+    // load offline information
+    if (await db.isOffline()) {
+      this.offline = true;
+      await this.loadOfflineCopies();
+    }
+
     this.socketService.join(this.job["job_id"]);
     this.socketService.getSocket().on('document_ready', async (params: any) => {
       await this.getDocuments();
@@ -137,6 +153,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async ngOnDestroy(): Promise<any> {
+    this.docService.clearPdfSources();
     if (this.socketService.getSocket()){
       this.socketService.getSocket().off('document_ready');
       this.socketService.getSocket().off('job_status');
@@ -183,6 +200,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (this.currentExam()["grade"] !== this.currentGrade) {
       this.currentExam()["grade"] = this.currentGrade;
       return true;
+    } else if (this.offline) {
+      const offlineCopy = this.offlineCopies.get(this.currentCopy);
+      return offlineCopy !== undefined && offlineCopy.grade !== undefined;
     }
     return false;
   }
@@ -199,7 +219,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.isIndexProvided = true;
       }
     } else {
-      this.route.params.subscribe(params => {
+      this.route.params.pipe(first()).subscribe(params => {
         const index = params['index'];
         if (index) {
           this.index = index;
@@ -318,24 +338,33 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return false;
   }
 
-  async loadPdf(version: number = undefined): Promise<void> {
+  async loadPdf(version: number = undefined): Promise<boolean> {
     if (this.currentExam()["status"] !== "NOT_READY") {
       this.checkNavigationArrows(false);
-      const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, version);
+      let pdfSource;
+      if (this.offline) {
+        pdfSource = this.docService.getAvailablePdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy)
+      } else {
+        pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, version);
+      }
       if (pdfSource) {
         this.currentPdfSrc = pdfSource;
         this.pdfUrl = pdfSource.url;
         this.pdfViewer.renderAnnotations(pdfSource.annotations);
         this.currentVersion = pdfSource.version;
+        return true;
       } else {
-        this.checkNavigationArrows(true);
+        this.currentPdfSrc = undefined;
+        this.pdfUrl = undefined;
+        this.checkNavigationArrows(false);
+        return false;
       }
     }
   }
 
   checkNavigationArrows(pdfLoaded: boolean) {
-    this.disablePrevious = !pdfLoaded || (this.currentVersion == 0);
-    this.disableNext = !pdfLoaded || (this.currentVersion >= this.currentPdfSrc.lastVersion);
+    this.disablePrevious = !pdfLoaded || this.offline || (this.currentVersion == 0);
+    this.disableNext = !pdfLoaded || this.offline || (this.currentVersion >= this.currentPdfSrc.lastVersion);
   }
 
   async changeCurrentCopy(copyIndex, status, updateScroll: boolean=true): Promise<void> {
@@ -348,13 +377,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.currentCopy = copyIndex;
         console.log("Current copy", this.currentCopy);
         this.disabledValidationcontainer = false;
-        await this.loadCopy();
-        if (updateScroll) {
-          this.updateScrollPosition();
+        if (await this.loadCopy()) {
+          if (updateScroll) {
+            this.updateScrollPosition();
+          }
+          this.setChosenColor(status);
+          this.loadScore();
+          this.verifyIfQuestionIsBonus();
         }
-        this.setChosenColor(status);
-        this.loadScore();
-        this.verifyIfQuestionIsBonus();
       } else {
           console.error('Erreur lors de l\'obtention du document PDF modifié.');
           this.notificationService.showError('Échec de la sauvegarde du document PDF modifié.', 'Erreur de validation');
@@ -387,15 +417,18 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     await this.loadPdf(event.target.value);
   }
 
-  async loadCopy(): Promise<void> {
-    await this.loadPdf();
+  async loadCopy(): Promise<boolean> {
+    const pdfLoaded = await this.loadPdf();
     this.currentGradeModified = false;
     this.getCurrentStatus();
     // try to load the following copy
-    let nextIndex = this.nextCopyIndex();
-    if (nextIndex < this.examsList.length) {
-      this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex);
+    if (!this.offline) {
+      let nextIndex = this.nextCopyIndex();
+      if (nextIndex < this.examsList.length) {
+        this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex);
+      }
     }
+    return pdfLoaded;
   }
 
   verifyIfQuestionIsBonus(): void {
@@ -408,7 +441,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       }
     }
   }
-
 
   setChosenColor(status: string): void {
     if(status === "TO VALIDATE") {
@@ -434,12 +466,13 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   setValidatedStatus() {
-    this.currentExam()["status"] = "VALIDATED";
+    this.currentStatus = "VALIDATED";
+    this.currentExam()["status"] = this.currentStatus;
   }
 
 
   async validateCurrentCopy() {
-    if (this.hasDownloadedZip && !this.hasUploadedZip && this.currentIndex() === this.examsList.length - 1) {
+    if (!this.offline && this.hasDownloadedZip && !this.hasUploadedZip && this.currentIndex() === this.examsList.length - 1) {
       this.notificationService.showWarning("Vous n'avez téléversé aucun nouveaux fichiers.", 'Attention!');
     }
 
@@ -456,7 +489,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.changeCurrentExam(this.currentIndex());
     }
     this.checkValidationButton();
-}
+  }
 
   async saveCurrentCopy() {
     const currentExam = this.currentExam();
@@ -466,29 +499,49 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       const file = await this.pdfViewer.getRenderedPdfFile(filename, !this.currentGradeModified);
       if (file !== undefined) {
         this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
-        let validationResponse = await this.validationService.validateDocument(
-            this.tasksService.getvalidatingTaskId(),
-            this.currentCopy,
+        if (this.offline) {
+          const copy = this.offlineCopies.get(this.currentCopy);
+          copy.file = file;
+          copy.status = this.currentStatus;
+          if (this.currentGradeModified) {
+            copy.grade = this.currentGrade;
+          }
+          db.updateCopy(copy);
+        } else {
+          let validationResponse = await this.saveCopy(
+            this.currentPdfSrc,
             file,
-            this.currentQuestionIndex.slice(1),
             this.currentGradeModified ? this.currentGrade : undefined,
-            this.nMaxPointsPerQuestion,
             this.currentStatus,
-            this.currentVersion,
-            this.currentPdfSrc.annotations
-        );
-        if (validationResponse === undefined) {
-          this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
+            this.currentQuestionIndex.slice(1));
+          if (validationResponse === undefined) {
+            this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
+          }
+          this.currentPdfSrc.lastVersion++;
+          this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
+
+          console.log('Save current copy and obtained response:', validationResponse);
+
+          return validationResponse;
         }
-        this.currentPdfSrc.lastVersion++;
-        this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
-
-        console.log('Save current copy and obtained response:', validationResponse);
-
-        return (validationResponse === "OK");
       }
     }
     return true;  // nothing to do -> true
+  }
+
+  async saveCopy(pdfSource, file, grade, status, questionIndex): Promise<any> {
+    let validationResponse = await this.validationService.validateDocument(
+        this.tasksService.getvalidatingTaskId(),
+        pdfSource.index,
+        file,
+        questionIndex,
+        grade,
+        this.nMaxPointsPerQuestion,
+        status,
+        pdfSource.version,
+        pdfSource.annotations
+    );
+    return (validationResponse === "OK");
   }
 
   updateTotal(key, value): void {
@@ -562,7 +615,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     let height = 80;
     if (!this.loggued()) height += 10;
     if (!this.showFilter()) height += 10;
-    // console.log("height", height+"%")
     return height+"%";
   }
 
@@ -579,212 +631,106 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
   }
 
-  async downloadAllFilesAsZip() {
-    this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
-    const zip = new JSZip();
-    const mergedDocs: { [key: string]: PDFDocument[] } = {};
-
-    for (const exam of this.subExamsList) {
-        if (exam["status"] !== 'NOT_READY') {
-            const formdata: FormData = new FormData();
-            this.userService.addTokens(formdata);
-            formdata.append('job_id', this.tasksService.getvalidatingTaskId());
-            formdata.append('document_index', exam["document_index"].toString());
-            formdata.append('questions', 'true');
-
-            await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' })
-                .toPromise()
-                .then(async data => {
-                    const arrayBuffer = await data.arrayBuffer();
-                    const pdfDoc = await PDFDocument.load(arrayBuffer);
-                    const fileName = exam["filename"];
-                    const questionIndex = exam["question"];
-
-                    if (!mergedDocs[questionIndex]) {
-                        mergedDocs[questionIndex] = [await PDFDocument.create()];
-                    }
-
-                    let cDoc = mergedDocs[questionIndex][mergedDocs[questionIndex].length - 1];
-                    if (cDoc.getPageCount() >= this.maxCopiesPerPdf * pdfDoc.getPageCount()) {
-                      cDoc = await PDFDocument.create();
-                      mergedDocs[questionIndex].push(cDoc);
-                    }
-
-                    const copiedPages = await cDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
-                    copiedPages.forEach((page) => {
-                        cDoc.addPage(page);
-                    });
-                })
-                .catch((error) => {
-                    console.error(`Error downloading file ${exam["filename"]}:`, error);
-                    this.notificationService.showError(`Erreur lors du téléchargement du fichier ${exam["filename"]}`, 'Erreur de téléchargement');
-                });
+  managePdfs() {
+    let dialogRef = this.dialog.open(PdfManagementDialogComponent, {
+      width: '30%',
+      height: '60%',
+      data: {
+        jobId: this.tasksService.getvalidatingTaskId(),
+        index: this.index,
+        jobName: this.job['job_name'],
+        nPagesPerQuestion: this.job["n_pages_per_question"],
+        examsList: this.subExamsList
+      }
+    });
+    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
+      if (result) {
+        if (result.hasDownloadedZip) {
+          this.hasDownloadedZip = true;
+        } else if (result.hasUploadedZip) {
+          this.hasUploadedZip = true;
+          this.docService.clearPdfSources();
+          this.loadCopy();
         }
-    }
-
-    for (const questionIndex of Object.keys(mergedDocs)) {
-        for (let i = 0; i < mergedDocs[questionIndex].length; i++) {
-            const doc = mergedDocs[questionIndex][i];
-            if (doc.getPageCount() > 0) {
-                const mergedPdfBytes = await doc.save();
-                const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-                zip.file(`${questionIndex}/${questionIndex}${i > 0 ? `_${i}` : ''}.pdf`, blob);
-            }
-        }
-    }
-
-    const zipName = this.index && this.index !== "Tout sélectionner"
-        ? `${this.job['job_name']}_Q${this.index}.zip`
-        : `${this.job['job_name']}.zip`;
-
-    zip.generateAsync({ type: 'blob' })
-        .then((content) => {
-            saveAs(content, zipName);
-        });
-
-    this.hasDownloadedZip = true;
-    this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
-  }
-
-  onFileSelected(event: any) {
-    const file = event.target.files[0];
-    if (file) {
-      this.uploadZipFile(file);
-    }
-  }
-
-  onDrop(event: DragEvent) {
-    event.preventDefault();
-    const file = event.dataTransfer?.files[0];
-    if (file) {
-      this.uploadZipFile(file);
-    }
-  }
-
-  onDragOver(event: DragEvent) {
-    event.preventDefault();
-  }
-
-  async readFileSync(file: File) {
-     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        resolve(reader.result);
-      };
-      reader.onerror = reject;
-      reader.readAsArrayBuffer(file);
+      }
+    }, (error) => {
+      console.error(error);
     });
   }
 
-  async uploadZipFile(file: File) {
-    const jobId = this.tasksService.getvalidatingTaskId();
-    const nPagesPerQuestionArray = this.job["n_pages_per_question"];
-    const nPagesPerQuestion = new Map<string, number>(nPagesPerQuestionArray);
-    const zip = new JSZip();
-
-    try {
-        let mergedFiles = new Map<string,ArrayBuffer>();
-        if (file.name.endsWith('.pdf')) {
-          mergedFiles[file.name] = await this.readFileSync(file);
-        } else {
-          const zipContent = await JSZip.loadAsync(file);
-          const zipMergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
-          for (const f of zipMergedFiles) {
-            const pdfDoc = await zipContent.file(f).async('arraybuffer');
-            mergedFiles[f] = pdfDoc;
-          }
-        }
-
-        // loading and merge PDFs based on their question indices
-        // sort names to process them in the right order
-        let keys = Object.keys(mergedFiles);
-        keys.sort();
-        const mergedPDFDocs = {};
-        for (const name of keys) {
-            try {
-                const pdfDoc = await PDFDocument.load(mergedFiles[name]);
-                const match = name.match(/Q\d+(?=(_\d+)?.pdf$)/);
-                const questionIndex = match ? match[0] : "Unknown";
-                if (!mergedPDFDocs[questionIndex]) {
-                    mergedPDFDocs[questionIndex] = await PDFDocument.create();
-                }
-
-                const totalPageCount = pdfDoc.getPageCount();
-                console.log(`The document ${name} has ${totalPageCount} pages.`);
-
-                const copiedPages = await mergedPDFDocs[questionIndex].copyPages(pdfDoc, pdfDoc.getPageIndices());
-                copiedPages.forEach((page) => {
-                    mergedPDFDocs[questionIndex].addPage(page);
-                });
-            } catch (pdfError) {
-                console.error(`Error processing merged file: ${name}`, pdfError);
-            }
-        }
-
-        // processing each question index and replace the original documents
-        for (const questionIndex of Object.keys(mergedPDFDocs)) {
-            const mergedDoc = mergedPDFDocs[questionIndex];
-            const totalPageCount = mergedDoc.getPageCount();
-            const originalDocs = this.subExamsList.filter(exam => exam.question === questionIndex);
-            const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
-
-            let startPage = 0;
-            for (const originalDoc of originalDocs) {
-                try {
-                    const singlePagePdf = await PDFDocument.create();
-                    const endPage = startPage + pagesPerQuestion;
-
-                    if (totalPageCount < endPage) {
-                        console.warn(`The merged document for ${questionIndex} does not have enough pages for ${originalDoc["filename"]}.pdf. Required: ${endPage}, available: ${totalPageCount}.`);
-                        break;
-                    }
-
-                    const copiedPages = await singlePagePdf.copyPages(mergedDoc, Array.from({ length: pagesPerQuestion }, (_, k) => startPage + k));
-                    copiedPages.forEach((page) => {
-                        singlePagePdf.addPage(page);
-                    });
-
-                    const pdfBytes = await singlePagePdf.save();
-                    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-                    const fileName = originalDoc["filename"] + ".pdf";
-                    zip.file(fileName, blob);
-
-                    startPage = endPage;
-                } catch (innerError) {
-                    console.error(`Error processing original document: ${originalDoc["filename"]}.pdf`, innerError);
-                }
-            }
-        }
-
-        const finalZipBlob = await zip.generateAsync({ type: 'blob' });
-        const finalZipFile = new File([finalZipBlob], 'split_documents.zip', { type: 'application/zip' });
-
-        const uploadFormData = new FormData();
-        this.userService.addTokens(uploadFormData);
-        uploadFormData.append('job_id', jobId);
-        uploadFormData.append('file', finalZipFile);
-        uploadFormData.append('questions', 'true');
-
-        await this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData).toPromise()
-            .then((response) => {
-              if(response) {
-                console.log('Files replaced successfully', response);
-                this.hasUploadedZip = true;
-                this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succès');
-                this.docService.clearPdfSources();
-                this.loadCopy();
-              } else {
-                this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
-              }
-            })
-            .catch((uploadError) => {
-                console.error('Error replacing files:', uploadError);
-                this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
-            });
-
-    } catch (zipError) {
-        console.error('Error processing zip file:', zipError);
-        this.notificationService.showError('Erreur lors du traitement du fichier zip', 'Erreur');
+  async correctOffline() {
+    this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
+    this.offline = true;
+    for (const exam of this.subExamsList) {
+      const pdfSrc = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), exam['document_index']);
+      const copy: OfflineCopy = {
+        pdfSrc: pdfSrc,
+        status: exam['status'],
+        questionIndex: exam['question_index']
+      };
+      this.offlineCopies.set(pdfSrc.index, copy);
+      exam['offline'] = true;
     }
+    await db.saveAllCopies(this.offlineCopies);
+    this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
+  }
+
+  async uploadOffline() {
+    this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
+    for (const copy of this.offlineCopies.values()) {
+      if (copy.file !== undefined) {
+        let validationResponse = await this.saveCopy(
+          copy.pdfSrc,
+          copy.file,
+          copy.grade,
+          copy.status,
+          copy.questionIndex);
+        if (!validationResponse) {
+          const index = copy.pdfSrc.index - this.subExamsList[0]['document_index'] + 1;
+          this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
+          return;
+        }
+      }
+    }
+    this.notificationService.showSuccess('Téléversement terminé!', 'Success');
+    await this.cleanOffline();
+  }
+
+  async cleanOffline() {
+    for (const exam of this.subExamsList) {
+      exam['offline'] = false;
+    }
+    this.docService.clearPdfSources();
+    db.deleteAllCopies(this.offlineCopies);
+    this.offlineCopies = new Map<number, OfflineCopy>();
+    this.offline = false;
+    await db.markOnline();
+  }
+
+  async loadOfflineCopies() {
+    const allCopies = await db.getAllCopies();
+    for (let copy of allCopies) {
+      if (copy.grade) {
+        this.examsList[copy.pdfSrc.index]["grade"] = copy.grade;
+      }
+      copy.pdfSrc = this.docService.loadPDFSource(copy.pdfSrc);
+      this.examsList[copy.pdfSrc.index]['offline'] = true;
+      this.examsList[copy.pdfSrc.index]['status'] = copy.status;
+      this.offlineCopies.set(copy.pdfSrc.index, copy);
+    }
+  }
+
+  cancelOffline() {
+    let dialogRef = this.dialog.open(WarningDialogComponent, {
+      width: '40%',
+      height: '50%',
+      data: "Êtes-vous sur de vouloir annuler la correction?"
+    })
+    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
+      if (result !== undefined && result === true) {
+        this.notificationService.showSuccess('Correction annulée!', 'Success');
+        this.cleanOffline();
+      }
+    });
   }
 }

@@ -2,6 +2,8 @@ import { Component, OnDestroy } from '@angular/core';
 import { NavigationStart, Router } from '@angular/router';
 import {Title} from "@angular/platform-browser";
 import { Subscription } from 'rxjs';
+import { first } from 'rxjs/operators';
+
 
 export let browserRefresh = false;
 @Component({
@@ -17,7 +19,7 @@ export class AppComponent implements OnDestroy {
     // inspiré de :https://stackblitz.com/edit/angular-r6-detect-browser-refresh?file=src%2Fapp%2Fapp.component.ts
     constructor(private router: Router, private titleService:Title) {
         this.titleService.setTitle(this.title);
-        this.subscription = this.router.events.subscribe((event) => {
+        this.subscription = this.router.events.pipe(first()).subscribe((event) => {
             if (event instanceof NavigationStart) {
                 browserRefresh = !this.router.navigated;
             }

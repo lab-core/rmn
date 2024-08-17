@@ -1,120 +1,121 @@
-<div class="tasks-history-container ">
+<div class="main-container">
     <app-main-menu></app-main-menu>
-    <div class="filter">
-        <mat-form-field appearance="outline">
-            <mat-label>Filtrer</mat-label>
-            <input matInput (keyup)="applyFilter($event)" placeholder="Rechercher une tâche" #input>
-        </mat-form-field>
-    </div>
+    <div class="tasks-history-container">
+      <div class="filter">
+          <mat-form-field appearance="outline">
+              <mat-label>Filtrer</mat-label>
+              <input matInput (keyup)="applyFilter($event)" placeholder="Rechercher une tâche" #input>
+          </mat-form-field>
+      </div>
+      <div class="table">
+          <div class="container_tasks mat-elevation-z8">
+              <table class="container_elements" mat-table [dataSource]="dataSource" matSortActive="queued_time"
+                  matSortDirection="desc" matSort>
 
-    <div class="table">
-        <div class="container_tasks mat-elevation-z8">
-            <table class="container_elements" mat-table [dataSource]="dataSource" matSortActive="queued_time"
-                matSortDirection="desc" matSort>
+                  <!-- Job Name Column -->
+                  <ng-container matColumnDef="job_name">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> Nom de la tâche </th>
+                      <td (click)="goToDashBoard(row)" class="job_name_css" mat-cell *matCellDef="let row"> {{row.job_name}}
+                      </td>
+                  </ng-container>
 
-                <!-- Job Name Column -->
-                <ng-container matColumnDef="job_name">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Nom de la tâche </th>
-                    <td (click)="goToDashBoard(row)" class="job_name_css" mat-cell *matCellDef="let row"> {{row.job_name}}
-                    </td>
-                </ng-container>
+                  <!-- Template ID Column -->
+                  <ng-container matColumnDef="template_name">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> Nom des templates </th>
+                      <td mat-cell *matCellDef="let row"> {{row.front_template_name}} & {{row.regular_template_name}}</td>
+                  </ng-container>
 
-                <!-- Template ID Column -->
-                <ng-container matColumnDef="template_name">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Nom des templates </th>
-                    <td mat-cell *matCellDef="let row"> {{row.front_template_name}} & {{row.regular_template_name}}</td>
-                </ng-container>
+                  <!-- Queued Time Column -->
+                  <ng-container matColumnDef="queued_time">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> Date d'ajout </th>
+                      <td mat-cell *matCellDef="let row"> {{row.queued_time.toLocaleString()}} </td>
+                  </ng-container>
 
-                <!-- Queued Time Column -->
-                <ng-container matColumnDef="queued_time">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Date d'ajout </th>
-                    <td mat-cell *matCellDef="let row"> {{row.queued_time.toLocaleString()}} </td>
-                </ng-container>
+                  <!-- Job Status Column -->
+                  <ng-container matColumnDef="job_status">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> Statut de la tâche </th>
+                      <td mat-cell *matCellDef="let row">
+                        {{row.info}} <span class="dot" [ngStyle]="{'background-color': statusColors[row.job_status]}"></span>
+                      </td>
+                  </ng-container>
 
-                <!-- Job Status Column -->
-                <ng-container matColumnDef="job_status">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Statut de la tâche </th>
-                    <td mat-cell *matCellDef="let row">
-                      {{row.info}} <span class="dot" [ngStyle]="{'background-color': statusColors[row.job_status]}"></span>
-                    </td>
-                </ng-container>
+                  <!-- Job Completion Column -->
+                  <!-- <ng-container matColumnDef="job_completion">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> Progression </th>
+                      <td mat-cell *matCellDef="let row">
+                          <div class="circle-wrap">
+                              <mat-progress-spinner class="example-margin" [color]="color" value="{{row.job_completion}}"
+                                  [diameter]="diameter">
+                              </mat-progress-spinner>
+                              <div id="task-completion">
+                                  {{row.job_completion}}%</div>
+                          </div>
+                      </td>
+                  </ng-container> -->
 
-                <!-- Job Completion Column -->
-                <!-- <ng-container matColumnDef="job_completion">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Progression </th>
-                    <td mat-cell *matCellDef="let row">
-                        <div class="circle-wrap">
-                            <mat-progress-spinner class="example-margin" [color]="color" value="{{row.job_completion}}"
-                                [diameter]="diameter">
-                            </mat-progress-spinner>
-                            <div id="task-completion">
-                                {{row.job_completion}}%</div>
-                        </div>
-                    </td>
-                </ng-container> -->
+                  <!-- Job Informations Column -->
+                  <ng-container matColumnDef="job_infos">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> Informations </th>
+                      <td mat-cell *matCellDef="let row">
+                          <div *ngIf="row.job_status === 'RETRY'">
+                              <div>{{ row.job_infos }}</div>
+                          </div>
+                      </td>
+                  </ng-container>
 
-                <!-- Job Informations Column -->
-                <ng-container matColumnDef="job_infos">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Informations </th>
-                    <td mat-cell *matCellDef="let row">
-                        <div *ngIf="row.job_status === 'RETRY'">
-                            <div>{{ row.job_infos }}</div>
-                        </div>
-                    </td>
-                </ng-container>
+                  <!-- Job Estimation Column -->
+                  <!-- <ng-container matColumnDef="job_estimation">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> Estimation </th>
+                      <td mat-cell *matCellDef="let row">
+                          <span *ngIf="row.job_status === 'RUN' || row.job_status === 'FINALIZING'">{{row.job_estimation}}
+                              sec</span>
+                      </td>
+                  </ng-container> -->
 
-                <!-- Job Estimation Column -->
-                <!-- <ng-container matColumnDef="job_estimation">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Estimation </th>
-                    <td mat-cell *matCellDef="let row">
-                        <span *ngIf="row.job_status === 'RUN' || row.job_status === 'FINALIZING'">{{row.job_estimation}}
-                            sec</span>
-                    </td>
-                </ng-container> -->
+                  <!-- Job Deletion Column -->
+                  <ng-container matColumnDef="job_deletion">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> </th>
+                      <td mat-cell *matCellDef="let row">
+                        <button (click)="deleteJob(row.job_id)" mat-raised-button color="warn"
+                                class="button-cell">Supprimer</button>
+                          <!-- <button *ngIf="row.job_status == 'ARCHIVED' || row.job_status == 'ERROR'"
+                              (click)="deleteJob(row.job_id)" mat-raised-button color="warn">Supprimer</button>
+                          <button *ngIf="row.job_status != 'ARCHIVED' && row.job_status != 'ERROR'" mat-raised-button
+                              disabled>Supprimer</button> -->
+                      </td>
+                  </ng-container>
 
-                <!-- Job Deletion Column -->
-                <ng-container matColumnDef="job_deletion">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> </th>
-                    <td mat-cell *matCellDef="let row">
-                      <button (click)="deleteJob(row.job_id)" mat-raised-button color="warn"
-                              class="button-cell">Supprimer</button>
-                        <!-- <button *ngIf="row.job_status == 'ARCHIVED' || row.job_status == 'ERROR'"
-                            (click)="deleteJob(row.job_id)" mat-raised-button color="warn">Supprimer</button>
-                        <button *ngIf="row.job_status != 'ARCHIVED' && row.job_status != 'ERROR'" mat-raised-button
-                            disabled>Supprimer</button> -->
-                    </td>
-                </ng-container>
+                <!-- Job share Column -->
+                  <!-- <ng-container matColumnDef="job_share">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> </th>
+                      <td mat-cell *matCellDef="let row">
+                        <button *ngIf="row.job_status == 'RUN' || row.job_status == 'VALIDATION'"
+                                (click)="shareJob(row.job_id, row.job_name)" mat-raised-button color="primary"
+                                class="button-cell">Partager</button>
+                      </td>
+                  </ng-container> -->
 
-              <!-- Job share Column -->
-                <!-- <ng-container matColumnDef="job_share">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> </th>
-                    <td mat-cell *matCellDef="let row">
-                      <button *ngIf="row.job_status == 'RUN' || row.job_status == 'VALIDATION'"
-                              (click)="shareJob(row.job_id, row.job_name)" mat-raised-button color="primary"
-                              class="button-cell">Partager</button>
-                    </td>
-                </ng-container> -->
+                  <tr mat-header-row class="element-header-row" *matHeaderRowDef="displayedColumns"></tr>
+                  <tr mat-row class="element-row" *matRowDef="let row; columns: displayedColumns;"></tr>
 
-                <tr mat-header-row class="element-header-row" *matHeaderRowDef="displayedColumns"></tr>
-                <tr mat-row class="element-row" *matRowDef="let row; columns: displayedColumns;"></tr>
+                  <!-- Job retry Column -->
+                  <!-- <ng-container matColumnDef="job_retry">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> </th>
+                      <td mat-cell *matCellDef="let row">
+                          <button *ngIf="row.job_status == 'RETRY'"
+                                  (click)="retryJob(row)" mat-raised-button color="primary"
+                                  class="button-cell">Rectifier</button>
+                      </td>
+                  </ng-container> -->
 
-                <!-- Job retry Column -->
-                <!-- <ng-container matColumnDef="job_retry">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header> </th>
-                    <td mat-cell *matCellDef="let row">
-                        <button *ngIf="row.job_status == 'RETRY'"
-                                (click)="retryJob(row)" mat-raised-button color="primary"
-                                class="button-cell">Rectifier</button>
-                    </td>
-                </ng-container> -->
+                  <!-- Row shown when there is no matching data. -->
+                  <tr class="mat-row" *matNoDataRow>
+                      <td class="mat-cell" colspan="4">No data matching the filter "{{input.value}}"</td>
+                  </tr>
+              </table>
 
-                <!-- Row shown when there is no matching data. -->
-                <tr class="mat-row" *matNoDataRow>
-                    <td class="mat-cell" colspan="4">No data matching the filter "{{input.value}}"</td>
-                </tr>
-            </table>
-
-            <mat-paginator [pageSizeOptions]="[5, 8]" aria-label="Select page of tasksList" #paginator></mat-paginator>
-        </div>
-    </div>
+              <mat-paginator [pageSizeOptions]="[5, 8]" aria-label="Select page of tasksList" #paginator></mat-paginator>
+          </div>
+      </div>
+  </div>
 </div>

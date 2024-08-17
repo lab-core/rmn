@@ -9,11 +9,12 @@ export class PDFSource {
   index: number;
   version: number;
   annotations: EditorAnnotation[];
-  url: string;
+  url?: string;
+  blob?: Blob;
   timestamp_min: number;
   lastVersion: number;
 
-  constructor(index: number, url: string, version) {
+  constructor(index: number=undefined, url: string=undefined, version=undefined) {
     this.index = index;
     this.url = url;
     this.version = version;
@@ -34,7 +35,49 @@ export class PDFSource {
   }
 
   canBeUsed(minutes, version=undefined) {
-    return this.annotations.length == 0 && !this.isOlderThan(minutes) && (version === undefined || this.version === version);
+    return (minutes === undefined || !this.isOlderThan(minutes)) &&
+          (version === undefined || this.version === version);
+  }
+
+  async toJSONDict() {
+    const blob = await fetch(this.url).then(r => r.blob());
+    return {
+      index: this.index,
+      version: this.version,
+      annotations: this.annotations,
+      timestamp_min: this.timestamp_min,
+      lastVersion: this.lastVersion,
+      base64: await this.readBlobSync(blob),
+    }
+  }
+
+  async readBlobSync(blob: Blob | File): Promise<string | ArrayBuffer> {
+     return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(reader.result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);  // base64 string of the pdf
+    });
+  }
+
+  async loadDict(dict) {
+    this.index = dict['index'];
+    this.blob = dict['blob'];
+    this.version = dict['version'];
+    this.annotations = dict['annotations'];
+    this.timestamp_min = dict['timestamp_min'];
+    this.lastVersion = dict['lastVersion'];
+    if (this.blob) {
+      this.url = window.URL.createObjectURL(this.blob);
+    }
+  }
+
+  revokeURL() {
+    if (this.url) {
+      URL.revokeObjectURL(this.url);
+    }
   }
 }
 
@@ -89,8 +132,12 @@ export class DocumentsService {
 
     try {
       const data = await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).toPromise();
+      // const src = base64Src ? await this.readBlobSync(data) : window.URL.createObjectURL(data);
       const url = window.URL.createObjectURL(data);
       const pdfSource = new PDFSource(index, url, version);
+      if (this.pdfSources[index]) {
+        this.pdfSources[index].revokeURL();
+      }
       this.pdfSources[index] = pdfSource;
       await this.getAnnotations(jobId, pdfSource);
       return pdfSource;
@@ -124,8 +171,8 @@ export class DocumentsService {
   }
 
   async getPdfSource(jobId: string, index: number, version=undefined, minutes=undefined): Promise<PDFSource> {
-    let pdfSource = this.pdfSources[index];
-    if (pdfSource && pdfSource.canBeUsed(minutes || this.refreshMinutes, version)) {
+    let pdfSource = this.getAvailablePdfSource(jobId, index, version, minutes || this.refreshMinutes);
+    if (pdfSource !== undefined) {
       return pdfSource;
     } else {
       let pdfSource = await this.downloadPdf(jobId, index, version);
@@ -133,7 +180,25 @@ export class DocumentsService {
     }
   }
 
+  getAvailablePdfSource(jobId: string, index: number, version=undefined, minutes=undefined) {
+    let pdfSource = this.pdfSources[index];
+    if (pdfSource && pdfSource.canBeUsed(minutes, version)) {
+      return pdfSource;
+    }
+    return undefined;
+  }
+
+  loadPDFSource(dict): PDFSource {
+    const pdfSrc = new PDFSource();
+    pdfSrc.loadDict(dict);
+    this.pdfSources[pdfSrc.index] = pdfSrc;
+    return pdfSrc;
+  }
+
   clearPdfSources() {
+    for (let pdfSrc of Object.values(this.pdfSources)) {
+      pdfSrc.revokeURL();
+    }
     this.pdfSources = new Map<number, PDFSource>();
   }
 }

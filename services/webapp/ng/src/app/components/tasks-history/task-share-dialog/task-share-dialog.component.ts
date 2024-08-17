@@ -6,6 +6,8 @@ import { TasksService } from 'src/app/services/tasks.service';
 import { HttpClient } from '@angular/common/http';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { SERVER_URL } from 'src/app/utils';
+import { first } from 'rxjs/operators';
+
 
 export interface DialogData {
   taskId: string;
@@ -90,7 +92,7 @@ export class TaskShareDialogComponent implements OnInit {
     if (this.data.questionIndex) {
       formdata.append('question_index', this.data.questionIndex.toString());
     }
-    this.http.post<any>(`${SERVER_URL}${this.data.shareType}/unshare`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}${this.data.shareType}/unshare`, formdata).pipe(first()).subscribe(
       (data) => {
         let resp = {success: data['response'] === "OK"};
         if (resp.success) {
@@ -98,9 +100,11 @@ export class TaskShareDialogComponent implements OnInit {
         } else {
           resp["message"] = "L'accès n'a pas pu être enlevé pour cette tâche.";
         }
+
         this.close(resp);
       }, (error) => {
         console.error(error);
+
         this.close({success: false, message: "Une erreur est intervenue lors du partage de la tâche !"});
       });
   }
