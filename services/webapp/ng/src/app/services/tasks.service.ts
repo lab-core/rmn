@@ -24,7 +24,7 @@ export class TasksService {
     localStorage.setItem('job_id', id);
   }
 
-  getvalidatingTaskId() {
+  getvalidatingTaskId() : string {
     return this.validatingTaskId;
   }
 

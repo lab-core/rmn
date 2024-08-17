@@ -348,7 +348,7 @@
 @media (max-width: 950px) {
   .validation-check-container {
     width: 90%;
-    height: 12%;
+    height: 15%;
     display: flex;
     flex-direction: column;
     align-items: center;

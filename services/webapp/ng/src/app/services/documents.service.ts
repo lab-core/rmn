@@ -9,7 +9,8 @@ export class PDFSource {
   index: number;
   version: number;
   annotations: EditorAnnotation[];
-  url: string;
+  url?: string;
+  blob?: Blob;
   timestamp_min: number;
   lastVersion: number;
 
@@ -61,15 +62,16 @@ export class PDFSource {
     });
   }
 
-  async loadJSONDict(dict) {
-    const blob = await fetch(dict['base64']).then(r => r.blob());
-    this.revokeURL();
-    this.url = window.URL.createObjectURL(blob);
+  async loadDict(dict) {
     this.index = dict['index'];
+    this.blob = dict['blob'];
     this.version = dict['version'];
     this.annotations = dict['annotations'];
     this.timestamp_min = dict['timestamp_min'];
     this.lastVersion = dict['lastVersion'];
+    if (this.blob) {
+      this.url = window.URL.createObjectURL(this.blob);
+    }
   }
 
   revokeURL() {
@@ -186,9 +188,9 @@ export class DocumentsService {
     return undefined;
   }
 
-  async parsePDFSourceDict(dict) {
+  loadPDFSource(dict): PDFSource {
     const pdfSrc = new PDFSource();
-    await pdfSrc.loadJSONDict(dict);
+    pdfSrc.loadDict(dict);
     this.pdfSources[pdfSrc.index] = pdfSrc;
     return pdfSrc;
   }
