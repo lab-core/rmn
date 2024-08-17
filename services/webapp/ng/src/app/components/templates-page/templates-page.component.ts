@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { NavigationStart, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
@@ -6,9 +6,9 @@ import { UserService } from 'src/app/services/user.service';
 import { TemplateService } from 'src/app/services/template.service';
 import { RectangleService } from 'src/app/services/drawing/rectangle.service';
 import { NewTemplateDialogComponent } from './new-template-dialog/new-template-dialog.component';
-import { DeleteTemplateDialogComponent } from './delete-template-dialog/delete-template-dialog.component';
+import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { SERVER_URL } from 'src/app/utils';
-import { filter } from 'rxjs/operators';
+import { filter, first } from 'rxjs/operators';
 import { saveAs } from 'file-saver';
 
 
@@ -17,7 +17,7 @@ import { saveAs } from 'file-saver';
   templateUrl: './templates-page.component.html',
   styleUrls: ['./templates-page.component.css']
 })
-export class TemplatesPageComponent implements OnInit {
+export class TemplatesPageComponent implements OnInit, OnDestroy {
   constructor(
     public dialog: MatDialog,
     private router: Router,
@@ -26,7 +26,7 @@ export class TemplatesPageComponent implements OnInit {
     private templateService: TemplateService,
     private rectangleService: RectangleService
   ) {
-    this.router.events
+    this.subscription = this.router.events
       .pipe(filter((event: NavigationStart) => event.navigationTrigger === 'popstate'))
       .subscribe(() => {
         if (this.router.url === '/templates'){
@@ -40,15 +40,21 @@ export class TemplatesPageComponent implements OnInit {
 
   filterSearch: string = '';
 
+  subscription;
+
   async ngOnInit(): Promise<void> {
     this.getTemplates();
+  }
+
+  ngOnDestroy(): void {
+    this.subscription.unsubscribe();
   }
 
 
   getTemplates() {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
-    this.http.post<any>(`${SERVER_URL}user/template`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}user/template`, formdata).pipe(first()).subscribe(
       (data) => {
         // "template_name"
         // "template_id"
@@ -81,7 +87,7 @@ export class TemplatesPageComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('template_id', template["template_id"]);
-    this.http.post<any>(`${SERVER_URL}template/info`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}template/info`, formdata).pipe(first()).subscribe(
       (data) => {
         this.rectangleService.setIdentificationRectCoords(data["response"]["matricule_box"]);
         this.rectangleService.setquestionsRectCoords(data["response"]["grade_box"]);
@@ -93,7 +99,7 @@ export class TemplatesPageComponent implements OnInit {
         const formdata: FormData = new FormData();
         this.userService.addTokens(formdata);
         formdata.append('template_id', template["template_id"]);
-         this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).subscribe(async data => {
+         this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
             var file = new File([data], this.templateService.getTemplateName());
             this.templateService.setFile(file);
             await this.templateService.createNewTemplate(file);
@@ -106,11 +112,11 @@ export class TemplatesPageComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('template_id', template["template_id"]);
-    this.http.post(`${SERVER_URL}template/download/src`, formdata, {responseType: 'blob'}).subscribe(
+    this.http.post(`${SERVER_URL}template/download/src`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(
       (data) => {
-        const file = new Blob([data]);
-        let downloadURL = window.URL.createObjectURL(file);
+        const downloadURL = window.URL.createObjectURL(data);
         saveAs(downloadURL, template["src_name"]);
+        URL.revokeObjectURL(downloadURL);
       },
       (error) => {
         console.error(error);
@@ -126,16 +132,17 @@ export class TemplatesPageComponent implements OnInit {
 
 
   openDeleteDialog(template: Map<string, string>): void {
-    let dialogRef = this.dialog.open(DeleteTemplateDialogComponent, {
-      width: '25%',
-      height: '35%',
+    let dialogRef = this.dialog.open(WarningDialogComponent, {
+      width: '40%',
+      height: '50%',
+      data: "Êtes-vous sur de vouloir supprimer le template?"
     })
-    dialogRef.afterClosed().subscribe(async result => {
+    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
       if (result !== undefined && result === true) {
         const formdata: FormData = new FormData();
         this.userService.addTokens(formdata);
         formdata.append('template_id', template["template_id"]);
-        this.http.post<any>(`${SERVER_URL}template/delete`, formdata).subscribe(
+        this.http.post<any>(`${SERVER_URL}template/delete`, formdata).pipe(first()).subscribe(
           (data) => {
             this.getTemplates();
           });

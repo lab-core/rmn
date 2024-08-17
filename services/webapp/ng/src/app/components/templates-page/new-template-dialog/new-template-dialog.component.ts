@@ -5,6 +5,7 @@ import { MatDialogRef } from '@angular/material/dialog';
 import { TemplateService } from 'src/app/services/template.service';
 import { UserService } from 'src/app/services/user.service';
 import { SERVER_URL } from 'src/app/utils';
+import { first } from 'rxjs/operators';
 
 
 @Component({
@@ -82,7 +83,7 @@ export class NewTemplateDialogComponent implements OnInit {
     formdata.append('template_file', this.copy);
     formdata.append('template_page', (this.page - 1).toString());
     formdata.append('template_name', "New template");
-    this.http.post<any>(`${SERVER_URL}template`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}template`, formdata).pipe(first()).subscribe(
         (data) => {
           this.templateService.setTemplateName(data["response"]["template_name"]);
           this.templateService.setTemplateId(data["response"]["template_id"]);
@@ -90,7 +91,7 @@ export class NewTemplateDialogComponent implements OnInit {
           const formdata: FormData = new FormData();
           this.userService.addTokens(formdata);
           formdata.append('template_id', data["response"]["template_id"]);
-           this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).subscribe(async data => {
+           this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
               var file = new File([data], this.templateService.getTemplateName());
               this.templateService.setFile(file);
               await this.templateService.createNewTemplate(file);

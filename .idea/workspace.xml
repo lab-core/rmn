@@ -6,7 +6,22 @@
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/pdf-management/pdf-management-dialog.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/pdf-management/pdf-management-dialog.component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/pdf-management/pdf-management-dialog.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/pdf-management/pdf-management-dialog.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/tasks-history.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/tasks-history.component.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/tasks-history.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/tasks-history.component.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/documents.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/documents.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/interceptor.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/interceptor.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -153,8 +168,8 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.app" />
       <item itemvalue="Python.exec" />
+      <item itemvalue="Python.app" />
       <item itemvalue="Python.stats" />
     </list>
   </component>
@@ -186,7 +201,8 @@
       <workItem from="1722217467983" duration="614000" />
       <workItem from="1722218240744" duration="159557000" />
       <workItem from="1723083701015" duration="10724000" />
-      <workItem from="1723429240471" duration="247000" />
+      <workItem from="1723429240471" duration="822000" />
+      <workItem from="1723604887574" duration="1628000" />
     </task>
     <servers />
   </component>

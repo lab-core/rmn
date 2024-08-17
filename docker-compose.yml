@@ -48,6 +48,7 @@ services:
     restart: always
     volumes:
       - ./services/webapp/ng/src:/app/src:rw
+      - ./services/webapp/ng/viewer-4.5.713.min.mjs:/app/node_modules/ngx-extended-pdf-viewer/assets/viewer-4.5.713.min.mjs
     ports:
       - "8080:80"
   nginx:

@@ -15,7 +15,7 @@ import { UserService } from 'src/app/services/user.service';
 import { ThemePalette } from '@angular/material/core';
 import { ProgressSpinnerMode } from '@angular/material/progress-spinner';
 import { SERVER_URL } from 'src/app/utils';
-import { filter } from 'rxjs/operators';
+import { filter, first } from 'rxjs/operators';
 import { TaskRetryDialogComponent } from './task-retry-dialog/task-retry-dialog.component';
 
 @Component({
@@ -68,6 +68,8 @@ export class TasksHistoryComponent implements OnInit {
     ERROR: "red",
   }
 
+  subscription;
+
   constructor(
     private location: Location,
     private tasksService: TasksService,
@@ -78,7 +80,7 @@ export class TasksHistoryComponent implements OnInit {
     private notificationService: NotificationService,
     private userService: UserService
   ) {
-    this.router.events
+    this.subscription = this.router.events
       .pipe(filter((event: NavigationStart) => event.navigationTrigger === 'popstate'))
       .subscribe(() => {
           if (this.router.url === '/tasks-history') {
@@ -133,6 +135,7 @@ export class TasksHistoryComponent implements OnInit {
   }
 
   ngOnDestroy(): void {
+    this.subscription.unsubscribe();
     this.socketService.getSocket().off('document_ready');
     this.socketService.getSocket().off('job_status');
     this.socketService.disconnectSocket();
@@ -150,7 +153,7 @@ export class TasksHistoryComponent implements OnInit {
   getTasks() {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
-    this.http.post<any>(`${SERVER_URL}jobs`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}jobs`, formdata).pipe(first()).subscribe(
       (data) => {
         this.tasksList = data['response'];
         this.tasksList.forEach((task: any) => {
@@ -161,7 +164,7 @@ export class TasksHistoryComponent implements OnInit {
           const formdata: FormData = new FormData();
           this.userService.addTokens(formdata);
           formdata.append('job_id', x.job_id);
-          this.http.post<any>(`${SERVER_URL}documents`, formdata).subscribe(
+          this.http.post<any>(`${SERVER_URL}documents`, formdata).pipe(first()).subscribe(
             (data) => {
               let lastN = 0;
               let lastExecTime = 0;
@@ -223,7 +226,7 @@ export class TasksHistoryComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
-    this.http.post<any>(`${SERVER_URL}job/delete`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}job/delete`, formdata).pipe(first()).subscribe(
       (data) => {
         if (data['response'] === 'OK') {
           this.getTasks();
@@ -239,7 +242,7 @@ export class TasksHistoryComponent implements OnInit {
       height: '90%',
       data: {taskId: jobId, taskName: jobName}
     });
-    dialogRef.afterClosed().subscribe(async result => {
+    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
         if (result === false) {
           const message = "Une erreur est intervenue lors du partage de la tâche !";
           this.notificationService.showError(message, "Erreur!");
@@ -255,7 +258,7 @@ export class TasksHistoryComponent implements OnInit {
       height: '90%',
       data: {taskId: task.job_id, taskName: task.job_name, taskMessages: task.job_infos }
     });
-    dialogRef.afterClosed().subscribe(async result => {
+    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
         if (result === false) {
           const message = "Une erreur est intervenue lors de la correction de la tâche !";
           this.notificationService.showError(message, "Erreur!");
@@ -298,7 +301,7 @@ export class TasksHistoryComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
-    this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).subscribe(
+    this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).pipe(first()).subscribe(
       (data) => {
         let nbZipFile = data['response']
         let dialogRef = this.dialog.open(TaskFilesDialogComponent, {

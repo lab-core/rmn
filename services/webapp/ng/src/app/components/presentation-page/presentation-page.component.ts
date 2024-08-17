@@ -6,6 +6,7 @@ import { NotificationService } from 'src/app/services/notification.service';
 import { TasksService } from 'src/app/services/tasks.service';
 import { UserService } from 'src/app/services/user.service';
 import { SERVER_URL } from 'src/app/utils';
+import { first } from 'rxjs/operators';
 
 @Component({
   selector: 'app-presentation-page',
@@ -80,20 +81,19 @@ export class PresentationPageComponent implements OnInit {
       formdata.append('suffix', this.suffix);
       formdata.append('moodle_zip', this.copies);
       formdata.append('latex_front_page', this.latexFrontPage);
-
-      let file: Blob;
-
-      this.http.post(`${SERVER_URL}front_page`, formdata, { responseType: 'blob' }).subscribe(
+      this.http.post(`${SERVER_URL}front_page`, formdata, { responseType: 'blob' }).pipe(first()).subscribe(
         (data) => {
           // moodle.zip in data
-          file = data;
-          let downloadURL = window.URL.createObjectURL(data);
+          const downloadURL = window.URL.createObjectURL(data);
           saveAs(downloadURL, this.copiesName);
+          URL.revokeObjectURL(downloadURL);
           this.disabled = false;
+
         },
         (error) => {
           this.notifyService.showError(error.message, "ERREUR")
           this.disabled = false;
+
         });
 
     }

@@ -2,6 +2,7 @@
   <ngx-extended-pdf-viewer *ngIf="pdfUrl !== undefined"
     #pdfViewer
     [src]="pdfUrl"
+    [useInlineScripts]="false"
     [language]="'fr'"
     [handTool]="false"
     [textLayer]="false"
@@ -13,6 +14,7 @@
     (pageRendered)="onPageRendered($event)"
     >
   </ngx-extended-pdf-viewer>
+  <p *ngIf="pdfUrl === undefined">Cette copie n'est pas disponible.</p>
   <ng-template #additionalButtons>
     <div id="toolbarViewer" *ngIf="!hideToolbar">
       <div id="toolbarViewerLeft">

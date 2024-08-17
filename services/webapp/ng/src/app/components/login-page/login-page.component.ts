@@ -1,7 +1,7 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit, OnDestroy } from '@angular/core';
 import { Location } from '@angular/common';
 import { Router, NavigationStart } from '@angular/router';
-import { filter } from 'rxjs/operators';
+import { filter, first } from 'rxjs/operators';
 import { UserService } from 'src/app/services/user.service';
 import { NotificationService } from 'src/app/services/notification.service';
 
@@ -10,10 +10,11 @@ import { NotificationService } from 'src/app/services/notification.service';
   templateUrl: './login-page.component.html',
   styleUrls: ['./login-page.component.css']
 })
-export class LoginPageComponent implements OnInit {
+export class LoginPageComponent implements OnInit, OnDestroy {
 
   username: string = ''
   password: string = ''
+  subscription;
 
   constructor(
     private location: Location,
@@ -21,7 +22,7 @@ export class LoginPageComponent implements OnInit {
     private userService: UserService,
     private notification: NotificationService
   ) {
-    this.router.events
+    this.subscription = this.router.events
       .pipe(filter((event: NavigationStart) => event.navigationTrigger === 'popstate'))
       .subscribe(() => {
         if (this.router.url === '/'){
@@ -32,6 +33,10 @@ export class LoginPageComponent implements OnInit {
    }
 
   ngOnInit(): void {
+  }
+
+  ngOnDestroy(): void {
+    this.subscription.unsubscribe();
   }
 
   @HostListener('document:keydown.enter', ['$event'])

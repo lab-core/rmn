@@ -20,7 +20,7 @@ add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe
 add_header Cross-Origin-Resource-Policy same-site always;
 
 # 4- Enforces the use of HTTPS and provides additional security by specifying a strict transport security policy.
-# add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
 
 # 5- Disables the browser’s built-in Cross-Site Scripting (XSS) protection. Ensure this is used judiciously.
 # WARNING can be dangerous -> needs to be 0 (https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection)

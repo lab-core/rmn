@@ -4,6 +4,7 @@ import { MatDialogRef } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { SERVER_URL } from 'src/app/utils';
+import { first } from 'rxjs/operators';
 
 @Component({
   selector: 'app-change-password-dialog',
@@ -49,10 +50,10 @@ export class ChangePasswordDialogComponent implements OnInit {
       formdata.append('old_password', this.currentPass)
       const url = SERVER_URL + 'password';
 
-      this.http.post(url, formdata);
-      this.http.post<any>(url, formdata).subscribe(
+      this.http.post<any>(url, formdata).pipe(first()).subscribe(
         (data) => {
           this.notification.showSuccess('Le mot de passe entré a été changé!', 'Succès');
+
           this.dialogRef.close('');
         },
         (error) => {

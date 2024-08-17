@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
+import { first } from 'rxjs/operators';
 
 @Component({
   selector: 'app-create-user-dialog',
@@ -48,11 +49,13 @@ export class CreateUserDialogComponent implements OnInit {
   }
 
   private createAccount() {
-    this.userService.signup(this.username, this.pass, this.selected).subscribe((resp) => {
+    this.userService.signup(this.username, this.pass, this.selected).pipe(first()).subscribe((resp) => {
       this.notification.showSuccess("", "Compte Créé")
       this.dialogRef.close('');
+
     }, (err) => {
       this.notification.showError(err.error.response, "Erreur à la création du compte")
+
     }
     )
   }
