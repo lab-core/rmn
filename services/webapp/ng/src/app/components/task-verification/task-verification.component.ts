@@ -350,9 +350,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       if (pdfSource) {
         this.currentPdfSrc = pdfSource;
         this.pdfUrl = pdfSource.url;
-        setTimeout(() => {
-          this.pdfViewer.renderAnnotations(pdfSource.annotations)
-        });
+        this.pdfViewer.renderAnnotations(pdfSource.annotations);
         this.currentVersion = pdfSource.version;
         return true;
       } else {
@@ -365,8 +363,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   checkNavigationArrows(pdfLoaded: boolean) {
-    this.disablePrevious = !pdfLoaded || (this.currentVersion == 0);
-    this.disableNext = !pdfLoaded || (this.currentVersion >= this.currentPdfSrc.lastVersion);
+    this.disablePrevious = !pdfLoaded || this.offline || (this.currentVersion == 0);
+    this.disableNext = !pdfLoaded || this.offline || (this.currentVersion >= this.currentPdfSrc.lastVersion);
   }
 
   async changeCurrentCopy(copyIndex, status, updateScroll: boolean=true): Promise<void> {

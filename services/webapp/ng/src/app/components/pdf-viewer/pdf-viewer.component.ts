@@ -214,11 +214,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     if (annotations) {
       this.pdfAnnotations = [ ...this.pdfAnnotations, ...annotations];
       // if pdf already rendered, call loadAnnotations(). Otherwise, it will be called naturlaly
-      setTimeout(() => {
-        if (this.pdfRendered) {
-          setTimeout(() => { this.loadAnnotations(); }, this.timeout);
-        }
-      });
+      if (this.pdfRendered) {
+        setTimeout(() => { this.loadAnnotations(); }, this.timeout);
+      }
     }
   }
 
@@ -275,7 +273,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   loadAnnotations() {
     setTimeout(() => {
       this.pdfAnnotations.forEach(a => {
-        this.ngxService.addEditorAnnotation(a);
+        setTimeout(() => this.ngxService.addEditorAnnotation(a));
       });
       this.pdfAnnotations = [];
       this.onAnnotationsLoaded.emit(true);
@@ -353,7 +351,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.removeAllInkAnnotations();
     // re add all of them minus the last element
     inkAnnotations.forEach(a => {
-      this.ngxService.addEditorAnnotation(a);
+      setTimeout(() => this.ngxService.addEditorAnnotation(a));
     });
   }
 
