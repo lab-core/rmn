@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: daily-rollout
+spec:
+  schedule: "0 6 * * *"  # Run at MM HH every day at 6:00 UTC
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: rollout-pod
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              kubectl patch deployment server \
+              -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"$(date +'%s')\"}}}}}"
+              exit 0
+          restartPolicy: OnFailure
+          serviceAccount: cron

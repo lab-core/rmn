@@ -197,7 +197,7 @@ class TemplateService():
                     "src_name": src_name
                 }
 
-        user_templates_list = list(sorted(user_templates.values(), key=lambda d: (not d['locked'], d['template_name'])))
+        user_templates_list = list(sorted(user_templates.values(), key=lambda d: (not d.get('locked'), d['template_name'])))
 
         return Response(response=json.dumps({"response": user_templates_list}), status=200)
 
@@ -236,7 +236,7 @@ class TemplateService():
             "matricule_box": convert_box_to_dict(template.get('matricule_box')),
             "grade_box": convert_box_to_dict(template.get('grade_box')),
             "n_questions": template.get('n_questions'),
-            "locked": template['locked'] and template['user_id'] != user_id,
+            "locked": template.get('locked') and template['user_id'] != user_id,
         }
 
         return Response(response=json.dumps({"response": template_resp}), status=200)
