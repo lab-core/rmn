@@ -94,6 +94,14 @@ Then, mount the volume into minikube:
 minikube mount --port=35475 ./k8s_storage:/mnt/k8s_storage
 ```
 
+#### Cron job
+The nfs connection may hang from time to time. To avoid this issue, we rollout the server pod every day with a cron job that will patch the server by modifying the date and trigger a rollout. To do so,, we create a service account 'cron' that we bind with the role edit to perform the patch operation. Then, the cron job daily rollout can de deploy and perform this action, as it uses the service account cron (see daily-rollout.yml). The minikube helper script can do those steps for you:
+```
+kubectl create sa cron
+kubectl create clusterrolebinding cron --clusterrole edit --serviceaccount=default:cron
+kubectl apply -f deployment/daily-rollout.yml
+```
+
 ### Admin commands
 
 They need to be run locally on the server (depending on nginx/ingress configuration).
