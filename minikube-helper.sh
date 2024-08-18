@@ -94,7 +94,7 @@ fi
 
 if [[ ! -z $CRON ]]; then
   kubectl create sa cron
-  kubectl create clusterrolebinding edit --clusterrole edit --serviceaccount=default:cron
+  kubectl create clusterrolebinding cron --clusterrole edit --serviceaccount=default:cron
 fi
 
 exit 0
