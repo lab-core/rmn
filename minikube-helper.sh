@@ -15,9 +15,6 @@ function printBashUsage {
   echo "-j | --cron-job: create service account for the cron jobs."
 }
 
-#stop on error
-set -e
-
 # load config arguments in one line
 A=()
 while [ ! -z "$1" ]; do
