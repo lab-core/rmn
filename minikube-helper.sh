@@ -12,6 +12,7 @@ function printBashUsage {
   echo "-m | --memory: memory in MB for minikube. Default: 24576."
   echo "-c | --cpus: cpus for minikube. Default: 3."
   echo "-n | --nohup: run minikube start with nohup."
+  echo "-j | --cron-job: create service account for the cron jobs."
 }
 
 #stop on error
@@ -47,6 +48,7 @@ while [ ! -z ${A[${i}]} ]; do
     -m | --memory) MEMORY=${A[((i+1))]}; ((i+=2));;
     -c | --cpus) CPUS=${A[((i+1))]}; ((i+=2));;
     -n | --nohup) NOHUP="1"; ((i+=1));;
+    -j | --cron-job) CRON="1"; ((i+=1));;
     *) echo "Argument ${A[${i}]} not recognized."; echo ""; printBashUsage; exit 1;;
   esac
 done
@@ -88,6 +90,11 @@ if [[ ! -z $ROLLOUT ]]; then
     kubectl rollout restart deployment/$1
   fi
   kubectl get pods
+fi
+
+if [[ ! -z $CRON ]]; then
+  kubectl create sa cron
+  kubectl create clusterrolebinding edit --clusterrole edit --serviceaccount=default:cron
 fi
 
 exit 0

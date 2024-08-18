@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy, ViewChild, HostListener } from '@angular/core';
 import { NgxExtendedPdfViewerService, EditorAnnotation, FreeTextEditorAnnotation, InkEditorAnnotation,  PdfTextEditorComponent, PdfDrawEditorComponent, PDFWorker, pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
 import { NotificationService } from 'src/app/services/notification.service';
 import { PDFSource } from 'src/app/services/documents.service';
@@ -509,6 +509,12 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  // @HostListener('window:pointerdown', ['$event'])
+  // onPointerDown(event: PointerEvent) {
+  //   // this.touchType = event.pointerType;
+  //   console.log('Pointer down detected', event);
+  // }
+
   private onTouchStart(e: TouchEvent) {
     const touch = e.targetTouches[0];
     if (this.touchType === undefined) {
@@ -564,7 +570,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private onMouve(i: number, target, clientX, clientY): void {
-    console.log(i, this.isErasing, this.isDrawing);
+    // console.log(i, this.isErasing, this.isDrawing);
     if (!this.isDrawing || !this.isErasing) return;
     // erase drawing
     this.canvases.get(i).forEach(canvas => {
