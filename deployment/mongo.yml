@@ -31,7 +31,7 @@ spec:
               value: example
             - name: MONGO_INITDB_ROOT_USERNAME
               value: adminuser
-          image: mongo:6.0
+          image: mongo:latest
           name: mongo
           ports:
             - name: mongo-server
