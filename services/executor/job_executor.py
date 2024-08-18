@@ -709,6 +709,9 @@ if __name__ == "__main__":
             # process job if any
             if job:
                 print("Job:", job)
+                # check if job if of form (job_queue, job)
+                if type(job) is tuple:
+                    job = job[1]
                 job = json.loads(job)
 
                 # create tmp work dir

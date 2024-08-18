@@ -476,19 +476,24 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.notificationService.showWarning("Vous n'avez téléversé aucun nouveaux fichiers.", 'Attention!');
     }
 
+    let hasNext = false;
     try {
         const gradeChanged = this.addGradeToQuestion();
         if (gradeChanged) {
           this.currentGradeModified = true;  // ensure that the copy will be saved
         }
         this.setValidatedStatus();
-        this.nextCopy();
+        hasNext = await this.nextCopy();
     } catch (error) {
         console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
         this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
         this.changeCurrentExam(this.currentIndex());
     }
     this.checkValidationButton();
+
+    if (!hasNext) {
+      this.isSidebarHidden = false;
+    }
   }
 
   async saveCurrentCopy() {
@@ -585,12 +590,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
   }
 
-  async nextCopy(): Promise<void> {
+  async nextCopy(): Promise<boolean> {
     let tempIndex = this.nextCopyIndex();
     console.log("Next copy", tempIndex)
     if (tempIndex < this.examsList.length) {
       await this.changeCurrentExam(tempIndex);
+      return true
     }
+    return false
   }
 
   nextCopyIndex(): number {
