@@ -113,7 +113,7 @@ export class TaskFilesDialogComponent implements OnInit {
     if ( !this.downloading) {
       this.downloading = true;
       this.notifyService.showInfo('Téléchargement...', "")
-      this.http.post(`${SERVER_URL}file/download`, formdata, {responseType: 'blob', reportProgress: true, observe: "events"}).pipe(first()).subscribe(
+      const sub = this.http.post(`${SERVER_URL}file/download`, formdata, {responseType: 'blob', reportProgress: true, observe: "events"}).subscribe(
         (data) => {
           if (data.type == HttpEventType.DownloadProgress) {
             this.downloadProgress = data.total ? Math.round(100 * data.loaded / data.total) : 0
@@ -130,12 +130,14 @@ export class TaskFilesDialogComponent implements OnInit {
             URL.revokeObjectURL(downloadURL);
             this.downloading = false;
             this.downloadProgress = 0;
+            sub.unsubscribe();
           }
         },
         (error) => {
           console.error(error);
           this.downloading = false;
           this.downloadProgress = 0;
+          sub.unsubscribe();
         });
     } else {
       this.notifyService.showWarning("Un fichier est en cours de téléchargement!", "Attention" )

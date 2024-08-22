@@ -82,8 +82,8 @@ export class TasksService {
 
     this.percentDone = 0;
 
-    this.http.post<any>(`${SERVER_URL}evaluate`, formdata, {reportProgress: true, observe: "events"})
-    .pipe(first()).subscribe(
+    const sub = this.http.post<any>(`${SERVER_URL}evaluate`, formdata, {reportProgress: true, observe: "events"})
+    .subscribe(
       (data) => {
         this.uploadPart1 = true;
         if (data.type == HttpEventType.UploadProgress) {
@@ -92,14 +92,13 @@ export class TasksService {
         else if (data.type == HttpEventType.Response) {
           this.percentDone = 100;
           this.router.navigate(['/main-menu']);
-          let message: string = "Tâche créée avec succès!"
-          this.notification.showInfo(message, "Alerte!")
+          this.notification.showInfo("Tâche créée avec succès!", "Alerte!");
+          sub.unsubscribe();
         }
-
       },
       (error) => {
         console.error(error.error);
-
+        sub.unsubscribe();
       });
   }
 }

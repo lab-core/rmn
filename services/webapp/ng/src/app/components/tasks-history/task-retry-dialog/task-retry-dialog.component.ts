@@ -165,10 +165,10 @@ export class TaskRetryDialogComponent implements OnInit {
       formData.append(`file${index}`, file);
     });
 
-    this.http.post(`${SERVER_URL}job/continue`, formData, {
+    const sub = this.http.post(`${SERVER_URL}job/continue`, formData, {
       reportProgress: true,
       observe: 'events'
-    }).pipe(first()).subscribe(event => {
+    }).subscribe(event => {
       if (event.type === HttpEventType.UploadProgress) {
         this.downloadProgress = Math.round(100 * event.loaded / (event.total ?? 1));
       } else if (event.type === HttpEventType.Response) {
@@ -176,11 +176,11 @@ export class TaskRetryDialogComponent implements OnInit {
         this.dialogRef.close('CORRECTED');
         this.uploadedFiles.push(...this.selectedFiles.map(file => file.name));
         this.selectedFiles = [];
+        sub.unsubscribe();
       }
-
     }, error => {
       this.notifyService.showError('Échec du téléversement du/des fichier(s)', 'ERREUR');
-
+      sub.unsubscribe();
     });
   }
 
@@ -193,7 +193,7 @@ export class TaskRetryDialogComponent implements OnInit {
 
     const requestURL = `${SERVER_URL}incorrect/download`;
 
-    this.http.post(requestURL, formData, { responseType: 'blob', reportProgress: true, observe: "events" }).pipe(first()).subscribe(
+    const sub = this.http.post(requestURL, formData, { responseType: 'blob', reportProgress: true, observe: "events" }).subscribe(
         (data) => {
             if (data.type === HttpEventType.DownloadProgress) {
                 this.downloadProgress = data.total ? Math.round(100 * data.loaded / data.total) : 0;
@@ -205,15 +205,15 @@ export class TaskRetryDialogComponent implements OnInit {
                 URL.revokeObjectURL(downloadURL);
                 this.downloading = false;
                 this.downloadProgress = 0;
+                sub.unsubscribe();
             }
-
         },
         (error) => {
             console.error('Download error', error);
             this.downloading = false;
             this.downloadProgress = 0;
             this.notifyService.showError('Échec du téléchargement du fichier', 'ERREUR');
-
+            sub.unsubscribe();
         }
     );
   }
