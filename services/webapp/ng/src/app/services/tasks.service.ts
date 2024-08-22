@@ -101,14 +101,5 @@ export class TasksService {
         console.error(error.error);
 
       });
-
-    let tasks: Array<any> = [];
-
-    const formdataJobs: FormData = new FormData();
-    this.userService.addTokens(formdataJobs);
-    this.http.post<any>(`${SERVER_URL}jobs`, formdataJobs).pipe(first()).subscribe(
-      (data) => {
-        tasks = data['response']
-      });
   }
 }
