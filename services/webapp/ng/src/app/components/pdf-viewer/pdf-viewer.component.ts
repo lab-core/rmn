@@ -38,16 +38,6 @@ class EraserChange {
         inkAnnotations.push(annotation.getInkAnnotation());
       }
     });
-    // let i = 0;
-    // this.newAnnotations.forEach(annotation => {
-    //   if (annotation.paths.length > 0) {
-    //     let inkAnnotation: InkEditorAnnotation = this.annotationsSnapshot[i];
-    //     let newInkAnnotation = annotation.getInkAnnotation();
-    //     inkAnnotation.paths = newInkAnnotation.paths;
-    //     inkAnnotations.push(inkAnnotation);
-    //   }
-    //   i++;
-    // });
     return inkAnnotations;
   }
 }
@@ -517,8 +507,12 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     return true;  // do not prevent default
   }
 
+  samePointerType(event) {
+    return !this.ctrlPointerType || event.pointerType === this.eraserPointerType;
+  }
+
   private onEraserStart(event: PointerEvent): void {
-    if (this.ctrlPointerType && event.pointerType !== this.eraserPointerType) {
+    if (!this.samePointerType(event)) {
       return;
     }
     this.isDrawing = true;
@@ -531,7 +525,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private onEraserEnd(event: PointerEvent): void {
-    if (this.ctrlPointerType && event.pointerType !== this.eraserPointerType) {
+    if (!this.isDrawing || !this.samePointerType(event)) {
       return;
     }
     this.isDrawing = false;
@@ -542,6 +536,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       this.annotationsHistory = [];  // flush history as erasing
       let inkAnnotations = eraserChange.getInkAnnotations();
       this.replaceAllInkAnnotations(inkAnnotations);
+      console.log(eraserChange.nInkAnnotations, "->", inkAnnotations.length);
       eraserChange.nInkAnnotations = inkAnnotations.length;
     } else {
       // as it has not been used -> remove it
@@ -550,15 +545,13 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private onTouchMove(i: number, event: TouchEvent): void {
-    // console.log(i, this.isErasing, this.isDrawing);
-    if (!this.isDrawing || !this.isErasing || (this.ctrlPointerType && this.pointerType !== this.eraserPointerType)) return;
+    if (!this.isDrawing || !this.isErasing || !this.samePointerType(event)) return;
     // do not apply default behavior
     event.preventDefault();
   }
 
   private onEraserMove(i: number, event: PointerEvent): void {
-    // console.log(i, this.isErasing, this.isDrawing);
-    if (!this.isDrawing || !this.isErasing || (this.ctrlPointerType && event.pointerType !== this.eraserPointerType)) return;
+    if (!this.isDrawing || !this.isErasing || !this.samePointerType(event)) return;
     // do not apply default behavior
     event.preventDefault();
     // erase drawing
