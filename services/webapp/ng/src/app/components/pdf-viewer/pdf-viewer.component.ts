@@ -168,7 +168,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   private isErasing = false;
   private canvases: Map<number, HTMLCanvasElement[]>;
   private eventListeners = [];
-  private touchType = undefined;   // 'direct' -> finger
+  private pointerType = undefined;
+  private eraserPointerType = undefined;
+  private ctrlPointerType = false;
 
   private timeout: number = 80;
   radius: number = 20;
@@ -231,7 +233,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   public getAnnotations() {
-    return this.ngxService.getSerializedAnnotations();
+    return this.ngxService?.getSerializedAnnotations();
   }
 
   async onPdfLoaded(e) {
@@ -273,7 +275,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   loadAnnotations() {
     setTimeout(() => {
       this.pdfAnnotations.forEach(a => {
-        setTimeout(() => this.ngxService.addEditorAnnotation(a));
+        setTimeout(() => this.ngxService?.addEditorAnnotation(a));
       });
       this.pdfAnnotations = [];
       this.onAnnotationsLoaded.emit(true);
@@ -324,7 +326,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
         lastInkAnnotation.paths.push(change.path);
         this.replaceAllInkAnnotations(inkAnnotations);
       } else if (change.annotation) {
-        this.ngxService.addEditorAnnotation(change.annotation);
+        this.ngxService?.addEditorAnnotation(change.annotation);
         this.nInkAnnotations += 1;
       } else {
         let eraserChange: EraserChange = change.eraser;
@@ -338,7 +340,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   getInkAnnotations(): InkEditorAnnotation[] {
-    const annotations: EditorAnnotation[] = this.ngxService.getSerializedAnnotations() || [];
+    const annotations: EditorAnnotation[] = this.ngxService?.getSerializedAnnotations() || [];
     // search for all InkEditorAnnotation (annotationType = 15)
     const inkAnnotations: InkEditorAnnotation[] = [];
     annotations.filter(a => a.annotationType == 15).forEach(annotation => {
@@ -351,14 +353,14 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.removeAllInkAnnotations();
     // re add all of them minus the last element
     inkAnnotations.forEach(a => {
-      setTimeout(() => this.ngxService.addEditorAnnotation(a));
+      setTimeout(() => this.ngxService?.addEditorAnnotation(a));
     });
   }
 
   removeAllInkAnnotations() {
     // remove all InkEditorAnnotation (annotationType = 15)
     const filter = (serial: any) => serial.annotationType === 15;
-    this.ngxService.removeEditorAnnotations(filter);
+    this.ngxService?.removeEditorAnnotations(filter);
   }
 
   private cleanInkEditors() {
@@ -441,12 +443,14 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.removeCanvasListeners();
   }
 
-  erase() {
+  erase(event: PointerEvent) {
     if (!this.isErasing) {
+      this.eraserPointerType = this.pointerType;
       this.closeOpenEditors();
       setTimeout(() => { this.openEraser() });
     } else {
       this.closeEraser();
+      this.eraserPointerType = undefined;
     }
   }
 
@@ -461,15 +465,13 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
 
       var self = this;
       const eventListeners = {};
-      eventListeners['mousedown'] = function() { return self.onEraserStart() };
-      eventListeners['mouseup'] = function() { return self.onEraserEnd() };
-      eventListeners['mousemove'] = function(event) { return self.onMouseMove(i, event) };
-      eventListeners['touchstart'] = function(event) { return self.onTouchStart(event) };
-      eventListeners['touchend'] = function(event) { return self.onTouchEnd(event) };
-      eventListeners['touchleave'] = function(event) { return self.onTouchEnd(event) };
-      eventListeners['touchmove'] = function(event) { return self.onTouchMove(i, event) };
+      eventListeners['pointerdown'] = function(event: PointerEvent) { return self.onEraserStart(event) };
+      eventListeners['pointerup'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
+      eventListeners['pointerleave'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
+      eventListeners['pointermove'] = function(event: PointerEvent) { return self.onEraserMove(i, event) };
+      eventListeners['touchmove'] = function(event: TouchEvent) { return self.onTouchMove(i, event) };
       for (let k in eventListeners) {
-        canvas.addEventListener(k, eventListeners[k]);
+        canvas.addEventListener(k, eventListeners[k], { passive: false });
       }
       this.eventListeners.push(eventListeners);
     }
@@ -482,7 +484,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       if (wrapperColl[i]) {
         const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
         for (let k in this.eventListeners[i]) {
-          canvas.removeEventListener(k, this.eventListeners[i][k]);
+          canvas.removeEventListener(k, this.eventListeners[i][k], true);
         }
       }
     }
@@ -509,21 +511,16 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  // @HostListener('window:pointerdown', ['$event'])
-  // onPointerDown(event: PointerEvent) {
-  //   // this.touchType = event.pointerType;
-  //   console.log('Pointer down detected', event);
-  // }
-
-  private onTouchStart(e: TouchEvent) {
-    const touch = e.targetTouches[0];
-    if (this.touchType === undefined) {
-      this.touchType = true; // touch.touchType;
-      this.onEraserStart();
-    }
+  @HostListener('window:pointerdown', ['$event'])
+  onPointerDown(event: PointerEvent) {
+    this.pointerType = event.pointerType;
+    return true;  // do not prevent default
   }
 
-  private onEraserStart(): void {
+  private onEraserStart(event: PointerEvent): void {
+    if (this.ctrlPointerType && event.pointerType !== this.eraserPointerType) {
+      return;
+    }
     this.isDrawing = true;
     // fetch canvases
     this.updateCanvas();
@@ -533,15 +530,10 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.eraserHistory.push(eraserChange);
   }
 
-  private onTouchEnd(e: TouchEvent) {
-    const touch = e.targetTouches[0];
-    if (true === this.touchType) {  // touch.touchType
-      this.onEraserEnd();
-      this.touchType = undefined;
+  private onEraserEnd(event: PointerEvent): void {
+    if (this.ctrlPointerType && event.pointerType !== this.eraserPointerType) {
+      return;
     }
-  }
-
-  private onEraserEnd(): void {
     this.isDrawing = false;
     // remove the old annotations and add the new annotations if any
     const eraserChange = this.getLastEraserChange();
@@ -557,36 +549,33 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  private onTouchMove(i: number, e: TouchEvent): void {
-    e.preventDefault();
-    const touch = e.touches[0];
-    if (true === this.touchType) { // touch.touchType
-      this.onMouve(i, touch.target, touch.clientX, touch.clientY);
-    }
-  }
-
-  private onMouseMove(i: number, e: MouseEvent): void {
-    this.onMouve(i, e.target, e.clientX, e.clientY);
-  }
-
-  private onMouve(i: number, target, clientX, clientY): void {
+  private onTouchMove(i: number, event: TouchEvent): void {
     // console.log(i, this.isErasing, this.isDrawing);
-    if (!this.isDrawing || !this.isErasing) return;
+    if (!this.isDrawing || !this.isErasing || (this.ctrlPointerType && this.pointerType !== this.eraserPointerType)) return;
+    // do not apply default behavior
+    event.preventDefault();
+  }
+
+  private onEraserMove(i: number, event: PointerEvent): void {
+    // console.log(i, this.isErasing, this.isDrawing);
+    if (!this.isDrawing || !this.isErasing || (this.ctrlPointerType && event.pointerType !== this.eraserPointerType)) return;
+    // do not apply default behavior
+    event.preventDefault();
     // erase drawing
     this.canvases.get(i).forEach(canvas => {
       // bounding box in browser
       const rect = canvas.getBoundingClientRect();
       // use position in browser
-      if (rect.left <= clientX && clientX <= rect.right &&
-          rect.top <= clientY && clientY <= rect.bottom) {
+      if (rect.left <= event.clientX && event.clientX <= rect.right &&
+          rect.top <= event.clientY && event.clientY <= rect.bottom) {
         // the mouse move on this canvas
-        this.eraseDraw(canvas, clientX - rect.x, clientY - rect.y);
+        this.eraseDraw(canvas, event.clientX - rect.x, event.clientY - rect.y);
       }
     });
     // erase annotations
-    const canvas: HTMLCanvasElement = target as HTMLCanvasElement;
+    const canvas: HTMLCanvasElement = event.target as HTMLCanvasElement;
     const rect = canvas.getBoundingClientRect();
-    const offsetX = clientX - rect.x, offsetY = clientY - rect.y;
+    const offsetX = event.clientX - rect.x, offsetY = event.clientY - rect.y;
     const center = this.canvasToPdf(offsetX, offsetY, canvas);
     this.eraseAnnotations(i, center[0], center[1]);
   }
