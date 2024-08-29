@@ -33,6 +33,13 @@ ngx-extended-pdf-viewer {
   user-select: none; /* Standard syntax */
 }
 
+.main-container>p {
+    color: gray;
+    font-size: x-large;
+    text-align: center;
+    margin-top: 50%;
+}
+
 @media (max-width: 800px) {
   pdf-zoom-toolbar {
     visibility: hidden;

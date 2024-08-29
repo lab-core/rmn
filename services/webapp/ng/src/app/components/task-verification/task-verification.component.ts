@@ -46,7 +46,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   isSidebarHidden: boolean = false;
   isIndexProvided: boolean = false;
-  disabledValidationcontainer = true;
   disabledValidationButton = true;
   disabledDropDown = false;
   validating: boolean = false;
@@ -131,9 +130,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.socketService.join(this.job["job_id"]);
     this.socketService.getSocket().on('document_ready', async (params: any) => {
       await this.getDocuments();
-      if (this.disabledValidationcontainer) {
-        this.nextCopy();
-      }
+      this.nextCopy();
     });
 
     if (this.userService.loggued()) {
@@ -314,8 +311,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (this.checkForAvailableCopies()) {
       this.currentCopy = this.initialCopyIndex - 1;
       this.nextCopy();
-    } else {
-      this.disabledValidationcontainer = true;
     }
   }
 
@@ -376,7 +371,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.currentCopyName = exam["basename"];
         this.currentCopy = copyIndex;
         console.log("Current copy", this.currentCopy);
-        this.disabledValidationcontainer = false;
         if (await this.loadCopy()) {
           if (updateScroll) {
             this.updateScrollPosition();

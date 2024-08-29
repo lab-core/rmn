@@ -48,7 +48,7 @@
             <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="cancelOffline()">Annuler</button>
         </div>
         <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
-          <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer" [ngClass]="{'expanded': isSidebarHidden}">
+          <div class="validation-check-container" *ngIf="currentCopy >= 0" [ngClass]="{'expanded': isSidebarHidden}">
             <div class="validation-block">
               <div *ngIf="isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
                   <mat-icon>visibility</mat-icon>
@@ -99,8 +99,7 @@
                 </div>
               </div>
           </div>
-            <p *ngIf="this.disabledValidationcontainer">Aucune copie n'est prête à être validée.</p>
-            <div class="picture-container" *ngIf="!this.disabledValidationcontainer" [ngClass]="{'expanded': isSidebarHidden}">
+            <div class="picture-container" [ngClass]="{'expanded': isSidebarHidden}">
                 <app-pdf-viewer
                   [pdfUrl]="pdfUrl"
                   (onAnnotationsLoaded)="checkNavigationArrows($event)">
@@ -111,7 +110,7 @@
         </div>
     </div>
 </div>
-<div class="page-count" *ngIf="!this.disabledValidationcontainer">
+<div class="page-count" *ngIf="currentCopy >= 0">
     {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 - this.subExamsList[0]['document_index'] : 0)}} / {{this.subExamsList.length}}
 </div>
 </div>

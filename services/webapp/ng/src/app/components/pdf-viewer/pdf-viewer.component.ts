@@ -160,7 +160,6 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   private eventListeners = [];
   private pointerType = undefined;
   private eraserPointerType = undefined;
-  private ctrlPointerType = false;
 
   private timeout: number = 80;
   radius: number = 20;
@@ -507,8 +506,8 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     return true;  // do not prevent default
   }
 
-  samePointerType(event) {
-    return !this.ctrlPointerType || event.pointerType === this.eraserPointerType;
+  samePointerType(event=undefined) {
+    return (event ? event.pointerType : this.pointerType) === this.eraserPointerType;
   }
 
   private onEraserStart(event: PointerEvent): void {
@@ -545,7 +544,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private onTouchMove(i: number, event: TouchEvent): void {
-    if (!this.isDrawing || !this.isErasing || !this.samePointerType(event)) return;
+    if (!this.isDrawing || !this.isErasing || !this.samePointerType()) return;
     // do not apply default behavior
     event.preventDefault();
   }
