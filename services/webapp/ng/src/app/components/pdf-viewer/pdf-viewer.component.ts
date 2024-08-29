@@ -8,6 +8,7 @@ class AnnotationsChange {
   path: any = undefined;
   annotation: InkEditorAnnotation = undefined;
   eraser: EraserChange = undefined;
+  rect;
 
   isEmpty() {
     return this.path === undefined &&
@@ -46,8 +47,12 @@ class BezierPath {
   points: number[][] = [];
   bezier: number[][] = [];
 
-  pushPoints(x, y) {
+  pushPoint(x, y) {
     this.points.push([x,y]);
+  }
+
+  pushBezierPoint(x, y) {
+    this.bezier.push([x,y]);
   }
 
   toObject() {
@@ -93,6 +98,8 @@ class BezierPath {
   }
 }
 
+const PADDING = [2, 2, 1, 1];
+
 class BezierAnnotation {
   paths: BezierPath[];
   rect: number[];
@@ -106,7 +113,11 @@ class BezierAnnotation {
       let newPath = new BezierPath();
       for (let i = 0; i < path.points.length; i+=2) {
         let y = path.points[i], x = path.points[i+1];
-        newPath.pushPoints(x, y);
+        newPath.pushPoint(x, y);
+      }
+      for (let i = 0; i < path.bezier.length; i+=2) {
+        let y = path.bezier[i], x = path.bezier[i+1];
+        newPath.pushBezierPoint(x, y);
       }
       this.paths.push(newPath);
     });
@@ -123,6 +134,21 @@ class BezierAnnotation {
       this.inkAnnotation.paths.push(path.toObject());
     });
     return this.inkAnnotation;
+  }
+
+  computeRectangle() {
+    const rect = [undefined, undefined, undefined, undefined];
+    this.paths.forEach(path => {
+      for (let [x, y] of [...path.points, ...path.bezier]) {
+        if (rect[0] === undefined || y < rect[0]) rect[0] = y;
+        if (rect[1] === undefined || x < rect[1]) rect[1] = x;
+        if (rect[2] === undefined || y > rect[2]) rect[2] = y;
+        if (rect[3] === undefined || x > rect[3]) rect[3] = x;
+      };
+    });
+    if (rect[0] !== undefined) {
+      this.rect = [rect[0] - PADDING[0], rect[1] - PADDING[1], rect[2] + PADDING[2], rect[3] + PADDING[3]];
+    }
   }
 }
 
@@ -144,6 +170,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
 
   annotationsHistory: AnnotationsChange[] = [];
   nInkAnnotations: number;
+  flushHistoryActivated: boolean = true;
   eraserHistory: EraserChange[] = [];
 
   @Output() onAnnotationsLoaded = new EventEmitter<boolean>();
@@ -239,10 +266,8 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
 
   async onAnnotationEdited(e) {
     const annotations: EditorAnnotation[] = this.getInkAnnotations();
-    if (!this.isWriting()) {
-      if (annotations.length != this.nInkAnnotations) {
-        this.annotationsHistory = [];  // flush history as at least one ink annotation has been added
-      }
+    if (this.flushHistoryActivated && !this.isWriting() && annotations.length != this.nInkAnnotations) {
+      this.annotationsHistory = [];  // flush history as at least one ink annotation has been added
     }
     this.pdfModified = true;
   }
@@ -294,10 +319,16 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       let lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1];
       // remove last element
       if (lastInkAnnotation.paths.length > 1) {
+        change.rect = lastInkAnnotation.rect;
         change.path = lastInkAnnotation.paths.pop();  // remove last element
+        // recompute the bounding box
+        const bezierAnnotation = new BezierAnnotation(lastInkAnnotation);
+        bezierAnnotation.computeRectangle();
+        lastInkAnnotation.rect = bezierAnnotation.rect;
       } else {
         // remove last annotation
         change.annotation = inkAnnotations.pop();
+        this.nInkAnnotations--;
       }
       this.annotationsHistory.push(change);
       this.replaceAllInkAnnotations(inkAnnotations);
@@ -313,6 +344,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
         const inkAnnotations: InkEditorAnnotation[] = this.getInkAnnotations();
         let lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1];
         lastInkAnnotation.paths.push(change.path);
+        lastInkAnnotation.rect = change.rect;
         this.replaceAllInkAnnotations(inkAnnotations);
       } else if (change.annotation) {
         this.ngxService?.addEditorAnnotation(change.annotation);
@@ -339,11 +371,11 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   replaceAllInkAnnotations(inkAnnotations: InkEditorAnnotation[]) {
+    this.flushHistoryActivated = false;
     this.removeAllInkAnnotations();
     // re add all of them minus the last element
-    inkAnnotations.forEach(a => {
-      setTimeout(() => this.ngxService?.addEditorAnnotation(a));
-    });
+    this.flushHistoryActivated = true;
+    inkAnnotations.forEach(a => { this.ngxService?.addEditorAnnotation(a) });
   }
 
   removeAllInkAnnotations() {
@@ -456,7 +488,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       const eventListeners = {};
       eventListeners['pointerdown'] = function(event: PointerEvent) { return self.onEraserStart(event) };
       eventListeners['pointerup'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
-      eventListeners['pointerleave'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
+      // eventListeners['pointerleave'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
       eventListeners['pointermove'] = function(event: PointerEvent) { return self.onEraserMove(i, event) };
       eventListeners['touchmove'] = function(event: TouchEvent) { return self.onTouchMove(i, event) };
       for (let k in eventListeners) {
@@ -535,7 +567,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       this.annotationsHistory = [];  // flush history as erasing
       let inkAnnotations = eraserChange.getInkAnnotations();
       this.replaceAllInkAnnotations(inkAnnotations);
-      console.log(eraserChange.nInkAnnotations, "->", inkAnnotations.length);
+      // console.log(eraserChange.nInkAnnotations, "->", inkAnnotations.length);
       eraserChange.nInkAnnotations = inkAnnotations.length;
     } else {
       // as it has not been used -> remove it
@@ -583,7 +615,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     const ctx = canvas.getContext("2d");
     ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
-    ctx.arc(centerX, centerY, this.radius+5, 0, Math.PI*2, false);
+    ctx.arc(centerX, centerY, this.radius, 0, Math.PI*2, false);
     ctx.fill();
   }
 
@@ -613,7 +645,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
         }
       });
       annotation.paths = newAnnotationPaths;
-      this.setRectangle(annotation);
+      annotation.computeRectangle();
       return modified;
     }
     return false;
@@ -629,7 +661,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       // keep this (x,y) if far enough from center
       let dist = Math.pow(x-centerX, 2) + Math.pow(y-centerY, 2);
       if (dist >= radius2) {
-        newPath.pushPoints(x, y);
+        newPath.pushPoint(x, y);
       } else {
         modified = true;
         if (newPath.points.length > 1) {
@@ -648,21 +680,6 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       return newPaths;
     } else {
       return undefined;
-    }
-  }
-
-  private setRectangle(annotation: BezierAnnotation) {
-    const rect = [undefined, undefined, undefined, undefined];
-    annotation.paths.forEach(path => {
-      for (let [x, y] of path.points) {
-        if (rect[0] === undefined || y < rect[0]) rect[0] = y;
-        if (rect[1] === undefined || x < rect[1]) rect[1] = x;
-        if (rect[2] === undefined || y > rect[2]) rect[2] = y;
-        if (rect[3] === undefined || x > rect[3]) rect[3] = x;
-      };
-    });
-    if (rect[0] !== undefined) {
-      annotation.rect = [rect[0] - 1.5, rect[1] - 1.5, rect[2] + 1.5, rect[3] + 1.5];
     }
   }
 
