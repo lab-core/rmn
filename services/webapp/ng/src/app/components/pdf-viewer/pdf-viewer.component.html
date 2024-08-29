@@ -18,21 +18,10 @@
   <ng-template #additionalButtons>
     <div id="toolbarViewer" *ngIf="!hideToolbar">
       <div id="toolbarViewerLeft">
-        <div class="toolbarButtonSpacer hiddenSmallView"></div>
         <pdf-text-editor id="textEditorTool" (click)="closeEraser()" [closeOnClick]="true"></pdf-text-editor>
-        <div class="toolbarButtonSpacer hiddenSmallView"></div>
-        <div class="verticalToolbarSeparator hiddenSmallView"></div>
       </div>
       <pdf-zoom-toolbar></pdf-zoom-toolbar>
       <div id="toolbarViewerRight">
-        <div class="editorParamsToolbar hidden doorHangerRight" id="eraserParamsToolbar">
-          <div class="editorParamsToolbarContainer">
-            <div class="editorParamsSetter">
-              <label for="eraserThickness" class="editorParamsLabel">Épaisseur</label>
-              <input type="range" id="eraserThickness" class="editorParamsSlider" value="15" min="5" max="50" step="5" [(ngModel)]="radius"/>
-            </div>
-          </div>
-        </div>
         <pdf-draw-editor id="drawEditorTool" (click)="closeEraser()" [closeOnClick]="true" [cssClass]="'always-visible'"></pdf-draw-editor>
         <pdf-shy-button
           [cssClass]="'always-visible'"
@@ -74,6 +63,14 @@
                  </svg>'
         ></pdf-shy-button>
         <div class="toolbarButtonSpacer"></div>
+      </div>
+    </div>
+    <div class="editorParamsToolbar hidden doorHangerRight" id="eraserParamsToolbar">
+      <div class="editorParamsToolbarContainer">
+        <div class="editorParamsSetter">
+          <label for="eraserThickness" class="editorParamsLabel">Épaisseur</label>
+          <input type="range" id="eraserThickness" class="editorParamsSlider" value="15" min="5" max="50" step="5" [(ngModel)]="radius"/>
+        </div>
       </div>
     </div>
   </ng-template>

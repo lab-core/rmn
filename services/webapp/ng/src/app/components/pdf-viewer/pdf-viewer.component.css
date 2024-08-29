@@ -12,6 +12,10 @@ ngx-extended-pdf-viewer {
   background-color: Snow;
 }
 
+#eraserParamsToolbar {
+  inset-inline-end: 68px;
+}
+
 #overlay {
   position: fixed; /* Sit on top of the page content */
   display: none; /* Hidden by default */
