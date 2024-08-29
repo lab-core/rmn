@@ -1,6 +1,4 @@
-<div class="page-count" *ngIf="!this.pictureLoading || !this.disabledValidationcontainer">
-    {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
-</div>
+<div class="main-container">
 <div class="task-verification-container">
     <div class="background">
         <div class="files-container">
@@ -31,16 +29,50 @@
                 </div>
             </div>
         </div>
-        <div class="validation-container">
-            <p *ngIf="this.disabledValidationcontainer">Aucune copie n'est prête à être validée.</p>
-            <div class="picture-container" *ngIf="!this.disabledValidationcontainer">
-              <app-pdf-viewer [pdfUrl]="pdfUrl" [hideToolbar]="true"></app-pdf-viewer>
+        <div [ngClass]="horizontalValidation ? 'validation-container col-container' : 'validation-container row-container'">
+            <div class="validation-check-container horizontal-validation-check" *ngIf="!disabledValidationcontainer && horizontalValidation">
+                <div class="check-list-container">
+                    <div class="sub-check-container row-container">
+                        <h3>Matricule</h3>
+                        <div class="value-input-div">
+                            <ng-select id="matricule" [items]="matriculeList" bindLabel="identifiant"
+                                [multiple]="false" [searchable]="true" [clearable]="false" [closeOnSelect]="true"
+                                [virtualScroll]="false" appendTo="app-matricule-verification"
+                                [(ngModel)]="currentMatriculeSelection"
+                                (change)="changeMatricule(currentMatriculeSelection)"
+                                [disabled]="validating">
+                            </ng-select>
+                        </div>
+                        <div *ngIf="this.currentMatriculeWarning" class="alert">
+                          Utilisé par plusieurs copies: {{this.currentMatriculeWarning}}.
+                        </div>
+                    </div>
+                    <div class="sub-check-container"
+                        *ngFor="let grade of this.currentGrades | keyvalue : sortNull; trackBy: trackByIndex;">
+                        <h3>{{grade.key}}</h3>
+                        <div class="value-input-div">
+                            <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
+                                id="text-box" [(ngModel)]="grade.value"
+                                (input)="this.updateTotal(grade.key, grade.value)" step=any
+                                [disabled]="this.validating">
+                        </div>
+                    </div>
+                </div>
+                <div class="validate-container">
+                    <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
+                            (click)="updateMatricule()" [disabled]="this.validating">
+                        <mat-icon>done_outline</mat-icon>
+                    </button>
+                </div>
+            </div>
+            <div [ngClass]="horizontalValidation ? 'picture-container horizontal-picture' : 'picture-container vertical-picture'" *ngIf="!this.disabledValidationcontainer">
               <button mat-button (click)="previousCopy()"class="back-button2"><mat-icon>arrow_back_ios</mat-icon></button>
+              <app-pdf-viewer [pdfUrl]="pdfUrl" [hideToolbar]="true"></app-pdf-viewer>
               <button mat-button (click)="nextCopy()"class="back-button3"><mat-icon>arrow_forward_ios</mat-icon></button>
             </div>
-            <div class="validation-check-container" *ngIf="!this.disabledValidationcontainer">
+            <div class="validation-check-container vertical-validation-check" *ngIf="!disabledValidationcontainer && !horizontalValidation">
                 <div class="check-list-container">
-                    <div class="sub-check-container">
+                    <div class="sub-check-container col-container">
                         <h3>Matricule</h3>
                         <div class="value-input-div">
                             <ng-select id="matricule" [items]="matriculeList" bindLabel="identifiant"
@@ -76,6 +108,10 @@
         </div>
     </div>
 </div>
+<div class="page-count" *ngIf="!this.pictureLoading || !this.disabledValidationcontainer">
+    {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
+</div>
+</div>
 <button mat-button *ngIf="this.loggued()" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
-<div id="overlay" *ngIf="this.validating"></div>
-<mat-spinner class="overlay-spinner" *ngIf="this.validating" color="accent" [diameter]="150"></mat-spinner>
+<div id="overlay" *ngIf="validating"></div>
+<mat-spinner class="overlay-spinner" *ngIf="validating" color="accent" [diameter]="150"></mat-spinner>

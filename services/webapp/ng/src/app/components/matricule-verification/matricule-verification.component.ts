@@ -39,6 +39,7 @@ export class MatriculeVerificationComponent implements OnInit {
   disabledValidationcontainer = true;
   disabledValidationButton = true;
   disabledDropDown = false;
+  horizontalValidation = true;
 
   validating: boolean = false;
 

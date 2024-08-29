@@ -1,6 +1,13 @@
+.main-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .task-verification-container {
     width: 100%;
-    height: 100%;
+    height: 98%;
     background-image: url("~src/assets/background-gradient.png");
     background-position: center;
     background-repeat: no-repeat;
@@ -50,13 +57,13 @@
 
 .background {
     width: 100%;
-    height: 90%;
+    height: 95%;
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
-    margin-top: 5%;
+    margin-top: 2%;
     z-index: 1;
 }
 
@@ -89,7 +96,7 @@
     background-color: white;
     width: 16%;
     height: 100%;
-    margin-bottom: 5%;
+    margin-bottom: 2%;
     margin-right: 1%;
     border-radius: 5%/1%;
     border: 2px solid black;
@@ -156,16 +163,21 @@
     margin: 2%;
 }
 
-.validated-copy {
+.file-container>div {
+    font-size: 1vw;
     width: 100%;
     height: 100%;
     border-radius: 12%;
-    border: 1px solid black;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: green;
     color: #ffffff;
+}
+
+.validated-copy {
+    border: 1px solid black;
+    background-color: green;
 }
 
 .validated-copy:hover {
@@ -174,15 +186,8 @@
 }
 
 .to-validate-copy {
-    width: 100%;
-    height: 100%;
-    border-radius: 12%;
     border: 1px solid black;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background-color: red;
-    color: #ffffff;
 }
 
 .to-validate-copy:hover {
@@ -191,15 +196,8 @@
 }
 
 .high-precision-copy {
-    width: 100%;
-    height: 100%;
-    border-radius: 12%;
     border: 1px solid black;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background-color: rgb(65, 65, 247);
-    color: #ffffff;
 }
 
 .high-precision-copy:hover {
@@ -208,22 +206,14 @@
 }
 
 .disabled-copy {
-    width: 100%;
-    height: 100%;
-    border-radius: 12%;
     border: 1px solid darkslategray;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background-color: rgb(116, 116, 116);
-    color: #ffffff;
 }
 
 .chosen-copy {
     transform: scale(1.15, 1.15);
     border: 3px solid black;
 }
-
 
 .helper-container {
     width: 100%;
@@ -247,7 +237,7 @@
     background-color: white;
     width: 70%;
     height: 100%;
-    margin-bottom: 5%;
+    margin-bottom: 2%;
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -267,55 +257,56 @@
     font-size: x-large;
 }
 
-.validation-container.expanded {
-    background-color: transparent;
-    width: 130%;
-    height: 110%;
-    margin-right: 5%;
-    margin-bottom: 6%;
-    border-radius: 0px;
-    border: none;
-    box-shadow: none;
-    -moz-box-shadow: none;
-    -webkit-box-shadow: none;
-    -o-box-shadow: none;
-    -ms-box-shadow: none;
+.col-container {
+  flex-direction: column;
+}
+
+.row-container {
+  flex-direction: row;
 }
 
 .picture-container {
-    height: 90%;
-    width: 85%;
-    margin-right: 2.5%;
-    margin-left: 5.5%;
-    border: 2px solid gray;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-bottom: 1%;
 }
 
-.picture-container.expanded {
-    height: 85.5%;
-    width: 350%;
-    margin-right: 2.5%;
-    margin-left: 2.5%;
-    margin-top: 5%;
-    border: 2px solid gray;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+app-pdf-viewer {
+  border: 2px solid gray;
+  margin: 2%;
 }
 
-#cv {
-    height: 100%;
-    width: 100%;
+.horizontal-picture {
+  height: 85%;
+  width: 98%;
+}
+
+.vertical-picture {
+  height: 90%;
+  width: 70%;
 }
 
 .validation-check-container {
-    height: 90%;
-    width: 30%;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: space-between;
+}
+
+.horizontal-validation-check {
+  margin-top: 2%;
+  margin-bottom: 2%;
+  margin-right: 5%;
+  height: 8%;
+  width: 90%;
+  flex-direction: row;
+}
+
+.vertical-validation-check {
+  margin-top: 5%;
+  height: 90%;
+  width: 30%;
+  flex-direction: column;
 }
 
 .check-list-container {
@@ -346,9 +337,14 @@
 
 
 .value-input-div {
-    width: 120%;
+    display: flex;
+    width: 90%;
     height: 100%;
     margin-right: 15%;
+}
+
+#matricule {
+  width: 100%;
 }
 
 .sub-check-container {
@@ -356,9 +352,7 @@
     max-height: 10%;
     width: 110%;
     display: flex;
-    flex-direction: column;
     flex-wrap: nowrap;
-    margin-top: 5%;
 }
 
 .alert {
@@ -373,7 +367,6 @@ input[type=number] {
 }
 
 .validate-container {
-    width: 100%;
     height: 10%;
     display: flex;
     flex-direction: column;
@@ -384,8 +377,8 @@ input[type=number] {
 }
 
 .validate-button {
-    width: 50%;
-    height: 70%;
+    width: 70px;
+    height: 70px;
     border-radius: 24%/48%;
     border: 2px solid black;
     display: flex;
@@ -409,7 +402,7 @@ input[type=number] {
 }
 
 .validate-button>mat-icon {
-    transform: scale(1.5, 1.5);
+    transform: scale(1.2, 1.2);
 }
 
 .validate-button:hover {
@@ -424,8 +417,47 @@ input[type=number] {
 }
 
 h3 {
+    display: flex;
     padding: 0px;
     margin: 0px;
+    margin-right: 20px;
+}
+
+app-pdf-viewer {
+    width: 100%;
+    height: 100%;
+}
+
+.back-button2 {
+    margin-top: 20%;
+    margin-left: .5%;
+    height: 60%;
+    width: .5%;
+    z-index: 2;
+}
+
+.back-button3 {
+    margin-top: 20%;
+    margin-right: .5%;
+    height: 60%;
+    width: .5%;
+    z-index: 2;
+}
+
+.page-count {
+  margin-left: 48%;
+  margin-bottom: 2%;
+  align-items: center;
+}
+
+.back-button2:hover {
+    background: linear-gradient(to right, rgba(170, 169, 169, 0.326), rgba(255,0,0,0));
+    transition: 3s;
+}
+
+.back-button3:hover {
+    background: linear-gradient(to right, rgba(170, 169, 169, 0.326), rgba(255,0,0,0));
+    transition: 3s;
 }
 
 #overlay {
@@ -452,71 +484,4 @@ input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
-}
-
-app-pdf-viewer {
-    width: 100%;
-    height: 100%;
-}
-
-.page-count {
-    position: absolute;
-    top: 93.5%;
-    left: 52%;
-    margin-right: -50%;
-    transform: translate(-50%, -50%);
-}
-
-.back-button2 {
-    position: absolute;
-    top: 55%;
-    left: 25.5%;
-    margin-right: -50%;
-    transform: translate(-50%, -50%);
-    height: 70%;
-    width: 1%;
-    z-index: 2;
-}
-
-.back-button2.expanded {
-    position: absolute;
-    top: 50%;
-    left: 14%;
-    margin-right: -50%;
-    transform: translate(-50%, -50%);
-    height: 99%;
-    width: 1%;
-    z-index: 2;
-}
-
-.back-button3 {
-    position: absolute;
-    top: 55%;
-    left: 76.5%;
-    margin-right: 35%;
-    transform: translate(-50%, -50%);
-    height: 70%;
-    width: 1%;
-    z-index: 2;
-}
-
-.back-button3.expanded {
-    position: absolute;
-    top: 50%;
-    left: 82%;
-    margin-right: -50%;
-    transform: translate(-50%, -50%);
-    height: 99%;
-    width: 1%;
-    z-index: 2;
-}
-
-.back-button2:hover {
-    background: linear-gradient(to right, rgba(170, 169, 169, 0.326), rgba(255,0,0,0));
-    transition: 3s;
-}
-
-.back-button3:hover {
-    background: linear-gradient(to right, rgba(170, 169, 169, 0.326), rgba(255,0,0,0));
-    transition: 3s;
 }

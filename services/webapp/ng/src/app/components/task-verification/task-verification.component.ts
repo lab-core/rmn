@@ -664,6 +664,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.offline = true;
     for (const exam of this.subExamsList) {
       const pdfSrc = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), exam['document_index']);
+      if (!this.offline) {
+        break;
+      } 
       const copy: OfflineCopy = {
         pdfSrc: pdfSrc,
         status: exam['status'],

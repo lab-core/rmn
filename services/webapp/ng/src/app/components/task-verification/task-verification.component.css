@@ -141,17 +141,21 @@
     margin: 2%;
 }
 
-.validated-copy {
+.file-container>div {
+    font-size: 1vw;
     width: 100%;
     height: 100%;
     border-radius: 12%;
-    border: 1px solid black;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: green;
     color: #ffffff;
+}
+
+.validated-copy {
+    border: 1px solid black;
+    background-color: green;
 }
 
 .validated-copy:hover {
@@ -160,16 +164,8 @@
 }
 
 .to-validate-copy {
-    width: 100%;
-    height: 100%;
-    border-radius: 12%;
     border: 1px solid black;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     background-color: red;
-    color: #ffffff;
 }
 
 .to-validate-copy:hover {
@@ -178,16 +174,8 @@
 }
 
 .high-precision-copy {
-    width: 100%;
-    height: 100%;
-    border-radius: 12%;
     border: 1px solid black;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     background-color: rgb(65, 65, 247);
-    color: #ffffff;
 }
 
 .high-precision-copy:hover {
@@ -196,16 +184,8 @@
 }
 
 .disabled-copy {
-    width: 100%;
-    height: 100%;
-    border-radius: 12%;
     border: 1px solid darkslategray;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     background-color: rgb(116, 116, 116);
-    color: #ffffff;
 }
 
 .chosen-copy {
@@ -560,6 +540,10 @@ input::-webkit-inner-spin-button {
     margin-left: 48%;
     margin-bottom: 1%;
     align-items: center;
+    -webkit-user-select: none; /* Safari */        
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
 }
 
 .back-button2 {
