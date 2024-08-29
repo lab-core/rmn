@@ -1,29 +1,6 @@
 <div class="template-editor-container">
     <div class="background">
         <div class="template-container">
-            <!-- <ngx-extended-pdf-viewer [src]="this.templateService.getTemplateUrl()"
-                [showToolbar]="false"
-                [showSidebarButton]="false"
-                [showFindButton]="true"
-                [showPagingButtons]="false"
-                [showDrawEditor]="false"
-                [showStampEditor]="false"
-                [showTextEditor]="false"
-                [showZoomButtons]="false"
-                [showPresentationModeButton]="false"
-                [showOpenFileButton]="false"
-                [showPrintButton]="false"
-                [showDownloadButton]="false"
-                [showSecondaryToolbarButton]="false"
-                [showRotateButton]="undefined"
-                [showRotateCwButton]="false"
-                [showRotateCcwButton]="false"
-                [showHandToolButton]="false"
-                [showScrollingButton]="false"
-                [showSpreadButton]="false"
-                [showPropertiesButton]="false"
-                [zoom]="'page-fit'">
-            </ngx-extended-pdf-viewer> -->
             <canvas id="cv"></canvas>
             <svg id="svg"
                 (mousedown)="mouseDown($event)"
@@ -56,13 +33,15 @@
             <div class="rectangle-options-container" *ngIf="toolType == 'rectangle'">
                 <button [ngClass]="this.identificationActive ? 'identification-button active' : 'identification-button'" (click)="setIdentificationRect()">Identification</button>
                 <button [ngClass]="this.questionsActive ? 'questions-button active' : 'questions-button'" (click)="setQuestionsRect()">Questions</button>
+                <div class="question-container" *ngIf="nQuestions >= 0">
+                    <p>Nombre de questions: {{nQuestions}}</p>
+                </div>
             </div>
-            <div class="selection-options-container" *ngIf="toolType != 'rectangle'">
-            </div>
+            <div class="selection-options-container" *ngIf="toolType != 'rectangle'"></div>
             <div class="confirmation-container">
                 <button class="confirmation-button" mat-flat-button color="accent" [disabled]="disabled" (click)="confirm()">Confirmer</button>
             </div>
         </div>
     </div>
 </div>
-<button mat-button (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+<button mat-button (click)="reroute(true)" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>

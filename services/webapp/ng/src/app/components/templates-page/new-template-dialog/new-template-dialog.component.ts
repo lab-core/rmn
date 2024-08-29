@@ -85,14 +85,14 @@ export class NewTemplateDialogComponent implements OnInit {
     formdata.append('template_name', "New template");
     this.http.post<any>(`${SERVER_URL}template`, formdata).pipe(first()).subscribe(
         (data) => {
-          this.templateService.setTemplateName(data["response"]["template_name"]);
-          this.templateService.setTemplateId(data["response"]["template_id"]);
+          this.templateService.setName(data["response"]["template_name"]);
+          this.templateService.setId(data["response"]["template_id"]);
 
           const formdata: FormData = new FormData();
           this.userService.addTokens(formdata);
           formdata.append('template_id', data["response"]["template_id"]);
            this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
-              var file = new File([data], this.templateService.getTemplateName());
+              var file = new File([data], this.templateService.getName());
               this.templateService.setFile(file);
               await this.templateService.createNewTemplate(file);
               this.dialogRef.close();

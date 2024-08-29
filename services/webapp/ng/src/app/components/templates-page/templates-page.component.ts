@@ -44,6 +44,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     this.getTemplates();
+
   }
 
   ngOnDestroy(): void {
@@ -60,6 +61,14 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
         // "template_id"
         this.templatesList = data['response'];
         this.allTemplatesList = data['response'];
+        // load template if any id given in template service
+        const templateId = this.templateService.getId();
+        if (templateId) {
+          const template = this.templatesList.find((temp) => temp['template_id'] === templateId);
+          if (template) {
+            this.editTemplate(template);
+          }
+        }
       });
   }
 
@@ -92,15 +101,16 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
         this.rectangleService.setIdentificationRectCoords(data["response"]["matricule_box"]);
         this.rectangleService.setquestionsRectCoords(data["response"]["grade_box"]);
 
-        this.templateService.setTemplateName(data["response"]["template_name"]);
-        this.templateService.setTemplateId(data["response"]["template_id"]);
+        this.templateService.setName(data["response"]["template_name"]);
+        this.templateService.setId(data["response"]["template_id"]);
         this.templateService.setLocked(data["response"]["locked"]);
+        this.templateService.setNQuestions(data["response"]["n_questions"]);
 
         const formdata: FormData = new FormData();
         this.userService.addTokens(formdata);
         formdata.append('template_id', template["template_id"]);
          this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
-            var file = new File([data], this.templateService.getTemplateName());
+            var file = new File([data], this.templateService.getName());
             this.templateService.setFile(file);
             await this.templateService.createNewTemplate(file);
             this.router.navigate(['/template-editor']);

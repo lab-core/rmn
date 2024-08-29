@@ -25,6 +25,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
   identificationActive : boolean = true;
   questionsActive : boolean = false;
   disabled: boolean = false;
+  nQuestions: number = -1;
 
   constructor(
     public templateService : TemplateService,
@@ -39,22 +40,25 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
      }
 
   ngOnInit(): void {
-    if (!this.templateService.getTemplateUrl()) {
+    if (!this.templateService.getUrl()) {
       this.reroute();
     } else {
-      this.templateName = this.templateService.getTemplateName();
+      this.templateName = this.templateService.getName();
       this.rectangleService.initExistingRects();
       this.disabled = this.templateService.getLocked();
-    }
+      this.nQuestions = this.templateService.getNQuestions();
 
-    this.joinSocket();
-    this.loadTemplate();
+      this.joinSocket();
+      this.loadTemplate();
+    }
   }
 
   ngOnDestroy(): void {
-    this.templateService.revokeTemplate();
-    this.socketService.getSocket().off('template_rendered');
-    this.socketService.disconnectSocket();
+    if (this.templateService.getUrl()) {
+      this.templateService.revokeUrl();
+      this.socketService.getSocket().off('template_rendered');
+      this.socketService.disconnectSocket();
+    }
   }
 
 
@@ -69,23 +73,25 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
       canvas.width = img.width;
       context.drawImage(img, 0, 0);
     }
-    img.src = this.templateService.getTemplateUrl();
+    img.src = this.templateService.getUrl();
   }
 
   joinSocket() {
-    this.socketService.join(this.templateService.getTemplateId());
+    this.socketService.join(this.templateService.getId());
     this.socketService.getSocket().on('template_rendered', async (data: any) => {
+      data = JSON.parse(data);
+      this.templateService.setNQuestions(data["n_questions"] || 0);
       const formdata: FormData = new FormData();
       this.userService.addTokens(formdata);
-      formdata.append('template_id', this.templateService.getTemplateId());
+      formdata.append('template_id', this.templateService.getId());
        this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
-          var file = new File([data], this.templateService.getTemplateName());
+          var file = new File([data], this.templateService.getName());
           this.templateService.setFile(file);
           await this.templateService.createNewTemplate(file);
+          this.nQuestions = this.templateService.getNQuestions();
           await this.loadTemplate();
           this.notifyService.showSuccess("Le template a été mis à jour.", "Rendu");
           this.disabled = this.templateService.getLocked();
-
       });
     });
   }
@@ -176,20 +182,20 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
             formdata.append('grade_box', JSON.stringify(questionsRectCoords));
         }
 
-        formdata.append('template_id', this.templateService.getTemplateId());
+        formdata.append('template_id', this.templateService.getId());
         this.http.post<any>(`${SERVER_URL}template/modify`, formdata).pipe(first()).subscribe(
             (data) => {
               this.disabled = true;
               this.showTemplateNotificationInfo();
                 // this.router.navigate(['/templates']);
-
             }
         );
         this.rectangleService.resetRects();
     }
   }
 
-  reroute() {
+  reroute(clearId=false) {
+    if (clearId) this.templateService.clearId();
     this.router.navigate(['/templates']);
   }
 

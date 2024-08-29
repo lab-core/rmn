@@ -220,7 +220,8 @@ if __name__ == "__main__":
             json.dumps(
                 {
                     "user_id": template["user_id"],
-                    "template_id": temp_id
+                    "template_id": temp_id,
+                    "n_questions": n_questions - 1
                 }
             ),
         )

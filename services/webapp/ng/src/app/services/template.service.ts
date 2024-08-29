@@ -4,56 +4,70 @@ import { Injectable } from '@angular/core'
   providedIn: 'root'
 })
 export class TemplateService {
+  file: File;
+  url: string;
 
-  editingTemplate: boolean = false;
-
-  templateFile: File;
-  templateUrl: string;
-
-  templateName: string;
-  templateId: string;
+  name: string;
+  id: string;
   locked: boolean = false;
+  nQuestions: number = 0;
 
-  constructor() { }
-
-  async createNewTemplate(data: Blob) {
-    this.revokeTemplate();
-    let url = window.URL.createObjectURL(data);
-    this.templateUrl = url;
+  constructor() {
+    this.id = localStorage.getItem('templateId');
   }
 
-  revokeTemplate() {
-    if (this.templateUrl) {
-      URL.revokeObjectURL(this.templateUrl);
+  clearId() {
+    this.id = undefined;
+    localStorage.removeItem('templateId');
+  }
+
+  async createNewTemplate(data: Blob) {
+    this.revokeUrl();
+    let url = window.URL.createObjectURL(data);
+    this.url = url;
+  }
+
+  revokeUrl() {
+    if (this.url) {
+      URL.revokeObjectURL(this.url);
     }
   }
 
   setFile(file: File) {
-    this.templateFile = file;
+    this.file = file;
   }
 
   getFile() {
-    return this.templateFile;
+    return this.file;
   }
 
-  getTemplateUrl() {
-    return this.templateUrl;
+  getUrl() {
+    return this.url;
   }
 
-  setTemplateName(name: string) {
-    this.templateName = name;
+  setName(name: string) {
+    this.name = name;
   }
 
-  getTemplateName() {
-    return this.templateName;
+  getName() {
+    return this.name;
   }
 
-  setTemplateId(id: string) {
-    this.templateId = id;
+  setId(id: string) {
+    this.id = id;
+    localStorage.setItem('templateId', id);
   }
 
-  getTemplateId() {
-    return this.templateId;
+  getId() {
+    return this.id;
+  }
+
+  setNQuestions(nQuestions: number) {
+    this.nQuestions = nQuestions;
+  }
+
+  getNQuestions() {
+    return this.nQuestions;
   }
 
   setLocked(locked: boolean) {
