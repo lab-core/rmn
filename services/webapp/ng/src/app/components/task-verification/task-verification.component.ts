@@ -690,6 +690,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           const index = copy.pdfSrc.index - this.subExamsList[0]['document_index'] + 1;
           this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
           return;
+        } else {
+          this.examsList[copy.pdfSrc.index]['offline'] = false;
         }
       }
     }
