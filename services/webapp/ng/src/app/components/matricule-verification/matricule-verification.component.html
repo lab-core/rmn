@@ -40,7 +40,7 @@
                                 [virtualScroll]="false" appendTo="app-matricule-verification"
                                 [(ngModel)]="currentMatriculeSelection"
                                 (change)="changeMatricule(currentMatriculeSelection)"
-                                [disabled]="validating">
+                                [disabled]="pdfLoading">
                             </ng-select>
                         </div>
                         <div *ngIf="this.currentMatriculeWarning" class="alert">
@@ -54,13 +54,13 @@
                             <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
                                 id="text-box" [(ngModel)]="grade.value"
                                 (input)="this.updateTotal(grade.key, grade.value)" step=any
-                                [disabled]="this.validating">
+                                [disabled]="pdfLoading">
                         </div>
                     </div>
                 </div>
                 <div class="validate-container">
                     <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                            (click)="updateMatricule()" [disabled]="this.validating">
+                            (click)="updateMatricule()" [disabled]="pdfLoading">
                         <mat-icon>done_outline</mat-icon>
                     </button>
                 </div>
@@ -80,7 +80,7 @@
                                 [virtualScroll]="false" appendTo="app-matricule-verification"
                                 [(ngModel)]="currentMatriculeSelection"
                                 (change)="changeMatricule(currentMatriculeSelection)"
-                                [disabled]="validating">
+                                [disabled]="pdfLoading">
                             </ng-select>
                         </div>
                         <div *ngIf="this.currentMatriculeWarning" class="alert">
@@ -94,13 +94,13 @@
                             <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
                                 id="text-box" [(ngModel)]="grade.value"
                                 (input)="this.updateTotal(grade.key, grade.value)" step=any
-                                [disabled]="this.validating">
+                                [disabled]="pdfLoading">
                         </div>
                     </div>
                 </div>
                 <div class="validate-container">
                     <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                            (click)="updateMatricule()" [disabled]="this.validating">
+                            (click)="updateMatricule()" [disabled]="pdfLoading">
                         <mat-icon>done_outline</mat-icon>
                     </button>
                 </div>
@@ -113,5 +113,5 @@
 </div>
 </div>
 <button mat-button *ngIf="this.loggued()" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
-<div id="overlay" *ngIf="validating"></div>
-<mat-spinner class="overlay-spinner" *ngIf="validating" color="accent" [diameter]="150"></mat-spinner>
+<div id="overlay" *ngIf="pdfLoading"></div>
+<mat-spinner class="overlay-spinner" *ngIf="pdfLoading" color="accent" [diameter]="150"></mat-spinner>

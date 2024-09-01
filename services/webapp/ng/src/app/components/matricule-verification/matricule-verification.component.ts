@@ -40,8 +40,7 @@ export class MatriculeVerificationComponent implements OnInit {
   disabledValidationButton = true;
   disabledDropDown = false;
   horizontalValidation = true;
-
-  validating: boolean = false;
+  preloadNCopies: number = 10;
 
   job: Map<string, any>;
   pdfUrl: string;
@@ -172,11 +171,6 @@ export class MatriculeVerificationComponent implements OnInit {
       const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy);
       if (pdfSource.url) {
         this.pdfUrl = pdfSource.url;
-        // this.pdfModified = false;
-        // // initialize pdf viewer options
-        // if (!this.pdfViewerInitialized)
-        //  setTimeout(() => { this.initializePdfViewer(); }, 1000);
-        // console.log("Current Exam: ", this.examsList[this.currentIndex()])
       }
       this.pdfLoading = false;
     }
@@ -200,7 +194,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   updateScrollPosition() {
     let e = document.getElementById('files-list-container');  // scrollTop + clientHeight = scrollHeight
-    if (e) {
+    if (e && e.firstElementChild) {
       let child = e.firstElementChild;
       let r = e.clientWidth / child.clientWidth;
       let nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
@@ -229,8 +223,11 @@ export class MatriculeVerificationComponent implements OnInit {
     this.getCurrentStatus();
     // try to load the following copy
     let nextIndex = this.nextCopyIndex();
-    if (nextIndex < this.examsList.length) {
+    let i = 0;
+    while (i < this.preloadNCopies && nextIndex < this.examsList.length) {
       this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex);
+      nextIndex = this.nextCopyIndex(nextIndex);
+      i++;
     }
   }
 
@@ -308,13 +305,13 @@ export class MatriculeVerificationComponent implements OnInit {
       this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
       return;
     }
+    this.pdfLoading = true;
     const formdata: FormData = new FormData();
     formdata.append('job_id', this.job["job_id"]);
     formdata.append('document_index', this.currentCopy.toString());
     this.getCurrentMatricule();
     formdata.append('matricule', this.currentMatricule.toString());
     this.userService.addTokens(formdata);
-
     try {
       const response = await this.http.post(`${SERVER_URL}matricule/update`, formdata).toPromise();
       if (response["response"] === "OK") {
@@ -322,12 +319,11 @@ export class MatriculeVerificationComponent implements OnInit {
         this.nextCopy();
       }
       this.checkValidationButton();
-      return response["response"];
     } catch (error) {
       console.error('Erreur lors de la mise à jour du matricule :', error);
       this.notificationService.showError('Erreur lors de la mise à jour du matricule.', 'Erreur de validation');
-      return 'Error';
     }
+    this.pdfLoading = false;
   }
 
   async validateMatricules() {
@@ -342,7 +338,7 @@ export class MatriculeVerificationComponent implements OnInit {
       this.openwarningDialog();
     } else {
       this.disabledValidationcontainer = true;
-      this.validating = true;
+      this.pdfLoading = true;
       this.router.navigate(['/tasks-history']);
       let message = "Les matricules ont été validés avec succès!";
       this.notificationService.showInfo(message, "Alerte!")
@@ -360,7 +356,7 @@ export class MatriculeVerificationComponent implements OnInit {
     dialogRef.afterClosed().pipe(first()).subscribe(async result => {
         if (result !== undefined && result === true) {
           this.disabledValidationcontainer = true;
-          this.validating = true;
+          this.pdfLoading = true;
           let response = await this.validationService.validateJob(
             this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
           if (response === "OK") {
@@ -450,8 +446,8 @@ export class MatriculeVerificationComponent implements OnInit {
     }
   }
 
-  nextCopyIndex(): number {
-    let tempIndex = this.currentIndex() + 1;
+  nextCopyIndex(currentIndex = undefined): number {
+    let tempIndex = (currentIndex || this.currentIndex()) + 1;
     while (tempIndex < this.examsList.length && !this.subExamsList.includes(this.examsList[tempIndex])) {
       tempIndex ++;
     }
