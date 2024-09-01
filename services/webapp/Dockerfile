@@ -2,8 +2,8 @@
 FROM node:22 AS node
 WORKDIR /app
 
-COPY ng/package*.json ./
-RUN npm install
+COPY ng/package.json ./
+RUN npm install --omit=dev
 
 COPY ng/ .
 RUN npm run build
