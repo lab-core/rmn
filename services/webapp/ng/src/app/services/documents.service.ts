@@ -22,6 +22,10 @@ export class PDFSource {
     this.annotations = [];
   }
 
+  destroy() {
+    this.revokeURL();
+  }
+
   setLastVersion(lastVersion: number) {
     this.lastVersion = lastVersion;
     if (this.version === undefined || this.version > this.lastVersion) {
@@ -135,9 +139,6 @@ export class DocumentsService {
       // const src = base64Src ? await this.readBlobSync(data) : window.URL.createObjectURL(data);
       const url = window.URL.createObjectURL(data);
       const pdfSource = new PDFSource(index, url, version);
-      if (this.pdfSources[index]) {
-        this.pdfSources[index].revokeURL();
-      }
       this.pdfSources[index] = pdfSource;
       await this.getAnnotations(jobId, pdfSource);
       return pdfSource;

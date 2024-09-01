@@ -48,7 +48,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   isIndexProvided: boolean = false;
   disabledValidationButton = true;
   disabledDropDown = false;
-  validating: boolean = false;
+  pdfLoading: boolean = false;
   disablePrevious: boolean = false;
   disableNext: boolean = false;
   hasDownloadedZip: boolean = false;
@@ -336,12 +336,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async loadPdf(version: number = undefined): Promise<boolean> {
     if (this.currentExam()["status"] !== "NOT_READY") {
       this.checkNavigationArrows(false);
+      this.pdfLoading = true;
       let pdfSource;
       if (this.offline) {
         pdfSource = this.docService.getAvailablePdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy)
       } else {
         pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, version);
       }
+      this.pdfLoading = false;
       if (pdfSource) {
         this.currentPdfSrc = pdfSource;
         this.pdfUrl = pdfSource.url;
@@ -364,6 +366,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async changeCurrentCopy(copyIndex, status, updateScroll: boolean=true): Promise<void> {
     if (status !== "NOT_READY") {
+      this.pdfLoading = true;
       if (await this.saveCurrentCopy()) {
         let exam = this.examsList[copyIndex-this.initialCopyIndex];
         console.log("Change current copy to", copyIndex)
@@ -383,6 +386,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           console.error('Erreur lors de l\'obtention du document PDF modifié.');
           this.notificationService.showError('Échec de la sauvegarde du document PDF modifié.', 'Erreur de validation');
       }
+      this.pdfLoading = false;
     }
   }
 
@@ -666,7 +670,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       const pdfSrc = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), exam['document_index']);
       if (!this.offline) {
         break;
-      } 
+      }
       const copy: OfflineCopy = {
         pdfSrc: pdfSrc,
         status: exam['status'],
@@ -693,10 +697,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           const index = copy.pdfSrc.index - this.subExamsList[0]['document_index'] + 1;
           this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
           return;
-        } else {
-          this.examsList[copy.pdfSrc.index]['offline'] = false;
         }
       }
+      this.examsList[copy.pdfSrc.index]['offline'] = false;
     }
     this.notificationService.showSuccess('Téléversement terminé!', 'Success');
     await this.cleanOffline();
