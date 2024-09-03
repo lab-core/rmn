@@ -14,10 +14,7 @@
   "dependencies": {
     "@angular/animations": "^18.1.4",
     "@angular/cdk": "^18.1.4",
-    "@angular/cli": "^18.1.4",
     "@angular/common": "^18.1.4",
-    "@angular/compiler": "^18.1.4",
-    "@angular/compiler-cli": "^18.1.4",
     "@angular/core": "^18.1.4",
     "@angular/forms": "^18.1.4",
     "@angular/material": "^18.1.4",
@@ -27,6 +24,7 @@
     "@ng-select/ng-select": "^13.7.0",
     "dexie": "^4.0.8",
     "file-saver": "^2.0.5",
+    "jszip": "^3.10.1",
     "ngx-toastr": "^19.0.0",
     "ngx-extended-pdf-viewer": "^21.3.6",
     "pdf-lib": "^1.17.1",
@@ -38,6 +36,9 @@
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "^18.1.4",
+    "@angular/cli": "^18.1.4",
+    "@angular/compiler": "^18.1.4",
+    "@angular/compiler-cli": "^18.1.4",
     "@eslint/js": "^9.8.0",
     "@types/file-saver": "^2.0.5",
     "@types/jasmine": "~3.6.0",

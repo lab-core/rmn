@@ -9,7 +9,7 @@ import { FormBuilder, Validators } from '@angular/forms';
 import { MatSelectChange } from '@angular/material/select';
 import { first } from 'rxjs/operators';
 
-import * as saveAs from 'file-saver';
+import { saveAs } from 'file-saver';
 
 //DropBox API
 declare function dropboxFiles(): void;
