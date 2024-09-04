@@ -5,7 +5,7 @@ import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { SERVER_URL } from 'src/app/utils';
 import { PDFDocument } from 'pdf-lib';
-import * as saveAs from 'file-saver';
+import { saveAs } from 'file-saver';
 import * as JSZip from 'jszip';
 
 
