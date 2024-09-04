@@ -115,13 +115,12 @@ export class DocumentsService {
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}documents`, formdata).toPromise();
       this.documentsList = promise['response'] || [];
-      this.clearPdfSources();
     } catch (error) {
       console.error(error);
     }
   }
 
-  async downloadPdf(jobId: string, index: number, version=undefined): Promise<PDFSource> {
+  async downloadPdf(jobId: string, index: number, fetchAnnotations: boolean=true, version=undefined): Promise<PDFSource> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
@@ -140,7 +139,9 @@ export class DocumentsService {
       const url = window.URL.createObjectURL(data);
       const pdfSource = new PDFSource(index, url, version);
       this.pdfSources[index] = pdfSource;
-      await this.getAnnotations(jobId, pdfSource);
+      if (fetchAnnotations) {
+        await this.getAnnotations(jobId, pdfSource);
+      }
       return pdfSource;
     } catch (error) {
       console.error(error);
@@ -171,12 +172,13 @@ export class DocumentsService {
       });
   }
 
-  async getPdfSource(jobId: string, index: number, version=undefined, minutes=undefined): Promise<PDFSource> {
+  async getPdfSource(jobId: string, index: number, fetchAnnotations: boolean=true,
+                     version=undefined, minutes=undefined): Promise<PDFSource> {
     let pdfSource = this.getAvailablePdfSource(jobId, index, version, minutes || this.refreshMinutes);
     if (pdfSource !== undefined) {
       return pdfSource;
     } else {
-      let pdfSource = await this.downloadPdf(jobId, index, version);
+      let pdfSource = await this.downloadPdf(jobId, index, fetchAnnotations, version);
       return pdfSource;
     }
   }

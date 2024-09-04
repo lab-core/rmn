@@ -168,7 +168,7 @@ export class MatriculeVerificationComponent implements OnInit {
   async loadPdf(version: number = undefined): Promise<void> {
     if (this.currentExam()["status"] !== "NOT_READY") {
       this.pdfLoading = true;
-      const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy);
+      const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false);
       if (pdfSource.url) {
         this.pdfUrl = pdfSource.url;
       }
@@ -225,7 +225,7 @@ export class MatriculeVerificationComponent implements OnInit {
     let nextIndex = this.nextCopyIndex();
     let i = 0;
     while (i < this.preloadNCopies && nextIndex < this.examsList.length) {
-      this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex);
+      this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex, false);
       nextIndex = this.nextCopyIndex(nextIndex);
       i++;
     }
