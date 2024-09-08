@@ -33,6 +33,9 @@ export class LoginPageComponent implements OnInit, OnDestroy {
    }
 
   ngOnInit(): void {
+    if (this.userService.loggued()) {
+      this.router.navigate(['/']);
+    }
   }
 
   ngOnDestroy(): void {

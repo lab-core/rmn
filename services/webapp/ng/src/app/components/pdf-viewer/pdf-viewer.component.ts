@@ -254,6 +254,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
 
   async onPdfLoaded(e) {
     console.log("Loaded");
+    this.nInkAnnotations = 0;
+    this.annotationsHistory = [];
+    this.eraserHistory = [];
   }
 
   async onPageRendered(e) {

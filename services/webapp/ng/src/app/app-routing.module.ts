@@ -33,18 +33,21 @@ const canActivateShared: CanActivateFn = (
 // This is my case
 const routes: Routes = [
     {
-        path : '',
+        path: '',
         component : TasksHistoryComponent,
         canActivate: [canActivateLoggued]
+    },
+    {
+        path: 'tasks-history',
+        redirectTo : '',
+    },
+    {
+        path: 'main-menu',
+        redirectTo : '',
     },
     {
       path : 'login',
       component : LoginPageComponent
-    },
-    {
-        path: 'tasks-history',
-        component : TasksHistoryComponent,
-        canActivate: [canActivateLoggued]
     },
     {
         path: 'dashboard/:taskId',
@@ -108,7 +111,7 @@ const routes: Routes = [
     },
     {
         path: '**',
-        redirectTo : 'tasks-history',
+        redirectTo : 'login',
     },
 ];
 
