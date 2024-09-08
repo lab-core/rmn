@@ -121,7 +121,19 @@ export class MatriculeVerificationComponent implements OnInit {
 
   @HostListener('document:keydown.enter', ['$event'])
   onKeydownHandler(event: KeyboardEvent) {
-    this.updateMatricule();
+    if (!this.pdfLoading) {
+      this.updateMatricule();
+    }
+  }
+
+  @HostListener('document:keydown.arrowright', ['$event'])
+  onKeydownArrowRightHandler(event: KeyboardEvent) {
+    this.nextCopy();
+  }
+
+  @HostListener('document:keydown.arrowleft', ['$event'])
+  onKeydownArrowLeftHandler(event: KeyboardEvent) {
+    this.previousCopy();
   }
 
   async getDocuments() {

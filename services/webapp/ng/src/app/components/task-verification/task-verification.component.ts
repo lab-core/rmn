@@ -159,9 +159,23 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('document:keydown.enter', ['$event'])
-  onKeydownHandler(event: KeyboardEvent) {
-    if (!this.pdfViewer.isWriting()) {
+  onKeydownEnterHandler(event: KeyboardEvent) {
+    if (!this.pdfViewer.isWriting() && !this.pdfLoading) {
       this.validateCurrentCopy();
+    }
+  }
+
+  @HostListener('document:keydown.arrowright', ['$event'])
+  onKeydownArrowRightHandler(event: KeyboardEvent) {
+    if (!this.pdfViewer.isWriting()) {
+      this.nextCopy();
+    }
+  }
+
+  @HostListener('document:keydown.arrowleft', ['$event'])
+  onKeydownArrowLeftHandler(event: KeyboardEvent) {
+    if (!this.pdfViewer.isWriting()) {
+      this.previousCopy();
     }
   }
 
