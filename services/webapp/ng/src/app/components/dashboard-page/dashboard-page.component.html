@@ -28,7 +28,7 @@
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
             <td class="action-buttons">
               <button class="correct-button" mat-raised-button color="primary" (click)="correctQuestion(i)">Corriger</button>
-              <button class="correct-button" mat-raised-button color="primary" (click)="shareQuestion(i)">Partager</button>
+              <button class="correct-button" mat-raised-button color="primary" (click)="shareQuestion(i+1 < questions.length ? i : undefined)">Partager</button>
             </td>
           </tr>
           <tr>

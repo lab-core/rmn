@@ -68,8 +68,6 @@ export class TasksHistoryComponent implements OnInit {
     ERROR: "red",
   }
 
-  subscription;
-
   constructor(
     private location: Location,
     private tasksService: TasksService,
@@ -79,17 +77,7 @@ export class TasksHistoryComponent implements OnInit {
     private socketService: SocketService,
     private notificationService: NotificationService,
     private userService: UserService
-  ) {
-    this.subscription = this.router.events
-      .pipe(filter((event: NavigationStart) => event.navigationTrigger === 'popstate'))
-      .subscribe(() => {
-          if (this.router.url === '/tasks-history') {
-            this.reroute();
-          }
-        }, (error) => {
-          console.error(error);
-        });
-  }
+  ) {}
 
   async ngOnInit(): Promise<void> {
     // Assign the data to the data source for the table to render
@@ -135,10 +123,11 @@ export class TasksHistoryComponent implements OnInit {
   }
 
   ngOnDestroy(): void {
-    this.subscription.unsubscribe();
-    this.socketService.getSocket().off('document_ready');
-    this.socketService.getSocket().off('job_status');
-    this.socketService.disconnectSocket();
+    if (this.socketService.getSocket()) {
+      this.socketService.getSocket().off('document_ready');
+      this.socketService.getSocket().off('job_status');
+      this.socketService.disconnectSocket();
+    }
   }
 
   applyFilter(event: Event) {
@@ -324,7 +313,4 @@ export class TasksHistoryComponent implements OnInit {
   //   }
 
   // }
-  reroute() {
-    this.router.navigate(['/main-menu']);
-  }
 }

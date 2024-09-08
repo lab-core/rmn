@@ -341,7 +341,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       if (this.offline) {
         pdfSource = this.docService.getAvailablePdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy)
       } else {
-        pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, version);
+        pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, true, version);
       }
       this.pdfLoading = false;
       if (pdfSource) {
@@ -709,9 +709,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     for (const exam of this.subExamsList) {
       exam['offline'] = false;
     }
-    this.docService.clearPdfSources();
     db.deleteAllCopies(this.offlineCopies);
-    this.offlineCopies = new Map<number, OfflineCopy>();
     this.offline = false;
     await db.markOnline();
   }

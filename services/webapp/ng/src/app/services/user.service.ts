@@ -13,11 +13,11 @@ export class UserService {
   currentUsername: string;
   private token: string;
   private shareToken: string;
-  questionIndex: string;
+  private questionIndex: string;
   role: string;
   saveVerifiedImages: boolean = false;
   moodleStructureInd: boolean = false;
-  warningShown: boolean = false;
+  warningShown: boolean = true;
 
   constructor(private http: HttpClient,
               private router: Router,
@@ -35,22 +35,27 @@ export class UserService {
   }
 
   private setShareToken(queryParams: any): void {
+    this.clearShareToken();
     if (queryParams.token) {
       this.shareToken = queryParams.token;
       this.questionIndex = queryParams.question_index;
     }
   }
 
+  private clearShareToken(): void {
+    this.shareToken = undefined;
+    this.questionIndex = undefined;
+  }
+
   addTokens(form) {
-    if (this.token) {
-      form.append('user_id', this.currentUsername);
-      form.append('token', this.token);
-    }
     if (this.shareToken) {
       form.append('share_token', this.shareToken);
       if (this.questionIndex) {
         form.append('question_index', this.questionIndex);
       }
+    } else if (this.token) {
+      form.append('user_id', this.currentUsername);
+      form.append('token', this.token);
     }
   }
 
@@ -119,12 +124,13 @@ export class UserService {
   }
 
   loggued(): boolean {
-    return this.token != null;
+    return this.token != undefined;
   }
 
   canActivateLoggued(route: ActivatedRouteSnapshot,
                      state: RouterStateSnapshot) {
     if (this.loggued()) {
+      this.clearShareToken()
       return true;
     } else {
       if(!this.warningShown) {

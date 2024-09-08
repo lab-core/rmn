@@ -254,6 +254,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
 
   async onPdfLoaded(e) {
     console.log("Loaded");
+    this.nInkAnnotations = 0;
+    this.annotationsHistory = [];
+    this.eraserHistory = [];
   }
 
   async onPageRendered(e) {
@@ -310,6 +313,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     if (eraserChange !== undefined && eraserChange.nInkAnnotations === this.nInkAnnotations) {
       this.eraserHistory.pop();
       this.replaceAllInkAnnotations(eraserChange.annotationsSnapshot);
+      this.nInkAnnotations = eraserChange.annotationsSnapshot.length;
       change.eraser = eraserChange;
       this.annotationsHistory.push(change);
     }
@@ -353,6 +357,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
         let eraserChange: EraserChange = change.eraser;
         let inkAnnotations = eraserChange.getInkAnnotations();
         this.replaceAllInkAnnotations(inkAnnotations);
+        this.nInkAnnotations = eraserChange.nInkAnnotations;
         this.eraserHistory.push(eraserChange);
       }
     } else {
@@ -543,7 +548,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private onEraserStart(event: PointerEvent): void {
-    if (!this.samePointerType(event)) {
+    if (this.isDrawing || !this.samePointerType(event)) {
       return;
     }
     this.isDrawing = true;
@@ -567,7 +572,6 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       this.annotationsHistory = [];  // flush history as erasing
       let inkAnnotations = eraserChange.getInkAnnotations();
       this.replaceAllInkAnnotations(inkAnnotations);
-      // console.log(eraserChange.nInkAnnotations, "->", inkAnnotations.length);
       eraserChange.nInkAnnotations = inkAnnotations.length;
     } else {
       // as it has not been used -> remove it

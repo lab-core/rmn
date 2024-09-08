@@ -22,7 +22,7 @@ export class MainMenuComponent implements OnInit {
 
   disconnect(): void {
     this.userService.logout()
-    this.router.navigate(['/']);
+    this.router.navigate(['/login']);
     this.notificationService.showInfo("", "Déconnecté!")
   }
 
