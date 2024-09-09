@@ -136,6 +136,40 @@ export class MatriculeVerificationComponent implements OnInit {
     this.previousCopy();
   }
 
+  @HostListener('document:keydown.arrowup', ['$event'])
+  onKeydownArrowUpHandler(event: KeyboardEvent) {
+    // move up (-> 4 copies)
+    let tempIndex = this.previousCopyIndex();
+    let i = 1;
+    while (tempIndex >= 0 && i < 4) {
+      tempIndex = this.previousCopyIndex(tempIndex);
+      i ++;
+    }
+    if (tempIndex < 0) {
+      tempIndex = this.nextCopyIndex(tempIndex);
+    }
+    if (tempIndex < this.examsList.length) {
+      this.changeCurrentExam(tempIndex);
+    }
+  }
+
+  @HostListener('document:keydown.arrowdown', ['$event'])
+  onKeydownArrowDownHandler(event: KeyboardEvent) {
+    // move down (-> 4 copies)
+    let tempIndex = this.nextCopyIndex();
+    let i = 1;
+    while (tempIndex < this.examsList.length && i < 4) {
+      tempIndex = this.nextCopyIndex(tempIndex);
+      i ++;
+    }
+    if (tempIndex >= this.examsList.length) {
+      tempIndex = this.previousCopyIndex(tempIndex);
+    }
+    if (tempIndex >= 0) {
+      this.changeCurrentExam(tempIndex);
+    }
+  }
+
   async getDocuments() {
     await this.docService.getDocuments(this.tasksService.getvalidatingTaskId(), false);
     this.examsList = this.docService.documentsList;
@@ -194,7 +228,6 @@ export class MatriculeVerificationComponent implements OnInit {
         console.log("Change current copy to", copyIndex);
         this.currentCopyName = exam.filename;
         this.currentCopy = copyIndex;
-        console.log("Current copy", this.currentCopy);
         this.disabledValidationcontainer = false;
         await this.loadCopy();
         this.setChosenColor(status);
@@ -258,7 +291,6 @@ export class MatriculeVerificationComponent implements OnInit {
   checkForAvailableCopies(): boolean {
     if (this.subExamsList.length == 0) return false;
     let exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
-    console.log("Found ready exam", exam);
     return exam != undefined;
   }
 
@@ -440,26 +472,31 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   previousCopy(): void {
-    let tempIndex = this.currentIndex() - 1;
-    while (tempIndex >= 0 && !this.subExamsList.includes(this.examsList[tempIndex])) {
-      tempIndex --;
-    }
-    console.log("Previous copy", tempIndex)
+    let tempIndex = this.previousCopyIndex();
     if (tempIndex >= 0) {
       this.changeCurrentExam(tempIndex);
     }
   }
 
+  previousCopyIndex(currentIndex = undefined): number {
+    let tempIndex = currentIndex != undefined ? currentIndex : this.currentIndex();
+    tempIndex--;
+    while (tempIndex >= 0 && !this.subExamsList.includes(this.examsList[tempIndex])) {
+      tempIndex --;
+    }
+    return tempIndex;
+  }
+
   nextCopy(): void {
     let tempIndex = this.nextCopyIndex();
-    console.log("Next copy", tempIndex)
     if (tempIndex < this.examsList.length) {
       this.changeCurrentExam(tempIndex);
     }
   }
 
   nextCopyIndex(currentIndex = undefined): number {
-    let tempIndex = (currentIndex || this.currentIndex()) + 1;
+    let tempIndex = currentIndex != undefined ? currentIndex : this.currentIndex();
+    tempIndex++;
     while (tempIndex < this.examsList.length && !this.subExamsList.includes(this.examsList[tempIndex])) {
       tempIndex ++;
     }

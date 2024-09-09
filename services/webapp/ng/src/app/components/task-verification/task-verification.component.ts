@@ -179,6 +179,40 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
   }
 
+  @HostListener('document:keydown.arrowup', ['$event'])
+  onKeydownArrowUpHandler(event: KeyboardEvent) {
+    // move up (-> 4 copies)
+    let tempIndex = this.previousCopyIndex();
+    let i = 1;
+    while (tempIndex >= 0 && i < 4) {
+      tempIndex = this.previousCopyIndex(tempIndex);
+      i ++;
+    }
+    if (tempIndex < 0) {
+      tempIndex = this.nextCopyIndex(tempIndex);
+    }
+    if (tempIndex < this.examsList.length) {
+      this.changeCurrentExam(tempIndex);
+    }
+  }
+
+  @HostListener('document:keydown.arrowdown', ['$event'])
+  onKeydownArrowDownHandler(event: KeyboardEvent) {
+    // move down (-> 4 copies)
+    let tempIndex = this.nextCopyIndex();
+    let i = 1;
+    while (tempIndex < this.examsList.length && i < 4) {
+      tempIndex = this.nextCopyIndex(tempIndex);
+      i ++;
+    }
+    if (tempIndex >= this.examsList.length) {
+      tempIndex = this.previousCopyIndex(tempIndex);
+    }
+    if (tempIndex >= 0) {
+      this.changeCurrentExam(tempIndex);
+    }
+  }
+
   toggleSidebar() {
     this.isSidebarHidden = !this.isSidebarHidden;
   }
@@ -387,7 +421,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.currentQuestionIndex = exam["question"];
         this.currentCopyName = exam["basename"];
         this.currentCopy = copyIndex;
-        console.log("Current copy", this.currentCopy);
         if (await this.loadCopy()) {
           if (updateScroll) {
             this.updateScrollPosition();
@@ -469,7 +502,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   checkForAvailableCopies(): boolean {
     if (this.subExamsList.length == 0) return false;
     let exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
-    console.log("Found ready exam", exam);
     return exam != undefined;
   }
 
@@ -536,9 +568,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           }
           this.currentPdfSrc.lastVersion++;
           this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
-
           console.log('Save current copy and obtained response:', validationResponse);
-
           return validationResponse;
         }
       }
@@ -591,20 +621,26 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.router.navigate(['/dashboard', this.job["job_id"]]);
   }
 
-  async previousCopy(): Promise<void> {
-    let tempIndex = this.currentIndex() - 1;
+  async previousCopy(): Promise<boolean> {
+    let tempIndex = this.previousCopyIndex();
+    if (tempIndex >= 0) {
+      await this.changeCurrentExam(tempIndex);
+      return true
+    }
+    return false
+  }
+
+  previousCopyIndex(currentIndex = undefined): number {
+    let tempIndex = currentIndex != undefined ? currentIndex : this.currentIndex();
+    tempIndex--;
     while (tempIndex >= 0 && !this.subExamsList.includes(this.examsList[tempIndex])) {
       tempIndex --;
     }
-    console.log("Previous copy", tempIndex)
-    if (tempIndex >= 0) {
-      await this.changeCurrentExam(tempIndex);
-    }
+    return tempIndex;
   }
 
   async nextCopy(): Promise<boolean> {
     let tempIndex = this.nextCopyIndex();
-    console.log("Next copy", tempIndex)
     if (tempIndex < this.examsList.length) {
       await this.changeCurrentExam(tempIndex);
       return true
@@ -612,8 +648,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return false
   }
 
-  nextCopyIndex(): number {
-    let tempIndex = this.currentIndex() + 1;
+  nextCopyIndex(currentIndex = undefined): number {
+    let tempIndex = currentIndex != undefined ? currentIndex : this.currentIndex();
+    tempIndex++;
     while (tempIndex < this.examsList.length && !this.subExamsList.includes(this.examsList[tempIndex])) {
       tempIndex ++;
     }
