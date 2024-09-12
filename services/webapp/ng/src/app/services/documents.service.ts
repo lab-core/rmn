@@ -136,13 +136,16 @@ export class DocumentsService {
     try {
       const data = await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).toPromise();
       // const src = base64Src ? await this.readBlobSync(data) : window.URL.createObjectURL(data);
-      const url = window.URL.createObjectURL(data);
-      const pdfSource = new PDFSource(index, url, version);
-      this.pdfSources[index] = pdfSource;
-      if (fetchAnnotations) {
-        await this.getAnnotations(jobId, pdfSource);
+      if (data) {
+        const url = window.URL.createObjectURL(data);
+        const pdfSource = new PDFSource(index, url, version);
+        this.pdfSources[index] = pdfSource;
+        if (fetchAnnotations) {
+          await this.getAnnotations(jobId, pdfSource);
+        }
+        return pdfSource;
       }
-      return pdfSource;
+      return null;
     } catch (error) {
       console.error(error);
       return null;

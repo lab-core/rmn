@@ -1283,7 +1283,7 @@ def update_document(validity):
 
             # validity = None => logged user
             if validity is not None and validity != "all" and int(validity) != q_doc["question_index"]:
-                return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=401)
+                return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=401)
 
             q_index = int(request_form["question_index"]) - 1
             r = db["job_documents"].update_one(
@@ -1383,7 +1383,7 @@ def download_document(validity):
             )
 
         if validity is not None and validity != "all" and doc["question"] != f"Q{validity}":
-            return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=401)
+            return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=401)
 
         # add the right version if requested, otherwise use last one by default
         # (without the annotations stored in the db)
@@ -1487,7 +1487,7 @@ def document_annotations(validity):
 
     # validity = None => logged user
     if validity is not None and validity != "all" and int(validity) != doc["question_index"]:
-        return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=404)
+        return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=404)
 
     rel_filepath = doc["rel_filepath"]
     last_version = get_last_version(job_id, rel_filepath)

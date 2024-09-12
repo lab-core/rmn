@@ -270,7 +270,7 @@ export class MatriculeVerificationComponent implements OnInit {
     let nextIndex = this.nextCopyIndex();
     let i = 0;
     while (i < this.preloadNCopies && nextIndex < this.examsList.length) {
-      this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex, false);
+      this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.initialCopyIndex + nextIndex, false);
       nextIndex = this.nextCopyIndex(nextIndex);
       i++;
     }

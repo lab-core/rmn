@@ -470,7 +470,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (!this.offline) {
       let nextIndex = this.nextCopyIndex();
       if (nextIndex < this.examsList.length) {
-        this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), nextIndex);
+        this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.initialCopyIndex + nextIndex);
       }
     }
     return pdfLoaded;
