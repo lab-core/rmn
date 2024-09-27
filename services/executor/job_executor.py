@@ -256,9 +256,9 @@ if __name__ == "__main__":
                 print("Merging copies...")
                 process_merge(job_id)
 
-                # cleaning storage
-                print("Cleaning storage...")
-                storage.clean_storage(job_id)
+                # # cleaning storage
+                # print("Cleaning storage...")
+                # storage.clean_storage(job_id)
             else:
                 print("Merging already performed")
 
