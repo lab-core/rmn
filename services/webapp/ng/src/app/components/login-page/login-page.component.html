@@ -5,7 +5,7 @@
         <mat-card-title>
             PAGE DE CONNEXION
         </mat-card-title>
-        
+
         <mat-card-content>
             <div>
                 <mat-form-field appearance="outline" >
@@ -17,8 +17,8 @@
             <div>
                 <mat-form-field appearance="outline" id="input" >
                     <mat-label>Mot de passe</mat-label>
-                    <input minlength="8" maxlength="32" matInput type="password" [(ngModel)] = "this.password"/>
-                    <mat-icon class="icon-display" matSuffix id="icon">lock</mat-icon>
+                    <input minlength="8" maxlength="32" matInput [type]="hidePass ? 'password' : 'text'" [(ngModel)]="this.password"/>
+                    <mat-icon matSuffix (click)="hidePass = !hidePass" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hidePass">{{hidePass ? 'visibility_off' : 'visibility'}}</mat-icon>
                 </mat-form-field>
             </div>
             <form class="login-button-box">
@@ -26,6 +26,5 @@
             </form>
         </mat-card-content>
     </div>
-    
-</mat-card>
 
+</mat-card>

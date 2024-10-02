@@ -14,6 +14,7 @@ export class LoginPageComponent implements OnInit, OnDestroy {
 
   username: string = ''
   password: string = ''
+  hidePass: boolean = true;
   subscription;
 
   constructor(
