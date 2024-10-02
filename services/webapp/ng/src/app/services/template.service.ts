@@ -16,8 +16,11 @@ export class TemplateService {
     this.id = localStorage.getItem('templateId');
   }
 
-  clearId() {
+  clear() {
     this.id = undefined;
+    this.name = undefined;
+    this.locked = false;
+    this.nQuestions = 0;
     localStorage.removeItem('templateId');
   }
 

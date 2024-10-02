@@ -134,6 +134,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   }
 
   openNewTemplateDialog(): void {
+    this.rectangleService.resetRects();
     this.dialog.open(NewTemplateDialogComponent, {
         width: '40%',
         height: '60%',

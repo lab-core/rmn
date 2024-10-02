@@ -85,6 +85,7 @@ export class NewTemplateDialogComponent implements OnInit {
     formdata.append('template_name', "New template");
     this.http.post<any>(`${SERVER_URL}template`, formdata).pipe(first()).subscribe(
         (data) => {
+          this.templateService.clear();
           this.templateService.setName(data["response"]["template_name"]);
           this.templateService.setId(data["response"]["template_id"]);
 

@@ -194,8 +194,8 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
     }
   }
 
-  reroute(clearId=false) {
-    if (clearId) this.templateService.clearId();
+  reroute(clear=false) {
+    if (clear) this.templateService.clear();
     this.router.navigate(['/templates']);
   }
 
