@@ -27,7 +27,7 @@ export class ChangePasswordDialogComponent implements OnInit {
   }
 
   updateCharacters(event: KeyboardEvent) {
-    let regex = new RegExp("^[a-zA-ZÀ-ÿ0-9.@]+$");
+    let regex = new RegExp("^[a-zA-ZÀ-ÿ0-9.@!#%$?_-]+$");
     if (!regex.test(event.key)) {
       event.preventDefault();
    }

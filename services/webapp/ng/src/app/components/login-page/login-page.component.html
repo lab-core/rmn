@@ -17,7 +17,7 @@
             <div>
                 <mat-form-field appearance="outline" id="input" >
                     <mat-label>Mot de passe</mat-label>
-                    <input minlength="8" maxlength="32" matInput [type]="hidePass ? 'password' : 'text'" [(ngModel)]="this.password"/>
+                    <input matInput [type]="hidePass ? 'password' : 'text'" [(ngModel)]="this.password"/>
                     <mat-icon matSuffix (click)="hidePass = !hidePass" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hidePass">{{hidePass ? 'visibility_off' : 'visibility'}}</mat-icon>
                 </mat-form-field>
             </div>

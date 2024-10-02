@@ -3,6 +3,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import datetime as dt
 import uuid
 from enum import Enum
+import re
+
+pass_characters = "a-zA-ZÀ-ÿ0-9.@!#%$?_-"
+pattern = re.compile("^[{}]+$".format(pass_characters))
 
 
 class Role(Enum):
@@ -128,6 +132,12 @@ class UserService:
         password = request_form['password']
         role = request_form['role']
 
+        if pattern.match(password) is None:
+            return Response(
+                response=json.dumps({"response": f"Error: password contains illegal characters. You can use only those: %s" % pass_characters}),
+                status=400,
+            )
+
         if not Role.available(role):
             return Response(
                 response=json.dumps({"response": f"Error: role {role} n'existe pas."}),
@@ -236,9 +246,16 @@ class UserService:
                 response=json.dumps({"response": f"Error: new_password not provided."}),
                 status=400,
             )
+
+        new_password = request_form['new_password']
+        if pattern.match(new_password) is None:
+            return Response(
+                response=json.dumps({"response": f"Error: new_password contains illegal characters. You can use only those: %s" % pass_characters}),
+                status=400,
+            )
+
         username = request_form['username']
         collection = database["users"]
-        new_password = request_form['new_password']
 
         collection = database["users"]
         userDB = collection.find_one({"username": username})
