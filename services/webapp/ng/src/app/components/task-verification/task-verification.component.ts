@@ -130,7 +130,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.socketService.join(this.job["job_id"]);
     this.socketService.getSocket().on('document_ready', async (params: any) => {
       await this.getDocuments();
-      this.nextCopy();
+      if (this.currentCopy < 0 || this.currentExam()['status'] === "VALIDATED") {
+        this.nextCopy();
+      }
     });
 
     if (this.userService.loggued()) {
@@ -144,7 +146,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         }
       });
     }
-    this.formattedIndexes = this.generateFormattedIndexes();
+    this.generateFormattedIndexes();
     this.initializeQuestionIndexes();
     this.checkValidationButton();
   }
@@ -217,8 +219,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.isSidebarHidden = !this.isSidebarHidden;
   }
 
-  generateFormattedIndexes(): Array<string> {
-    const formattedIndexes: Array<string> = [];
+  generateFormattedIndexes(): void {
+    this.formattedIndexes = [];
     const maxIndex = this.examsList.length;
     const questionString = `Q1`;
     let subExamsListSize = this.examsList.filter(exam => exam.question === questionString).length;
@@ -230,11 +232,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         for (let j = 1; j <= subExamsListSize; j++) {
             const index = `${j}-${i}`;
             if ((i - 1) * subExamsListSize + j <= maxIndex) {
-                formattedIndexes.push(index);
+                this.formattedIndexes.push(index);
             }
         }
     }
-    return formattedIndexes;
   }
 
   loadScore(): void {
@@ -279,7 +280,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   onQuestionIndexChange(event: MatSelectChange): void {
     if (event.value === "Tout sélectionner") {
         this.subExamsList = this.examsList;
-        this.formattedIndexes = this.generateFormattedIndexes();
+        this.generateFormattedIndexes();
     } else {
         this.filterExamsByQuestion(event.value);
     }
@@ -312,8 +313,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async getDocuments() {
     await this.docService.getDocuments(this.tasksService.getvalidatingTaskId(), true);
     this.examsList = this.docService.documentsList;
-    // compute sub exams list if any selected group
-    this.getSubExamsList();
     // initialize initialCopyIndex and currentCopy
     if (this.examsList.length > 0 && this.initialCopyIndex < 0) {
       this.initialCopyIndex = this.examsList[0].document_index;

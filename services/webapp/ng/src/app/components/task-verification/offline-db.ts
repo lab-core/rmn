@@ -27,7 +27,7 @@ class OfflineDB extends Dexie {
 
   constructor() {
     super('ngdexieliveQuery');
-    this.version(3).stores({
+    this.version(1).stores({
       statusItems: '++id, jobId',
       copyItems: '++id, jobId',
     });

@@ -13,6 +13,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: example
     ports:
       - "27017:27017"
+    volumes:
+      - ./storage/mongo:/data/db
   executor:
    build: ./services/executor
 #   command: bash -c "while true; do echo hello; sleep 2; done"
