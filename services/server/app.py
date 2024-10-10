@@ -710,6 +710,7 @@ def continue_thread(job_id, pdf_files):
     db = mongo["RMN"]
     db["job_documents"].delete_many({"job_id": job_id})
     db["job_questions"].delete_many({"job_id": job_id})
+    db["versions"].delete_many({"job_id": job_id})
 
     # add to Redis Queue
     redis.rpush("job_queue", json.dumps({"job_id": job_id}))

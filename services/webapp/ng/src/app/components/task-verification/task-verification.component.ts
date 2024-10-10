@@ -254,6 +254,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   initializeQuestionIndexes(): void {
+    // compute sub exams list if any selected group
+    this.getSubExamsList();
+    // check then question
     this.questionIndexes = ["Tout sélectionner", ...Array.from({ length: this.nMaxPointsPerQuestion.size }, (_, i) => (i + 1).toString())];
     // if question index is provided in query params
     const questionIndex = this.route.snapshot.queryParams['question_index'];
