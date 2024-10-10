@@ -345,11 +345,14 @@ def evaluate(user_id):
 
 def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_name, notes_csv_file_name):
     try:
+        file_name = str(TEMP_FOLDER.joinpath(notes_csv_file_name))
+        storage.move_to(file_name, notes_file_id)
+
         file_name = str(TEMP_FOLDER.joinpath(zip_file_name))
         storage.move_to(file_name, zip_file_id)
 
-        file_name = str(TEMP_FOLDER.joinpath(notes_csv_file_name))
-        storage.move_to(file_name, notes_file_id)
+        # add to Redis Queue
+        redis.rpush("job_queue", json.dumps({"job_id": job["job_id"]}))
     except Exception as e:
         print("Error when preparing job to be submitted for evaluation.")
         print(e)
@@ -376,9 +379,6 @@ def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_n
             ),
         )
         exit()
-
-    # add to Redis Queue
-    redis.rpush("job_queue", json.dumps({"job_id": job["job_id"]}))
 
 
 @app.route("/template", methods=["POST"])

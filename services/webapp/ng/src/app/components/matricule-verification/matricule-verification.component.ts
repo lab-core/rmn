@@ -171,8 +171,6 @@ export class MatriculeVerificationComponent implements OnInit {
   async getDocuments() {
     await this.docService.getDocuments(this.tasksService.getvalidatingTaskId(), false);
     this.examsList = this.docService.documentsList;
-    // compute sub exams list if any selected group
-    this.getSubExamsList();
     // initialize initialCopyIndex and currentCopy
     if (this.examsList.length > 0 && this.initialCopyIndex < 0) {
       this.initialCopyIndex = this.examsList[0].document_index;
