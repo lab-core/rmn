@@ -105,13 +105,16 @@
                     </button>
                 </div>
             </div>
+            <div *ngIf="pdfLoading && disabledValidationcontainer">
+              <p> Aucune copie n'est disponible. </p>
+            </div>
         </div>
     </div>
 </div>
-<div class="page-count" *ngIf="!this.pictureLoading || !this.disabledValidationcontainer">
+<div class="page-count" *ngIf="!this.disabledValidationcontainer">
     {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
 </div>
 </div>
 <button mat-button *ngIf="this.loggued()" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
-<div id="overlay" *ngIf="pdfLoading"></div>
-<mat-spinner class="overlay-spinner" *ngIf="pdfLoading" color="accent" [diameter]="150"></mat-spinner>
+<div id="overlay" *ngIf="pdfLoading && !disabledValidationcontainer"></div>
+<mat-spinner class="overlay-spinner" *ngIf="pdfLoading && !disabledValidationcontainer" color="accent" [diameter]="150"></mat-spinner>

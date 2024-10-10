@@ -34,7 +34,6 @@ export class MatriculeVerificationComponent implements OnInit {
               private docService: DocumentsService,
               private ngxService: NgxExtendedPdfViewerService) {}
 
-  pictureLoading: boolean = true;
   pdfLoading: boolean = true;
   disabledValidationcontainer = true;
   disabledValidationButton = true;
@@ -79,8 +78,7 @@ export class MatriculeVerificationComponent implements OnInit {
       this.groupsList.unshift("");
       this.getMatriculeList();
       await this.getDocuments();
-      this.getSubExamsList();
-      this.nextCopy();
+      this.loadSubExamsList();
       this.checkValidationButton();
 
       this.socketService.join(this.job["job_id"]);
