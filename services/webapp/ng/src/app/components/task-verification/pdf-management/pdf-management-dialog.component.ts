@@ -3,7 +3,9 @@ import { HttpClient } from '@angular/common/http';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
+import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
+import { OfflineCopy } from '../offline-db';
 import { PDFDocument } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import * as JSZip from 'jszip';
@@ -15,6 +17,7 @@ export interface DialogData {
   jobName: string;
   nPagesPerQuestion: Map<string, number>;
   examsList: Array<any>;
+  offlineCopies: Map<number, OfflineCopy>;
 }
 
 @Component({
@@ -33,6 +36,7 @@ export class PdfManagementDialogComponent implements OnInit {
   constructor(public dialogRef: MatDialogRef<PdfManagementDialogComponent>,
     private http: HttpClient,
     private userService: UserService,
+    private docService: DocumentsService,
     private notificationService: NotificationService,
     @Inject(MAT_DIALOG_DATA) public data: DialogData) { }
 
@@ -45,54 +49,71 @@ export class PdfManagementDialogComponent implements OnInit {
     this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
     const zip = new JSZip();
     const mergedDocs: { [key: string]: PDFDocument[] } = {};
+    const rows: { [key: string]: string[][] } = {};
 
     for (const exam of this.data.examsList) {
         if (exam["status"] !== 'NOT_READY') {
-            const formdata: FormData = new FormData();
-            this.userService.addTokens(formdata);
-            formdata.append('job_id', this.data.jobId);
-            formdata.append('document_index', exam["document_index"].toString());
-            formdata.append('questions', 'true');
+          let pdfBuffer;
+          if (exam["offline"]) {
+            const pdfFile = this.data.offlineCopies.get(exam["document_index"]).file;
+            if (pdfFile) {
+              pdfBuffer = await PDFSource.readBlobSync(pdfFile, false);
+            } else {
+              const pdfSource = this.docService.getAvailablePdfSource(this.data.jobId, exam["document_index"]);
+              pdfBuffer = await fetch(pdfSource.url).then(r => r.arrayBuffer());
+            }
+          } else {
+            const pdfSource = await this.docService.getPdfSource(this.data.jobId, exam["document_index"], false);
+            pdfBuffer = await fetch(pdfSource.url).then(r => r.arrayBuffer());
+          }
 
-            await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' })
-                .toPromise()
-                .then(async data => {
-                    const arrayBuffer = await data.arrayBuffer();
-                    const pdfDoc = await PDFDocument.load(arrayBuffer);
-                    const fileName = exam["filename"];
-                    const questionIndex = exam["question"];
+          const pdfDoc = await PDFDocument.load(pdfBuffer);
+          const fileName = exam["filename"];
+          const question = exam["question"];
 
-                    if (!mergedDocs[questionIndex]) {
-                        mergedDocs[questionIndex] = [await PDFDocument.create()];
-                    }
+          if (!mergedDocs[question]) {
+              mergedDocs[question] = [await PDFDocument.create()];
+          }
 
-                    let cDoc = mergedDocs[questionIndex][mergedDocs[questionIndex].length - 1];
-                    if (cDoc.getPageCount() >= this.maxCopiesPerPdf * pdfDoc.getPageCount()) {
-                      cDoc = await PDFDocument.create();
-                      mergedDocs[questionIndex].push(cDoc);
-                    }
+          let cDoc = mergedDocs[question].at(-1);
+          if (cDoc.getPageCount() >= this.maxCopiesPerPdf * pdfDoc.getPageCount()) {
+            cDoc = await PDFDocument.create();
+            mergedDocs[question].push(cDoc);
+          }
 
-                    const copiedPages = await cDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
-                    copiedPages.forEach((page) => {
-                        cDoc.addPage(page);
-                    });
-                })
-                .catch((error) => {
-                    console.error(`Error downloading file ${exam["filename"]}:`, error);
-                    this.notificationService.showError(`Erreur lors du téléchargement du fichier ${exam["filename"]}`, 'Erreur de téléchargement');
-                });
+          if (!rows[question]) {
+              rows[question] = [["Fichier", "Note", "Index"]];
+          }
+          let i = mergedDocs[question].length - 1;
+          rows[question].push([`${question}${i > 0 ? `_${i}` : ''}.pdf`,
+            exam["grade"] != undefined ? exam["grade"] : "",
+            exam["document_index"]]);
+
+          const copiedPages = await cDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
+          copiedPages.forEach((page) => {
+              cDoc.addPage(page);
+          });
         }
     }
 
-    for (const questionIndex of Object.keys(mergedDocs)) {
-        for (let i = 0; i < mergedDocs[questionIndex].length; i++) {
-            const doc = mergedDocs[questionIndex][i];
+    for (const question of Object.keys(mergedDocs)) {
+        for (let i = 0; i < mergedDocs[question].length; i++) {
+            const doc = mergedDocs[question][i];
             if (doc.getPageCount() > 0) {
                 const mergedPdfBytes = await doc.save();
                 const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-                zip.file(`${questionIndex}/${questionIndex}${i > 0 ? `_${i}` : ''}.pdf`, blob);
+                zip.file(`${question}/${question}${i > 0 ? `_${i}` : ''}.pdf`, blob);
             }
         }
+    }
+
+    for (const question of Object.keys(rows)) {
+      let csvContent = "";
+      rows[question].forEach(function(rowArray) {
+          let row = rowArray.join(",");
+          csvContent += row + "\r\n";
+      });
+      zip.file(`${question}/notes.csv`, csvContent);
     }
 
     const zipName = this.data.index && this.data.index !== "Tout sélectionner"

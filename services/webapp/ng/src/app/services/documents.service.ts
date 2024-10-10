@@ -51,18 +51,19 @@ export class PDFSource {
       annotations: this.annotations,
       timestamp_min: this.timestamp_min,
       lastVersion: this.lastVersion,
-      base64: await this.readBlobSync(blob),
+      base64: await PDFSource.readBlobSync(blob),
     }
   }
 
-  async readBlobSync(blob: Blob | File): Promise<string | ArrayBuffer> {
+  static async readBlobSync(blob: Blob | File, base64 = true): Promise<string | ArrayBuffer> {
      return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         resolve(reader.result);
       };
       reader.onerror = reject;
-      reader.readAsDataURL(blob);  // base64 string of the pdf
+      base64 ? reader.readAsDataURL(blob) :  // base64 string of the pdf
+        reader.readAsArrayBuffer(blob);
     });
   }
 

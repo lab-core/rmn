@@ -208,7 +208,6 @@ export class TasksHistoryComponent implements OnInit {
         let cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
         task.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
     }
-    let elements = document.getElementsByClassName('dot');
   }
 
   deleteJob(jobId: string): void {

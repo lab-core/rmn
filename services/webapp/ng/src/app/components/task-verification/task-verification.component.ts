@@ -248,7 +248,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       return true;
     } else if (this.offline) {
       const offlineCopy = this.offlineCopies.get(this.currentCopy);
-      return offlineCopy !== undefined && offlineCopy.grade !== undefined;
+      return offlineCopy != undefined && offlineCopy.grade != undefined;
     }
     return false;
   }
@@ -545,7 +545,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       // get the file only if it has been modified
       const filename = currentExam["filename"] + ".pdf";
       const file = await this.pdfViewer.getRenderedPdfFile(filename, !this.currentGradeModified);
-      if (file !== undefined) {
+      if (file != undefined) {
         this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
         if (this.offline) {
           const copy = this.offlineCopies.get(this.currentCopy);
@@ -695,7 +695,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         index: this.index,
         jobName: this.job['job_name'],
         nPagesPerQuestion: this.job["n_pages_per_question"],
-        examsList: this.subExamsList
+        examsList: this.subExamsList,
+        offlineCopies: this.offlineCopies
       }
     });
     dialogRef.afterClosed().pipe(first()).subscribe(async result => {
@@ -736,7 +737,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async uploadOffline() {
     this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
     for (const copy of this.offlineCopies.values()) {
-      if (copy.file !== undefined) {
+      if (copy.file != undefined) {
         let validationResponse = await this.saveCopy(
           copy.pdfSrc,
           copy.file,
@@ -767,7 +768,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async loadOfflineCopies() {
     const allCopies = await db.getAllCopies();
     for (let copy of allCopies) {
-      if (copy.grade) {
+      if (copy.grade != undefined) {
         this.examsList[copy.pdfSrc.index]["grade"] = copy.grade;
       }
       copy.pdfSrc = this.docService.loadPDFSource(copy.pdfSrc);
@@ -784,7 +785,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       data: "Êtes-vous sur de vouloir annuler la correction?"
     })
     dialogRef.afterClosed().pipe(first()).subscribe(async result => {
-      if (result !== undefined && result === true) {
+      if (result != undefined && result === true) {
         this.notificationService.showSuccess('Correction annulée!', 'Success');
         this.cleanOffline();
       }
