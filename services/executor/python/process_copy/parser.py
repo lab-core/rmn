@@ -178,7 +178,8 @@ def run_args(args):
         try:
             process_all(args.path, args.grades, matricule_box[args.find], grade_box[args.find],
                         args.job_id, args.user_id, find_matricules)
-        except KeyError:
+        except KeyError as e:
+            print(e)
             raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
 
     if args.import_files:
@@ -199,7 +200,8 @@ def run_args(args):
             else:
                 process_all(args.path, args.grades, matricule_box[args.grade], grade_box[args.grade],
                             args.job_id, args.user_id, grade_files)
-        except KeyError:
+        except KeyError as e:
+            print(e)
             raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
 
     if args.export:

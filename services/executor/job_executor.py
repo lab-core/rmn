@@ -524,6 +524,7 @@ if __name__ == "__main__":
                     {
                         "$set": {
                             "job_status": Job_Status.ERROR.value,
+                            "job_infos": str(e)
                         }
                     },
                 )
@@ -626,11 +627,14 @@ if __name__ == "__main__":
 
                 # check if should retry
                 retry = job_params.get("retry", 0)
+                db.eval_jobs_collection().update_one(
+                    {"job_id": job_id},
+                    {"$set": {"job_infos": str(e)} })
                 if retry < MAX_RETRY:
                     raise e
 
                 # Error handling
-                update_status(db, sio, user_id, job_id, Job_Status.ERROR)
+                update_status(db, sio, user_id, job_id, Job_Status.ERROR, infos={"job_infos": str(e)})
 
                 # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
                 # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
@@ -689,7 +693,7 @@ if __name__ == "__main__":
             except Exception as e:
                 print(e)
                 # Set Job status to ERROR
-                update_status(db, sio, user_id, job_id, Job_Status.ERROR)
+                update_status(db, sio, user_id, job_id, Job_Status.ERROR, infos={"job_infos": str(e)})
 
         else:
             print("Job status "+job["job_status"]+" not handled.")

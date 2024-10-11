@@ -5,23 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/pdf-viewer/pdf-viewer.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/pdf-management/pdf-management-dialog.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/pdf-management/pdf-management-dialog.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/pdf-management/pdf-management-dialog.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/pdf-management/pdf-management-dialog.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/task-verification.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/tasks-history.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/tasks-history.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/tasks-history.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/tasks-history.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/documents.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/documents.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/interceptor.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/interceptor.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/executor/job_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/job_executor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/executor/python/process_copy/parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/python/process_copy/parser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/matricule-verification/matricule-verification.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/matricule-verification/matricule-verification.component.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -203,6 +189,7 @@
       <workItem from="1723083701015" duration="10724000" />
       <workItem from="1723429240471" duration="822000" />
       <workItem from="1723604887574" duration="1628000" />
+      <workItem from="1728615352149" duration="186000" />
     </task>
     <servers />
   </component>
@@ -240,7 +227,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/server/app.py</url>
-          <line>1227</line>
+          <line>1228</line>
           <option name="timeStamp" value="25" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -255,12 +242,12 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
-          <line>618</line>
+          <line>620</line>
           <option name="timeStamp" value="139" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/executor/python/process_copy/parser.py</url>
-          <line>193</line>
+          <line>194</line>
           <option name="timeStamp" value="150" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -272,6 +259,11 @@
           <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
           <line>88</line>
           <option name="timeStamp" value="196" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/services/executor/python/process_copy/parser.py</url>
+          <line>174</line>
+          <option name="timeStamp" value="197" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

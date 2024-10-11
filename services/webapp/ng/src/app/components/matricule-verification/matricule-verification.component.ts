@@ -84,6 +84,7 @@ export class MatriculeVerificationComponent implements OnInit {
       this.socketService.join(this.job["job_id"]);
       this.socketService.getSocket().on('document_ready', async (params: any) => {
         await this.getDocuments();
+        this.getSubExamsList();
         if (this.disabledValidationcontainer) {
           this.nextCopy();
         }
@@ -477,7 +478,7 @@ export class MatriculeVerificationComponent implements OnInit {
   previousCopyIndex(currentIndex = undefined): number {
     let tempIndex = currentIndex != undefined ? currentIndex : this.currentIndex();
     tempIndex--;
-    while (tempIndex >= 0 && !this.subExamsList.includes(this.examsList[tempIndex])) {
+    while (tempIndex >= 0 && (!this.subExamsList.includes(this.examsList[tempIndex]) || this.examsList[tempIndex].status == "NOT_READY")) {
       tempIndex --;
     }
     return tempIndex;
@@ -493,7 +494,7 @@ export class MatriculeVerificationComponent implements OnInit {
   nextCopyIndex(currentIndex = undefined): number {
     let tempIndex = currentIndex != undefined ? currentIndex : this.currentIndex();
     tempIndex++;
-    while (tempIndex < this.examsList.length && !this.subExamsList.includes(this.examsList[tempIndex])) {
+    while (tempIndex < this.examsList.length && (!this.subExamsList.includes(this.examsList[tempIndex]) || this.examsList[tempIndex].status == "NOT_READY")) {
       tempIndex ++;
     }
     return tempIndex;

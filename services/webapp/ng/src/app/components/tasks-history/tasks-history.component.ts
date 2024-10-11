@@ -91,6 +91,7 @@ export class TasksHistoryComponent implements OnInit {
       const task = this.tasksList.find(task => task.job_id === job_id);
       if (task !== undefined) {
         task.job_status = job_status;
+        if (resp.job_infos) task.job_infos = resp.job_infos;
         this.updateTask(task);
         const message = "Le status de la tâche " + task.job_name + " a changé à: " + task.info + " !";
         this.notificationService.showInfo(message, "Alerte!")
