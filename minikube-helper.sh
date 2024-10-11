@@ -64,7 +64,7 @@ fi
 if [[ ! -z $INSTALL ]]; then
   minikube addons enable ingress
   kubectl apply -f https://github.com/kedacore/keda/releases/download/v2.9.3/keda-2.9.3.yaml
-  echo "Run the following commands:
+  echo "Execute the following commands to complete minikube initialization for running the web application:
         minikube ssh
         sudo mkdir -p /data/nfs /data/mongo && exit
         ./minikube-helper.sh -a"
@@ -84,7 +84,7 @@ if [[ ! -z $ROLLOUT ]]; then
     kubectl rollout restart deployment/webapp
     # kubectl rollout restart ingress-nginx/ingress-nginx-controller
   else
-    kubectl rollout restart deployment/$1
+    kubectl rollout restart deployment/$DEPLOYMENT
   fi
   kubectl get pods
 fi

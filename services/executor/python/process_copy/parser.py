@@ -180,7 +180,7 @@ def run_args(args):
                         args.job_id, args.user_id, find_matricules)
         except KeyError as e:
             print(e)
-            raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
+            raise
 
     if args.import_files:
         print('Import the pdf files from %s to %s' % (args.mpath, args.path))
@@ -202,7 +202,7 @@ def run_args(args):
                             args.job_id, args.user_id, grade_files)
         except KeyError as e:
             print(e)
-            raise KeyError("Grade configuration %s hasn't any configuration defined in config.py" % args.grade)
+            raise
 
     if args.export:
         try:

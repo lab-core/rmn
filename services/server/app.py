@@ -15,6 +15,7 @@ from io import FileIO
 from service.front_page_service import FrontPageHandler
 from threading import Thread
 from zipfile import ZipFile
+import pandas as pd
 
 import uuid
 import os
@@ -346,6 +347,11 @@ def evaluate(user_id):
 def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_name, notes_csv_file_name):
     try:
         file_name = str(TEMP_FOLDER.joinpath(notes_csv_file_name))
+        # Check if separated by ; or , -> and transform to real csv (,) if needed
+        df_comma = pd.read_csv(file_name, nrows=1,sep=",")
+        df_semi = pd.read_csv(file_name, nrows=1, sep=";")
+        if df_semi.shape[1]>df_comma.shape[1]:
+            df_semi.to_csv(file_name)  # save with a ',' separator
         storage.move_to(file_name, notes_file_id)
 
         file_name = str(TEMP_FOLDER.joinpath(zip_file_name))
@@ -1228,9 +1234,9 @@ def version_basename(filename):
 def save_new_version(filename):
     version_base = version_basename(filename)
     all_versions = glob.glob(version_base+"-*.pdf")
+    n_version = len(all_versions)
 
     # create backup of the file
-    n_version = len(all_versions)
     version_filepath = version_base + "-%d.pdf" % n_version
     print(f"Save new version ({n_version}):", version_filepath)
     shutil.copy(filename, version_filepath)

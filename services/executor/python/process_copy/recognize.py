@@ -101,10 +101,10 @@ def find_all_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
 
     # box_list, box_matricule_list = None, None
-    # regular_box_matricule = box_matricule_default  
+    # regular_box_matricule = box_matricule_default
     # front_box_matricule = box_matricule_default
     # box_matricule = box_matricule_default
-    # box = box_default  
+    # box = box_default
 
     # box_list, box_matricule_list, regular_box_matricule_list = db.get_templates_info(front_template_id, regular_template_id)
 
@@ -114,7 +114,7 @@ def find_all_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
     #     front_box_matricule = convert_to_front_box_config(box_matricule_list)
     # if box_list is not None:
     #     box = convert_grade_box_config(box_list)
-   
+
     # box_matricule['front'] = front_box_matricule['front']
     # box_matricule['regular'] = regular_box_matricule['regular']
 
@@ -585,7 +585,7 @@ def grade_files(
             n_questions[doc_index] = numbers[:-1]
 
             exec_time = time.time() - start_time
-            
+
             if not db.update_document(
                 job_id,
                 doc_index,
@@ -800,6 +800,7 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
     # search matricule in forlder name
     # use folder name: "Nom complet_Identifiant_Matricule_assignsubmission_file_"
     if not m:
+        print(file, "separator:", os.sep, file.rsplit(os.sep, 2))
         par_dir = file.rsplit(os.sep, 2)[-2]
         dir_split = par_dir.split("_")
         if len(dir_split) > 3:
