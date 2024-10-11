@@ -288,10 +288,34 @@ export class NewExamCorrectionComponent implements OnInit {
 
     let target = fileInput.target as HTMLInputElement;
     let file: File = (target.files as FileList)[0];
-    this.csvName = file.name;
-    document.getElementById("csv-upload-label").setAttribute("value", this.csvName);
-    document.getElementById("csv-upload-label").innerHTML = this.csvName;
-    this.csv = file;
+
+    // Verify csv file
+    var reader = new FileReader();
+    reader.onload = () => {
+      // Entire file
+      const text = String(reader.result);
+
+      // By lines
+      let validCSV = false;
+      var lines = text.split('\n');
+      if (lines.length > 0) {
+        var line = lines[0];
+        let commas = (line.match(/,/g) || []).length;
+        let semicolumn = (line.match(/;/g) || []).length;
+        validCSV = commas >= 3 || semicolumn >= 3;
+      }
+
+      if (validCSV) {
+        this.csvName = file.name;
+        document.getElementById("csv-upload-label").setAttribute("value", this.csvName);
+        document.getElementById("csv-upload-label").innerHTML = this.csvName;
+        this.csv = file;
+      } else {
+        this.csvName = "";
+        this.notifyService.showError("Veuillez fournir un csv valide", "ERREUR");
+      }
+    };
+    reader.readAsText(file);
   }
 
   checkDisabled(): boolean {
