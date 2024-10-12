@@ -1171,8 +1171,8 @@ def get_documents(validity):
 
 @app.route("/documents/replace", methods=["POST"])
 @cross_origin()
-@verify_share_token(matricule=False)
-def replace_document():
+@verify_share_token(matricule=False, return_validity=True)
+def replace_document(validity):
     request_form = request.form
     request_files = request.files
 
@@ -1191,6 +1191,38 @@ def replace_document():
     job_id = str(request_form["job_id"])
 
     db = mongo["RMN"]
+
+    if "grades" in request_form:
+        grades = json.loads(request_form["grades"])
+        for doc_index, grade in grades.items():
+            doc_index = int(doc_index)
+            q_doc = db["job_questions"].find_one_and_update(
+                {"job_id": job_id, "document_index": doc_index},
+                {"$set": {
+                    "status": Document_Status.VALIDATED.value,
+                    "grade": grade
+                }}
+            )
+            if q_doc is None:
+                print('Invalid document_index:', job_id, doc)
+                continue
+
+            # validity = None => logged user
+            if validity is not None and validity != "all" and int(validity) != q_doc["question_index"]:
+                print("You don't have access to question", q_doc["question_index"])
+                return Response(response=json.dumps({"Error": "You don't have access to question "+q_doc["question_index"]}), status=401)
+
+            q_index = int(q_doc["question_index"]) - 1
+            r = db["job_documents"].update_one(
+                {"job_id": job_id, "filename": q_doc["basename"]},
+                {"$set": {
+                    f"grades.{q_index}": grade
+                }}
+            )
+            if not r:
+                print('Invalid filename:', job_id, q_doc["basename"])
+
+
     file = request_files["file"]
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
         temp_file.write(file.read())
@@ -1205,6 +1237,11 @@ def replace_document():
                     question_number = re.search(r'Q\d+(?=\.pdf$)', file_info.filename)
                     if question_number:
                         question_folder = question_number.group(0)
+                        # validity = None => logged user
+                        if validity is not None and validity != "all" and int(validity) != int(question_folder[1:]):
+                            print("You don't have access to question", question_folder)
+                            return Response(response=json.dumps({"Error": "You don't have access to question "+question_folder}), status=401)
+
                         storage_path = os.path.join('documents', job_id, question_folder, os.path.basename(file_info.filename))
                         final_destination = storage.abs_path(storage_path)
 

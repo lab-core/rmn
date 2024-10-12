@@ -148,21 +148,60 @@ export class PdfManagementDialogComponent implements OnInit {
     event.preventDefault();
   }
 
-  async readFileSync(file: File) {
+  async readFileSync(file: File | Blob, text = false): Promise<string | ArrayBuffer> {
      return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         resolve(reader.result);
       };
       reader.onerror = reject;
-      reader.readAsArrayBuffer(file);
+      text ? reader.readAsText(file) : reader.readAsArrayBuffer(file);
     });
+  }
+
+  async parseCSVGrades(file: File | Blob, grades: any) {
+    // Entire file
+    const text: string = String(await this.readFileSync(file, true));
+    var lines = text.split('\n');
+
+   // Check separator
+   var line = lines[0].trim();
+   let commas = (line.match(/,/g) || []).length;
+   let semicolumn = (line.match(/;/g) || []).length;
+   const sep = commas >= semicolumn ? ',' : ';';
+
+   // Find index grade
+   let values = line.split(sep);
+   const gradeIndex = values.findIndex((v) => { return v == 'Note'; })
+   const docIndex = values.findIndex((v) => { return v == 'Index'; })
+   if (gradeIndex == -1 || docIndex == -1) {
+     this.notificationService.showError(`Csv file (${file}) does not have either Note or/and Index columns.`, 'Erreur!')
+     return -1;
+   }
+
+   // find grades for indices
+   let n = 0;
+   for (let i=1; i < lines.length; i++) {
+     values = lines[i].trim().split(sep);
+     const grade = parseFloat(values[gradeIndex]);
+     if (!isNaN(grade)) {
+       try {
+         const index = parseInt(values[docIndex]);
+         grades[index] = grade;
+         ++n;
+       } catch {
+         this.notificationService.showError(`Csv file (${file}) has an invalid Index for row ${lines[i]}.`, 'Erreur!')
+       }
+     }
+   }
+   return n;
   }
 
   async uploadZipFile(file: File) {
     const nPagesPerQuestionArray = this.data.nPagesPerQuestion;
     const nPagesPerQuestion = new Map<string, number>(nPagesPerQuestionArray);
     const zip = new JSZip();
+    const grades = {};
 
     try {
         let mergedFiles = new Map<string,ArrayBuffer>();
@@ -172,8 +211,16 @@ export class PdfManagementDialogComponent implements OnInit {
           const zipContent = await JSZip.loadAsync(file);
           const zipMergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
           for (const f of zipMergedFiles) {
+            if (f.startsWith('__MACOSX')) continue;
             const pdfDoc = await zipContent.file(f).async('arraybuffer');
             mergedFiles[f] = pdfDoc;
+          }
+
+          const zipMergedCSV = Object.keys(zipContent.files).filter(filename => filename.endsWith('.csv'));
+          for (const f of zipMergedCSV) {
+            if (f.startsWith('__MACOSX')) continue;
+            const csvDoc = await zipContent.file(f).async('blob');
+            await this.parseCSVGrades(csvDoc, grades);
           }
         }
 
@@ -241,10 +288,19 @@ export class PdfManagementDialogComponent implements OnInit {
         const finalZipBlob = await zip.generateAsync({ type: 'blob' });
         const finalZipFile = new File([finalZipBlob], 'split_documents.zip', { type: 'application/zip' });
 
+        // update exam grades
+        for (const docIndex of Object.keys(grades)) {
+          const doc_idx = parseInt(docIndex);
+          const exam = this.data.examsList.find((e) => { return e['document_index'] == doc_idx; });
+          exam['grade'] = grades[docIndex];
+          exam['status'] = "VALIDATED";
+        }
+
         const uploadFormData = new FormData();
         this.userService.addTokens(uploadFormData);
         uploadFormData.append('job_id', this.data.jobId);
         uploadFormData.append('file', finalZipFile);
+        uploadFormData.append('grades', JSON.stringify(grades));
         uploadFormData.append('questions', 'true');
 
         await this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData).toPromise()

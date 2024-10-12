@@ -710,6 +710,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           this.hasUploadedZip = true;
           this.docService.clearPdfSources();
           this.loadCopy();
+          this.loadScore();
         }
       }
     }, (error) => {
