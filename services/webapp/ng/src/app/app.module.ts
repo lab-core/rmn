@@ -66,6 +66,7 @@ import { ErrorInterceptor, CacheInterceptor } from './services/interceptor.servi
         CreateUserDialogComponent,
         PDFViewerComponent,
         TaskVerificationComponent,
+        PdfManagementDialogComponent,
         TemplatesPageComponent,
         NewTemplateDialogComponent,
         TemplateEditorComponent,

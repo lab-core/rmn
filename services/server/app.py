@@ -1189,77 +1189,84 @@ def replace_document(validity):
         )
 
     job_id = str(request_form["job_id"])
-
-    db = mongo["RMN"]
-
-    if "grades" in request_form:
-        grades = json.loads(request_form["grades"])
-        for doc_index, grade in grades.items():
-            doc_index = int(doc_index)
-            q_doc = db["job_questions"].find_one_and_update(
-                {"job_id": job_id, "document_index": doc_index},
-                {"$set": {
-                    "status": Document_Status.VALIDATED.value,
-                    "grade": grade
-                }}
-            )
-            if q_doc is None:
-                print('Invalid document_index:', job_id, doc)
-                continue
-
-            # validity = None => logged user
-            if validity is not None and validity != "all" and int(validity) != q_doc["question_index"]:
-                print("You don't have access to question", q_doc["question_index"])
-                return Response(response=json.dumps({"Error": "You don't have access to question "+q_doc["question_index"]}), status=401)
-
-            q_index = int(q_doc["question_index"]) - 1
-            r = db["job_documents"].update_one(
-                {"job_id": job_id, "filename": q_doc["basename"]},
-                {"$set": {
-                    f"grades.{q_index}": grade
-                }}
-            )
-            if not r:
-                print('Invalid filename:', job_id, q_doc["basename"])
-
+    grades = json.loads(request_form["grades"]) if "grades" in request_form else []
 
     file = request_files["file"]
-    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-        temp_file.write(file.read())
-        temp_file.flush()
+    temp_file = tempfile.NamedTemporaryFile(delete_on_close=False)
+    temp_file.write(file.read())
+    temp_file.flush()
 
-        with ZipFile(temp_file.name, 'r') as zip_file:
-            for file_info in zip_file.infolist():
-                if file_info.filename.endswith(".pdf"):
-                    extracted_path = zip_file.extract(file_info, path=TEMP_FOLDER)
+    thread = Thread(target=replace_thread,
+                    args=[validity, job_id, grades, temp_file])
+    thread.start()
 
-                    # extracting question number from the filename
-                    question_number = re.search(r'Q\d+(?=\.pdf$)', file_info.filename)
-                    if question_number:
-                        question_folder = question_number.group(0)
-                        # validity = None => logged user
-                        if validity is not None and validity != "all" and int(validity) != int(question_folder[1:]):
-                            print("You don't have access to question", question_folder)
-                            return Response(response=json.dumps({"Error": "You don't have access to question "+question_folder}), status=401)
-
-                        storage_path = os.path.join('documents', job_id, question_folder, os.path.basename(file_info.filename))
-                        final_destination = storage.abs_path(storage_path)
-
-                        if not os.path.exists(os.path.dirname(final_destination)):
-                            os.makedirs(os.path.dirname(final_destination), exist_ok=True)
-
-                        # moving the extracted file to the final destination
-                        shutil.move(extracted_path, final_destination)
-                        print("Moved to:", final_destination)
-                        # save new version
-                        version_filepath = save_new_version(final_destination)
-                        last_version = get_last_version(job_id, storage_path)
-                        db["versions"].insert_one(
-                            {"job_id": job_id, "rel_filepath": storage_path, "version": last_version + 1,
-                             "version_filepath": version_filepath, "annotations": []}
-                        )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+def replace_thread(validity, job_id, grades, temp_file):
+    db = mongo["RMN"]
+
+    for doc_index, grade in grades.items():
+        doc_index = int(doc_index)
+        q_doc = db["job_questions"].find_one_and_update(
+            {"job_id": job_id, "document_index": doc_index},
+            {"$set": {
+                "status": Document_Status.VALIDATED.value,
+                "grade": grade
+            }}
+        )
+        if q_doc is None:
+            print('Invalid document_index:', job_id, doc)
+            continue
+
+        # validity = None => logged user
+        if validity is not None and validity != "all" and int(validity) != q_doc["question_index"]:
+            print("You don't have access to question", q_doc["question_index"])
+            continue
+
+        q_index = int(q_doc["question_index"]) - 1
+        r = db["job_documents"].update_one(
+            {"job_id": job_id, "filename": q_doc["basename"]},
+            {"$set": {
+                f"grades.{q_index}": grade
+            }}
+        )
+        if not r:
+            print('Invalid filename:', job_id, q_doc["basename"])
+
+
+    with ZipFile(temp_file.name, 'r') as zip_file:
+        for file_info in zip_file.infolist():
+            if not file_info.filename.endswith(".pdf"):
+                continue
+
+            extracted_path = zip_file.extract(file_info, path=TEMP_FOLDER)
+            # extracting question number from the filename
+            question_number = re.search(r'Q\d+(?=\.pdf$)', file_info.filename)
+            if question_number:
+                question_folder = question_number.group(0)
+                # validity = None => logged user
+                if validity is not None and validity != "all" and int(validity) != int(question_folder[1:]):
+                    print("You don't have access to question", question_folder)
+                    continue
+
+                storage_path = os.path.join('documents', job_id, question_folder, os.path.basename(file_info.filename))
+                final_destination = storage.abs_path(storage_path)
+
+                if not os.path.exists(os.path.dirname(final_destination)):
+                    os.makedirs(os.path.dirname(final_destination), exist_ok=True)
+
+                # moving the extracted file to the final destination
+                shutil.move(extracted_path, final_destination)
+                # save new version
+                version_filepath = save_new_version(final_destination)
+                last_version = get_last_version(job_id, storage_path)
+                db["versions"].insert_one(
+                    {"job_id": job_id, "rel_filepath": storage_path, "version": last_version + 1,
+                     "version_filepath": version_filepath, "annotations": []}
+                )
+    temp_file.close()
 
 
 def version_basename(filename):

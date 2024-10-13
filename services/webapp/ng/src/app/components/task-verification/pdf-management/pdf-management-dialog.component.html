@@ -17,3 +17,8 @@
     </div>
   </div>
 </div>
+<div id="overlay" *ngIf="processing"></div>
+<mat-spinner *ngIf="processing" color="accent" [diameter]="150" mode="determinate"
+    [value]="percentageDone"></mat-spinner>
+<div id="overlay" *ngIf="processing"></div>
+<div class="files-uploading-steps" *ngIf="processing">{{ info }}</div>
