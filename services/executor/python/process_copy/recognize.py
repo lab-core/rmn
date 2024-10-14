@@ -762,6 +762,7 @@ def find_matricules(
             )
 
             doc_index += 1
+            print(f"[{datetime.now()}]", 'Processed file:', file, f"({job_id}, {doc_index})")
 
             # Getting usage of virtual_memory in GB ( 4th field)
             RAM_used = psutil.virtual_memory()[3] / 1000000000
@@ -965,7 +966,7 @@ def compare_all(paths, grades_csv, box, dpi=300, shape=(8.5, 11)):
 
 
 def find_matricule(
-    grays, front_box, regular_box, classifier, grades_dfs=[], separate_box=True
+    grays, front_box, regular_box, classifier, grades_dfs=[], separate_box=True, min_confidence=0.85, min_img=5
 ):
     possible_digits = [{} for i in range(len_mat)]
     id_box = None
@@ -1028,6 +1029,19 @@ def find_matricule(
                     distri[d] = p
         return True
 
+    def stop_processing():
+        # check if enough images processed
+        n_img = sum(possible_digits[0].values())
+        if n_img < min_img - 0.1:
+            return False
+
+        # check if all digits are enough accurate
+        min_threshold = n_img * min_confidence
+        for distri in possible_digits:
+            if len([p for p in distri.values() if p >= min_threshold]) == 0:
+                return False
+        return True
+
     # find the id box
     biggest_c, ret = find_matricule_box_contours(grays[0], front_box, find_digits, True)
 
@@ -1036,6 +1050,8 @@ def find_matricule(
         print("Trying to find matricule on the next page...")
         for gray in grays[1:]:
             find_matricule_box_contours(gray, regular_box, find_digits)
+            if stop_processing():
+                break
 
     # build matricules and sort them by probabilities
     matricules = [(0, "")]
