@@ -1,5 +1,5 @@
 import { Component, OnInit, Inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
@@ -27,6 +27,10 @@ export interface DialogData {
 })
 export class PdfManagementDialogComponent implements OnInit {
 
+  processing: boolean = false;
+  percentageDone: number = 0;
+  info: string = "";
+
   // default max copies per pdf value
   maxCopiesPerPdf: number = 40;
   setmaxCopies(event: any) {
@@ -51,6 +55,10 @@ export class PdfManagementDialogComponent implements OnInit {
     const mergedDocs: { [key: string]: PDFDocument[] } = {};
     const rows: { [key: string]: string[][] } = {};
 
+    this.percentageDone = 0;
+    this.processing = true;
+    this.info = "Downloading and Merging";
+    let i = 0;
     for (const exam of this.data.examsList) {
         if (exam["status"] !== 'NOT_READY') {
           let pdfBuffer;
@@ -94,6 +102,8 @@ export class PdfManagementDialogComponent implements OnInit {
               cDoc.addPage(page);
           });
         }
+        i++;
+        this.percentageDone = Math.round(100 * i / this.data.examsList.length);
     }
 
     for (const question of Object.keys(mergedDocs)) {
@@ -125,6 +135,7 @@ export class PdfManagementDialogComponent implements OnInit {
             saveAs(content, zipName);
         });
 
+    this.processing = false;
     this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
     this.dialogRef.close({hasDownloadedZip: true});
   }
@@ -148,22 +159,69 @@ export class PdfManagementDialogComponent implements OnInit {
     event.preventDefault();
   }
 
-  async readFileSync(file: File) {
+  async readFileSync(file: File | Blob, text = false): Promise<string | ArrayBuffer> {
      return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         resolve(reader.result);
       };
       reader.onerror = reject;
-      reader.readAsArrayBuffer(file);
+      text ? reader.readAsText(file) : reader.readAsArrayBuffer(file);
     });
+  }
+
+  async parseCSVGrades(file: File | Blob, grades: any) {
+    // Entire file
+    const text: string = String(await this.readFileSync(file, true));
+    var lines = text.split('\n');
+
+   // Check separator
+   var line = lines[0].trim();
+   let commas = (line.match(/,/g) || []).length;
+   let semicolumn = (line.match(/;/g) || []).length;
+   const sep = commas >= semicolumn ? ',' : ';';
+
+   // Find index grade
+   let values = line.split(sep);
+   const gradeIndex = values.findIndex((v) => { return v == 'Note'; })
+   const docIndex = values.findIndex((v) => { return v == 'Index'; })
+   if (gradeIndex == -1 || docIndex == -1) {
+     this.notificationService.showError(`Csv file (${file}) does not have either Note or/and Index columns.`, 'Erreur!')
+     return -1;
+   }
+
+   // find grades for indices
+   let n = 0;
+   for (let i=1; i < lines.length; i++) {
+     values = lines[i].trim().split(sep);
+     const grade = parseFloat(values[gradeIndex]);
+     if (!isNaN(grade)) {
+       try {
+         const index = parseInt(values[docIndex]);
+         grades[index] = grade;
+         ++n;
+       } catch {
+         this.notificationService.showError(`Csv file (${file}) has an invalid Index for row ${lines[i]}.`, 'Erreur!')
+       }
+     }
+   }
+   return n;
+  }
+
+  async timeout(ms = 0) {
+      return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   async uploadZipFile(file: File) {
     const nPagesPerQuestionArray = this.data.nPagesPerQuestion;
     const nPagesPerQuestion = new Map<string, number>(nPagesPerQuestionArray);
     const zip = new JSZip();
+    const grades = {};
 
+    this.percentageDone = 0;
+    this.processing = true;
+    this.info = "Loading (1/3)";
+    let i = 0;
     try {
         let mergedFiles = new Map<string,ArrayBuffer>();
         if (file.name.endsWith('.pdf')) {
@@ -171,9 +229,23 @@ export class PdfManagementDialogComponent implements OnInit {
         } else {
           const zipContent = await JSZip.loadAsync(file);
           const zipMergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
+          const zipMergedCSV = Object.keys(zipContent.files).filter(filename => filename.endsWith('.csv'));
+          const nLength = zipMergedFiles.length + zipMergedCSV.length
+
           for (const f of zipMergedFiles) {
+            if (f.startsWith('__MACOSX')) continue;
             const pdfDoc = await zipContent.file(f).async('arraybuffer');
             mergedFiles[f] = pdfDoc;
+            i++;
+            this.percentageDone = Math.round(50 * i / nLength);
+          }
+
+          for (const f of zipMergedCSV) {
+            if (f.startsWith('__MACOSX')) continue;
+            const csvDoc = await zipContent.file(f).async('blob');
+            await this.parseCSVGrades(csvDoc, grades);
+            i++;
+            this.percentageDone = Math.round(50 * i / nLength);
           }
         }
 
@@ -182,6 +254,7 @@ export class PdfManagementDialogComponent implements OnInit {
         let keys = Object.keys(mergedFiles);
         keys.sort();
         const mergedPDFDocs = {};
+        i = 0;
         for (const name of keys) {
             try {
                 const pdfDoc = await PDFDocument.load(mergedFiles[name]);
@@ -201,10 +274,23 @@ export class PdfManagementDialogComponent implements OnInit {
             } catch (pdfError) {
                 console.error(`Error processing merged file: ${name}`, pdfError);
             }
+            i++;
+            this.percentageDone = 50 + Math.round(50 * i / keys.length);
         }
 
         // processing each question index and replace the original documents
+        let nQuestionExams = 0;
         for (const questionIndex of Object.keys(mergedPDFDocs)) {
+            const totalPageCount = mergedPDFDocs[questionIndex].getPageCount();
+            const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
+            nQuestionExams += totalPageCount / pagesPerQuestion;
+        }
+
+        this.info = "Splitting (2/3)";
+        this.percentageDone = 0;
+        i = 0;
+        for (const questionIndex of Object.keys(mergedPDFDocs)) {
+            await this.timeout();
             const mergedDoc = mergedPDFDocs[questionIndex];
             const totalPageCount = mergedDoc.getPageCount();
             const originalDocs = this.data.examsList.filter(exam => exam.question === questionIndex);
@@ -235,32 +321,55 @@ export class PdfManagementDialogComponent implements OnInit {
                 } catch (innerError) {
                     console.error(`Error processing original document: ${originalDoc["filename"]}.pdf`, innerError);
                 }
+                i++;
+                this.percentageDone = Math.round(100 * i / nQuestionExams);
             }
         }
 
         const finalZipBlob = await zip.generateAsync({ type: 'blob' });
         const finalZipFile = new File([finalZipBlob], 'split_documents.zip', { type: 'application/zip' });
 
+        // update exam grades
+        for (const docIndex of Object.keys(grades)) {
+          const doc_idx = parseInt(docIndex);
+          const exam = this.data.examsList.find((e) => { return e['document_index'] == doc_idx; });
+          exam['grade'] = grades[docIndex];
+          exam['status'] = "VALIDATED";
+        }
+
         const uploadFormData = new FormData();
         this.userService.addTokens(uploadFormData);
         uploadFormData.append('job_id', this.data.jobId);
         uploadFormData.append('file', finalZipFile);
+        uploadFormData.append('grades', JSON.stringify(grades));
         uploadFormData.append('questions', 'true');
 
-        await this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData).toPromise()
-            .then((response) => {
-              if(response) {
-                console.log('Files replaced successfully', response);
+        this.percentageDone = 0;
+        this.info = "Uploading (3/3)";
+        const sub = this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData,
+                              {reportProgress: true, observe: "events"})
+        .subscribe(
+          (data) => {
+            if (data.type == HttpEventType.UploadProgress) {
+              this.percentageDone = data.total ? Math.round(100 * data.loaded / data.total) : 0
+            }
+            else if (data.type == HttpEventType.Response) {
+              if(data.ok) {
+                console.log('Files replaced successfully', data);
                 this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succès');
                 this.dialogRef.close({hasUploadedZip: true});
               } else {
                 this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
               }
-            })
-            .catch((uploadError) => {
-                console.error('Error replacing files:', uploadError);
-                this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
-            });
+              sub.unsubscribe();
+              this.processing = false;
+            }
+          }, (uploadError) => {
+              console.error('Error replacing files:', uploadError);
+              this.notificationService.showError('Erreur lors du remplacement des fichiers', 'Erreur');
+              sub.unsubscribe();
+              this.processing = false;
+          });
     } catch (zipError) {
         console.error('Error processing zip file:', zipError);
         this.notificationService.showError('Erreur lors du traitement du fichier zip', 'Erreur');

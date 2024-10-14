@@ -247,7 +247,8 @@ def process_all(
     user_id,
     process_func,
     dpi=300,
-    shape=(8.5, 11)):
+    shape=(8.5, 11),
+    detach=True):
     db = Database()
     sio = socketio_client()
 
@@ -288,7 +289,7 @@ def process_all(
     job = db.update_job_status_to_run(job_id, names_mat_json, groups)
     new_job = (job["retry"] == 0)
     if new_job:
-        print("Grade new job:", job_id)
+        print(f"[{datetime.now()}]", "Grade new job:", job_id)
         sio.emit(
             "job_status",
             json.dumps(
@@ -296,10 +297,10 @@ def process_all(
             ),
         )
     else:
-        print("Retry grading old job:", job_id)
+        print(f"[{datetime.now()}]", "Retry grading old job:", job_id)
 
     # Create DB entry for each pdf file
-    print("Retrieving files to grade and initializing entry in Mongo")
+    print(f"[{datetime.now()}]", "Retrieving files to grade and initializing entry in Mongo")
     docs = {doc["filename"]: doc for doc in db.documents_collection().find({"job_id": job_id})}
     if len(docs.keys()) > 0:
         g_files = [""] * len(docs.keys())
@@ -346,24 +347,24 @@ def process_all(
                   job_id, user_id,
                   box_matricule, box, matricules_data,
                   dpi, shape, max_RAM_GB, q_results)
-        print("Run batch", batch)
+        print(f"[{datetime.now()}]", "Run batch", batch)
 
-        # process_func(*g_args)
-        p = Process(target=process_func, args=g_args)
-        p.start()
-        p.join()
-
-        # doc_index = grade_files(*g_args)
+        if detach:
+            p = Process(target=process_func, args=g_args)
+            p.start()
+            p.join()
+        else:
+            process_func(*g_args)
 
         # Getting usage of virtual_memory in GB ( 4th field)
         doc_index, matricules_data = q_results.get()
-        print(doc_index, "files have been processed.")
-        print('RAM Used - end batch', batch, '(GB):', psutil.virtual_memory()[3] / 1000000000)
+        print(f"[{datetime.now()}]", doc_index, "files have been processed.")
+        print(f"[{datetime.now()}]", 'RAM Used - end batch', batch, '(GB):', psutil.virtual_memory()[3] / 1000000000)
         batch += 1
     q_results.close()
 
     # check the number of files that have been dropped on moodle if any
-    print("Store grades in csv")
+    print(f"[{datetime.now()}]", "Store grades in csv")
     n = 0
     for df in grades_dfs:
         for idx, row in df.iterrows():
@@ -762,13 +763,14 @@ def find_matricules(
             )
 
             doc_index += 1
+            print(f"[{datetime.now()}]", 'Processed file:', file, f"({job_id}, {doc_index})")
 
             # Getting usage of virtual_memory in GB ( 4th field)
             RAM_used = psutil.virtual_memory()[3] / 1000000000
-            print('RAM Used once grade found (GB):', RAM_used)
+            print(f"[{datetime.now()}]", 'RAM Used once grade found (GB):', RAM_used)
 
             if RAM_used >= max_RAM_GB:
-                print('RAM limit exceeded')
+                print(f"[{datetime.now()}]", 'RAM limit exceeded')
                 break
     finally:
         sio.disconnect()
@@ -800,7 +802,6 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
     # search matricule in forlder name
     # use folder name: "Nom complet_Identifiant_Matricule_assignsubmission_file_"
     if not m:
-        print(file, "separator:", os.sep, file.rsplit(os.sep, 2))
         par_dir = file.rsplit(os.sep, 2)[-2]
         dir_split = par_dir.split("_")
         if len(dir_split) > 3:
@@ -966,7 +967,7 @@ def compare_all(paths, grades_csv, box, dpi=300, shape=(8.5, 11)):
 
 
 def find_matricule(
-    grays, front_box, regular_box, classifier, grades_dfs=[], separate_box=True
+    grays, front_box, regular_box, classifier, grades_dfs=[], separate_box=True, min_confidence=0.85, min_img=5
 ):
     possible_digits = [{} for i in range(len_mat)]
     id_box = None
@@ -1029,6 +1030,19 @@ def find_matricule(
                     distri[d] = p
         return True
 
+    def stop_processing():
+        # check if enough images processed
+        n_img = sum(possible_digits[0].values())
+        if n_img < min_img - 0.1:
+            return False
+
+        # check if all digits are enough accurate
+        min_threshold = n_img * min_confidence
+        for distri in possible_digits:
+            if len([p for p in distri.values() if p >= min_threshold]) == 0:
+                return False
+        return True
+
     # find the id box
     biggest_c, ret = find_matricule_box_contours(grays[0], front_box, find_digits, True)
 
@@ -1037,6 +1051,8 @@ def find_matricule(
         print("Trying to find matricule on the next page...")
         for gray in grays[1:]:
             find_matricule_box_contours(gray, regular_box, find_digits)
+            if stop_processing():
+                break
 
     # build matricules and sort them by probabilities
     matricules = [(0, "")]
@@ -1474,7 +1490,7 @@ def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7):
     # predicting
     roi = roi / 255  # normalize
     roi = roi.reshape(1, 28, 28, 1).astype("float32")
-    pproba = classifier.predict(roi)
+    pproba = classifier.predict(roi, verbose=0)
     predict = [(p, i) for i, p in enumerate(pproba[0])]
     predict = sorted(predict, reverse=True)
     cumul = 0
