@@ -247,7 +247,8 @@ def process_all(
     user_id,
     process_func,
     dpi=300,
-    shape=(8.5, 11)):
+    shape=(8.5, 11),
+    detach=True):
     db = Database()
     sio = socketio_client()
 
@@ -348,12 +349,12 @@ def process_all(
                   dpi, shape, max_RAM_GB, q_results)
         print(f"[{datetime.now()}]", "Run batch", batch)
 
-        # process_func(*g_args)
-        p = Process(target=process_func, args=g_args)
-        p.start()
-        p.join()
-
-        # doc_index = grade_files(*g_args)
+        if detach:
+            p = Process(target=process_func, args=g_args)
+            p.start()
+            p.join()
+        else:
+            process_func(*g_args)
 
         # Getting usage of virtual_memory in GB ( 4th field)
         doc_index, matricules_data = q_results.get()
