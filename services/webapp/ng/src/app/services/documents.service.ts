@@ -69,7 +69,7 @@ export class PDFSource {
 
   async loadDict(dict) {
     this.index = dict['index'];
-    this.blob = dict['blob'];
+    this.blob = dict['blob'] || await fetch(dict['base64']).then(async (r) => r.blob());
     this.version = dict['version'];
     this.annotations = dict['annotations'];
     this.timestamp_min = dict['timestamp_min'];
@@ -195,9 +195,9 @@ export class DocumentsService {
     return undefined;
   }
 
-  loadPDFSource(dict): PDFSource {
+  async loadPDFSource(dict): Promise<PDFSource> {
     const pdfSrc = new PDFSource();
-    pdfSrc.loadDict(dict);
+    await pdfSrc.loadDict(dict);
     this.pdfSources[pdfSrc.index] = pdfSrc;
     return pdfSrc;
   }

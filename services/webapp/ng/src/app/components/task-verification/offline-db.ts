@@ -11,13 +11,13 @@ interface StatusItem {
 export interface OfflineCopy {
   id?: number;
   pdfSrc: PDFSource;
+  pdfSrcJSON?: any;
   grade?: number;
   status: string;
   file?: File;
   questionIndex: string;
   jobId?: string;
 }
-
 
 class OfflineDB extends Dexie {
   statusItems: Table<StatusItem, number>;
@@ -60,17 +60,19 @@ class OfflineDB extends Dexie {
     await db.statusItems.delete(this.statusId);
   }
 
-  async getAllCopies() {
-    const allCopies = await db.copyItems.where({'jobId': this.jobId}).toArray();
+  async getAllCopies(): Promise<OfflineCopy[]> {
+    const allCopies: OfflineCopy[] = await db.copyItems.where({'jobId': this.jobId}).toArray();
+    for (let copy of allCopies) {
+      copy.pdfSrc = new PDFSource();
+      await copy.pdfSrc.loadDict(copy.pdfSrcJSON);
+    }
     return allCopies;
   }
 
   async saveAllCopies(copies: Map<number, OfflineCopy>) {
     const allCopies: OfflineCopy[] = [];
     for (let copy of copies.values()) {
-      if (!copy.pdfSrc.blob) {
-        copy.pdfSrc.blob = await fetch(copy.pdfSrc.url).then(r => r.blob());
-      }
+      copy.pdfSrcJSON = await copy.pdfSrc.toJSONDict();
       copy.jobId = this.jobId;
       allCopies.push(copy);
     }
@@ -82,6 +84,7 @@ class OfflineDB extends Dexie {
   }
 
   async updateCopy(copy: OfflineCopy) {
+    copy.pdfSrcJSON = await copy.pdfSrc.toJSONDict();
     await db.copyItems.put(copy);
   }
 
