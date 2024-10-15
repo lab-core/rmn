@@ -252,6 +252,11 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     return this.ngxService?.getSerializedAnnotations();
   }
 
+  addAnnotation(annotation: EditorAnnotation) {
+    const aDeepClone: EditorAnnotation = JSON.parse(JSON.stringify(annotation));
+    this.ngxService?.addEditorAnnotation(aDeepClone);
+  }
+
   async waitRender() {
     let first = true;
     while (first || !this.ngxService?.isRenderQueueEmpty()) {
@@ -301,7 +306,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   loadAnnotations() {
     setTimeout(async () => {
       await this.waitRender();
-      this.pdfAnnotations.forEach(a => this.ngxService?.addEditorAnnotation(a));
+      this.pdfAnnotations.forEach(a => this.addAnnotation(a));
       this.pdfAnnotations = [];
       this.onAnnotationsLoaded.emit(true);
       this.cleanInkEditors();
@@ -359,7 +364,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
         lastInkAnnotation.rect = change.rect;
         this.replaceAllInkAnnotations(inkAnnotations);
       } else if (change.annotation) {
-        this.ngxService?.addEditorAnnotation(change.annotation);
+        this.addAnnotation(change.annotation);
         this.nInkAnnotations += 1;
       } else {
         let eraserChange: EraserChange = change.eraser;
@@ -388,7 +393,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.removeAllInkAnnotations();
     // re add all of them minus the last element
     this.flushHistoryActivated = true;
-    inkAnnotations.forEach(a => this.ngxService?.addEditorAnnotation(a));
+    inkAnnotations.forEach(a => this.addAnnotation(a));
   }
 
   removeAllInkAnnotations() {
