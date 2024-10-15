@@ -39,7 +39,7 @@ import shutil
 import json
 import time
 import psutil
-from multiprocessing import Process, Queue
+from multiprocessing import Process, SimpleQueue
 from statistics import median
 from copy import copy
 
@@ -339,29 +339,29 @@ def process_all(
     doc_index = 0
     batch = 1
     matricules_data = {}
-    q_results = Queue()
+    last_index = len(g_files) - 1
     while doc_index < len(g_files):
         # grade file in a different process
         g_args = (g_files[doc_index:], doc_index, grades_csv, max_grade,
                   min_documents_for_max_questions,
                   job_id, user_id,
                   box_matricule, box, matricules_data,
-                  dpi, shape, max_RAM_GB, q_results)
-        print(f"[{datetime.now()}]", "Run batch", batch)
+                  dpi, shape, max_RAM_GB)
+        print(f"[{datetime.now()}]", "Run batch", batch, f"from {doc_index} (/{last_index})")
 
         if detach:
+            q_results = SimpleQueue()
+            g_args = (*g_args, q_results)
             p = Process(target=process_func, args=g_args)
             p.start()
-            p.join()
+            doc_index, matricules_data = q_results.get()
         else:
-            process_func(*g_args)
+            doc_index = process_func(*g_args)
 
         # Getting usage of virtual_memory in GB ( 4th field)
-        doc_index, matricules_data = q_results.get()
         print(f"[{datetime.now()}]", doc_index, "files have been processed.")
         print(f"[{datetime.now()}]", 'RAM Used - end batch', batch, '(GB):', psutil.virtual_memory()[3] / 1000000000)
         batch += 1
-    q_results.close()
 
     # check the number of files that have been dropped on moodle if any
     print(f"[{datetime.now()}]", "Store grades in csv")
@@ -704,6 +704,8 @@ def find_matricules(
         for file in files:
             # Start timer
             start_time = time.time()
+            filename = os.path.basename(file)
+            print(f"[{datetime.now()}] Processing file:", filename, f"({job_id}, {doc_index})")
 
             is_matricule_valid, m = find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_dfs,
                                                         box_matricule, matricules_data, n_questions)
@@ -720,8 +722,7 @@ def find_matricules(
                 else Document_Status.TO_VALIDATE
             )
 
-            # getting filename and group
-            filename = os.path.basename(file)
+            # getting group
             i, name = get_name(m, grades_dfs)
             group = ""
             if i < 0:
@@ -762,8 +763,8 @@ def find_matricules(
                 ),
             )
 
+            print(f"[{datetime.now()}]", 'Processed file:', filename, f"({job_id}, {doc_index})")
             doc_index += 1
-            print(f"[{datetime.now()}]", 'Processed file:', file, f"({job_id}, {doc_index})")
 
             # Getting usage of virtual_memory in GB ( 4th field)
             RAM_used = psutil.virtual_memory()[3] / 1000000000
@@ -776,8 +777,9 @@ def find_matricules(
         sio.disconnect()
         db.close()
 
-    if q_results:
-        q_results.put((doc_index, matricules_data))
+        if q_results is not None:
+            print('Store result in queue.')
+            q_results.put((doc_index, matricules_data))
 
     return doc_index
 
