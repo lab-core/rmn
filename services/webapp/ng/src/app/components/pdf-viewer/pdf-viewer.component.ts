@@ -252,6 +252,14 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     return this.ngxService?.getSerializedAnnotations();
   }
 
+  async waitRender() {
+    let first = true;
+    while (first || !this.ngxService?.isRenderQueueEmpty()) {
+      first = false;
+      await (new Promise((resolve) => setTimeout(resolve, this.timeout)));
+    }
+  }
+
   async onPdfLoaded(e) {
     console.log("Loaded");
     this.nInkAnnotations = 0;
@@ -275,8 +283,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.pdfModified = true;
   }
 
-  initializePdfViewer(): void {
+  async initializePdfViewer(): Promise<void> {
     if (!this.pdfViewerInitialized) {
+      await this.waitRender();
       try {
         this.ngxService.editorInkColor = '#FF0000';
         this.ngxService.editorInkThickness = 2;
@@ -290,10 +299,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   loadAnnotations() {
-    setTimeout(() => {
-      this.pdfAnnotations.forEach(a => {
-        setTimeout(() => this.ngxService?.addEditorAnnotation(a));
-      });
+    setTimeout(async () => {
+      await this.waitRender();
+      this.pdfAnnotations.forEach(a => this.ngxService?.addEditorAnnotation(a));
       this.pdfAnnotations = [];
       this.onAnnotationsLoaded.emit(true);
       this.cleanInkEditors();
@@ -380,7 +388,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.removeAllInkAnnotations();
     // re add all of them minus the last element
     this.flushHistoryActivated = true;
-    inkAnnotations.forEach(a => { this.ngxService?.addEditorAnnotation(a) });
+    inkAnnotations.forEach(a => this.ngxService?.addEditorAnnotation(a));
   }
 
   removeAllInkAnnotations() {

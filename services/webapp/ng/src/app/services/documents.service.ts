@@ -55,15 +55,14 @@ export class PDFSource {
     }
   }
 
-  static async readBlobSync(blob: Blob | File, base64 = true): Promise<string | ArrayBuffer> {
+  static async readBlobSync(blob: Blob | File): Promise<string | ArrayBuffer> {
      return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         resolve(reader.result);
       };
       reader.onerror = reject;
-      base64 ? reader.readAsDataURL(blob) :  // base64 string of the pdf
-        reader.readAsArrayBuffer(blob);
+      reader.readAsDataURL(blob);  // base64 string of the pdf
     });
   }
 
@@ -136,7 +135,6 @@ export class DocumentsService {
 
     try {
       const data = await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).toPromise();
-      // const src = base64Src ? await this.readBlobSync(data) : window.URL.createObjectURL(data);
       if (data) {
         const url = window.URL.createObjectURL(data);
         const pdfSource = new PDFSource(index, url, version);

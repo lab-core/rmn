@@ -395,10 +395,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       }
       this.pdfLoading = false;
       if (pdfSource) {
-        this.currentPdfSrc = pdfSource;
-        this.pdfUrl = pdfSource.url;
-        this.pdfViewer.renderAnnotations(pdfSource.annotations);
-        this.currentVersion = pdfSource.version;
+        if (this.pdfUrl != pdfSource.url) {
+          this.currentPdfSrc = pdfSource;
+          this.pdfUrl = pdfSource.url;
+          this.pdfViewer.renderAnnotations(pdfSource.annotations);
+          this.currentVersion = pdfSource.version;
+        }
         return true;
       } else {
         this.currentPdfSrc = undefined;
@@ -554,7 +556,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
         if (this.offline) {
           const copy = this.offlineCopies.get(this.currentCopy);
-          copy.file = file;
+          copy.file64 = await PDFSource.readBlobSync(file);
           copy.status = this.currentStatus;
           if (this.currentGradeModified) {
             copy.grade = this.currentGrade;
@@ -743,10 +745,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async uploadOffline() {
     this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
     for (const copy of this.offlineCopies.values()) {
-      if (copy.file != undefined) {
+      if (copy.file64 != undefined) {
+        let cFile: File = await fetch(copy.file64).then(res => res.blob()).then(blob => {
+          const exam = this.examsList[copy.pdfSrc.index];
+          return new File([blob], exam["filename"] + ".pdf", { type: "application/pdf" });
+        })
         let validationResponse = await this.saveCopy(
           copy.pdfSrc,
-          copy.file,
+          cFile,
           copy.grade,
           copy.status,
           copy.questionIndex);

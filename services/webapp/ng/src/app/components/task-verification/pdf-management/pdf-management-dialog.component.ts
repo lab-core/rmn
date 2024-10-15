@@ -61,20 +61,15 @@ export class PdfManagementDialogComponent implements OnInit {
     let i = 0;
     for (const exam of this.data.examsList) {
         if (exam["status"] !== 'NOT_READY') {
-          let pdfBuffer;
+          let pdfFileSrc;
           if (exam["offline"]) {
-            const pdfFile = this.data.offlineCopies.get(exam["document_index"]).file;
-            if (pdfFile) {
-              pdfBuffer = await PDFSource.readBlobSync(pdfFile, false);
-            } else {
-              const pdfSource = this.docService.getAvailablePdfSource(this.data.jobId, exam["document_index"]);
-              pdfBuffer = await fetch(pdfSource.url).then(r => r.arrayBuffer());
-            }
+            pdfFileSrc = this.data.offlineCopies.get(exam["document_index"]).file64 ||
+                        this.docService.getAvailablePdfSource(this.data.jobId, exam["document_index"]).url;
           } else {
-            const pdfSource = await this.docService.getPdfSource(this.data.jobId, exam["document_index"], false);
-            pdfBuffer = await fetch(pdfSource.url).then(r => r.arrayBuffer());
+            pdfFileSrc = (await this.docService.getPdfSource(this.data.jobId, exam["document_index"], false)).url;
           }
 
+          const pdfBuffer = await fetch(pdfFileSrc).then(r => r.arrayBuffer());
           const pdfDoc = await PDFDocument.load(pdfBuffer);
           const fileName = exam["filename"];
           const question = exam["question"];
