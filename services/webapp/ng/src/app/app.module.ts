@@ -101,7 +101,10 @@ import { ErrorInterceptor, CacheInterceptor } from './services/interceptor.servi
         MatDialogModule,
         ReactiveFormsModule,
         NgxExtendedPdfViewerModule,
-        ToastrModule.forRoot()], providers: [
+        ToastrModule.forRoot({
+          preventDuplicates: true,
+        }),
+      ], providers: [
         // {
         //   provide: CSP_NONCE,
         //   useValue: 'random_nonce_value'

@@ -57,6 +57,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   job: Map<string, any>;
 
   offline: boolean = false;
+  downloadingOffline: boolean = false;
   offlineCopies = new Map<number, OfflineCopy>();
 
   nMaxPointsPerQuestion = new Map<string, number>();
@@ -724,8 +725,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async correctOffline() {
     this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
+    this.downloadingOffline = true;
     this.offline = true;
     for (const exam of this.subExamsList) {
+      if (!this.offline) {
+        break;
+      }
       const pdfSrc = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), exam['document_index']);
       if (!this.offline) {
         break;
@@ -737,13 +742,20 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       };
       this.offlineCopies.set(pdfSrc.index, copy);
       exam['offline'] = true;
+      this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
     }
     await db.saveAllCopies(this.offlineCopies);
-    this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
+    if (this.offline) {
+      this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
+    } else {
+      this.cleanOffline()
+    }
+    this.downloadingOffline = false;
   }
 
   async uploadOffline() {
     this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
+    this.downloadingOffline = true;
     for (const copy of this.offlineCopies.values()) {
       if (copy.file64 != undefined) {
         let cFile: File = await fetch(copy.file64).then(res => res.blob()).then(blob => {
@@ -761,6 +773,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
           return;
         }
+        this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
       }
       this.examsList[copy.pdfSrc.index]['offline'] = false;
     }
@@ -774,6 +787,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
     db.deleteAllCopies(this.offlineCopies);
     this.offline = false;
+    this.downloadingOffline = false;
     await db.markOnline();
   }
 

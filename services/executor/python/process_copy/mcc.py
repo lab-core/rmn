@@ -299,8 +299,8 @@ def zipdirbatch(path, archive="moodle", batch=None):
     ziph = zipfile.ZipFile(narchive + ".zip", "w", zipfile.ZIP_DEFLATED)
     asize = 0  # archive size
     print(f"batch size {batch}")
+    print("Compress", path)
     print("Compressing ", end="", flush=True)
-    print(path)
     for root, dirs, files in os.walk(path):
         for file in files:
             i = i + 1

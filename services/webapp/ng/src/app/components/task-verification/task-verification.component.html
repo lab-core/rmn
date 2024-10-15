@@ -2,13 +2,13 @@
 <div class="task-verification-container">
     <div class="background">
         <div class="files-container" [ngClass]="{'hidden': isSidebarHidden}">
-            <div class="filter-job-container" *ngIf="this.showFilter()">
+            <div class="filter-job-container" *ngIf="showFilter()">
               <label>Filtrer par groupe: </label>
-              <select (change)="this.loadSubExamsList()" [(ngModel)]="this.group">
-                <option *ngFor="let g of this.groupsList">{{g}}</option>
+              <select (change)="loadSubExamsList()" [(ngModel)]="group">
+                <option *ngFor="let g of groupsList">{{g}}</option>
               </select>
             </div>
-            <div class="filter-job-container" *ngIf="!this.disabledDropDown">
+            <div class="filter-job-container" *ngIf="!disabledDropDown">
                 <mat-form-field appearance="fill">
                     <mat-label>Numéro de la question</mat-label>
                     <mat-select (selectionChange)="onQuestionIndexChange($event)" [(value)]="index">
@@ -18,24 +18,24 @@
                     </mat-select>
                 </mat-form-field>
             </div>
-            <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}" id="files-list-container">
-                <div class="file-container" *ngFor="let exam of this.subExamsList; let i = index"
+            <div class="files-list-container" [ngStyle]="{'height': filesListHeight()}" id="files-list-container">
+                <div class="file-container" *ngFor="let exam of subExamsList; let i = index"
                     (click)="changeCurrentCopy(exam.document_index, exam.status, false)">
                     <div class="disabled-copy" *ngIf="exam.status == 'NOT_READY'">
                         <strong>{{formattedIndexes[i]}}</strong>
                         <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
-                    <div [ngClass]="exam.document_index == this.currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
+                    <div [ngClass]="exam.document_index == currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
                         *ngIf="exam.status == 'VALIDATED'">
                         <strong>{{formattedIndexes[i]}}</strong>
                         <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
-                    <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
+                    <div [ngClass]="exam.document_index == currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
                         *ngIf="exam.status == 'TO VALIDATE'">
                         <strong>{{formattedIndexes[i]}}</strong>
                         <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
-                    <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
+                    <div [ngClass]="exam.document_index == currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
                         *ngIf="exam.status == 'HIGH ACCURACY'">
                         <strong>{{formattedIndexes[i]}}</strong>
                         <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
@@ -43,9 +43,9 @@
                 </div>
             </div>
             <button class="offline-button" mat-raised-button color="primary" *ngIf="!offline" (click)="correctOffline()">Corriger hors ligne</button>
-            <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline()">Finaliser hors ligne</button>
+            <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline()" [disabled]="downloadingOffline">Finaliser hors ligne</button>
             <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="cancelOffline()">Annuler</button>
-            <button class="pdf-management-button" mat-flat-button (click)="managePdfs()">Gérer mes copies</button>
+            <button class="pdf-management-button" mat-flat-button (click)="managePdfs()" [disabled]="downloadingOffline">Gérer mes copies</button>
         </div>
         <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
           <div class="validation-check-container" *ngIf="currentCopy >= 0" [ngClass]="{'expanded': isSidebarHidden}">
@@ -64,19 +64,19 @@
                         </div>
                     </div>
                     <div class="sub-check-container"
-                        *ngFor="let grade of this.currentGrades | keyvalue : sortNull; trackBy: trackByIndex;">
+                        *ngFor="let grade of currentGrades | keyvalue : sortNull; trackBy: trackByIndex;">
                         <h3>{{grade.key}} (/{{nMaxPointsPerQuestion.get(grade.key)}}) </h3>
                         <div class="value-input-div">
-                            <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
+                            <input (click)="selectText($event)" type="number" [attr.id]="setQuestionId(grade.key)"
                                 id="text-box" [(ngModel)]="grade.value"
-                                (input)="this.updateTotal(grade.key, grade.value)" step=any
-                                [disabled]="this.pdfLoading">
+                                (input)="updateTotal(grade.key, grade.value)" step=any
+                                [disabled]="pdfLoading">
                         </div>
                     </div>
                 </div>
                 <div class="validate-container">
-                    <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                            (click)="validateCurrentCopy()" [disabled]="this.pdfLoading">
+                    <button [ngClass]="colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
+                            (click)="validateCurrentCopy()" [disabled]="pdfLoading">
                         <mat-icon>done_outline</mat-icon>
                     </button>
                 </div>
@@ -87,7 +87,7 @@
                   <!-- <input type="number"
                       class="version-number" id="text-box" [(ngModel)]="currentVersion"
                       (input)="setNewVersion($event)" step=any
-                      [disabled]="this.pdfLoading"> -->
+                      [disabled]="pdfLoading"> -->
                   <div class="version-buttons">
                    <button type="button" class="nav-button" [disabled]="disablePrevious" (click)="loadPdf(currentVersion-1)">
                      <mat-icon>arrow_back_ios</mat-icon>
@@ -111,7 +111,7 @@
     </div>
 </div>
 <div class="page-count" *ngIf="currentCopy >= 0">
-    {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 - this.subExamsList[0]['document_index'] : 0)}} / {{this.subExamsList.length}}
+    {{currentIndex() + (subExamsList.length > 0 ? 1 - subExamsList[0]['document_index'] : 0)}} / {{subExamsList.length}}
 </div>
 </div>
 <button mat-button *ngIf="loggued() && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
