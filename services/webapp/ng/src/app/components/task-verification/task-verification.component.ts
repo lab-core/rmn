@@ -395,10 +395,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       }
       this.pdfLoading = false;
       if (pdfSource) {
-        this.currentPdfSrc = pdfSource;
-        this.pdfUrl = pdfSource.url;
-        this.pdfViewer.renderAnnotations(pdfSource.annotations);
-        this.currentVersion = pdfSource.version;
+        if (this.pdfUrl != pdfSource.url) {
+          this.currentPdfSrc = pdfSource;
+          this.pdfUrl = pdfSource.url;
+          this.pdfViewer.renderAnnotations(pdfSource.annotations);
+          this.currentVersion = pdfSource.version;
+        }
         return true;
       } else {
         this.currentPdfSrc = undefined;
@@ -443,15 +445,17 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     let e = document.getElementById('files-list-container');  // scrollTop + clientHeight = scrollHeight
     if (e) {
       let child = e.firstElementChild;
-      let nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
-      let nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
-      let subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentCopy);
-      let currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
-      let distanceTop = e.scrollHeight * currentRow / nRows;
-      // goal is to be in the middle => clientHeight / 2
-      let targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
-      if (targetScrollTop > 0) {
-        e.scrollTop = targetScrollTop;
+      if (child) {
+        let nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
+        let nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
+        let subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentCopy);
+        let currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
+        let distanceTop = e.scrollHeight * currentRow / nRows;
+        // goal is to be in the middle => clientHeight / 2
+        let targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
+        if (targetScrollTop > 0) {
+          e.scrollTop = targetScrollTop;
+        }
       }
     }
   }
@@ -552,7 +556,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
         if (this.offline) {
           const copy = this.offlineCopies.get(this.currentCopy);
-          copy.file = file;
+          copy.file64 = await PDFSource.readBlobSync(file);
           copy.status = this.currentStatus;
           if (this.currentGradeModified) {
             copy.grade = this.currentGrade;
@@ -741,10 +745,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async uploadOffline() {
     this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
     for (const copy of this.offlineCopies.values()) {
-      if (copy.file != undefined) {
+      if (copy.file64 != undefined) {
+        let cFile: File = await fetch(copy.file64).then(res => res.blob()).then(blob => {
+          const exam = this.examsList[copy.pdfSrc.index];
+          return new File([blob], exam["filename"] + ".pdf", { type: "application/pdf" });
+        })
         let validationResponse = await this.saveCopy(
           copy.pdfSrc,
-          copy.file,
+          cFile,
           copy.grade,
           copy.status,
           copy.questionIndex);
@@ -775,7 +783,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       if (copy.grade != undefined) {
         this.examsList[copy.pdfSrc.index]["grade"] = copy.grade;
       }
-      copy.pdfSrc = this.docService.loadPDFSource(copy.pdfSrc);
+      copy.pdfSrc = await this.docService.loadPDFSource(copy.pdfSrc);
       this.examsList[copy.pdfSrc.index]['offline'] = true;
       this.examsList[copy.pdfSrc.index]['status'] = copy.status;
       this.offlineCopies.set(copy.pdfSrc.index, copy);

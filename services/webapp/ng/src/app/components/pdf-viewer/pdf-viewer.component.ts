@@ -252,6 +252,19 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     return this.ngxService?.getSerializedAnnotations();
   }
 
+  addAnnotation(annotation: EditorAnnotation) {
+    const aDeepClone: EditorAnnotation = JSON.parse(JSON.stringify(annotation));
+    this.ngxService?.addEditorAnnotation(aDeepClone);
+  }
+
+  async waitRender() {
+    let first = true;
+    while (first || !this.ngxService?.isRenderQueueEmpty()) {
+      first = false;
+      await (new Promise((resolve) => setTimeout(resolve, this.timeout)));
+    }
+  }
+
   async onPdfLoaded(e) {
     console.log("Loaded");
     this.nInkAnnotations = 0;
@@ -275,8 +288,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.pdfModified = true;
   }
 
-  initializePdfViewer(): void {
+  async initializePdfViewer(): Promise<void> {
     if (!this.pdfViewerInitialized) {
+      await this.waitRender();
       try {
         this.ngxService.editorInkColor = '#FF0000';
         this.ngxService.editorInkThickness = 2;
@@ -290,10 +304,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   loadAnnotations() {
-    setTimeout(() => {
-      this.pdfAnnotations.forEach(a => {
-        setTimeout(() => this.ngxService?.addEditorAnnotation(a));
-      });
+    setTimeout(async () => {
+      await this.waitRender();
+      this.pdfAnnotations.forEach(a => this.addAnnotation(a));
       this.pdfAnnotations = [];
       this.onAnnotationsLoaded.emit(true);
       this.cleanInkEditors();
@@ -351,7 +364,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
         lastInkAnnotation.rect = change.rect;
         this.replaceAllInkAnnotations(inkAnnotations);
       } else if (change.annotation) {
-        this.ngxService?.addEditorAnnotation(change.annotation);
+        this.addAnnotation(change.annotation);
         this.nInkAnnotations += 1;
       } else {
         let eraserChange: EraserChange = change.eraser;
@@ -380,7 +393,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.removeAllInkAnnotations();
     // re add all of them minus the last element
     this.flushHistoryActivated = true;
-    inkAnnotations.forEach(a => { this.ngxService?.addEditorAnnotation(a) });
+    inkAnnotations.forEach(a => this.addAnnotation(a));
   }
 
   removeAllInkAnnotations() {
