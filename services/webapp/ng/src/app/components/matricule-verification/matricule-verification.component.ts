@@ -42,7 +42,7 @@ export class MatriculeVerificationComponent implements OnInit {
   horizontalValidation = true;
   preloadNCopies: number = 10;
 
-  job: Map<string, any>;
+  job: any;
   pdfUrl: string;
 
   initialCopyIndex: number = -1;
@@ -77,7 +77,17 @@ export class MatriculeVerificationComponent implements OnInit {
 
     // fetch job and documents
     this.job = await this.tasksService.getTask();
-    if (this.job && this.job["job_id"]) {
+    if (!this.job || !this.job.job_id) {
+      // reroute page
+      this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche indisponible');
+      this.router.navigate(['/tasks-history']);
+    } else if (this.job.job_status === 'VALIDATED' ||
+              this.job.job_status === 'FINALIZING' ||
+              this.job.job_status === 'ARCHIVED') {
+      // reroute page
+      this.notificationService.showWarning('Veuillez sélectionner une tâche active!', 'Tâche inactive');
+      this.router.navigate(['/tasks-history']);
+    } else {
       this.groupsList = this.job['groups'];
       this.groupsList.unshift("");
       this.getMatriculeList();
@@ -105,10 +115,6 @@ export class MatriculeVerificationComponent implements OnInit {
           }
         });
       }
-    } else {
-      // reroute page
-      this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
-      this.router.navigate(['/tasks-history']);
     }
   }
 

@@ -54,7 +54,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   hasDownloadedZip: boolean = false;
   hasUploadedZip: boolean = false;
 
-  job: Map<string, any>;
+  job: any;
 
   offline: boolean = false;
   downloadingOffline: boolean = false;
@@ -108,9 +108,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     } catch (err) {
       console.error(err);
     }
-    if (!this.job || !this.job["job_id"]) {
+    if (!this.job || !this.job.job_id) {
       // reroute page
-      this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
+      this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche indisponible');
+      this.router.navigate(['/tasks-history']);
+    } else if (this.job.job_status === 'VALIDATED' ||
+               this.job.job_status === 'FINALIZING' ||
+               this.job.job_status === 'ARCHIVED') {
+      this.notificationService.showWarning('Veuillez sélectionner une tâche active!', 'Tâche inactive');
       this.router.navigate(['/tasks-history']);
     }
 
@@ -132,7 +137,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       await this.loadOfflineCopies();
     }
 
-    this.socketService.join(this.job["job_id"]);
+    this.socketService.join(this.job.job_id);
     this.socketService.getSocket().on('document_ready', async (params: any) => {
       await this.getDocuments();
       if (this.currentCopy < 0 || this.currentExam()['status'] === "VALIDATED") {
@@ -145,8 +150,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.socketService.getSocket().on('job_status', async (params: any) => {
         const resp = JSON.parse(params);
         const jobId = resp.job_id;
-        if (this.job["job_id"] === jobId) {
-          this.job["job_status"] = resp.status;
+        if (this.job.job_id === jobId) {
+          this.job.job_status = resp.status;
           this.checkValidationButton();
         }
       });
@@ -327,14 +332,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
  getMaxPointsPerQuestion() {
     this.nMaxPointsPerQuestion = new Map<string, number>();
-    this.job["n_max_points_per_question"].forEach(e => {
+    this.job.n_max_points_per_question.forEach(e => {
       this.nMaxPointsPerQuestion.set(e[0], e[1]);
     });
   }
 
  getBonusEnabledMap() {
     this.bonusEnabledMap = new Map<string, boolean>();
-    this.job["bonus_enabled_map"].forEach(e => {
+    this.job.bonus_enabled_map.forEach(e => {
       this.bonusEnabledMap.set(e[0], e[1]);
     });
   }
@@ -628,12 +633,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     await this.saveCurrentCopy();
     if (this.shareAll) {
       const queryParams = {
-        job_id: this.job["job_id"],
+        job_id: this.job.job_id,
       }
       this.userService.addShareToken(queryParams);
       this.router.navigate([`/dashboard`], { queryParams: queryParams });
     } else {
-      this.router.navigate(['/dashboard', this.job["job_id"]]);
+      this.router.navigate(['/dashboard', this.job.job_id]);
     }
   }
 
@@ -710,8 +715,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       data: {
         jobId: this.tasksService.getvalidatingTaskId(),
         index: this.index,
-        jobName: this.job['job_name'],
-        nPagesPerQuestion: this.job["n_pages_per_question"],
+        jobName: this.job.job_name,
+        nPagesPerQuestion: this.job.n_pages_per_question,
         examsList: this.subExamsList,
         offlineCopies: this.offlineCopies
       }

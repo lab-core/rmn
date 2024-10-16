@@ -136,9 +136,12 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
             # print(request.path)
             if request.path.startswith('/file/'):
                 job = db["jobs_output"].find_one({"job_id": job_id})
-                print(job)
-                if job and job.get("share_token", None) == token:
+                if job and job.get("share_token") == token:
                     validity = 'file'
+                else:
+                    job = db["eval_jobs"].find_one({"job_id": job_id})
+                    if job and job.get("share_token", {}).get("all") == token:
+                        validity = 'file'
             else:
                 if question:
                     keys.append("questions")
@@ -152,8 +155,11 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                     for k, t in job.get("share_token", {}).items():
                         if k in keys and t == token:
                             validity = k
+
+                if validity is None:
+                    print("Error: share token (", token, ") not valid for", job_id, "and keys", keys)
+
             if validity is None:
-                print("Error: share token (", token, ") not valid for", job_id, "and keys", keys)
                 return Response(
                     response=json.dumps({"response": "Error: share token not valid."}),
                     status=401,
@@ -924,8 +930,8 @@ def download_file():
 
 @app.route("/job/batch/info", methods=["POST"])
 @cross_origin()
-@verify_token()
-def get_info_zip(user_id):
+@verify_share_token(question=False, matricule=False)  # just token all
+def get_info_zip():
     request_form = request.form
 
     if "job_id" not in request_form:
@@ -941,10 +947,10 @@ def get_info_zip(user_id):
     output_collection = db["jobs_output"]
 
     #
-    output_files = output_collection.find_one({"job_id": job_id, "user_id": user_id})
+    output_files = output_collection.find_one({"job_id": job_id})
     if not output_files:
         return Response(
-            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            response=json.dumps({"response": f"Error: job {job_id} doesn't exist."}),
             status=404
         )
     #

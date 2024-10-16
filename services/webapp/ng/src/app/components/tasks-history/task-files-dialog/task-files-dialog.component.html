@@ -10,7 +10,7 @@
                 <input type="text" [attr.id]="setZipIds(i)" [value]="setDefaultZipValues(i)">
             </div>
             <button mat-raised-button color="primary" (click)="checkInputBox('zip_file', false, i)">Télécharger</button>
-            <button mat-raised-button color="primary" (click)="checkInputBox('zip_file', true, i)">Partager</button>
+            <button mat-raised-button color="primary" *ngIf="!data.share" (click)="checkInputBox('zip_file', true, i)">Partager</button>
         </div>
         <div class="file-container">
             <div class="file-logo csv-logo">
@@ -19,7 +19,7 @@
                 <input type="text" id="notes_csv_file" value="notes">
             </div>
             <button mat-raised-button color="primary" (click)="checkInputBox('notes_csv_file', false)">Télécharger</button>
-            <button mat-raised-button color="primary" (click)="checkInputBox('notes_csv_file', true)">Partager</button>
+            <button mat-raised-button color="primary" *ngIf="!data.share" (click)="checkInputBox('notes_csv_file', true)">Partager</button>
         </div>
         <div class="file-container">
             <div class="file-logo pdf-logo">
@@ -28,7 +28,7 @@
                 <input type="text" id="stats_pdf_file" value="stats">
             </div>
             <button mat-raised-button color="primary" (click)="checkInputBox('stats_pdf_file', false)">Télécharger</button>
-            <button mat-raised-button color="primary" (click)="checkInputBox('stats_pdf_file', true)">Partager</button>
+            <button mat-raised-button color="primary" *ngIf="!data.share" (click)="checkInputBox('stats_pdf_file', true)">Partager</button>
         </div>
     </div>
     <div class="cancel-container">

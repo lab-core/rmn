@@ -40,7 +40,7 @@ export class DashboardPageComponent {
   examsCount: number = 0;
   questions: Question[] = [];
   totalVerifiedMatricules: number = 0;
-  validating: boolean = false;
+  disableButtons: boolean = false;
 
   constructor(
     private router: Router,
@@ -53,8 +53,7 @@ export class DashboardPageComponent {
     private docService: DocumentsService,
     private notificationService: NotificationService,
     private validationService: ValidationService
-  ) {
-  }
+  ) {}
 
   async ngOnInit() {
     this.taskId = this.route.snapshot.queryParams['job_id'];
@@ -67,11 +66,13 @@ export class DashboardPageComponent {
       // fetch informations and documents
       await this.getTask();
       await this.getDocuments(this.taskId);
-      await this.getQuestions(this.taskId);
-      // update metrics
-      this.computeTotalMatricules();
-      this.computeQuestions();
-      this.computeTotalQuestion();
+      if (this.examsCount > 0) {
+        await this.getQuestions(this.taskId);
+        // update metrics
+        this.computeTotalMatricules();
+        this.computeQuestions();
+        this.computeTotalQuestion();
+      }
     } else {
       this.router.navigate(['/tasks-history']);
     }
@@ -115,13 +116,18 @@ export class DashboardPageComponent {
     if (this.task.job_status === 'IGNORED' ||
              this.task.job_status === 'QUEUED' ||
              this.task.job_status === 'RUN' ||
-             this.task.job_status === 'VALIDATION') {
+             this.task.job_status === 'VALIDATION' ||
+             this.task.job_status === 'VALIDATED' ||
+             this.task.job_status === 'FINALIZING' ||
+             this.task.job_status === 'ARCHIVED') {
       this.taskName = this.task.job_name;
+      if (this.task.job_status === 'ARCHIVED') this.taskName += ' (Archivée)';
+      this.disableButtons = this.task.job_status === 'VALIDATED' ||
+                            this.task.job_status === 'FINALIZING' ||
+                            this.task.job_status === 'ARCHIVED';
     } else {
-      if (this.task.job_status === 'FINALIZING' ||
-          this.task.job_status === 'ARCHIVED' ||
-          this.task.job_status === 'ERROR') {
-        this.notificationService.showWarning("La tâche n'est plus accessible.", "Attention");
+      if (this.task.job_status === 'ERROR') {
+        this.notificationService.showWarning("La tâche n'est pas accessible.", "Attention");
       } else {
         this.notificationService.showWarning("La tâche n'est pas encore accessible.", "Attention");
       }
@@ -273,7 +279,8 @@ export class DashboardPageComponent {
     this.router.navigate(['/task-history']);
   }
 
-  openTaskFilesDialog(jobId: string): void {
+  openTaskFilesDialog(): void {
+    const jobId = this.task.job_id;
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
@@ -283,7 +290,7 @@ export class DashboardPageComponent {
         this.dialog.open(TaskFilesDialogComponent, {
           width: '30%',
           height: '60%',
-          data: { taskId: jobId, nbZipFile: nbZipFile }
+          data: { taskId: jobId, nbZipFile: nbZipFile, share: this.userService.shared() }
         })
       }, (error) => {
         console.error(error);
@@ -357,45 +364,18 @@ export class DashboardPageComponent {
   }
 
   async validateJob() {
-    // // workaround to grade all the copies at once
-    // const copiesInformations = {'asgqwasvbnrydh':{'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'Q5': 5}, 'eqghqrafdz':{'Q1': 8, 'Q2': 8, 'Q3': 8, 'Q4': 8, 'Q5': 8}, 'ghnfdbxfdc':{'Q1': 3, 'Q2': 5, 'Q3': 1, 'Q4': 2, 'Q5': 4}, 'knm__vqead ':{'Q1': 1, 'Q2': 1, 'Q3': 3, 'Q4': 7, 'Q5': 2}, 'mdh xgvc.pdf':{'Q1': 6, 'Q2': 8, 'Q3': 4, 'Q4': 4, 'Q5': 5}, 'mffytdhgc':{'Q1': 2, 'Q2': 2, 'Q3': 5, 'Q4': 9, 'Q5': 8}, 'mtodjhisnjrbifs': {'Q1': 1, 'Q2': 6, 'Q3': 9, 'Q4': 4, 'Q5': 1}, 'wqref bw g':{'Q1': 7, 'Q2': 7, 'Q3': 8, 'Q4': 6, 'Q5': 7}, 'wvdzcs':{'Q1': 5, 'Q2': 9, 'Q3': 0, 'Q4': 6, 'Q5': 5}}
-    // const formData: FormData = new FormData();
-    // this.userService.addTokens(formData);
-    // formData.append('job_id', this.task.job_id);
-    // const serializedCopiesInformations = JSON.stringify(
-    //   Object.entries(copiesInformations).map(([key, value]) => [key, Object.entries(value)])
-    // );
-    // formData.append('copies_informations', serializedCopiesInformations);
-    //
-    // let response;
-    // try {
-    //     const promise = await this.http.post<any>(`${SERVER_URL}documents/grade_all`, formData).toPromise();
-    //     response = promise['response'];
-    //     console.log(response);
-    // } catch (error) {
-    //     console.error(error);
-    // }
-    //
-    // // workaround to validate all the copies at once
-    // this.examsList.forEach((exam: any) => {
-    //   if (exam["status"] === "TO VALIDATE") {
-    //     exam["status"] = "VALIDATED";
-    //   }
-    // });
-
     if (this.totalVerifiedMatricules < this.examsCount) {
       this.notificationService.showError("Veuillez vérifier tous les matricules avant de valider la tâche!", "Erreur!");
     } else if (this.getTotalQuestion().validatedCount < this.examsCount) {
       this.notificationService.showError("Veuillez corriger toutes les copies avant de valider la tâche!", "Erreur!");
     } else {
-      this.validating = true;
+      this.disableButtons = true;
       this.tasksService.setvalidatingTaskId(this.task.job_id);
       const response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
       if (response === "OK") {
-        this.router.navigate(['/tasks-history']);
+        // this.router.navigate(['/tasks-history']);
         const message = "La tâche est en cours de finalisation!";
         this.notificationService.showInfo(message, "Alerte!")
-        // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
       }
     }
   }
