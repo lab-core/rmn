@@ -565,6 +565,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           const copy = this.offlineCopies.get(this.currentCopy);
           copy.file64 = await PDFSource.readBlobSync(file);
           copy.status = this.currentStatus;
+          copy.updated = false;
           if (this.currentGradeModified) {
             copy.grade = this.currentGrade;
           }
@@ -767,11 +768,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.downloadingOffline = false;
   }
 
-  async uploadOffline() {
+  async uploadOffline(finalize: boolean) {
     this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
     this.downloadingOffline = true;
     for (const copy of this.offlineCopies.values()) {
-      if (copy.file64 != undefined) {
+      if (copy.file64 != undefined && !copy.updated) {
         let cFile: File = await fetch(copy.file64).then(res => res.blob()).then(blob => {
           const exam = this.examsList[copy.pdfSrc.index];
           return new File([blob], exam["filename"] + ".pdf", { type: "application/pdf" });
@@ -786,13 +787,16 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           const index = copy.pdfSrc.index - this.subExamsList[0]['document_index'] + 1;
           this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
           return;
+        } else {
+          copy.updated = true;
         }
         this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
       }
-      this.examsList[copy.pdfSrc.index]['offline'] = false;
+      if (finalize) this.examsList[copy.pdfSrc.index]['offline'] = false;
     }
     this.notificationService.showSuccess('Téléversement terminé!', 'Success');
-    await this.cleanOffline();
+    if (finalize) await this.cleanOffline();
+    this.downloadingOffline = false;
   }
 
   async cleanOffline() {
