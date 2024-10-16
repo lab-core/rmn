@@ -16,6 +16,7 @@ export interface DialogData {
   questionIndex?: number;
   file?: string;
   zip_index?: number;
+  all?: boolean;
 }
 
 @Component({
@@ -48,6 +49,9 @@ export class TaskShareDialogComponent implements OnInit {
     formdata.append('job_id', this.data.taskId);
     if (this.data.questionIndex !== undefined) {
       formdata.append('question_index', this.data.questionIndex.toString());
+    }
+    if (this.data.all) {
+      formdata.append('all', 'true');
     }
     if (this.data.file !== undefined) {
       formdata.append('file', this.data.file);
@@ -91,6 +95,9 @@ export class TaskShareDialogComponent implements OnInit {
     formdata.append('job_id', this.data.taskId);
     if (this.data.questionIndex) {
       formdata.append('question_index', this.data.questionIndex.toString());
+    }
+    if (this.data.all) {
+      formdata.append('all', 'true');
     }
     this.http.post<any>(`${SERVER_URL}${this.data.shareType}/unshare`, formdata).pipe(first()).subscribe(
       (data) => {

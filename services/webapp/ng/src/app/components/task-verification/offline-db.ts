@@ -15,6 +15,7 @@ export interface OfflineCopy {
   grade?: number;
   status: string;
   file64?: any;
+  updated?: boolean;
   questionIndex: string;
   jobId?: string;
 }

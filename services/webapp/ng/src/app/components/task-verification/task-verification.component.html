@@ -43,7 +43,8 @@
                 </div>
             </div>
             <button class="offline-button" mat-raised-button color="primary" *ngIf="!offline" (click)="correctOffline()">Corriger hors ligne</button>
-            <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline()" [disabled]="downloadingOffline">Finaliser hors ligne</button>
+            <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(false)" [disabled]="downloadingOffline">Sauvegarder en ligne</button>
+            <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(true)" [disabled]="downloadingOffline">Finaliser</button>
             <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="cancelOffline()">Annuler</button>
             <button class="pdf-management-button" mat-flat-button (click)="managePdfs()" [disabled]="downloadingOffline">Gérer mes copies</button>
         </div>
@@ -114,6 +115,6 @@
     {{currentIndex() + (subExamsList.length > 0 ? 1 - subExamsList[0]['document_index'] : 0)}} / {{subExamsList.length}}
 </div>
 </div>
-<button mat-button *ngIf="loggued() && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+<button mat-button *ngIf="(loggued() || shareAll) && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
 <div id="overlay" *ngIf="pdfLoading"></div>
 <mat-spinner class="overlay-spinner" *ngIf="pdfLoading" color="accent" [diameter]="150"></mat-spinner>

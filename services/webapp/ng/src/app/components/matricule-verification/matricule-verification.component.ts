@@ -38,10 +38,11 @@ export class MatriculeVerificationComponent implements OnInit {
   disabledValidationcontainer = true;
   disabledValidationButton = true;
   disabledDropDown = false;
+  shareAll: boolean = false;
   horizontalValidation = true;
   preloadNCopies: number = 10;
 
-  job: Map<string, any>;
+  job: any;
   pdfUrl: string;
 
   initialCopyIndex: number = -1;
@@ -70,10 +71,23 @@ export class MatriculeVerificationComponent implements OnInit {
       this.tasksService.setvalidatingTaskId(jobId);
     }
     this.group = this.route.snapshot.queryParams['group'] || "";
+    if (this.route.snapshot.queryParams['all']) {
+      this.shareAll = true;
+    }
 
     // fetch job and documents
     this.job = await this.tasksService.getTask();
-    if (this.job && this.job["job_id"]) {
+    if (!this.job || !this.job.job_id) {
+      // reroute page
+      this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche indisponible');
+      this.router.navigate(['/tasks-history']);
+    } else if (this.job.job_status === 'VALIDATED' ||
+              this.job.job_status === 'FINALIZING' ||
+              this.job.job_status === 'ARCHIVED') {
+      // reroute page
+      this.notificationService.showWarning('Veuillez sélectionner une tâche active!', 'Tâche inactive');
+      this.router.navigate(['/tasks-history']);
+    } else {
       this.groupsList = this.job['groups'];
       this.groupsList.unshift("");
       this.getMatriculeList();
@@ -101,10 +115,6 @@ export class MatriculeVerificationComponent implements OnInit {
           }
         });
       }
-    } else {
-      // reroute page
-      this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
-      this.router.navigate(['/tasks-history']);
     }
   }
 
@@ -465,7 +475,15 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   reroute() {
-    this.router.navigate(['/dashboard', this.job["job_id"]]);
+    if (this.shareAll) {
+      const queryParams = {
+        job_id: this.job["job_id"],
+      }
+      this.userService.addShareToken(queryParams);
+      this.router.navigate([`/dashboard`], { queryParams: queryParams });
+    } else {
+      this.router.navigate(['/dashboard', this.job["job_id"]]);
+    }
   }
 
   previousCopy(): void {
@@ -507,12 +525,12 @@ export class MatriculeVerificationComponent implements OnInit {
   sortNull(): void {}
 
   showFilter(): boolean {
-    return this.loggued() && this.groupsList.length > 1;
+    return (this.loggued() || this.shareAll) && this.groupsList.length > 1;
   }
 
   filesListHeight(): string {
     let height = 80;
-    if (!this.loggued()) height += 10;
+    if (!this.userService.shared()) height += 10;
     if (!this.showFilter()) height += 10;
     return height + "%";
   }

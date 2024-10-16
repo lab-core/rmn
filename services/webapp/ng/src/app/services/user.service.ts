@@ -59,6 +59,10 @@ export class UserService {
     }
   }
 
+  addShareToken(queryParams) {
+    queryParams['token'] = this.shareToken;
+  }
+
   async login(username, password) {
     const formdata: FormData = new FormData();
     formdata.append('username', username);
@@ -125,6 +129,10 @@ export class UserService {
 
   loggued(): boolean {
     return this.token != undefined;
+  }
+
+  shared(): boolean {
+    return this.shareToken != undefined;
   }
 
   canActivateLoggued(route: ActivatedRouteSnapshot,

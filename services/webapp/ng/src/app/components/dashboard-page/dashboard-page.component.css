@@ -32,12 +32,12 @@ app-main-menu {
 .task-header {
   margin-bottom: 20px;
   font-weight: 500;
-  cursor: pointer;
+  /* cursor: pointer; */
 }
 
-.task-header:hover {
+/* .task-header:hover {
   text-decoration: underline;
-}
+} */
 
 .task-content {
   display: flex;

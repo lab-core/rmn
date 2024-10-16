@@ -115,6 +115,6 @@
     {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
 </div>
 </div>
-<button mat-button *ngIf="this.loggued()" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+<button mat-button *ngIf="this.loggued() || shareAll" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
 <div id="overlay" *ngIf="pdfLoading && !disabledValidationcontainer"></div>
 <mat-spinner class="overlay-spinner" *ngIf="pdfLoading && !disabledValidationcontainer" color="accent" [diameter]="150"></mat-spinner>

@@ -45,16 +45,16 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   pdfViewer: PDFViewerComponent;
 
   isSidebarHidden: boolean = false;
-  isIndexProvided: boolean = false;
   disabledValidationButton = true;
   disabledDropDown = false;
+  shareAll: boolean = false;
   pdfLoading: boolean = false;
   disablePrevious: boolean = false;
   disableNext: boolean = false;
   hasDownloadedZip: boolean = false;
   hasUploadedZip: boolean = false;
 
-  job: Map<string, any>;
+  job: any;
 
   offline: boolean = false;
   downloadingOffline: boolean = false;
@@ -99,14 +99,23 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
     this.groupsList = [this.group];
 
+    if (this.route.snapshot.queryParams['all']) {
+      this.shareAll = true;
+    }
+
     try {
       this.job = await this.tasksService.getTask();
     } catch (err) {
       console.error(err);
     }
-    if (!this.job || !this.job["job_id"]) {
+    if (!this.job || !this.job.job_id) {
       // reroute page
-      this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
+      this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche indisponible');
+      this.router.navigate(['/tasks-history']);
+    } else if (this.job.job_status === 'VALIDATED' ||
+               this.job.job_status === 'FINALIZING' ||
+               this.job.job_status === 'ARCHIVED') {
+      this.notificationService.showWarning('Veuillez sélectionner une tâche active!', 'Tâche inactive');
       this.router.navigate(['/tasks-history']);
     }
 
@@ -128,7 +137,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       await this.loadOfflineCopies();
     }
 
-    this.socketService.join(this.job["job_id"]);
+    this.socketService.join(this.job.job_id);
     this.socketService.getSocket().on('document_ready', async (params: any) => {
       await this.getDocuments();
       if (this.currentCopy < 0 || this.currentExam()['status'] === "VALIDATED") {
@@ -141,8 +150,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.socketService.getSocket().on('job_status', async (params: any) => {
         const resp = JSON.parse(params);
         const jobId = resp.job_id;
-        if (this.job["job_id"] === jobId) {
-          this.job["job_status"] = resp.status;
+        if (this.job.job_id === jobId) {
+          this.job.job_status = resp.status;
           this.checkValidationButton();
         }
       });
@@ -264,10 +273,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (questionIndex) {
       this.index = questionIndex;
       this.onQuestionIndexChange({ value: questionIndex } as MatSelectChange);
-      if (!this.userService.loggued()) {
-        this.disabledDropDown = true;
-        this.isIndexProvided = true;
-      }
+      this.disabledDropDown = this.userService.shared() && !this.shareAll;
     } else {
       this.route.params.pipe(first()).subscribe(params => {
         const index = params['index'];
@@ -326,14 +332,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
  getMaxPointsPerQuestion() {
     this.nMaxPointsPerQuestion = new Map<string, number>();
-    this.job["n_max_points_per_question"].forEach(e => {
+    this.job.n_max_points_per_question.forEach(e => {
       this.nMaxPointsPerQuestion.set(e[0], e[1]);
     });
   }
 
  getBonusEnabledMap() {
     this.bonusEnabledMap = new Map<string, boolean>();
-    this.job["bonus_enabled_map"].forEach(e => {
+    this.job.bonus_enabled_map.forEach(e => {
       this.bonusEnabledMap.set(e[0], e[1]);
     });
   }
@@ -559,6 +565,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           const copy = this.offlineCopies.get(this.currentCopy);
           copy.file64 = await PDFSource.readBlobSync(file);
           copy.status = this.currentStatus;
+          copy.updated = false;
           if (this.currentGradeModified) {
             copy.grade = this.currentGrade;
           }
@@ -625,7 +632,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async reroute() {
     await this.saveCurrentCopy();
-    this.router.navigate(['/dashboard', this.job["job_id"]]);
+    if (this.shareAll) {
+      const queryParams = {
+        job_id: this.job.job_id,
+      }
+      this.userService.addShareToken(queryParams);
+      this.router.navigate([`/dashboard`], { queryParams: queryParams });
+    } else {
+      this.router.navigate(['/dashboard', this.job.job_id]);
+    }
   }
 
   async previousCopy(): Promise<boolean> {
@@ -671,12 +686,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   sortNull(): void {}
 
   showFilter(): boolean {
-    return this.loggued() && this.groupsList.length > 1;
+    return (this.loggued() || this.shareAll) && this.groupsList.length > 1;
   }
 
   filesListHeight(): string {
     let height = 80;
-    if (!this.loggued()) height += 10;
+    if (!this.userService.shared()) height += 10;
     if (!this.showFilter()) height += 10;
     return height+"%";
   }
@@ -701,8 +716,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       data: {
         jobId: this.tasksService.getvalidatingTaskId(),
         index: this.index,
-        jobName: this.job['job_name'],
-        nPagesPerQuestion: this.job["n_pages_per_question"],
+        jobName: this.job.job_name,
+        nPagesPerQuestion: this.job.n_pages_per_question,
         examsList: this.subExamsList,
         offlineCopies: this.offlineCopies
       }
@@ -753,11 +768,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.downloadingOffline = false;
   }
 
-  async uploadOffline() {
+  async uploadOffline(finalize: boolean) {
     this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
     this.downloadingOffline = true;
     for (const copy of this.offlineCopies.values()) {
-      if (copy.file64 != undefined) {
+      if (copy.file64 != undefined && !copy.updated) {
         let cFile: File = await fetch(copy.file64).then(res => res.blob()).then(blob => {
           const exam = this.examsList[copy.pdfSrc.index];
           return new File([blob], exam["filename"] + ".pdf", { type: "application/pdf" });
@@ -772,13 +787,16 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           const index = copy.pdfSrc.index - this.subExamsList[0]['document_index'] + 1;
           this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
           return;
+        } else {
+          copy.updated = true;
         }
         this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
       }
-      this.examsList[copy.pdfSrc.index]['offline'] = false;
+      if (finalize) this.examsList[copy.pdfSrc.index]['offline'] = false;
     }
     this.notificationService.showSuccess('Téléversement terminé!', 'Success');
-    await this.cleanOffline();
+    if (finalize) await this.cleanOffline();
+    this.downloadingOffline = false;
   }
 
   async cleanOffline() {

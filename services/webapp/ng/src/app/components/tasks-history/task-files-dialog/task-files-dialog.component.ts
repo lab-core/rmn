@@ -11,6 +11,7 @@ import { first } from 'rxjs/operators';
 export interface DialogData {
   taskId: string;
   nbZipFile: number;
+  share?: boolean;
 }
 
 @Component({

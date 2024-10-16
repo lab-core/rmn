@@ -50,6 +50,11 @@ const routes: Routes = [
       component : LoginPageComponent
     },
     {
+        path: 'dashboard',
+        component : DashboardPageComponent,
+        canActivate: [canActivateShared]
+    },
+    {
         path: 'dashboard/:taskId',
         component : DashboardPageComponent,
         canActivate: [canActivateLoggued]
