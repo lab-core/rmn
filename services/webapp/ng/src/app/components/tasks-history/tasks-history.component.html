@@ -86,14 +86,13 @@
                   </ng-container>
 
                 <!-- Job share Column -->
-                  <!-- <ng-container matColumnDef="job_share">
+                  <ng-container matColumnDef="job_share">
                       <th mat-header-cell *matHeaderCellDef mat-sort-header> </th>
                       <td mat-cell *matCellDef="let row">
-                        <button *ngIf="row.job_status == 'RUN' || row.job_status == 'VALIDATION'"
-                                (click)="shareJob(row.job_id, row.job_name)" mat-raised-button color="primary"
+                        <button (click)="shareJob(row.job_id, row.job_name)" mat-raised-button color="primary"
                                 class="button-cell">Partager</button>
                       </td>
-                  </ng-container> -->
+                  </ng-container>
 
                   <tr mat-header-row class="element-header-row" *matHeaderRowDef="displayedColumns"></tr>
                   <tr mat-row class="element-row" *matRowDef="let row; columns: displayedColumns;"></tr>

@@ -131,9 +131,9 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
             # check if share token valid
             db = mongo["RMN"]
 
-            keys = []
+            keys = ['all']
             validity = None
-            print(request.path)
+            # print(request.path)
             if request.path.startswith('/file/'):
                 job = db["jobs_output"].find_one({"job_id": job_id})
                 print(job)
@@ -141,7 +141,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                     validity = 'file'
             else:
                 if question:
-                    keys.append("all")
+                    keys.append("questions")
                     if "question_index" in request_form:
                         keys.append(request_form["question_index"])
                 if matricule:
@@ -544,13 +544,8 @@ def share_job(user_id):
             status=400
         )
     job_id = str(request_form["job_id"])
-
-    # if "question_index" not in request_form:
-    #     return Response(
-    #         response=json.dumps({"response": "Error: question_index not provided."}),
-    #         status=400
-    #     )
     question_index = request_form.get("question_index")
+    all = request_form.get("all")
 
     host = request.headers.get('Host')
     if not host:
@@ -567,7 +562,7 @@ def share_job(user_id):
             status=404
         )
 
-    key = question_index if question_index else "all"
+    key = "all" if all else question_index if question_index else "questions"
     if "share_token" not in job:
         token = str(uuid.uuid4())
         collection.update_one(
@@ -584,6 +579,8 @@ def share_job(user_id):
     proto = "http" if host == "0.0.0.0" or host == "localhost" else "https"
     if question_index:
         share_url = f"{proto}://{host}/task-validation/?job_id={job_id}&token={token}&question_index={question_index}"
+    elif all:
+        share_url = f"{proto}://{host}/dashboard/?job_id={job_id}&token={token}"
     else:
         share_url = f"{proto}://{host}/task-validation/?job_id={job_id}&token={token}"
 
@@ -612,7 +609,10 @@ def unshare_job(user_id):
     job_id = str(request_form["job_id"])
 
     # Get all jobs from DB
-    key = request_form.get("question_index", "all")
+    if request_form.get("all"):
+        key = "all"
+    else:
+        key = request_form.get("question_index", "questions")
     res = collection.update_one({"job_id": job_id, "user_id": user_id}, {"$unset": {f"share_token.{key}": ""}})
     if res.matched_count == 0:
         return Response(
@@ -1089,7 +1089,7 @@ def get_documents(validity):
         if validity == "mat":
             return Response(response=json.dumps({"Error": "You don't have access to these questions"}), status=401)
         question = None
-        if validity is not None and validity != "all":
+        if validity is not None and validity != "questions" and validity != "all":
             question = f"Q{validity}"
         docs = db["job_questions"].find(query)
         count = db["job_questions"].count_documents(query)
@@ -1113,7 +1113,7 @@ def get_documents(validity):
             print(resp[-1]["document_index"], "-", resp[0]["document_index"], " != ", len(resp) - 1)
             return Response(response=json.dumps({"Error": "The indices are not consecutive and increasing"}), status=400)
     else:
-        if validity is not None and validity != "mat":
+        if validity is not None and validity != "mat" and validity != "all":
             return Response(response=json.dumps({"Error": "You don't have access to these documents"}), status=401)
         count = db["job_documents"].count_documents(query)
         docs = db["job_documents"].find(query)
@@ -1221,7 +1221,8 @@ def replace_thread(validity, job_id, grades, temp_file):
             continue
 
         # validity = None => logged user
-        if validity is not None and validity != "all" and int(validity) != q_doc["question_index"]:
+        if (validity is not None and validity != "questions" and
+                validity != "all" and int(validity) != q_doc["question_index"]):
             print("You don't have access to question", q_doc["question_index"])
             continue
 
@@ -1235,7 +1236,6 @@ def replace_thread(validity, job_id, grades, temp_file):
         if not r:
             print('Invalid filename:', job_id, q_doc["basename"])
 
-
     with ZipFile(temp_file.name, 'r') as zip_file:
         for file_info in zip_file.infolist():
             if not file_info.filename.endswith(".pdf"):
@@ -1247,7 +1247,8 @@ def replace_thread(validity, job_id, grades, temp_file):
             if question_number:
                 question_folder = question_number.group(0)
                 # validity = None => logged user
-                if validity is not None and validity != "all" and int(validity) != int(question_folder[1:]):
+                if (validity is not None and validity != "questions" and
+                        validity != "all" and int(validity) != int(question_folder[1:])):
                     print("You don't have access to question", question_folder)
                     continue
 
@@ -1333,7 +1334,8 @@ def update_document(validity):
                                 status=404)
 
             # validity = None => logged user
-            if validity is not None and validity != "all" and int(validity) != q_doc["question_index"]:
+            if (validity is not None and validity != "questions" and
+                    validity != "all" and int(validity) != q_doc["question_index"]):
                 return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=401)
 
             q_index = int(request_form["question_index"]) - 1
@@ -1433,7 +1435,8 @@ def download_document(validity):
                 status=404,
             )
 
-        if validity is not None and validity != "all" and doc["question"] != f"Q{validity}":
+        if (validity is not None and validity != "questions" and
+                validity != "all" and doc["question"] != f"Q{validity}"):
             return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=401)
 
         # add the right version if requested, otherwise use last one by default
@@ -1451,7 +1454,7 @@ def download_document(validity):
         else:
             return Response(response=json.dumps({"Error": "You don't request a valid version"}), status=400)
     else:
-        if validity is not None and validity != "mat":
+        if validity is not None and validity != "mat" and validity != "all":
             return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=401)
         doc = db["job_documents"].find_one({"job_id": job_id, "document_index": document_index})
         if doc is None:
@@ -1537,7 +1540,8 @@ def document_annotations(validity):
         )
 
     # validity = None => logged user
-    if validity is not None and validity != "all" and int(validity) != doc["question_index"]:
+    if (validity is not None and validity != "questions" and
+            validity != "all" and int(validity) != doc["question_index"]):
         return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=404)
 
     rel_filepath = doc["rel_filepath"]

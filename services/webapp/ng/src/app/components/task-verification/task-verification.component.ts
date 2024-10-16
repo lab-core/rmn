@@ -45,9 +45,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   pdfViewer: PDFViewerComponent;
 
   isSidebarHidden: boolean = false;
-  isIndexProvided: boolean = false;
   disabledValidationButton = true;
   disabledDropDown = false;
+  shareAll: boolean = false;
   pdfLoading: boolean = false;
   disablePrevious: boolean = false;
   disableNext: boolean = false;
@@ -98,6 +98,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.group = "";
     }
     this.groupsList = [this.group];
+
+    if (this.route.snapshot.queryParams['all']) {
+      this.shareAll = true;
+    }
 
     try {
       this.job = await this.tasksService.getTask();
@@ -264,10 +268,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (questionIndex) {
       this.index = questionIndex;
       this.onQuestionIndexChange({ value: questionIndex } as MatSelectChange);
-      if (!this.userService.loggued()) {
-        this.disabledDropDown = true;
-        this.isIndexProvided = true;
-      }
+      this.disabledDropDown = this.userService.shared() && !this.shareAll;
     } else {
       this.route.params.pipe(first()).subscribe(params => {
         const index = params['index'];
@@ -625,7 +626,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async reroute() {
     await this.saveCurrentCopy();
-    this.router.navigate(['/dashboard', this.job["job_id"]]);
+    if (this.shareAll) {
+      const queryParams = {
+        job_id: this.job["job_id"],
+      }
+      this.userService.addShareToken(queryParams);
+      this.router.navigate([`/dashboard`], { queryParams: queryParams });
+    } else {
+      this.router.navigate(['/dashboard', this.job["job_id"]]);
+    }
   }
 
   async previousCopy(): Promise<boolean> {
@@ -671,12 +680,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   sortNull(): void {}
 
   showFilter(): boolean {
-    return this.loggued() && this.groupsList.length > 1;
+    return (this.loggued() || this.shareAll) && this.groupsList.length > 1;
   }
 
   filesListHeight(): string {
     let height = 80;
-    if (!this.loggued()) height += 10;
+    if (!this.userService.shared()) height += 10;
     if (!this.showFilter()) height += 10;
     return height+"%";
   }

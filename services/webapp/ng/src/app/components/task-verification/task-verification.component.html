@@ -114,6 +114,6 @@
     {{currentIndex() + (subExamsList.length > 0 ? 1 - subExamsList[0]['document_index'] : 0)}} / {{subExamsList.length}}
 </div>
 </div>
-<button mat-button *ngIf="loggued() && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+<button mat-button *ngIf="(loggued() || shareAll) && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
 <div id="overlay" *ngIf="pdfLoading"></div>
 <mat-spinner class="overlay-spinner" *ngIf="pdfLoading" color="accent" [diameter]="150"></mat-spinner>

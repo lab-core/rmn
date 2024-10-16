@@ -57,9 +57,12 @@ export class DashboardPageComponent {
   }
 
   async ngOnInit() {
-    this.route.params.pipe(first()).subscribe(params => {
-      this.taskId = params['taskId'];
-    });
+    this.taskId = this.route.snapshot.queryParams['job_id'];
+    if (this.taskId == undefined) {
+      this.route.params.pipe(first()).subscribe(params => {
+        this.taskId = params['taskId'];
+      });
+    }
     if (this.taskId) {
       // fetch informations and documents
       await this.getTask();
@@ -103,21 +106,26 @@ export class DashboardPageComponent {
     return this.userService.loggued();
   }
 
-  async getTask() {
-    this.task = await this.tasksService.getTaskById(this.taskId);
-    this.taskName = this.task.job_name;
+  shared(): boolean {
+    return this.userService.shared();
   }
 
-  getTaskInfo() {
-    if (this.task.job_status === 'ARCHIVED') {
-      this.openTaskFilesDialog(this.task.job_id);
-    }
-    else if (this.task.job_status === 'IGNORED' ||
+  async getTask() {
+    this.task = await this.tasksService.getTaskById(this.taskId);
+    if (this.task.job_status === 'IGNORED' ||
              this.task.job_status === 'QUEUED' ||
              this.task.job_status === 'RUN' ||
              this.task.job_status === 'VALIDATION') {
-      this.tasksService.setvalidatingTaskId(this.task.job_id);
-      this.router.navigate(['/task-validation']);
+      this.taskName = this.task.job_name;
+    } else {
+      if (this.task.job_status === 'FINALIZING' ||
+          this.task.job_status === 'ARCHIVED' ||
+          this.task.job_status === 'ERROR') {
+        this.notificationService.showWarning("La tâche n'est plus accessible.", "Attention");
+      } else {
+        this.notificationService.showWarning("La tâche n'est pas encore accessible.", "Attention");
+      }
+      this.router.navigate(['/tasks-history']);
     }
   }
 
@@ -284,16 +292,37 @@ export class DashboardPageComponent {
 
   correctQuestion(index) {
     this.tasksService.setvalidatingTaskId(this.task.job_id);
-    if (index < this.questions.length - 1) {  // if not last question i.e. total
-      this.router.navigate([`/task-validation`, this.taskId, index + 1]);
+    if (this.shared()) {
+      const queryParams = {
+        job_id: this.task.job_id,
+        all: true
+      }
+      if (index < this.questions.length - 1) {  // if not last question i.e. total
+        queryParams['question_index'] = index + 1;
+      }
+      this.userService.addShareToken(queryParams);
+      this.router.navigate([`/task-validation`], { queryParams: queryParams });
     } else {
-      this.router.navigate([`/task-validation`, this.taskId]);
+      if (index < this.questions.length - 1) {  // if not last question i.e. total
+        this.router.navigate([`/task-validation`, this.taskId, index + 1]);
+      } else {
+        this.router.navigate([`/task-validation`, this.taskId]);
+      }
     }
   }
 
   verifyMatricules() {
     this.tasksService.setvalidatingTaskId(this.task.job_id);
-    this.router.navigate([`/matricule-validation`, this.taskId]);
+    if (this.shared()) {
+      const queryParams = {
+        job_id: this.task.job_id,
+        all: true
+      }
+      this.userService.addShareToken(queryParams);
+      this.router.navigate([`/matricule-validation`], { queryParams: queryParams });
+    } else {
+      this.router.navigate([`/matricule-validation`, this.taskId]);
+    }
   }
 
   shareMatricule() {

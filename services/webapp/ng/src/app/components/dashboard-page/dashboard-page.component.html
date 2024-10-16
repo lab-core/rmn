@@ -2,7 +2,7 @@
   <app-main-menu></app-main-menu>
   <div class="task-container">
     <div class="task-header">
-      <h1 (click)="getTaskInfo()">{{ taskName }}</h1>
+      <h1>{{ taskName }}</h1>
     </div>
     <div class="task-content">
       <table>
@@ -28,7 +28,7 @@
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
             <td class="action-buttons">
               <button class="correct-button" mat-raised-button color="primary" (click)="correctQuestion(i)">Corriger</button>
-              <button class="correct-button" mat-raised-button color="primary" (click)="shareQuestion(i+1 < questions.length ? i : undefined)">Partager</button>
+              <button class="correct-button" *ngIf="!shared()" mat-raised-button color="primary" (click)="shareQuestion(i+1 < questions.length ? i : undefined)">Partager</button>
             </td>
           </tr>
           <tr>
@@ -37,15 +37,15 @@
             <td></td>
             <td class="action-buttons">
               <button class="correct-button" mat-raised-button color="primary" (click)="verifyMatricules()">Verifier</button>
-              <button class="correct-button" mat-raised-button color="primary" (click)="shareMatricule()">Partager</button>
+              <button class="correct-button" *ngIf="!shared()" mat-raised-button color="primary" (click)="shareMatricule()">Partager</button>
             </td>
           </tr>
         </tbody>
       </table>
-      <div class="validate-job-container" *ngIf="this.loggued()">
+      <div class="validate-job-container" *ngIf="loggued() && !shared()">
         <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()">Finaliser</button>
       </div>
     </div>
   </div>
-  <button mat-button (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+  <button mat-button *ngIf="loggued()" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
 </div>

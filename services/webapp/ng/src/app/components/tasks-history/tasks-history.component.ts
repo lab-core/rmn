@@ -5,6 +5,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { TasksService } from 'src/app/services/tasks.service';
 import { TaskFilesDialogComponent } from './task-files-dialog/task-files-dialog.component';
 import { TaskShareDialogComponent } from "./task-share-dialog/task-share-dialog.component";
+import { TaskRetryDialogComponent } from './task-retry-dialog/task-retry-dialog.component';
 import { NavigationStart, Router } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table'
 import { MatPaginator } from '@angular/material/paginator';
@@ -16,7 +17,7 @@ import { ThemePalette } from '@angular/material/core';
 import { ProgressSpinnerMode } from '@angular/material/progress-spinner';
 import { SERVER_URL } from 'src/app/utils';
 import { filter, first } from 'rxjs/operators';
-import { TaskRetryDialogComponent } from './task-retry-dialog/task-retry-dialog.component';
+
 
 @Component({
   selector: 'app-tasks-history',
@@ -30,7 +31,7 @@ export class TasksHistoryComponent implements OnInit {
   color: ThemePalette = 'primary';
   mode: ProgressSpinnerMode = 'determinate';
   diameter = 60;
-  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status' ,'job_infos', 'job_deletion'];  //, 'job_retry'
+  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status' ,'job_infos', 'job_deletion', 'job_share'];  //, 'job_retry'
   dataSource: MatTableDataSource<any> = new MatTableDataSource<any>();
 
   @ViewChild(MatPaginator) paginator: MatPaginator;
@@ -227,9 +228,9 @@ export class TasksHistoryComponent implements OnInit {
 
   shareJob(jobId: string, jobName: string): void {
     let dialogRef = this.dialog.open(TaskShareDialogComponent, {
-      width: '60%',
-      height: '90%',
-      data: {taskId: jobId, taskName: jobName}
+      width: '30%',
+      height: '40%',
+      data: {taskId: jobId, taskName: jobName, shareType: 'job', all: true}
     });
     dialogRef.afterClosed().pipe(first()).subscribe(async result => {
         if (result === false) {
