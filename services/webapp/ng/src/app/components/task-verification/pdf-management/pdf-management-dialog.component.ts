@@ -37,6 +37,11 @@ export class PdfManagementDialogComponent implements OnInit {
     this.maxCopiesPerPdf = event.target.valueAsNumber;
   }
 
+  csvSeparator: string = ",";
+  setCsvSeparator(event: any) {
+    this.csvSeparator = event.target.value;
+  }
+
   constructor(public dialogRef: MatDialogRef<PdfManagementDialogComponent>,
     private http: HttpClient,
     private userService: UserService,
@@ -114,8 +119,8 @@ export class PdfManagementDialogComponent implements OnInit {
 
     for (const question of Object.keys(rows)) {
       let csvContent = "";
-      rows[question].forEach(function(rowArray) {
-          let row = rowArray.join(",");
+      rows[question].forEach((rowArray) => {
+          let row = rowArray.join(this.csvSeparator);
           csvContent += row + "\r\n";
       });
       zip.file(`${question}/notes.csv`, csvContent);
@@ -178,6 +183,7 @@ export class PdfManagementDialogComponent implements OnInit {
 
    // Find index grade
    let values = line.split(sep);
+   const nCols = values.length;
    const gradeIndex = values.findIndex((v) => { return v == 'Note'; })
    const docIndex = values.findIndex((v) => { return v == 'Index'; })
    if (gradeIndex == -1 || docIndex == -1) {
@@ -189,14 +195,18 @@ export class PdfManagementDialogComponent implements OnInit {
    let n = 0;
    for (let i=1; i < lines.length; i++) {
      values = lines[i].trim().split(sep);
-     const grade = parseFloat(values[gradeIndex]?.replace(",", "."));
-     if (!isNaN(grade)) {
-       try {
-         const index = parseInt(values[docIndex]);
-         grades[index] = grade;
-         ++n;
-       } catch {
-         this.notificationService.showError(`Csv file (${file}) has an invalid Index for row ${lines[i]}.`, 'Erreur!')
+     if (values.length != nCols) {
+       this.notificationService.showError(`Csv file (${file}) has an invalid row ${i}: ${lines[i]}.`, 'Erreur!')
+     } else {
+       const grade = parseFloat(values[gradeIndex]?.replace(",", "."));
+       if (!isNaN(grade)) {
+         try {
+           const index = parseInt(values[docIndex]);
+           grades[index] = grade;
+           ++n;
+         } catch {
+           this.notificationService.showError(`Csv file (${file}) has an invalid Index for row ${i}: ${lines[i]}.`, 'Erreur!')
+         }
        }
      }
    }

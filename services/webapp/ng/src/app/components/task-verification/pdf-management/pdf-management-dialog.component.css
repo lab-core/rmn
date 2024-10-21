@@ -53,6 +53,21 @@
   margin-bottom: 5%;
 }
 
+.csv-container {
+  margin-bottom: 10%;
+  width: 80%;
+}
+
+.csv-container label {
+    margin-right: 10%;
+}
+
+#cvsSep {
+  width: 15%;
+  margin-top: 2%;
+  margin-bottom: 5%;
+}
+
 .replace-zip-button {
     border-radius: 5px;
     height: 30%;

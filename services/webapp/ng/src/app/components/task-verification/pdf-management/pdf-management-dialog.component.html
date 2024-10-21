@@ -6,6 +6,13 @@
         <label for="maxCopies">Nombre max de copies par pdf</label>
         <input class="form-control" id="maxCopies" type="number" (change)="setmaxCopies($event)" placeholder="Nombre max de copies par pdf">
     </div>
+    <div class="csv-container form-group">
+        <label for="cvsSep">Séparateur pour le csv</label>
+        <select class="form-select" id="cvsSep" (change)="setCsvSeparator($event)" placeholder="Séparateur pour le csv">
+          <option value="," selected> , </option>
+          <option value=";"> ; </option>
+        </select>
+    </div>
     <button class="download-zip-button" mat-flat-button (click)="downloadAllFilesAsZip()">Tout télécharger</button>
 
     <div class="upload-container">
