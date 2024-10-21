@@ -232,14 +232,18 @@ export class TasksHistoryComponent implements OnInit {
       height: '40%',
       data: {taskId: jobId, taskName: jobName, shareType: 'job', all: true}
     });
-    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
-        if (result === false) {
-          const message = "Une erreur est intervenue lors du partage de la tâche !";
-          this.notificationService.showError(message, "Erreur!");
+    dialogRef.afterClosed().pipe(first()).subscribe(resp => {
+      if (resp !== undefined) {
+        if (resp.success) {
+          if (resp.message)
+            this.notificationService.showSuccess(resp.message, "Succès!");
+        } else if (resp.message) {
+            this.notificationService.showError(resp.message, "Erreur!");
         }
-      }, (error) => {
-        console.error(error);
-      });
+      }
+    }, (error) => {
+      console.error(error);
+    });
   }
 
   retryJob(task: any): void {

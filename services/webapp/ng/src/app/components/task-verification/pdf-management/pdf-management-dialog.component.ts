@@ -189,7 +189,7 @@ export class PdfManagementDialogComponent implements OnInit {
    let n = 0;
    for (let i=1; i < lines.length; i++) {
      values = lines[i].trim().split(sep);
-     const grade = parseFloat(values[gradeIndex]);
+     const grade = parseFloat(values[gradeIndex]?.replace(",", "."));
      if (!isNaN(grade)) {
        try {
          const index = parseInt(values[docIndex]);
