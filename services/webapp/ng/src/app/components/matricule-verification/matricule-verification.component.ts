@@ -442,7 +442,7 @@ export class MatriculeVerificationComponent implements OnInit {
           if (counter > 0) {
             warning += ", ";
           }
-          warning += exam["document_index"];
+          warning += exam["document_index"] - this.initialCopyIndex + 1;
         } else if (counter == 3) {
           warning += " ..";
         }

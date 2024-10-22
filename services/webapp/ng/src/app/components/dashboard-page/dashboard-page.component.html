@@ -43,7 +43,7 @@
         </tbody>
       </table>
       <div class="validate-job-container" *ngIf="loggued() && !shared() && !disableButtons">
-        <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()">Finaliser</button>
+        <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()" [disabled]="ongoingTask">Finaliser</button>
       </div>
       <div class="validate-job-container" *ngIf="disableButtons && task.job_status === 'ARCHIVED'">
         <button class="validate-job-button" mat-raised-button color="warn" (click)="openTaskFilesDialog()">Télécharger</button>

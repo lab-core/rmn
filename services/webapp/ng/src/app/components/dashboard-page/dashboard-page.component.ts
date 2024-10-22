@@ -40,6 +40,7 @@ export class DashboardPageComponent {
   examsCount: number = 0;
   questions: Question[] = [];
   totalVerifiedMatricules: number = 0;
+  ongoingTask: boolean = true;
   disableButtons: boolean = false;
 
   constructor(
@@ -71,7 +72,6 @@ export class DashboardPageComponent {
         // update metrics
         this.computeTotalMatricules();
         this.computeQuestions();
-        this.computeTotalQuestion();
       }
     } else {
       this.router.navigate(['/tasks-history']);
@@ -95,7 +95,6 @@ export class DashboardPageComponent {
           await this.docService.getDocuments(this.taskId, true, docIndices);
           this.questionsDocList[resp.document_index] = this.docService.documentsList[0];
           this.computeQuestions();
-          this.computeTotalQuestion();
         }
       } catch (error) {
         console.error(error);
@@ -153,6 +152,7 @@ export class DashboardPageComponent {
         this.totalVerifiedMatricules++;
       }
     });
+    this.checkIfTaskFinished();
   }
 
   computeQuestions() {
@@ -187,6 +187,9 @@ export class DashboardPageComponent {
     Object.values(questionsStats).forEach(question => {
       this.questions[question.index] = question;
     });
+
+    // compute the total
+    this.computeTotalQuestion();
 
     // compute the averages
     this.questions.forEach(question => {
@@ -243,9 +246,15 @@ export class DashboardPageComponent {
         totalQuestion.total += doc.grade;
       }
     })
-    this.computeAverage(totalQuestion);
-
     this.questions.push(totalQuestion);
+
+    this.checkIfTaskFinished();
+  }
+
+  checkIfTaskFinished() {
+    this.ongoingTask = this.totalVerifiedMatricules < this.examsCount
+          || this.getTotalQuestion() == null
+          || this.getTotalQuestion().validatedCount < this.examsCount;
   }
 
   getTotalQuestion() {
