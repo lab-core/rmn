@@ -21,13 +21,21 @@ jobs:
         with:
             fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
 
+      - name: Get last successful commit
+        id: last-successful-commit
+        uses: tylermilner/last-successful-commit-hash-action@v1
+        with:
+          github-token: ${{ github.token }}
+          workflow-id: docker-publish-all.yml
+          branch: main
+
       - name: Get changed files
         id: changed-files
         run: |
             if ${{ github.event_name == 'pull_request' }}; then
-                changed_files=$(git diff --name-only -r HEAD^1 HEAD ${{ inputs.context }} | xargs)
+                changed_files=$(git diff --name-only ${{ steps.last-successful-commit.outputs.commit-hash }} HEAD ${{ inputs.context }} | xargs)
             else
-                changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} ${{ inputs.context }} | xargs)
+                changed_files=$(git diff --name-only ${{ steps.last-successful-commit.outputs.commit-hash }} ${{ github.event.after }} ${{ inputs.context }} | xargs)
             fi
             if [ -z "${changed_files}" ]; then
                 echo "status=same" >> $GITHUB_OUTPUT
@@ -39,10 +47,10 @@ jobs:
     name: Publish docker image
     runs-on: ubuntu-latest
     needs: check_diff
-    if: needs.check_diff.outputs.status == 'changed'
+    if: needs.check_diff.outputs.status == 'changed' || startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout github repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       # https://github.com/docker/metadata-action#semver
       - name: Docker meta
