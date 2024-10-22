@@ -17,7 +17,7 @@ jobs:
     outputs:
       status: ${{ steps.changed-files.outputs.status }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
             fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
 
@@ -50,7 +50,7 @@ jobs:
     if: needs.check_diff.outputs.status == 'changed' || startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout github repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # https://github.com/docker/metadata-action#semver
       - name: Docker meta
