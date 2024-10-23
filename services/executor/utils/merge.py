@@ -72,7 +72,7 @@ def process_merge(job_id):
         job_id (str): The ID of the job.
 
     Returns:
-        None
+        output_folder (str): path to the directory with all corrected copies
     """
     db = Database()
     eval_jobs_collection = db.eval_jobs_collection()
@@ -95,3 +95,5 @@ def process_merge(job_id):
     output_folder = storage.abs_path(os.path.join('corrected_copies', job_id))
 
     merge_pdfs_by_base_name(base_names, folder_paths, output_folder)
+
+    return output_folder

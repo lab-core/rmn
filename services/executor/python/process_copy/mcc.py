@@ -295,8 +295,9 @@ def zipdirbatch(path, archive="moodle", batch=None):
     # ziph is zipfile handle
     i = 0
     j = 0
-    narchive = archive
-    ziph = zipfile.ZipFile(narchive + ".zip", "w", zipfile.ZIP_DEFLATED)
+    zip_file_name = archive + ".zip"
+    zip_file_names = [zip_file_name]
+    ziph = zipfile.ZipFile(zip_file_name, "w", zipfile.ZIP_DEFLATED)
     asize = 0  # archive size
     print(f"batch size {batch}")
     print("Compress", path)
@@ -309,23 +310,27 @@ def zipdirbatch(path, archive="moodle", batch=None):
             mbs = os.path.getsize(pfile) / MB  # file size in Mb
             asize += mbs
             if batch and asize >= batch:
-                print("\nArchive %s.zip created." % narchive)
+                print("\nArchive %s created." % zip_file_name)
                 j = j + 1
-                narchive = "%s%d" % (archive, j)
-                ziph = zipfile.ZipFile(narchive + ".zip", "w", zipfile.ZIP_DEFLATED)
+                zip_file_name = "%s%d.zip" % (archive, j)
+                zip_file_names.append(zip_file_name)
+                ziph = zipfile.ZipFile(zip_file_name, "w", zipfile.ZIP_DEFLATED)
                 asize = 0
                 print("Compressing ", end="", flush=True)
             else:
                 print(".", end="" if i % 65 else "\nCompressing ", flush=True)
             os.remove(str(os.path.join(root, file)))
     if i:
-        print("\nArchive %s.zip created and contains %d files" % (narchive, i))
+        print("\nArchive %s created and contains %d files" % (zip_file_name, i))
     else:
-        print("\nNo file to compress for %s.zip" % narchive)
+        print("\nNo file to compress for %s" % zip_file_name)
 
     if len(ziph.namelist()) == 0:
         print(ziph.namelist())
         os.remove(ziph.filename)
+        zip_file_names.pop()
+
+    return zip_file_names
 
 
 def create_front_page(

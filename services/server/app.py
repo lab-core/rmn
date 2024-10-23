@@ -857,7 +857,6 @@ def download_file():
         request_form = request.form
     else:
         request_form = request.args
-    print("RECEIVED FORM DATA:", request_form)
 
     if "job_id" not in request_form:
         return Response(
@@ -905,7 +904,7 @@ def download_file():
         Output_File.NOTES_CSV_FILE: "notes_csv_file_id",
         Output_File.STATS_PDF_FILE: "stats_file_id",
         Output_File.PREVIEW_FILE: "preview_file_id",
-        Output_File.ZIP_FILE: "moodle_zip_id_list",
+        Output_File.ZIP_FILE: "zip_id_list",
     }
 
     target_output_file = output_file_mapping_dict[target_file]
@@ -954,7 +953,7 @@ def get_info_zip():
             status=404
         )
     #
-    resp = len(output_files["moodle_zip_id_list"])
+    resp = len(output_files["zip_id_list"])
 
     #
     return Response(response=json.dumps({"response": resp}), status=200)

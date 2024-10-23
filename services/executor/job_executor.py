@@ -15,7 +15,7 @@ import copy
 from python.process_copy.parser import parse_run_args, grade_box, matricule_box
 from python.process_copy.recognize import get_date, write_box_contours, imwrite_png
 from python.process_copy.config import MoodleFields as MF
-from python.process_copy.mcc import group_label
+from python.process_copy.mcc import group_label, zipdirbatch
 from python.process_copy.database import Database
 from python.process_copy.add_grades import process_writing
 from utils.stats import create_all_boxplots, create_stats_latex, remove_non_pdfs
@@ -31,6 +31,7 @@ from utils.split import insert_copies
 ROOT_DIR = Path(__file__).resolve().parent
 MAX_RETRY = int(os.getenv("MAX_RETRY", "5"))
 MAX_IDLE_TIME = 120
+BATCH_SIZE = 500
 
 
 # override print
@@ -233,7 +234,6 @@ if __name__ == "__main__":
             raise KeyError(f"Job {job_id} not found in mongodb.")
         user_id = job["user_id"]
 
-        MOODLE_ZIP = TMP_DIR.joinpath("moodle.zip")
         MOODLE_FOLDER = TMP_DIR.joinpath("moodle")
         OUTPUT_FOLDER = TMP_DIR.joinpath("output")
         EXTRACT_FOLDER = TMP_DIR.joinpath("extract")
@@ -254,13 +254,14 @@ if __name__ == "__main__":
 
                 # merging copies
                 print("Merging copies...")
-                process_merge(job_id)
+                corrected_copies = process_merge(job_id)
 
                 # # cleaning storage
                 # print("Cleaning storage...")
                 # storage.clean_storage(job_id)
             else:
                 print("Merging already performed")
+                corrected_copies = os.path.join(storage.abs_path('corrected_copies'), job_id)
 
             #
             user = db.users_collection().find_one({"username": user_id})
@@ -270,30 +271,19 @@ if __name__ == "__main__":
             #
             output = db.jobs_output_collection().find_one({"job_id": job_id})
             notes_csv_file_id = output["notes_csv_file_id"]
-            moodle_zip_id_list = output["moodle_zip_id_list"]
-
-            #
-            VALIDATE_FOLDER.mkdir(exist_ok=True)
-            tmp_copies_folder_path = VALIDATE_FOLDER.joinpath("copies")
-            tmp_copies_folder_path.mkdir(exist_ok=True)
-            validated_copies_folder_path = VALIDATE_FOLDER.joinpath(
-                "validated_copies"
-            )
-            validated_copies_folder_path.mkdir(exist_ok=True)
 
             # Save file to local
             csv_file_path = str(VALIDATE_FOLDER.joinpath('notes.csv'))
             storage.copy_from(notes_csv_file_id, csv_file_path)
             print("notes.csv file created")
 
-            #
+            # read csv file for grades
             df = pd.read_csv(csv_file_path, index_col=MF.mat, dtype={MF.mat: str})
 
             # check if group or gr column is present
             l_group = group_label(df)
 
-            #
-            docs = db.documents_collection().find({"job_id": job_id})
+            # fetch questions information
             eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
             n_max_points_per_question = eval_job["n_max_points_per_question"]
             statistics_for_students = eval_job["statistics_for_students"]
@@ -304,10 +294,10 @@ if __name__ == "__main__":
             question_totals = copy.copy(n_max_points_per_question)
             question_totals.append(sum(s for i, s in enumerate(n_max_points_per_question) if not question_bonus[i]))
 
-            print(f"Col: {df.columns}")
-            date = get_date()
 
-            # print("docs", docs)
+            # store grades
+            docs = db.documents_collection().find({"job_id": job_id})
+            date = get_date()
             grades_dict = {}
             for doc in docs:
                 mat = str(doc["matricule"])
@@ -323,9 +313,10 @@ if __name__ == "__main__":
                         df.loc[mat, MF.grade] = total_score
                         df.loc[mat, MF.mdate] = date
 
+            # save grades
             df.to_csv(csv_file_path, mode="w+")
 
-            #
+            # update all document status
             db.documents_collection().update_many(
                 {"job_id": job_id},
                 {
@@ -335,12 +326,7 @@ if __name__ == "__main__":
                 },
             )
 
-            counter = 0
-            all_copies_folder_path = validated_copies_folder_path.joinpath("all")
-            all_copies_folder_path.mkdir(exist_ok=True)
-            # print("All folder:", str(all_copies_folder_path))
-
-            # create box plots
+            # create box plots for statistics
             filenames = []
             all_grades = [[] for _ in range(n_questions)]
             for filename, grades in grades_dict.items():
@@ -351,130 +337,88 @@ if __name__ == "__main__":
             f_boxplots = create_all_boxplots(all_grades, str(TMP_DIR))
             TEX_FOLDER.mkdir(exist_ok=True)
 
-            for i, id in enumerate(moodle_zip_id_list):
-                # moodle_i
-                moodle_folder_name = f"moodle_{i}"
-                moodle_folder_path = validated_copies_folder_path.joinpath(moodle_folder_name)
-                moodle_folder_path.mkdir(exist_ok=True)
+            # create folders for all copies zips
+            all_copies_folder_path = VALIDATE_FOLDER.joinpath("all")
+            all_copies_folder_path.mkdir(exist_ok=True)
+            moodle_folder_path = VALIDATE_FOLDER.joinpath("moodle")
+            moodle_folder_path.mkdir(exist_ok=True)
 
-                # moodle_i.zip
-                moodle_filename = f"{moodle_folder_name}.zip"
-                # validated_tmp_folder/<job_id>_moodle_0.zip
-                file_p = str(VALIDATE_FOLDER.joinpath(moodle_filename))
-                storage.copy_from(id, file_p)
-                # validated_tmp_folder/copies/[1.pdf, 2.pdf]
-                # with ZipFile(file_p, 'r') as zip_ref:
-                #     zip_ref.extractall(tmp_copies_folder_path)
-                curr_moodle_folder_path = os.path.join(storage.abs_path('corrected_copies'), job_id)
+            # create zip files for all copies and moodle
+            for root, dirs, files in os.walk(str(corrected_copies)):
+                for f in files:
+                    file = os.path.join(root, f)
+                    if not os.path.isfile(file) or not f.endswith(".pdf") or f.startswith("."):
+                        continue
 
-                if len(os.listdir(str(curr_moodle_folder_path))) == 0:
-                    continue
+                    filename = str(f).rsplit('.', 1)[0]
+                    doc = db.documents_collection().find_one({"job_id": job_id, "filename": filename})
+                    if doc is None:
+                        continue
 
-                for root, dirs, files in os.walk(str(curr_moodle_folder_path)):
-                    for f in files:
-                        file = os.path.join(root, f)
+                    # doc_idx = doc["document_index"]
+                    # start_time = time.time()
+                    # if save_verified_images:
+                    #     save_number_images(
+                    #         storage, job_id, doc_idx - 1, doc["grades"]
+                    #     )
 
-                        # print("file", str(file))
-
-                        if (
-                            not os.path.isfile(file)
-                            or not f.endswith(".pdf")
-                            or f.startswith(".")
-                        ):
-                            continue
-
-                        filename = str(f).rsplit('.', 1)[0]
-                        doc = db.documents_collection().find_one({"job_id": job_id, "filename": filename})
-
-                        if doc is None:
-                            continue
-
-                        # doc_idx = doc["document_index"]
-                        # start_time = time.time()
-                        # if save_verified_images:
-                        #     save_number_images(
-                        #         storage, job_id, doc_idx - 1, doc["grades"]
-                        #     )
-
-                        matricule = str(doc["matricule"])
-                        try:
-                            nom_complet = df.at[matricule, MF.name]
-                        except Exception as e:
-                            print(e)
-                            print("Matricule", matricule, "not found in csv.")
-                            continue
-
-                        try:
-                            nom, prenom = nom_complet.split()
-                        except Exception as e:
-                            print(nom_complet)
-                            print(e)
-                            nom = nom_complet
-                            prenom = ""
-
-                        # print("moodle_ind", moodle_ind)
-                        if moodle_ind:
-                            # create folder
-                            identifiant = df.at[matricule, MF.id]
-                            m_id = re.search('\\d+', identifiant)
-                            if not m_id:
-                                print("Moodle participant id not found in " + identifiant)
-                            else:
-                                identifiant = m_id.group()
-                                folder_name = f"{nom_complet}_{identifiant}_{matricule}_assignsubmission_file_"
-                                m_folder = moodle_folder_path.joinpath(folder_name)
-                                m_folder.mkdir(exist_ok=True)
-                                m_dest = m_folder.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
-
-                                # transfer file to folder
-                                shutil.copy(str(file), str(m_dest))
-
-                                # adding stats file
-                                filename = os.path.basename(file).rsplit(".", 1)[0]
-                                if statistics_for_students:
-                                    try:
-                                        file_index = filenames.index(filename)
-                                        fpdf = create_stats_latex(nom_complet, file_index, n_questions,
-                                                                  all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER)
-                                        # print("Stats for", nom_complet, "created:", fpdf)
-                                        shutil.move(fpdf, m_folder.joinpath("statistiques.pdf"))
-                                    except ValueError:
-                                        # file not found
-                                        print(f"File {filename} does not correspond to a valid document.")
-                                        pass
-
-                        copies_path = all_copies_folder_path
-                        if l_group:
-                            group = df.at[matricule, l_group]
-                            copies_path = copies_path.joinpath(str(group))
-                            copies_path.mkdir(exist_ok=True)
-                        dest = copies_path.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
-                        shutil.move(str(file), str(dest))
-
-                        counter += 1
-
-                # make moodle.zip
-                if moodle_ind:
-                    shutil.make_archive(
-                        str(VALIDATE_FOLDER.joinpath(moodle_folder_name)),
-                        "zip",
-                        str(moodle_folder_path)
-                    )
-
+                    # find matricule associated to this file
+                    matricule = str(doc["matricule"])
                     try:
-                        c_zip = str(VALIDATE_FOLDER.joinpath(moodle_filename))
-                        storage.move_to(c_zip, id)
+                        nom_complet = df.at[matricule, MF.name]
                     except Exception as e:
                         print(e)
-                else:
-                    storage.remove(id)
+                        print("Matricule", matricule, "not found in csv.")
+                        continue
 
-            # adding stats for professors
-            fpdf = create_stats_latex('Statistiques', None, n_questions, all_grades, question_totals,
-                                      f_boxplots, TMP_DIR=TEX_FOLDER)
-            print("General stats created:", fpdf)
-            stats_file_id = os.path.normpath(f"output_stats{os.sep}{job_id}.pdf")
-            storage.move_to(fpdf, stats_file_id)
+                    # find nom and prenom associated to this file
+                    try:
+                        nom, prenom = nom_complet.split()
+                    except Exception as e:
+                        print(nom_complet)
+                        print(e)
+                        nom = nom_complet
+                        prenom = ""
+
+                    # store copy for moodle zip if necessary
+                    if moodle_ind:
+                        # create participant moodle folder
+                        identifiant = df.at[matricule, MF.id]
+                        m_id = re.search('\\d+', identifiant)
+                        if not m_id:
+                            print("Moodle participant id not found in " + identifiant)
+                        else:
+                            identifiant = m_id.group()
+                            folder_name = f"{nom_complet}_{identifiant}_{matricule}_assignsubmission_file_"
+                            m_folder = moodle_folder_path.joinpath(folder_name)
+                            m_folder.mkdir(exist_ok=True)
+                            m_dest = m_folder.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
+
+                            # transfer file to folder
+                            shutil.copy(str(file), str(m_dest))
+
+                            # adding stats file
+                            filename = os.path.basename(file).rsplit(".", 1)[0]
+                            if statistics_for_students:
+                                try:
+                                    file_index = filenames.index(filename)
+                                    fpdf = create_stats_latex(nom_complet, file_index, n_questions,
+                                                              all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER)
+                                    # print("Stats for", nom_complet, "created:", fpdf)
+                                    shutil.move(fpdf, m_folder.joinpath("statistiques.pdf"))
+                                except ValueError:
+                                    # file not found
+                                    print(f"File {filename} does not correspond to a valid document.")
+                                    pass
+
+                    # store copy in all copies folder
+                    copies_path = all_copies_folder_path
+                    if l_group:
+                        group = df.at[matricule, l_group]
+                        copies_path = copies_path.joinpath(str(group))
+                        copies_path.mkdir(exist_ok=True)
+                    dest = copies_path.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
+                    shutil.move(str(file), str(dest))
 
             # create zip with all copies (gathered by group if enabled)
             shutil.make_archive(
@@ -491,10 +435,24 @@ if __name__ == "__main__":
             except Exception as e:
                 print(e)
 
-            # update zip list
+            # create moodle zip files
             zip_id_list = [zip_file_id]
             if moodle_ind:
-                zip_id_list += moodle_zip_id_list
+                try:
+                    zip_file_ids = zipdirbatch(str(moodle_folder_path), str(moodle_folder_path), BATCH_SIZE)
+                    for i, zip_file in enumerate(zip_file_ids):
+                        moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_{i+1}.zip")
+                        storage.move_to(zip_file, moodle_zip_file_id)
+                        zip_id_list.append(moodle_zip_file_id)
+                except Exception as e:
+                    print(e)
+
+            # adding stats for professors
+            fpdf = create_stats_latex('Statistiques', None, n_questions, all_grades, question_totals,
+                                      f_boxplots, TMP_DIR=TEX_FOLDER)
+            print("General stats created:", fpdf)
+            stats_file_id = os.path.normpath(f"output_stats{os.sep}{job_id}.pdf")
+            storage.move_to(fpdf, stats_file_id)
 
             if stopH.stop():
                 print("Job has been deleted.")
@@ -511,7 +469,7 @@ if __name__ == "__main__":
                     {"$set": {
                         "notes_csv_file_id": notes_csv_file_id,
                         "stats_file_id": stats_file_id,
-                        "moodle_zip_id_list": zip_id_list
+                        "zip_id_list": zip_id_list
                     }})
 
                 #
@@ -607,9 +565,6 @@ if __name__ == "__main__":
                 job_id,
                 "--user_id",
                 user_id,
-                "--export",
-                "--batch",
-                "500",
             ]
             print("Running module with:", args)
             # process_copy
@@ -620,7 +575,6 @@ if __name__ == "__main__":
 
                 if stopH.stop():
                     print("Job has been deleted.")
-
                     # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
                     # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
                     return
@@ -635,27 +589,13 @@ if __name__ == "__main__":
 
                 # Error handling
                 update_status(db, sio, user_id, job_id, Job_Status.ERROR, infos={"job_infos": str(e)})
-
-                # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-                # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
                 return
 
             print("Module Done")
 
-            # Save output files in storage
+            # Save csv files in storage
             notes_csv_file_id = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
             storage.move_to(os.path.join(OUTPUT_FOLDER, "notes.csv"), notes_csv_file_id)
-
-            moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}.zip")
-            storage.move_to(MOODLE_ZIP, moodle_zip_file_id)
-
-            moodle_zip_id_list = [moodle_zip_file_id]
-            i = 1
-            for file_path in TMP_DIR.glob("moodle*.zip"):
-                moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_{i}.zip")
-                storage.move_to(str(file_path), moodle_zip_file_id)
-                moodle_zip_id_list.append(moodle_zip_file_id)
-                i = i + 1
 
             # finalize job
             db.jobs_output_collection().insert_one(
@@ -664,7 +604,7 @@ if __name__ == "__main__":
                     "user_id": user_id,
                     "notes_csv_file_id": notes_csv_file_id,
                     "preview_file_id": "None",
-                    "moodle_zip_id_list": moodle_zip_id_list,
+                    "zip_id_list": [],
                 }
             )
 
