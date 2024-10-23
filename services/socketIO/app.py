@@ -9,6 +9,7 @@ async_mode = None
 app = Flask(__name__)
 socketio = SocketIO(app, logger=True, engineio_logger=True, policy_server=False, async_mode='eventlet', manage_session=False, cors_allowed_origins="*")
 
+
 @socketio.on("connect")
 def on_connection(auth):
     print("Connected")
@@ -38,15 +39,20 @@ def handle_message(data):
 
 @socketio.on("job_status")
 def handle_job_status_change(data):
-    user_id = json.loads(data)["user_id"]
-    emit("job_status", data, room=user_id)
-    print(f"Received data: {data} to room : {user_id}")
+    # emit for user
+    message = json.loads(data)
+    emit("job_status", data, room=message["user_id"])
+    # emit for job
+    emit("job_status", data, room=message["job_id"])
+    print(f"Received data: {data} to room : {message["user_id"]}")
+
 
 @socketio.on("template_rendered")
 def handle_template_rendered_change(data):
     template_id = json.loads(data)["template_id"]
     emit("template_rendered", data, room=template_id)
     print(f"Received data: {data} to room : {template_id}")
+
 
 @socketio.on("doc_validated")
 def handle_doc_validated(data):

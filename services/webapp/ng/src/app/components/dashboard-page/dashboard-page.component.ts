@@ -100,6 +100,11 @@ export class DashboardPageComponent {
         console.error(error);
       }
     });
+    this.socketService.getSocket().on('job_status', async (params: any) => {
+      let resp = JSON.parse(params)
+      this.task.job_status = resp.status;
+      this.updateViewOnStatus();
+    });
   }
 
   loggued(): boolean {
@@ -112,6 +117,10 @@ export class DashboardPageComponent {
 
   async getTask() {
     this.task = await this.tasksService.getTaskById(this.taskId);
+    this.updateViewOnStatus();
+  }
+
+  updateViewOnStatus() {
     if (this.task.job_status === 'IGNORED' ||
              this.task.job_status === 'QUEUED' ||
              this.task.job_status === 'RUN' ||

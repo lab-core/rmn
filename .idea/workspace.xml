@@ -6,10 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/job_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/job_executor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/python/process_copy/mcc.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/python/process_copy/mcc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/utils/merge.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/merge.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/socketIO/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/socketIO/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -197,7 +195,8 @@
       <workItem from="1728867430825" duration="2914000" />
       <workItem from="1729021688608" duration="3906000" />
       <workItem from="1729047337884" duration="3578000" />
-      <workItem from="1729715653737" duration="2964000" />
+      <workItem from="1729715653737" duration="3684000" />
+      <workItem from="1729724578836" duration="1244000" />
     </task>
     <servers />
   </component>
@@ -254,59 +253,9 @@
           <option name="timeStamp" value="196" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/python/process_copy/recognize.py</url>
-          <line>1059</line>
-          <option name="timeStamp" value="207" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/python/process_copy/recognize.py</url>
-          <line>1073</line>
-          <option name="timeStamp" value="210" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/python/process_copy/recognize.py</url>
-          <line>727</line>
-          <option name="timeStamp" value="214" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/python/process_copy/recognize.py</url>
-          <line>718</line>
-          <option name="timeStamp" value="218" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/python/process_copy/recognize.py</url>
-          <line>361</line>
-          <option name="timeStamp" value="224" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
           <line>439</line>
           <option name="timeStamp" value="226" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
-          <line>444</line>
-          <option name="timeStamp" value="227" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
-          <line>475</line>
-          <option name="timeStamp" value="228" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
-          <line>447</line>
-          <option name="timeStamp" value="236" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
-          <line>450</line>
-          <option name="timeStamp" value="237" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/services/executor/job_executor.py</url>
-          <line>466</line>
-          <option name="timeStamp" value="238" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
@@ -318,7 +267,7 @@
     <SUITE FILE_PATH="coverage/rmn$app.coverage" NAME="app Coverage Results" MODIFIED="1722621700114" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/server" />
     <SUITE FILE_PATH="coverage/rmn$config.coverage" NAME="config Coverage Results" MODIFIED="1721796042838" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/python/process_copy" />
     <SUITE FILE_PATH="coverage/rmn$test.coverage" NAME="test Coverage Results" MODIFIED="1721796076415" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
-    <SUITE FILE_PATH="coverage/rmn$exec.coverage" NAME="exec Coverage Results" MODIFIED="1729717645332" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
+    <SUITE FILE_PATH="coverage/rmn$exec.coverage" NAME="exec Coverage Results" MODIFIED="1729724580096" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
     <SUITE FILE_PATH="coverage/rmn$split_and_merge.coverage" NAME="split_and_merge Coverage Results" MODIFIED="1716597389703" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/utils" />
     <SUITE FILE_PATH="coverage/rmn$recognize.coverage" NAME="recognize Coverage Results" MODIFIED="1721795247863" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/python/process_copy" />
   </component>
