@@ -240,7 +240,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
     for (let i = 1; i <= Math.ceil(maxIndex / subExamsListSize); i++) {
         for (let j = 1; j <= subExamsListSize; j++) {
-            const index = `${j}-${i}`;
+            const index = `${j}|Q${i}`;
             if ((i - 1) * subExamsListSize + j <= maxIndex) {
                 this.formattedIndexes.push(index);
             }
@@ -306,7 +306,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
     this.formattedIndexes = this.subExamsList.map((_, i) => {
       const subIndex = (i % this.subExamsList.length) + 1;
-      return `${subIndex}-${questionIndex}`;
+      return `${subIndex}`;
     });
   }
 

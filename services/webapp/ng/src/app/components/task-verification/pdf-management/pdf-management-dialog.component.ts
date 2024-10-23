@@ -170,7 +170,7 @@ export class PdfManagementDialogComponent implements OnInit {
     });
   }
 
-  async parseCSVGrades(file: File | Blob, grades: any) {
+  async parseCSVGrades(filename: string, file: File | Blob, grades: any) {
     // Entire file
     const text: string = String(await this.readFileSync(file, true));
     var lines = text.split('\n');
@@ -187,7 +187,7 @@ export class PdfManagementDialogComponent implements OnInit {
    const gradeIndex = values.findIndex((v) => { return v == 'Note'; })
    const docIndex = values.findIndex((v) => { return v == 'Index'; })
    if (gradeIndex == -1 || docIndex == -1) {
-     this.notificationService.showError(`Csv file (${file}) does not have either Note or/and Index columns.`, 'Erreur!')
+     this.notificationService.showError(`Csv file (${filename}) does not have either Note or/and Index columns.`, 'Erreur!')
      return -1;
    }
 
@@ -196,7 +196,7 @@ export class PdfManagementDialogComponent implements OnInit {
    for (let i=1; i < lines.length; i++) {
      values = lines[i].trim().split(sep);
      if (values.length != nCols) {
-       this.notificationService.showError(`Csv file (${file}) has an invalid row ${i}: ${lines[i]}.`, 'Erreur!')
+       if (lines[i].trim() != "") this.notificationService.showError(`Csv file (${filename}) has an invalid row ${i+1}: ${lines[i]}`, 'Erreur!');
      } else {
        const grade = parseFloat(values[gradeIndex]?.replace(",", "."));
        if (!isNaN(grade)) {
@@ -205,7 +205,7 @@ export class PdfManagementDialogComponent implements OnInit {
            grades[index] = grade;
            ++n;
          } catch {
-           this.notificationService.showError(`Csv file (${file}) has an invalid Index for row ${i}: ${lines[i]}.`, 'Erreur!')
+           this.notificationService.showError(`Csv file (${filename}) has an invalid Index for row ${i+1}: ${lines[i]}`, 'Erreur!')
          }
        }
      }
@@ -248,7 +248,7 @@ export class PdfManagementDialogComponent implements OnInit {
           for (const f of zipMergedCSV) {
             if (f.startsWith('__MACOSX')) continue;
             const csvDoc = await zipContent.file(f).async('blob');
-            await this.parseCSVGrades(csvDoc, grades);
+            await this.parseCSVGrades(f, csvDoc, grades);
             i++;
             this.percentageDone = Math.round(50 * i / nLength);
           }
