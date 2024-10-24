@@ -42,6 +42,9 @@ def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
+    print("Merging PDF files...")
+    k = 0
+    n_docs = len(base_names)
     for base_name in base_names:
         writer = PdfWriter()
         output_path = os.path.join(output_folder, f"{base_name}.pdf")
@@ -61,7 +64,8 @@ def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
 
         with open(output_path, 'wb') as output_file:
             writer.write(output_file)
-        print(f"Merged PDF for {base_name} saved at {output_path}")
+        k += 1
+        print(f"({k}/{n_docs}) Merged PDF for {base_name} saved at {output_path}")
 
 
 def process_merge(job_id):

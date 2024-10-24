@@ -344,6 +344,9 @@ if __name__ == "__main__":
             moodle_folder_path.mkdir(exist_ok=True)
 
             # create zip files for all copies and moodle
+            print("Preparing zip files ...")
+            i = 0
+            n_docs = len(grades_dict)
             for root, dirs, files in os.walk(str(corrected_copies)):
                 for f in files:
                     file = os.path.join(root, f)
@@ -375,8 +378,8 @@ if __name__ == "__main__":
                     try:
                         nom, prenom = nom_complet.split()
                     except Exception as e:
-                        print(nom_complet)
-                        print(e)
+                        # print(nom_complet)
+                        # print(e)
                         nom = nom_complet
                         prenom = ""
 
@@ -419,6 +422,10 @@ if __name__ == "__main__":
                         copies_path.mkdir(exist_ok=True)
                     dest = copies_path.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
                     shutil.move(str(file), str(dest))
+
+                    i += 1
+                    if i % 10 == 0:
+                        print(f"{i}/{n_docs} copies prepared")
 
             # create zip with all copies (gathered by group if enabled)
             shutil.make_archive(

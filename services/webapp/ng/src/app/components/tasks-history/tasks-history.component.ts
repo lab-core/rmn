@@ -6,6 +6,7 @@ import { TasksService } from 'src/app/services/tasks.service';
 import { TaskFilesDialogComponent } from './task-files-dialog/task-files-dialog.component';
 import { TaskShareDialogComponent } from "./task-share-dialog/task-share-dialog.component";
 import { TaskRetryDialogComponent } from './task-retry-dialog/task-retry-dialog.component';
+import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { NavigationStart, Router } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table'
 import { MatPaginator } from '@angular/material/paginator';
@@ -212,17 +213,37 @@ export class TasksHistoryComponent implements OnInit {
     }
   }
 
+  openDeleteDialog(jobId: string): void {
+    const task = this.tasksList.find(task => { return task.job_id == jobId });
+    let dialogRef = this.dialog.open(WarningDialogComponent, {
+      width: '40%',
+      height: '50%',
+      data: "Êtes-vous sur de vouloir supprimer la tâche " + task.job_name + " ?"
+    })
+    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
+      if (result === true) {
+        this.deleteJob(jobId);
+      }
+    });
+  }
+
   deleteJob(jobId: string): void {
+    // delete task from list
+    const index = this.tasksList.findIndex(task => { return task.job_id == jobId });
+    if (index > -1) { // only splice array when item is found
+      this.tasksList.splice(index, 1);
+      this.dataSource.data = this.tasksList;
+    }
+    // delete task from server
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     this.http.post<any>(`${SERVER_URL}job/delete`, formdata).pipe(first()).subscribe(
       (data) => {
-        if (data['response'] === 'OK') {
-          this.getTasks();
-        }
+        this.getTasks();
       }, (error) => {
         console.error(error);
+        this.getTasks();
       });
   }
 

@@ -55,7 +55,7 @@ export class TaskFilesDialogComponent implements OnInit {
     } else {
       value = "moodle";
       if (index > 1) {
-        value += "-${index}";
+        value += `-${index}`;
       }
     }
     return value;

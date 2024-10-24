@@ -47,7 +47,6 @@ def create_tex_pdf(latex_file, tmp_dir, latex_cmd="pdflatex"):
     flog = "stdout.log"
     with open(flog, "w") as fstdout:
         try:
-            print(latex_file)
             subprocess.check_call([latex_cmd, latex_file], stdout=fstdout, timeout=5)
         except subprocess.TimeoutExpired:
             with open(flog) as f:

@@ -149,7 +149,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
       data: "Êtes-vous sur de vouloir supprimer le template?"
     })
     dialogRef.afterClosed().pipe(first()).subscribe(async result => {
-      if (result !== undefined && result === true) {
+      if (result === true) {
         const formdata: FormData = new FormData();
         this.userService.addTokens(formdata);
         formdata.append('template_id', template["template_id"]);

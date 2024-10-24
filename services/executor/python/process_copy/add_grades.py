@@ -32,8 +32,11 @@ def process_writing(job_id, TMP_DIR, dpi=300, shape=(8.5, 11) ):
     if box_grades_list is not None:
         box_grades = box_grades_list
 
+    n_docs = db.documents_collection().count_documents({"job_id": job_id})
     documents = db.documents_collection().find({"job_id": job_id})
     img_path = str(TMP_DIR.joinpath('intermediate_image.png'))
+    print("Adding grades to copies ...")
+    i = 0
     for doc in documents:
         input_pdf_path = storage.abs_path(doc["rel_filepath"])
         grades = doc["grades"]
@@ -47,4 +50,5 @@ def process_writing(job_id, TMP_DIR, dpi=300, shape=(8.5, 11) ):
         layout = img2pdf.get_fixed_dpi_layout_fun((dpi, dpi))
         with open(input_pdf_path, "wb") as f:
             f.write(img2pdf.convert(img_path, layout_fun=layout))
-        print(f"Modified PDF saved as {input_pdf_path}")
+        i += 1
+        print(f"({i}/{n_docs}) Modified PDF saved as {input_pdf_path}")
