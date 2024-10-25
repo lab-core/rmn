@@ -163,7 +163,7 @@ if __name__ == "__main__":
         template_file = str(WORK_TMP_DIR.joinpath(template["template_file_id"]))
         storage.copy_from(template["template_file_id"], template_file)
         if template_file.endswith(".pdf"):
-            img = convert_from_path(template_file, dpi=300)[0]
+            img = convert_from_path(template_file, dpi=100)[0]
         else:
             img = Image.open(template_file)
 
@@ -199,7 +199,7 @@ if __name__ == "__main__":
         # rendered_path = template["template_file_id"].rsplit(".", 1)[0] + "-rendered.pdf"
         # tmp_rendered = str(WORK_TMP_DIR.joinpath(rendered_path))
         # with open(tmp_rendered, "wb") as f:
-        #     layout = img2pdf.get_fixed_dpi_layout_fun((300, 300))
+        #     layout = img2pdf.get_fixed_dpi_layout_fun((100, 100))
         #     f.write(img2pdf.convert(tmp_img, layout_fun=layout))
         # storage.move_to(tmp_rendered, rendered_path)
 
@@ -408,7 +408,7 @@ if __name__ == "__main__":
                                     fpdf = create_stats_latex(nom_complet, file_index, n_questions,
                                                               all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER)
                                     # print("Stats for", nom_complet, "created:", fpdf)
-                                    shutil.move(fpdf, m_folder.joinpath("statistiques.pdf"))
+                                    shutil.move(fpdf, m_folder.joinpath(f"{nom}_{prenom}_{matricule}_notes.pdf"))
                                 except ValueError:
                                     # file not found
                                     print(f"File {filename} does not correspond to a valid document.")

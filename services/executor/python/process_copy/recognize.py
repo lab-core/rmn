@@ -98,6 +98,8 @@ def get_max_question(max_grade, max_nb_questions):
 
 
 def find_all_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
+    if dpi < 300:
+        print(f"Warning: dpi ({dpi}) could be too low for an accurate recognition: you should use at least 300.")
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
 
     # box_list, box_matricule_list = None, None
@@ -255,22 +257,6 @@ def process_all(
     # load csv
     grades_dfs, grades_names = load_csv(grades_csv)
 
-    # load max grade if available
-    max_grade = None
-    for df in grades_dfs:
-        for idx, row in df.iterrows():
-            try:
-                s = row[MF.max]
-                if pd.isna(s):
-                    continue
-                if isinstance(s, str):
-                    s = s.replace(",", ".")
-                    s = float(s)
-            except:
-                continue
-            if max_grade is None or s < max_grade:
-                max_grade = s
-
     # Create a list of matricule-name
     all_grades_dfs = pd.concat(grades_dfs)
     names_mat_df = all_grades_dfs.reset_index()[["Matricule", "Nom complet"]]
@@ -342,7 +328,7 @@ def process_all(
     last_index = len(g_files) - 1
     while doc_index < len(g_files):
         # grade file in a different process
-        g_args = (g_files[doc_index:], doc_index, grades_csv, max_grade,
+        g_args = (g_files[doc_index:], doc_index, grades_csv,
                   min_documents_for_max_questions,
                   job_id, user_id,
                   box_matricule, box, matricules_data,
@@ -418,7 +404,6 @@ def grade_files(
         files,
         doc_index,
         grades_csv,
-        max_grade,
         min_documents_for_max_questions,
         job_id,
         user_id,
@@ -433,6 +418,22 @@ def grade_files(
     db = Database()
     # load csv
     grades_dfs, grades_names = load_csv(grades_csv)
+
+    # load max grade if available
+    max_grade = None
+    for df in grades_dfs:
+        for idx, row in df.iterrows():
+            try:
+                s = row[MF.max]
+                if pd.isna(s):
+                    continue
+                if isinstance(s, str):
+                    s = s.replace(",", ".")
+                    s = float(s)
+            except:
+                continue
+            if max_grade is None or s < max_grade:
+                max_grade = s
 
     # grade files
     grades_data = []
@@ -672,7 +673,6 @@ def find_matricules(
         files,
         doc_index,
         grades_csv,
-        max_grade,
         min_documents_for_max_questions,
         job_id,
         user_id,
@@ -844,8 +844,9 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
     return is_matricule_valid, m
 
 
-def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'intermediate_image.png',
-               trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11), grade_ratio: float = 0.5):
+def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'intermediate_image.jpg',
+               trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11),
+               jpg_quality: int = 5, grade_ratio: float = 0.5):
     grays = gray_images(pdf_path, [0], straighten=False, shape=shape)
     img = convert_from_path(pdf_path, dpi=300, first_page=0, last_page=1)[0]
     np_img = np.array(img)
@@ -861,7 +862,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
     def find_right_boxes(box, retry=5):
         cropped = fetch_box(gray, box)
         boxes = find_grade_boxes(cropped, add_border, thick=0)
-        print(f"Number of boxes : {len(boxes)}")
+        # print(f"Number of boxes : {len(boxes)}")
 
         if len(boxes) != len(numbers):
             print(f'The number of boxes ({len(boxes)}) found is different from the number of grades ({len(numbers)})')
@@ -899,7 +900,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
 
     find_right_boxes(box)
     cv2.resize(np_img, (original_shape[1], original_shape[0]), interpolation=cv2.INTER_LINEAR)
-    cv2.imwrite(img_path, np_img)
+    cv2.imwrite(img_path, np_img, [cv2.IMWRITE_JPEG_QUALITY, jpg_quality])
 
 
 def compare_all(paths, grades_csv, box, dpi=300, shape=(8.5, 11)):
@@ -1227,7 +1228,7 @@ def correct_decimals(p):
 def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=None, max_question=None, retry=0):
     cropped = fetch_box(gray, box)
     boxes = find_grade_boxes(cropped, add_border, thick=0)
-    print(f"Number of boxes : {len(boxes)}")
+    # print(f"Number of boxes : {len(boxes)}")
 
     number_images = []
     all_numbers = []
@@ -1793,7 +1794,7 @@ def fetch_box(img, box):
         int(box[2] * img.shape[0]),
         int(box[3] * img.shape[0]),
     ]
-    cropped = img[x[2] : x[3], x[0] : x[1]]  # ys and then xs
+    cropped = img[x[2]:x[3], x[0]:x[1]]  # ys and then xs
     imwrite_png("cropped", cropped)
     return cropped
 

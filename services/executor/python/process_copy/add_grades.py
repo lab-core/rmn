@@ -34,7 +34,7 @@ def process_writing(job_id, TMP_DIR, dpi=300, shape=(8.5, 11) ):
 
     n_docs = db.documents_collection().count_documents({"job_id": job_id})
     documents = db.documents_collection().find({"job_id": job_id})
-    img_path = str(TMP_DIR.joinpath('intermediate_image.png'))
+    img_path = str(TMP_DIR.joinpath('intermediate_image.jpg'))
     print("Adding grades to copies ...")
     i = 0
     for doc in documents:
