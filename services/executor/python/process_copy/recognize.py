@@ -99,7 +99,7 @@ def get_max_question(max_grade, max_nb_questions):
 
 def find_all_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
     if dpi < 300:
-        print(f"Warning: dpi ({dpi}) could be too low for an accurate recognition: you should use at least 300.")
+        print(f"Warning: dpi ({dpi}) could be too low for an accurate recognition: you should use 300.")
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
 
     # box_list, box_matricule_list = None, None
