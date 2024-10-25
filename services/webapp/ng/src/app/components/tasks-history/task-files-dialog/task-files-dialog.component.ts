@@ -77,8 +77,42 @@ export class TaskFilesDialogComponent implements OnInit {
     } else if (share) {
       this.shareTask(inputValue, inputId, index);
     } else {
-      this.downloadFile(inputValue, inputId, index);
+      // this.downloadFile(inputValue, inputId, index);
+      this.openShareURL(inputValue, inputId, index);
     }
+  }
+
+  async openShareURL(inputValue, inputId, index=undefined) {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', this.data.taskId);
+    formdata.append('file', inputId);
+    let filename = inputValue;
+    if (index !== undefined) {
+      formdata.append('zip_index', index.toString());
+      filename = this.setDefaultZipValues(index) + '.zip';
+    } else if (filename == 'notes') {
+      filename = 'notes.csv';
+    } else {
+      filename += '.pdf';
+    }
+
+    await this.http.post<any>(`${SERVER_URL}file/share`, formdata)
+    .toPromise()
+    .then(async (data: any) => {
+      let resp = data['response'];
+      if (resp.share_url) {
+        const download = document.getElementById('download-file');
+        // const download = document.createElement('download-file');
+        // const fileName = resp.share_url.substring(resp.share_url.lastIndexOf('/') + 1);
+        download.setAttribute("href", resp.share_url+"&filename="+filename);
+        download.setAttribute("download", filename);
+        download.click();
+      }
+    })
+    .catch((error) => {
+      console.error(error);
+    });
   }
 
   shareTask(inputValue, inputId, index=undefined) {
@@ -127,6 +161,11 @@ export class TaskFilesDialogComponent implements OnInit {
             }
             const file = new Blob([data.body as any], { type: typeExport });
             let downloadURL = window.URL.createObjectURL(file);
+            // const download = document.createElement('download-file');
+            // download.setAttribute("href", downloadURL);
+            // download.setAttribute("download", filename);
+            // download.click();
+            // download.remove();
             saveAs(downloadURL, filename);
             URL.revokeObjectURL(downloadURL);
             this.downloading = false;
@@ -143,8 +182,6 @@ export class TaskFilesDialogComponent implements OnInit {
     } else {
       this.notifyService.showWarning("Un fichier est en cours de téléchargement!", "Attention" )
     }
-
-
   }
 
   cancel(): void {

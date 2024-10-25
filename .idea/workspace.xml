@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/executor/python/process_copy/recognize.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/python/process_copy/recognize.py" afterDir="false" />
-    </list>
+    <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -158,8 +155,8 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.app" />
       <item itemvalue="Python.exec" />
+      <item itemvalue="Python.app" />
       <item itemvalue="Python.stats" />
     </list>
   </component>
@@ -201,7 +198,7 @@
       <workItem from="1729724578836" duration="2005000" />
       <workItem from="1729739554946" duration="1027000" />
       <workItem from="1729802673724" duration="5277000" />
-      <workItem from="1729862994894" duration="168000" />
+      <workItem from="1729862994894" duration="768000" />
     </task>
     <servers />
   </component>

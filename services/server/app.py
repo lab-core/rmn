@@ -758,8 +758,8 @@ def download_incorrect_files(user_id):
 
 @app.route("/file/share", methods=["POST"])
 @cross_origin()
-@verify_token()
-def share_archive(user_id):
+@verify_share_token(question=False, matricule=False)  # just token all
+def share_archive():
     request_form = request.form
     if "job_id" not in request_form:
         return Response(
@@ -794,11 +794,11 @@ def share_archive(user_id):
     # Define db and collection used
     db = mongo["RMN"]
     output_collection = db["jobs_output"]
-    job = output_collection.find_one({"job_id": job_id, "user_id": user_id})
+    job = output_collection.find_one({"job_id": job_id})
 
     if job is None:
         return Response(
-            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            response=json.dumps({"response": f"Error: job {job_id} doesn't exist."}),
             status=404
         )
 
@@ -918,10 +918,11 @@ def download_file():
         os.makedirs(TEMP_FOLDER)
 
     # Save file to local
-    print("File to send", file_id)
+    filename = request_form.get('filename')
+    print("File to send", file_id, filename)
     filepath = str(TEMP_FOLDER.joinpath(file_id.split(os.sep)[-1]))
     storage.copy_from(file_id, filepath)
-    file_send = send_file(filepath)
+    file_send = send_file(filepath, download_name=filename)
     os.remove(filepath)
 
     return file_send
