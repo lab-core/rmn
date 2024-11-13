@@ -354,9 +354,10 @@ def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_n
     try:
         file_name = str(TEMP_FOLDER.joinpath(notes_csv_file_name))
         # Check if separated by ; or , -> and transform to real csv (,) if needed
-        df_comma = pd.read_csv(file_name, nrows=1,sep=",")
+        df_comma = pd.read_csv(file_name, nrows=1, sep=",")
         df_semi = pd.read_csv(file_name, nrows=1, sep=";")
         if df_semi.shape[1]>df_comma.shape[1]:
+            df_semi = pd.read_csv(file_name, sep=";")
             df_semi.to_csv(file_name)  # save with a ',' separator
         storage.move_to(file_name, notes_file_id)
 

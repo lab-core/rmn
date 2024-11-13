@@ -303,6 +303,20 @@ export class NewExamCorrectionComponent implements OnInit {
         let commas = (line.match(/,/g) || []).length;
         let semicolumn = (line.match(/;/g) || []).length;
         validCSV = commas >= 3 || semicolumn >= 3;
+        if (validCSV) {
+          let re_sep = commas >= 3 ? /,/g : /;/g;
+          let count = commas >= 3 ? commas : semicolumn;
+          lines.forEach(line => {
+            if (line) {
+              if ((line.match(re_sep) || []).length != count) {
+                if (validCSV) {
+                  this.notifyService.showError("Cette ligne est invalide: "+line, "ERREUR");
+                }
+                validCSV = false;
+              }
+            }
+          });
+        }
       }
 
       if (validCSV) {
