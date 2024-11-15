@@ -300,6 +300,8 @@ if __name__ == "__main__":
             date = get_date()
             grades_dict = {}
             for doc in docs:
+                if doc['status'] == Document_Status.DELETED.value:
+                    continue
                 mat = str(doc["matricule"])
                 # print("mat", mat)
                 if mat in df.index.values:
@@ -355,7 +357,7 @@ if __name__ == "__main__":
 
                     filename = str(f).rsplit('.', 1)[0]
                     doc = db.documents_collection().find_one({"job_id": job_id, "filename": filename})
-                    if doc is None:
+                    if doc is None or doc['status'] == Document_Status.DELETED.value:
                         continue
 
                     # doc_idx = doc["document_index"]

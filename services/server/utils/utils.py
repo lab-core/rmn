@@ -32,6 +32,7 @@ class Document_Status(Enum):
     TO_VALIDATE = "TO VALIDATE"
     HIGH_ACCURACY = "HIGH ACCURACY"
     NOT_READY = "NOT READY"
+    DELETED = "DELETED"
 
 class User_Role(Enum):
     USER = "Utilisateur"

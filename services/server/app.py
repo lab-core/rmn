@@ -996,6 +996,50 @@ def update_matricule():
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
+@app.route("/matricule/status/update", methods=["POST"])
+@cross_origin()
+@verify_share_token(question=False)
+def update_matricule_status():
+    request_form = request.form
+
+    required_fields = ["job_id", "document_index", "status"]
+    for field in required_fields:
+        if field not in request_form:
+            return Response(
+                response=json.dumps({"response": f"Error: {field} not provided."}),
+                status=400,
+            )
+
+    job_id = str(request_form["job_id"])
+    document_index = int(request_form["document_index"])
+    status = str(request_form["status"])
+
+    try:
+        Document_Status(status)
+    except ValueError:
+        return Response(
+            response=json.dumps({"response": f"Error: status {status} is invalid."}),
+            status=400,
+        )
+
+    db = mongo["RMN"]
+    db["job_documents"].update_one(
+        {"job_id": job_id, "document_index": document_index},
+        {"$set": {"status": status}}
+    )
+
+    user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
+
+    sio.emit(
+        "doc_validated",
+        json.dumps(
+            {"job_id": job_id, "user_id": user_id, "document_index": document_index, "matricule": True}
+        ),
+    )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
 @app.route("/matricule/share", methods=["POST"])
 @cross_origin()
 @verify_token()

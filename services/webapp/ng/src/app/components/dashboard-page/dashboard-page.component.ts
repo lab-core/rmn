@@ -157,7 +157,7 @@ export class DashboardPageComponent {
   computeTotalMatricules() {
     this.totalVerifiedMatricules = 0;
     this.examsList.forEach(doc => {
-      if (doc.status === 'VALIDATED') {
+      if (doc.status === 'VALIDATED' || doc.status === 'DELETED') {
         this.totalVerifiedMatricules++;
       }
     });

@@ -26,6 +26,10 @@
                         *ngIf="exam.status == 'HIGH ACCURACY'">
                         <strong>{{i + 1}}</strong>
                     </div>
+                    <div [ngClass]="exam.document_index == this.currentCopy ? 'deleted-copy chosen-copy' : 'deleted-copy'"
+                        *ngIf="exam.status == 'DELETED'">
+                        <strong>{{i + 1}}</strong>
+                    </div>
                 </div>
             </div>
         </div>
@@ -40,7 +44,7 @@
                                 [virtualScroll]="false" appendTo="app-matricule-verification"
                                 [(ngModel)]="currentMatriculeSelection"
                                 (change)="changeMatricule(currentMatriculeSelection)"
-                                [disabled]="pdfLoading">
+                                [disabled]="disabledValidationButton">
                             </ng-select>
                         </div>
                         <div *ngIf="this.currentMatriculeWarning" class="alert">
@@ -54,14 +58,20 @@
                             <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
                                 id="text-box" [(ngModel)]="grade.value"
                                 (input)="this.updateTotal(grade.key, grade.value)" step=any
-                                [disabled]="pdfLoading">
+                                [disabled]="disabledValidationButton">
                         </div>
                     </div>
                 </div>
                 <div class="validate-container">
                     <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                            (click)="updateMatricule()" [disabled]="pdfLoading">
+                            (click)="updateMatricule()" [disabled]="disabledValidationButton">
                         <mat-icon>done_outline</mat-icon>
+                    </button>
+                    <button *ngIf="!pdfDeleted" (click)="deletePdf()" class="delete-button">
+                        <mat-icon>delete</mat-icon>
+                    </button>
+                    <button *ngIf="pdfDeleted" (click)="restorePdf()" class="delete-button">
+                        <mat-icon>restore</mat-icon>
                     </button>
                 </div>
             </div>
@@ -69,6 +79,8 @@
               <button mat-button (click)="previousCopy()"class="back-button2"><mat-icon>arrow_back_ios</mat-icon></button>
               <app-pdf-viewer [pdfUrl]="pdfUrl" [hideToolbar]="true"></app-pdf-viewer>
               <button mat-button (click)="nextCopy()"class="back-button3"><mat-icon>arrow_forward_ios</mat-icon></button>
+              <div id="overlay-cross" *ngIf="pdfDeleted"></div>
+              <span class="cross" *ngIf="pdfDeleted">&times;</span>
             </div>
             <div class="validation-check-container vertical-validation-check" *ngIf="!disabledValidationcontainer && !horizontalValidation">
                 <div class="check-list-container">
@@ -80,7 +92,7 @@
                                 [virtualScroll]="false" appendTo="app-matricule-verification"
                                 [(ngModel)]="currentMatriculeSelection"
                                 (change)="changeMatricule(currentMatriculeSelection)"
-                                [disabled]="pdfLoading">
+                                [disabled]="disabledValidationButton">
                             </ng-select>
                         </div>
                         <div *ngIf="this.currentMatriculeWarning" class="alert">
@@ -94,13 +106,13 @@
                             <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
                                 id="text-box" [(ngModel)]="grade.value"
                                 (input)="this.updateTotal(grade.key, grade.value)" step=any
-                                [disabled]="pdfLoading">
+                                [disabled]="disabledValidationButton">
                         </div>
                     </div>
                 </div>
                 <div class="validate-container">
                     <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                            (click)="updateMatricule()" [disabled]="pdfLoading">
+                            (click)="updateMatricule()" [disabled]="disabledValidationButton">
                         <mat-icon>done_outline</mat-icon>
                     </button>
                 </div>
@@ -112,7 +124,7 @@
     </div>
 </div>
 <div class="page-count" *ngIf="!this.disabledValidationcontainer">
-    {{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}}
+    {{this.currentExam().filename}} ({{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}})
 </div>
 </div>
 <button mat-button *ngIf="this.loggued() || shareAll" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>

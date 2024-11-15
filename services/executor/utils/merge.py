@@ -3,6 +3,8 @@ import re
 from PyPDF2 import PdfReader, PdfWriter
 from python.process_copy.database import Database
 from utils.storage import Storage
+from utils.utils import Document_Status
+
 
 storage = Storage()
 
@@ -93,7 +95,7 @@ def process_merge(job_id):
 
     # files to merge
     documents = db.documents_collection().find({"job_id": job_id})
-    base_names = [doc["filename"] for doc in documents]
+    base_names = [doc["filename"] for doc in documents if doc['status'] != Document_Status.DELETED.value]
 
     # output for the merged files
     output_folder = storage.abs_path(os.path.join('corrected_copies', job_id))

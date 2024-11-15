@@ -40,6 +40,11 @@
                         <strong>{{formattedIndexes[i]}}</strong>
                         <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
                     </div>
+                    <div [ngClass]="exam.document_index == currentCopy ? 'deleted-copy chosen-copy' : 'deleted-copy'"
+                        *ngIf="exam.status == 'DELETED'">
+                        <strong>{{formattedIndexes[i]}}</strong>
+                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
+                    </div>
                 </div>
             </div>
             <button class="offline-button" mat-raised-button color="primary" *ngIf="!offline" (click)="correctOffline()">Corriger hors ligne</button>
@@ -107,6 +112,8 @@
                 </app-pdf-viewer>
                 <button mat-button *ngIf="!isSidebarHidden" (click)="previousCopy()" class="back-button2" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_back_ios</mat-icon></button>
                 <button mat-button *ngIf="!isSidebarHidden" (click)="nextCopy()" class="back-button3" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_forward_ios</mat-icon></button>
+                <div id="overlay-cross" *ngIf="currentExam()?.status == 'DELETED'"></div>
+                <span class="cross" *ngIf="currentExam()?.status == 'DELETED'">&times;</span>
             </div>
         </div>
     </div>

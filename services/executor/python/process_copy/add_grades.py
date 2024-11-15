@@ -5,6 +5,7 @@ import os
 from process_copy.database import Database
 from process_copy.recognize import add_grades
 from utils.storage import Storage
+from utils.utils import Document_Status
 from process_copy.config import grade_box as def_grade_box
 storage = Storage()
 
@@ -39,6 +40,11 @@ def process_writing(job_id, TMP_DIR, dpi=300, shape=(8.5, 11) ):
     i = 0
     for doc in documents:
         input_pdf_path = storage.abs_path(doc["rel_filepath"])
+
+        if doc['status'] == Document_Status.DELETED.value:
+            i += 1
+            print(f"({i}/{n_docs}) PDF is deleted {input_pdf_path}")
+
         grades = doc["grades"]
         grades.append(sum(grades))
 

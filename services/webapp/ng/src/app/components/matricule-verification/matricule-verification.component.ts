@@ -35,6 +35,7 @@ export class MatriculeVerificationComponent implements OnInit {
               private ngxService: NgxExtendedPdfViewerService) {}
 
   pdfLoading: boolean = true;
+  pdfDeleted: boolean = false;
   disabledValidationcontainer = true;
   disabledValidationButton = true;
   disabledDropDown = false;
@@ -93,7 +94,6 @@ export class MatriculeVerificationComponent implements OnInit {
       this.getMatriculeList();
       await this.getDocuments();
       this.loadSubExamsList();
-      this.checkValidationButton();
 
       this.socketService.join(this.job["job_id"]);
       this.socketService.getSocket().on('document_ready', async (params: any) => {
@@ -111,7 +111,6 @@ export class MatriculeVerificationComponent implements OnInit {
           const jobId = resp.job_id;
           if (this.job["job_id"] === jobId) {
             this.job["job_status"] = resp.status;
-            this.checkValidationButton();
           }
         });
       }
@@ -130,7 +129,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   @HostListener('document:keydown.enter', ['$event'])
   onKeydownHandler(event: KeyboardEvent) {
-    if (!this.pdfLoading) {
+    if (!this.disabledValidationButton) {
       this.updateMatricule();
     }
   }
@@ -220,12 +219,12 @@ export class MatriculeVerificationComponent implements OnInit {
 
   async loadPdf(version: number = undefined): Promise<void> {
     if (this.currentExam()["status"] !== "NOT_READY") {
-      this.pdfLoading = true;
+      this.pdfLoadStarts();
       const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false);
       if (pdfSource.url) {
         this.pdfUrl = pdfSource.url;
       }
-      this.pdfLoading = false;
+      this.pdfLoadEnds();
     }
   }
 
@@ -356,7 +355,7 @@ export class MatriculeVerificationComponent implements OnInit {
       this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
       return;
     }
-    this.pdfLoading = true;
+    this.pdfLoadStarts();
     const formdata: FormData = new FormData();
     formdata.append('job_id', this.job["job_id"]);
     formdata.append('document_index', this.currentCopy.toString());
@@ -369,12 +368,27 @@ export class MatriculeVerificationComponent implements OnInit {
         this.setValidatedStatus();
         this.nextCopy();
       }
-      this.checkValidationButton();
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du matricule :', error);
+      console.error('Erreur lors de la mise à jour du matricule:', error);
       this.notificationService.showError('Erreur lors de la mise à jour du matricule.', 'Erreur de validation');
     }
+    this.pdfLoadEnds();
+  }
+
+  pdfLoadStarts() {
+    this.pdfLoading = true;
+    this.disabledValidationButton = true;
+  }
+
+  pdfLoadEnds() {
     this.pdfLoading = false;
+    if (this.currentExam().status == 'DELETED') {
+      this.disabledValidationButton = true;
+      this.pdfDeleted = true;
+    } else {
+      this.disabledValidationButton = false;
+      this.pdfDeleted = false;
+    }
   }
 
   async validateMatricules() {
@@ -389,12 +403,38 @@ export class MatriculeVerificationComponent implements OnInit {
       this.openwarningDialog();
     } else {
       this.disabledValidationcontainer = true;
-      this.pdfLoading = true;
+      this.pdfLoadEnds();
       this.router.navigate(['/tasks-history']);
       let message = "Les matricules ont été validés avec succès!";
       this.notificationService.showInfo(message, "Alerte!")
       // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
+    }
+  }
 
+  deletePdf(): void {
+    this.pdfDeleted = true;
+    this.disabledValidationButton = true;
+    this.updateExamStatus('DELETED');
+  }
+
+  restorePdf(): void {
+    this.pdfDeleted = false;
+    this.disabledValidationButton = false;
+    this.updateExamStatus('TO VALIDATE');
+  }
+
+  async updateExamStatus(examStatus) {
+    const formdata: FormData = new FormData();
+    formdata.append('job_id', this.job["job_id"]);
+    formdata.append('document_index', this.currentCopy.toString());
+    formdata.append('status', examStatus);
+    this.userService.addTokens(formdata);
+    try {
+      await this.http.post(`${SERVER_URL}matricule/status/update`, formdata).toPromise();
+      this.currentExam().status = examStatus;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du status:', error);
+      this.notificationService.showError('Erreur lors de la mise à jour du status.', 'Erreur de validation');
     }
   }
 
@@ -407,7 +447,7 @@ export class MatriculeVerificationComponent implements OnInit {
     dialogRef.afterClosed().pipe(first()).subscribe(async result => {
         if (result !== undefined && result === true) {
           this.disabledValidationcontainer = true;
-          this.pdfLoading = true;
+          this.pdfLoadStarts();
           let response = await this.validationService.validateJob(
             this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
           if (response === "OK") {
@@ -533,12 +573,5 @@ export class MatriculeVerificationComponent implements OnInit {
     if (!this.userService.shared()) height += 10;
     if (!this.showFilter()) height += 10;
     return height + "%";
-  }
-
-  checkValidationButton(): void {
-    const disabledValidationButton = this.examsList.some(exam => exam.status !== 'VALIDATED');
-    if (!this.disabledDropDown) {
-      this.disabledValidationButton = disabledValidationButton;
-    }
   }
 }

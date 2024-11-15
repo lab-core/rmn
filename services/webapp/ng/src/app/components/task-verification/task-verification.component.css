@@ -183,6 +183,16 @@
     transform: scale(1.05, 1.05);
 }
 
+.deleted-copy {
+    border: 1px solid black;
+    background: repeating-linear-gradient(45deg, black, black 4%, red 4%, red 10%);
+}
+
+.deleted-copy:hover {
+    cursor: pointer;
+    transform: scale(1.05, 1.05);
+}
+
 .disabled-copy {
     border: 1px solid darkslategray;
     background-color: rgb(116, 116, 116);
@@ -530,6 +540,30 @@ h3 {
     z-index: 1000;
 }
 
+#overlay-cross {
+    position: absolute;
+    width: 80%;
+    height: 100%;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+.cross {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 240px;
+  color: red;
+  cursor: pointer;
+  font-weight: bold;
+  z-index: 1000;
+}
+
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
     -webkit-appearance: none;
@@ -537,10 +571,10 @@ input::-webkit-inner-spin-button {
 }
 
 .page-count {
-    margin-left: 48%;
-    margin-bottom: 1%;
-    align-items: center;
-    -webkit-user-select: none; /* Safari */        
+    margin-left: 20%;
+    margin-bottom: 2%;
+    text-align: center;
+    -webkit-user-select: none; /* Safari */
     -moz-user-select: none; /* Firefox */
     -ms-user-select: none; /* IE10+/Edge */
     user-select: none; /* Standard */

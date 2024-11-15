@@ -21,3 +21,4 @@ class Document_Status(Enum):
     HIGH_ACCURACY = "HIGH ACCURACY"
     NOT_READY = "NOT_READY"
     READY = "READY"
+    DELETED = "DELETED"

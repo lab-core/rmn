@@ -187,10 +187,20 @@
 
 .to-validate-copy {
     border: 1px solid black;
-    background-color: red;
+    background: red;
 }
 
 .to-validate-copy:hover {
+    cursor: pointer;
+    transform: scale(1.05, 1.05);
+}
+
+.deleted-copy {
+    border: 1px solid black;
+    background: repeating-linear-gradient(45deg, black, black 4%, red 4%, red 10%);
+}
+
+.deleted-copy:hover {
     cursor: pointer;
     transform: scale(1.05, 1.05);
 }
@@ -266,6 +276,7 @@
 }
 
 .picture-container {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -369,7 +380,7 @@ input[type=number] {
 .validate-container {
     height: 10%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     flex-wrap: nowrap;
     text-align: center;
     align-items: center;
@@ -377,10 +388,11 @@ input[type=number] {
 }
 
 .validate-button {
-    width: 70px;
-    height: 70px;
+    width: 50px;
+    height: 40px;
     border-radius: 24%/48%;
     border: 2px solid black;
+    margin-right: 20px;
     display: flex;
     flex-direction: column;
     flex-wrap: nowrap;
@@ -416,6 +428,31 @@ input[type=number] {
     color: #ffffff;
 }
 
+.delete-button {
+  width: 50px;
+  height: 40px;
+  border-radius: 24%/48%;
+  border: 2px solid black;
+  margin-right: 20px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  background-color: red;
+  color: #ffffff;
+}
+
+.delete-button:hover {
+    cursor: pointer;
+    transform: scale(1.1, 1.1);
+}
+
+.delete-button:hover>mat-icon {
+    transform: scale(1.4, 1.4);
+}
+
 h3 {
     display: flex;
     padding: 0px;
@@ -445,9 +482,9 @@ app-pdf-viewer {
 }
 
 .page-count {
-  margin-left: 48%;
+  margin-left: 20%;
   margin-bottom: 2%;
-  align-items: center;
+  text-align: center;
 }
 
 .back-button2:hover {
@@ -478,6 +515,30 @@ app-pdf-viewer {
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 1000;
+}
+
+#overlay-cross {
+    position: absolute;
+    width: 80%;
+    height: 100%;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+.cross {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 240px;
+  color: red;
+  cursor: pointer;
+  font-weight: bold;
+  z-index: 1000;
 }
 
 input::-webkit-outer-spin-button,
