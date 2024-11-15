@@ -308,7 +308,8 @@ export class NewExamCorrectionComponent implements OnInit {
           let count = commas >= 3 ? commas : semicolumn;
           lines.forEach(line => {
             if (line) {
-              if ((line.match(re_sep) || []).length != count) {
+              let lCount = (line.match(re_sep) || []).length;
+              if (lCount < count) {  // could be bigger if some separators are used between quotes
                 if (validCSV) {
                   this.notifyService.showError("Cette ligne est invalide: "+line, "ERREUR");
                 }

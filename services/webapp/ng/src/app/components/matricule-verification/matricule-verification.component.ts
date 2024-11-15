@@ -318,7 +318,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   getCurrentMatricule() {
     const currentExam = this.currentExam();
-    if (currentExam && currentExam["status"] !== "NOT_READY") {
+    if (currentExam && currentExam["status"] !== "NOT_READY" && currentExam["status"] !== "DELETED") {
       this.currentMatricule = currentExam["matricule"];
       this.getDuplicatedMatricules();
       const matriculeRow = this.matriculeList.find(
@@ -329,6 +329,8 @@ export class MatriculeVerificationComponent implements OnInit {
       } else {
         this.currentMatriculeSelection = undefined;
       }
+    } else {
+      this.currentMatriculeSelection = undefined;
     }
   }
 
@@ -432,6 +434,7 @@ export class MatriculeVerificationComponent implements OnInit {
     try {
       await this.http.post(`${SERVER_URL}matricule/status/update`, formdata).toPromise();
       this.currentExam().status = examStatus;
+      this.getCurrentMatricule();
     } catch (error) {
       console.error('Erreur lors de la mise à jour du status:', error);
       this.notificationService.showError('Erreur lors de la mise à jour du status.', 'Erreur de validation');
@@ -477,7 +480,9 @@ export class MatriculeVerificationComponent implements OnInit {
     let counter = 0;
     let warning = "";
     this.examsList.forEach((exam: any) => {
-      if (exam["matricule"] === mat && exam["document_index"] !== this.currentCopy) {
+      if (exam["status"] != 'DELETED' &&
+          exam["matricule"] === mat &&
+          exam["document_index"] !== this.currentCopy) {
         if (counter < 3) {
           if (counter > 0) {
             warning += ", ";

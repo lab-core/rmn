@@ -47,7 +47,7 @@
                                 [disabled]="disabledValidationButton">
                             </ng-select>
                         </div>
-                        <div *ngIf="this.currentMatriculeWarning" class="alert">
+                        <div *ngIf="currentMatriculeWarning && !pdfDeleted" class="alert">
                           Utilisé par plusieurs copies: {{this.currentMatriculeWarning}}.
                         </div>
                     </div>
