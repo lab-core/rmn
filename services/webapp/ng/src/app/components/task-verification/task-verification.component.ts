@@ -627,6 +627,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   currentExam() {
+    if (!this.examsList) {
+      return undefined;
+    }
     return this.examsList[this.currentCopy - this.initialCopyIndex];
   }
 

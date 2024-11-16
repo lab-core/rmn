@@ -1,5 +1,4 @@
 <div class="main-container">
-<div class="task-verification-container">
     <div class="background">
         <div class="files-container" [ngClass]="{'hidden': isSidebarHidden}">
             <div class="filter-job-container" *ngIf="showFilter()">
@@ -117,10 +116,9 @@
             </div>
         </div>
     </div>
-</div>
-<div class="page-count" *ngIf="currentCopy >= 0">
-    {{currentIndex() + (subExamsList.length > 0 ? 1 - subExamsList[0]['document_index'] : 0)}} / {{subExamsList.length}}
-</div>
+    <div *ngIf="isSidebarHidden && currentCopy >= 0" [ngClass]="isSidebarHidden ? 'page-count' : 'page-count margin-left'">
+        {{currentIndex() + (subExamsList.length > 0 ? 1 - subExamsList[0]['document_index'] : 0)}} / {{subExamsList.length}}
+    </div>
 </div>
 <button mat-button *ngIf="(loggued() || shareAll) && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
 <div id="overlay" *ngIf="pdfLoading"></div>
