@@ -31,6 +31,19 @@ ngx-extended-pdf-viewer {
   justify-content: center;
 }
 
+#circular-cursor {
+  position: absolute;
+  display: none;
+  width: 20px;
+  height: 20px;
+  background-color: transparent;
+  border:1px solid black;
+  border-radius: 50%;
+  pointer-events: none; /* Prevent interaction with the cursor itself */
+  transition: transform 0.05s ease-out; /* Smooth movement */
+  z-index: 10000;
+}
+
 .prevent-select {
   -webkit-user-select: none; /* Safari */
   -ms-user-select: none; /* IE 10 and IE 11 */

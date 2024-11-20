@@ -477,12 +477,14 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   closeEraser() {
     this.isErasing = false;
     this.isDrawing = false;
+    document.getElementById('circular-cursor').style.display = 'none';
     document.getElementById('eraserParamsToolbar')['classList'].add('hidden');
     document.getElementById('eraserTool')['classList'].remove('toggled');
     this.removeCanvasListeners();
   }
 
   erase(event: PointerEvent) {
+    this.disableAnnotationLayers();
     if (!this.isErasing) {
       this.eraserPointerType = this.pointerType;
       this.closeOpenEditors();
@@ -497,7 +499,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.removeCanvasListeners();
     // register event for each page canvas
     this.eventListeners = [];
-    let wrapperColl = document.getElementsByClassName('annotationEditorLayer');
+    let wrapperColl = document.getElementsByClassName('textLayer');
     for (let i = 0; i < wrapperColl.length; i++) {
       // const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
       const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
@@ -519,7 +521,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private removeCanvasListeners() {
-    let wrapperColl = document.getElementsByClassName('annotationEditorLayer');
+    let wrapperColl = document.getElementsByClassName('textLayer');
     for (let i = 0; i < this.eventListeners.length; i++) {
       // remove the listeners on the child if the canvas still exists
       if (wrapperColl[i]) {
@@ -528,9 +530,6 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
           canvas.removeEventListener(k, this.eventListeners[i][k]);
         }
         canvas['classList'].remove('inkErasing');
-        if (!canvas['classList'].contains('inkEditing')) {
-          canvas['classList'].add('disabled');
-        }
       }
     }
     this.eventListeners = [];
@@ -556,6 +555,20 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  private enableAnnotationLayers() {
+    let wrapperColl = document.getElementsByClassName('annotationEditorLayer');
+    for (let i = 0; i < wrapperColl.length; i++) {
+      wrapperColl[i]['classList'].remove('disabled');
+    }
+  }
+
+  private disableAnnotationLayers() {
+    let wrapperColl = document.getElementsByClassName('annotationEditorLayer');
+    for (let i = 0; i < wrapperColl.length; i++) {
+      wrapperColl[i]['classList'].add('disabled');
+    }
+  }
+
   @HostListener('window:pointerdown', ['$event'])
   onPointerDown(event: PointerEvent) {
     this.pointerType = event.pointerType;
@@ -571,6 +584,8 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
     this.isDrawing = true;
+    document.getElementById('circular-cursor').style.display = 'block';
+    this.moveCircularCursor(event);
     // fetch canvases
     this.updateCanvas();
     // store a snapshot of the annotations
@@ -584,6 +599,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
     this.isDrawing = false;
+    document.getElementById('circular-cursor').style.display = 'none';
     // remove the old annotations and add the new annotations if any
     const eraserChange = this.getLastEraserChange();
     if (eraserChange.used) {
@@ -596,6 +612,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       // as it has not been used -> remove it
       this.eraserHistory.pop();
     }
+    setTimeout(() => this.disableAnnotationLayers());
   }
 
   private onTouchMove(i: number, event: TouchEvent): void {
@@ -608,6 +625,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     if (!this.isDrawing || !this.isErasing || !this.samePointerType(event)) return;
     // do not apply default behavior
     event.preventDefault();
+    this.moveCircularCursor(event);
     // erase drawing
     this.canvases.get(i).forEach(canvas => {
       // bounding box in browser
@@ -634,11 +652,21 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     return parseFloat(matches[0]);
   }
 
+  private moveCircularCursor(event: PointerEvent) {
+    // move circle
+    const root = document.getElementsByTagName('app-pdf-viewer')[0];
+    const rootRect = root.getBoundingClientRect();
+    const circularCursor = document.getElementById('circular-cursor');
+    circularCursor.style.width = `${2*this.radius}px`;
+    circularCursor.style.height = `${2*this.radius}px`;
+    circularCursor.style.transform = `translate(${event.clientX - rootRect.x - this.radius}px, ${event.clientY - rootRect.y - this.radius}px)`;
+  }
+
   private eraseDraw(canvas: HTMLCanvasElement, centerX: number, centerY: number) {
     const ctx = canvas.getContext("2d");
     ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
-    ctx.arc(centerX, centerY, this.radius - (this.radius > 0 ? 1 : 0), 0, Math.PI*2, false);
+    ctx.arc(centerX, centerY, this.radius, 0, Math.PI*2, false);
     ctx.fill();
   }
 
