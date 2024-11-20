@@ -125,6 +125,9 @@ export class DocumentsService {
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     formdata.append('document_index', index.toString());
+    if (!fetchAnnotations) {
+      formdata.append('with_annotations', 'true');
+    }
     if (this.questions) {
       formdata.append('questions', 'true');
     }

@@ -497,10 +497,12 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.removeCanvasListeners();
     // register event for each page canvas
     this.eventListeners = [];
-    let wrapperColl = document.getElementsByClassName('textLayer');
+    let wrapperColl = document.getElementsByClassName('annotationEditorLayer');
     for (let i = 0; i < wrapperColl.length; i++) {
       // const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
       const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
+      canvas['classList'].add('inkErasing');
+      canvas['classList'].remove('disabled');
 
       var self = this;
       const eventListeners = {};
@@ -517,13 +519,17 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private removeCanvasListeners() {
-    let wrapperColl = document.getElementsByClassName('textLayer');
+    let wrapperColl = document.getElementsByClassName('annotationEditorLayer');
     for (let i = 0; i < this.eventListeners.length; i++) {
       // remove the listeners on the child if the canvas still exists
       if (wrapperColl[i]) {
         const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
         for (let k in this.eventListeners[i]) {
-          canvas.removeEventListener(k, this.eventListeners[i][k], true);
+          canvas.removeEventListener(k, this.eventListeners[i][k]);
+        }
+        canvas['classList'].remove('inkErasing');
+        if (!canvas['classList'].contains('inkEditing')) {
+          canvas['classList'].add('disabled');
         }
       }
     }
@@ -632,7 +638,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     const ctx = canvas.getContext("2d");
     ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
-    ctx.arc(centerX, centerY, this.radius, 0, Math.PI*2, false);
+    ctx.arc(centerX, centerY, this.radius - (this.radius > 0 ? 1 : 0), 0, Math.PI*2, false);
     ctx.fill();
   }
 
@@ -648,6 +654,10 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private eraseAnnotation(i: number, centerX: number, centerY: number, annotation: BezierAnnotation) {
+    // if annotation on a different page
+    if (annotation.inkAnnotation.pageIndex != i) {
+      return false;
+    }
     if (annotation.rect[1] < centerX && centerX < annotation.rect[3] &&
         annotation.rect[0] < centerY && centerY < annotation.rect[2]) {
       let newAnnotationPaths: BezierPath[] = [];

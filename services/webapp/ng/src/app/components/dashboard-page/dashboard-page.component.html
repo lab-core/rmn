@@ -1,5 +1,5 @@
 <div class="main-container">
-  <app-main-menu></app-main-menu>
+  <app-main-menu *ngIf="loggued()"></app-main-menu>
   <div class="task-container">
     <div class="task-header">
       <h1>{{ taskName }}</h1>

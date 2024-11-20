@@ -71,7 +71,8 @@ export class PdfManagementDialogComponent implements OnInit {
             pdfFileSrc = this.data.offlineCopies.get(exam["document_index"]).file64 ||
                         this.docService.getAvailablePdfSource(this.data.jobId, exam["document_index"]).url;
           } else {
-            pdfFileSrc = (await this.docService.getPdfSource(this.data.jobId, exam["document_index"], false)).url;
+            // fetch latest pdf file
+            pdfFileSrc = (await this.docService.getPdfSource(this.data.jobId, exam["document_index"], false, undefined, -1)).url;
           }
 
           const pdfBuffer = await fetch(pdfFileSrc).then(r => r.arrayBuffer());

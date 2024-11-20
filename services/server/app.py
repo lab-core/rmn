@@ -1493,17 +1493,21 @@ def download_document(validity):
         # add the right version if requested, otherwise use last one by default
         # (without the annotations stored in the db)
         file_path = doc["rel_filepath"]
-        last_version = get_last_version(job_id, file_path)
-        version = int(request_form.get("version", last_version))  # use last_version by default
-        print("Query version for:", {"job_id": job_id, "rel_filepath": file_path, "version": version})
-        vers = db["versions"].find_one(
-            {"job_id": job_id, "rel_filepath": file_path, "version": version}
-        )
-        if vers:
-            print("Found version:", vers["version_filepath"])
-            file_path = vers["version_filepath"]
-        else:
-            return Response(response=json.dumps({"Error": "You don't request a valid version"}), status=400)
+        # if annotations are requested, use last version as it's the only one with annotations not separated
+        if request_form.get("with_annotations") is None:
+            last_version = get_last_version(job_id, file_path)
+            version = int(request_form.get("version", last_version))  # use last_version by default
+            print("Query version for:", {"job_id": job_id, "rel_filepath": file_path, "version": version})
+            vers = db["versions"].find_one(
+                {"job_id": job_id, "rel_filepath": file_path, "version": version}
+            )
+            if vers:
+                print("Found version:", vers["version_filepath"])
+                file_path = vers["version_filepath"]
+            else:
+                return Response(response=json.dumps({"Error": "You don't request a valid version"}), status=400)
+        elif request_form.get("version") is not None:
+            return Response(response=json.dumps({"Error": "You cannot request with annotations and a version at the same time."}), status=400)
     else:
         if validity is not None and validity != "mat" and validity != "all":
             return Response(response=json.dumps({"Error": "You don't have access to this question"}), status=401)
