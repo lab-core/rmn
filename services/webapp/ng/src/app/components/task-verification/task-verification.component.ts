@@ -522,9 +522,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.currentStatus = this.currentExam()["status"];
   }
 
-  setValidatedStatus() {
-    this.currentStatus = "VALIDATED";
-    this.currentExam()["status"] = this.currentStatus;
+  setValidatedStatus(): boolean {
+    if (this.currentStatus != "VALIDATED") {
+      this.currentStatus = "VALIDATED";
+      this.currentExam()["status"] = this.currentStatus;
+      return true;
+    } else {
+      return false;
+    }
   }
 
 
@@ -536,10 +541,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     let hasNext = false;
     try {
         const gradeChanged = this.addGradeToQuestion();
-        if (gradeChanged) {
+        const statusChanged = this.setValidatedStatus();
+        if (gradeChanged || statusChanged) {
           this.currentGradeModified = true;  // ensure that the copy will be saved
         }
-        this.setValidatedStatus();
         hasNext = await this.nextCopy();
     } catch (error) {
         console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
