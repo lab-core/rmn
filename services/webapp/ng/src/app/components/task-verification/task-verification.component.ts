@@ -584,9 +584,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
             this.currentQuestionIndex.slice(1));
           if (validationResponse === undefined) {
             this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
+          } else {
+            this.currentPdfSrc.lastVersion++;
+            this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
           }
-          this.currentPdfSrc.lastVersion++;
-          this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
           console.log('Save current copy and obtained response:', validationResponse);
           return validationResponse;
         }

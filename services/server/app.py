@@ -1429,7 +1429,7 @@ def update_document(validity):
         last_version = get_last_version(job_id, rel_filepath)
 
         # set version to last version by default
-        if version is None:
+        if version is None or version > last_version:
             version = last_version
 
         # fetch doc version

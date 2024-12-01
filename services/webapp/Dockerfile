@@ -12,3 +12,4 @@ RUN npm run build
 FROM nginx:stable-alpine
 COPY --from=node /app/dist/rmn /usr/share/nginx/html
 COPY default.conf /etc/nginx/conf.d
+COPY assets/* /usr/share/nginx/html/assets/
