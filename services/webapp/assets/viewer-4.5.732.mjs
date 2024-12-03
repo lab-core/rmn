@@ -1927,7 +1927,6 @@
             const h = this.#_t(o),
                 d = this.#J === g.NONE,
                 callback = () => {
-                    PointerType.initializeEditor();
                     h?.createAndAddNewEditor({
                         x: 0,
                         y: 0
@@ -25951,7 +25950,13 @@ class Settings {
     if (e && "undefined" != typeof document) {
         var n = document.head || document.getElementsByTagName("head")[0],
             s = document.createElement("style");
+        let nonce;
+        for (const child of n.children) {
+          nonce = child.nonce;
+          if (nonce) break;
+        }
         s.type = "text/css";
+        s.setAttribute('nonce', nonce);
         "top" === i && n.firstChild ? n.insertBefore(s, n.firstChild) : n.appendChild(s);
         s.styleSheet ? s.styleSheet.cssText = e : s.appendChild(document.createTextNode(e))
     }

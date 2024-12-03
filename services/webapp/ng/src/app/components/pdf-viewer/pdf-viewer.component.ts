@@ -510,7 +510,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       const eventListeners = {};
       eventListeners['pointerdown'] = function(event: PointerEvent) { return self.onEraserStart(event) };
       eventListeners['pointerup'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
-      // eventListeners['pointerleave'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
+      eventListeners['pointerleave'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
       eventListeners['pointermove'] = function(event: PointerEvent) { return self.onEraserMove(i, event) };
       eventListeners['touchmove'] = function(event: TouchEvent) { return self.onTouchMove(i, event) };
       for (let k in eventListeners) {
