@@ -163,7 +163,7 @@ if __name__ == "__main__":
         template_file = str(WORK_TMP_DIR.joinpath(template["template_file_id"]))
         storage.copy_from(template["template_file_id"], template_file)
         if template_file.endswith(".pdf"):
-            img = convert_from_path(template_file, dpi=100)[0]
+            img = convert_from_path(template_file, dpi=300)[0]
         else:
             img = Image.open(template_file)
 

@@ -48,7 +48,7 @@ class TemplateService():
             response = json.dumps({"response": response})
         return Response(response=response, status=code)
 
-    def create_template(request_form, template_file_name, db, storage, locked=False, dpi=100):
+    def create_template(request_form, template_file_name, db, storage, locked=False, dpi=300):
 
         if "user_id" not in request_form:
             return f"Error: user_id not provided.", 400
@@ -260,7 +260,7 @@ class TemplateService():
         filepath = str(TEMP_FOLDER.joinpath(template_id))
         # # convert to image if pdf
         # if spath.endswith(".pdf"):
-        #     img = convert_from_path(storage.abs_path(spath), dpi=100, first_page=0, last_page=1)[0]
+        #     img = convert_from_path(storage.abs_path(spath), dpi=300, first_page=0, last_page=1)[0]
         #     filepath = filepath.rsplit(".", 1)[0] + ".png"
         #     print("save image to", filepath)
         #     img.save(filepath)

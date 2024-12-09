@@ -190,11 +190,11 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
                 // this.router.navigate(['/templates']);
             }
         );
-        this.rectangleService.resetRects();
     }
   }
 
   reroute(clear=false) {
+    this.rectangleService.resetRects();
     if (clear) this.templateService.clear();
     this.router.navigate(['/templates']);
   }

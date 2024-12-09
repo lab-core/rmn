@@ -53,10 +53,10 @@ services:
     ports:
       - "8080:80"
   nginx:
-    # depends_on:
-    #   - webapp
-    #   - server
-    #   - socketio
+    depends_on:
+      - webapp
+      - server
+      - socketio
     build: ./services/nginx
     restart: always
     ports:
