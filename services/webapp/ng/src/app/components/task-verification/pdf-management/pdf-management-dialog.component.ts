@@ -279,6 +279,7 @@ export class PdfManagementDialogComponent implements OnInit {
                 });
             } catch (pdfError) {
                 console.error(`Error processing merged file: ${name}`, pdfError);
+                this.notificationService.showError(`Error processing merged file: ${name}.`, 'Erreur');
             }
             i++;
             this.percentageDone = 50 + Math.round(50 * i / keys.length);

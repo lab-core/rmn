@@ -55,7 +55,6 @@ from utils.clients import socketio_client
 
 ignoreWrite = sys.gettrace() is None and "Debug" not in str(sys.stdin)
 
-DIRPATH = Path(__file__).resolve().parent.joinpath("documents")
 storage = Storage()
 
 allowed_decimals = ["0", "25", "5", "75"]
@@ -317,9 +316,6 @@ def process_all(
     db.close()
     sio.disconnect()
 
-    if not os.path.exists(DIRPATH):
-        os.makedirs(DIRPATH)
-
     # get max RAM
     max_RAM_GB = int(os.getenv("MAX_RAM_GB", "1000"))
     doc_index = 0
@@ -369,21 +365,6 @@ def process_all(
             % (n, doc_index)
             + Style.RESET_ALL
         )
-
-    # add summary
-    # summaries = [[] for f in grades_csv]
-    # def add_summary(file, grades, mat, numbers, total_matched, id_group, id_img=None, initial_index=2):
-    #     lsum = summaries[id_group]
-    #     # rename file
-    #     name = "%d: %s" % (len(lsum)+initial_index, file)  # recover id box if provided
-    #     if id_img is not None:
-    #         summary = create_summary2(id_img, grades, mat, numbers, total_matched, name, dpi)
-    #     else:
-    #         summary = create_summary(grades, mat, numbers, total_matched, name, dpi)
-    #     lsum.append(summary)
-    # handler.createSummary(DIRPATH, "notes_summary.pdf")
-
-    shutil.rmtree(DIRPATH)
 
     # store grades
     for i, f in enumerate(grades_csv):
@@ -571,13 +552,8 @@ def grade_files(
                 ]
             )
             results.append((f"Total: {numbers[-1]}", total_matched))
-            # src = handler.createDocumentPreview(file, DIRPATH, results, dpi=dpi,
-            #                                     box=box["grade"], boxes=boxes,
-            #                                     mat_box=box_matricule["front"] if use_mat_box else None)
-            # print(f"src: {src}")
-            # DB update
 
-            # rel_filepath = db.save_preview_image(src, job_id, doc_index)
+            # DB update
             doc_status = (
                 Document_Status.HIGH_ACCURACY
                 if is_matricule_valid

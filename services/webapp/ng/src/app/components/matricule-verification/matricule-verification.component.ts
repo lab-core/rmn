@@ -186,6 +186,7 @@ export class MatriculeVerificationComponent implements OnInit {
       this.initialCopyIndex = this.examsList[0].document_index;
       this.currentCopy = this.initialCopyIndex - 1;
     }
+    this.updateStatusOfAllDuplicatedMatricules();
   }
 
   getSubExamsList(): void {
@@ -357,11 +358,12 @@ export class MatriculeVerificationComponent implements OnInit {
       this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
       return;
     }
+    this.getCurrentMatricule();
+    this.updateStatusOfAllDuplicatedMatricules(this.currentMatricule);
     this.pdfLoadStarts();
     const formdata: FormData = new FormData();
     formdata.append('job_id', this.job["job_id"]);
     formdata.append('document_index', this.currentCopy.toString());
-    this.getCurrentMatricule();
     formdata.append('matricule', this.currentMatricule.toString());
     this.userService.addTokens(formdata);
     try {
@@ -499,6 +501,27 @@ export class MatriculeVerificationComponent implements OnInit {
       this.currentMatriculeWarning = undefined;
     } else {
       this.currentMatriculeWarning = warning;
+    }
+  }
+
+  updateStatusOfAllDuplicatedMatricules(matricule = undefined): void {
+    let matricules = new Map<String, Array<any>>();
+    this.examsList.forEach((exam: any) => {
+      if (exam["status"] != 'DELETED' &&
+          (!matricule || exam.matricule === matricule)) {
+        if (!matricules[exam.matricule]) {
+          matricules[exam.matricule] = [];
+        }
+        matricules[exam.matricule].push(exam);
+      }
+    });
+
+    for (const exams of Object.values(matricules)) {
+      if (exams.length > 1) {
+        exams.forEach((exam: any) => {
+          exam.status = 'TO VALIDATE';
+        });
+      }
     }
   }
 

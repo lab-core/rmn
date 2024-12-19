@@ -923,7 +923,7 @@ def download_file():
     print("File to send", file_id, filename)
     filepath = str(TEMP_FOLDER.joinpath(file_id.split(os.sep)[-1]))
     storage.copy_from(file_id, filepath)
-    file_send = send_file(filepath, download_name=filename)
+    file_send = send_file(filepath, download_name=filename, as_attachment=True)
     os.remove(filepath)
 
     return file_send

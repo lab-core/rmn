@@ -314,6 +314,7 @@ if __name__ == "__main__":
                         # print("TOTAL SCORE FOR ", doc["filename"], ":", total_score)
                         df.loc[mat, MF.grade] = total_score
                         df.loc[mat, MF.mdate] = date
+                        df.loc[mat, "index"] = doc["document_index"]
 
             # save grades
             df.to_csv(csv_file_path, mode="w+")
@@ -509,14 +510,14 @@ if __name__ == "__main__":
             #         except:
             #             continue
 
-            try:
-                storage.remove_tree(os.path.normpath(f"documents{os.sep}{job_id}"))
-                storage.remove_tree(os.path.normpath(f"corrected_copies{os.sep}{job_id}"))
-            except:
-                pass
+            # try:
+            #     storage.remove_tree(os.path.normpath(f"documents{os.sep}{job_id}"))
+            #     storage.remove_tree(os.path.normpath(f"corrected_copies{os.sep}{job_id}"))
+            # except:
+            #     pass
 
-            db.questions_collection().delete_many({"job_id": job_id})
-            db.documents_collection().delete_many({"job_id": job_id})
+            # db.questions_collection().delete_many({"job_id": job_id})
+            # db.documents_collection().delete_many({"job_id": job_id})
 
         elif job["job_status"] == Job_Status.QUEUED.value or job["job_status"] == Job_Status.IGNORED.value:
             # make directories
