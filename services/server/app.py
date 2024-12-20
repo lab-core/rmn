@@ -1961,6 +1961,12 @@ def create_default_template():
     db = mongo["RMN"]
     return TemplateService.add_default_templates(request.form.get('user_id'), db, storage)
 
+@app.route("/admin/executor", methods=["GET"])
+@cross_origin()
+def admin_executor():
+    redis.rpush("job_queue", "{}")
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
 @app.route("/front_page", methods=["POST"])
 @cross_origin()
 @verify_token()

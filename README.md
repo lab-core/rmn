@@ -146,3 +146,9 @@ curl -X POST -H "Content-Type:multipart/form-data" --form "username=admin" --for
 ```
 curl -X POST -H "Content-Type:multipart/form-data" --form "user_id=admin" http://localhost/api/admin/template
 ```
+
+##### Create an executor pod
+It will add an empty job in the redis queue to trigger the creation of an executor pod.
+```
+curl http://localhost/api/admin/executor
+```

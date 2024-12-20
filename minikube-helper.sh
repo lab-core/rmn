@@ -83,6 +83,8 @@ if [[ ! -z $ROLLOUT ]]; then
     kubectl rollout restart deployment/socketio
     kubectl rollout restart deployment/webapp
     # kubectl rollout restart ingress-nginx/ingress-nginx-controller
+    # create an executor pod
+    curl http://localhost/api/admin/executor
   else
     kubectl rollout restart deployment/$DEPLOYMENT
   fi
