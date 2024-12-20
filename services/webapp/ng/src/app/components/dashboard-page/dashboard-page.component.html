@@ -43,6 +43,12 @@
         </tbody>
       </table>
       <div class="validate-job-container" *ngIf="loggued() && !shared() && !disableButtons">
+        <div class="checkbox-container">
+          <label>
+              <input type="checkbox" [(ngModel)]="taskStats" (change)="taskStatsChange()" [ngModelOptions]="{standalone: true}">
+              Statistiques pour les élèves
+          </label>
+        </div>
         <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()" [disabled]="ongoingTask">Finaliser</button>
       </div>
       <div class="validate-job-container" *ngIf="disableButtons && task.job_status === 'ARCHIVED'">

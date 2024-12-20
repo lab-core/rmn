@@ -289,7 +289,7 @@ export class TasksHistoryComponent implements OnInit {
 
   goToDashBoard(task: any) {
     if (task.job_status === 'ARCHIVED') {
-      this.openTaskFilesDialog(task.job_id);
+      this.openTaskFilesDialog(task);
     }
     else if (task.job_status === 'IGNORED' ||
              task.job_status === 'QUEUED' ||
@@ -314,18 +314,25 @@ export class TasksHistoryComponent implements OnInit {
   //   return "text-decoration: none;";
   // }
 
-  openTaskFilesDialog(jobId: string): void {
+  openTaskFilesDialog(task: any): void {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
-    formdata.append('job_id', jobId);
+    formdata.append('job_id', task.job_id);
     this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).pipe(first()).subscribe(
       (data) => {
-        let nbZipFile = data['response']
         let dialogRef = this.dialog.open(TaskFilesDialogComponent, {
           width: '40%',
           height: '90%',
-          data: { taskId: jobId, nbZipFile: nbZipFile }
+          data: { taskId: task.job_id, nbZipFile: data['nZips'], stats: data['stats'] }
         })
+        dialogRef.afterClosed().pipe(first()).subscribe(async result => {
+          if (result) {
+            task.job_status = result;
+            this.updateTask(task);
+          }
+        }, (error) => {
+          console.error(error);
+        });
       }, (error) => {
         console.error(error);
       });

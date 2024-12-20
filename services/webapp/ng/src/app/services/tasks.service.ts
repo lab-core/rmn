@@ -101,4 +101,20 @@ export class TasksService {
         sub.unsubscribe();
       });
   }
+
+  async updateTaskStats(jobId: string, taskStats): Promise<void> {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', jobId);
+    formdata.append('statistics_for_students', taskStats);
+    await this.http.post<any>(`${SERVER_URL}job/stats`, formdata).toPromise();
+  }
+
+  async updateTaskStatus(jobId: string, jobStatus: string): Promise<void> {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', jobId);
+    formdata.append('job_status', jobStatus);
+    await this.http.post<any>(`${SERVER_URL}job/status`, formdata).toPromise();
+  }
 }

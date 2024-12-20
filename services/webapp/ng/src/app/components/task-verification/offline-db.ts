@@ -14,6 +14,7 @@ export interface OfflineCopy {
   pdfSrcJSON?: any;
   grade?: number;
   status: string;
+  tag?: string;
   file64?: any;
   updated?: boolean;
   questionIndex: string;

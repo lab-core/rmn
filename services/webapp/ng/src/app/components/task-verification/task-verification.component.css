@@ -196,6 +196,18 @@
     border: 3px solid black;
 }
 
+.tag-color-1 {
+    background-color: #feb236;
+}
+
+.tag-color-2 {
+    background-color: #ff7b25;
+}
+
+.tag-color-3 {
+    background-color: #7a3b2e;
+}
+
 .bottom-right-icon {
   z-index: 10;
 }
@@ -320,7 +332,7 @@
 
 .validation-check-container {
     height: 8%;
-    width: 90%;
+    width: 98%;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -330,8 +342,8 @@
 /* Responsive layout - makes a one column layout instead of a two-column layout */
 @media (max-width: 950px) {
   .validation-check-container {
-    width: 90%;
-    height: 15%;
+    width: 98%;
+    height: 20%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -348,7 +360,7 @@
   justify-content: space-between;
 }
 
-.validation-block {
+.container-block {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -356,20 +368,16 @@
   margin-bottom: 0px;
 }
 
-.version-block {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0px;
+.validation-block {}
+
+.skip-block {
+  justify-content: left;
 }
+
+.version-block {}
 
 @media (max-width: 950px) {
   .version-block {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
     margin-bottom: 10px;
   }
 
@@ -379,7 +387,6 @@
 }
 
 .check-list-container {
-    width: 100%;
     height: 98%;
     display: flex;
     flex-direction: row;
@@ -389,9 +396,8 @@
 }
 
 .sub-check-container {
-    width: 100%;
-    margin-left: 5%;
-    margin-right: 5%;
+    margin-left: 5px;
+    margin-right: 5px;
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -400,10 +406,18 @@
 }
 
 .value-input-div {
-    width: 50%;
-    height: 100%;
-    margin-left: 5%;
-    margin-right: 20%;
+    width: 80px;
+    margin-left: 10px;
+}
+
+.h3-container {
+  width: auto; /* Automatically adjusts to fit the content */
+}
+
+h3 {
+  white-space: nowrap; /* Prevents text from wrapping to the next line */
+  overflow: hidden; /* Hides any text that overflows the container */
+  text-overflow: ellipsis; /* Adds an ellipsis (...) for overflowing text */
 }
 
 .alert {
@@ -419,8 +433,8 @@ input[type=number] {
 
 .version-container {
   width: 100%;
-  margin-left: 5%;
-  margin-right: 5%;
+  margin-left: 5px;
+  margin-right: 5px;
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
@@ -435,7 +449,7 @@ input[type=number] {
 
 .version-buttons {
   width: 100%;
-  margin-left: 5%;
+  margin-left: 5px;
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
@@ -448,7 +462,7 @@ input[type=number] {
   height: 80%;
   border-radius: 24%/48%;
   border: 2px solid black;
-  margin-left: 20px;
+  margin-left: 10px;
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
@@ -468,7 +482,8 @@ input[type=number] {
 }
 
 .validate-button {
-    aspect-ratio: 1.5 / 1;
+    margin-left: 15px;
+    aspect-ratio: 1.2 / 1;
     height: 80%;
     border-radius: 24%/48%;
     border: 2px solid black;
@@ -480,8 +495,48 @@ input[type=number] {
     justify-content: center;
 }
 
-.green {
+.filter-tag-container {
+    width: 20%;
+    margin-top: 1%;
+    margin-left: 30px;
+    margin-right: 15%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.skip-button-container {
+  height: 80%;
+  margin-top: 1%;
+  margin-left: 10px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center; /* Align buttons horizontally in the center */
+  gap: 10px; /* Space between buttons */
+}
+
+.skip-button {
+  cursor: pointer; /* Pointer cursor on hover */
+  display: flex;
+  align-items: center; /* Center text vertically */
+  justify-content: center; /* Center text horizontally */
+  transition: background-color 0.3s, transform 0.2s; /* Add smooth hover effects */
+}
+
+.round {
+  width: 30px; /* Width of the button */
+  height: 30px; /* Height of the button, same as width to make it round */
+  border-radius: 50%; /* Makes the button round */
+  border: none; /* Removes border */
+}
+
+.greenyellow {
     background-color: greenyellow;
+}
+
+.green {
+    background-color: green;
 }
 
 .blue {
@@ -505,12 +560,6 @@ input[type=number] {
 .validate-button:hover>mat-icon {
     transform: scale(1.6, 1.6);
     color: #ffffff;
-}
-
-h3 {
-    width: 200px;
-    padding: 0px;
-    margin: 0px;
 }
 
 #overlay {

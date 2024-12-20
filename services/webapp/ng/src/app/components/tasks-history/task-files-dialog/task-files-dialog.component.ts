@@ -1,6 +1,7 @@
 import { Component, OnInit, Inject } from '@angular/core';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
+import { TasksService } from 'src/app/services/tasks.service';
 import { UserService } from 'src/app/services/user.service';
 import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
 import { saveAs } from 'file-saver';
@@ -11,6 +12,7 @@ import { first } from 'rxjs/operators';
 export interface DialogData {
   taskId: string;
   nbZipFile: number;
+  stats: boolean;
   share?: boolean;
 }
 
@@ -27,6 +29,7 @@ export class TaskFilesDialogComponent implements OnInit {
     public dialogRef: MatDialogRef<TaskFilesDialogComponent>,
     public dialog: MatDialog,
     private notifyService : NotificationService,
+    private tasksService: TasksService,
     private userService: UserService,
     private http: HttpClient,
     @Inject(MAT_DIALOG_DATA) public data: DialogData
@@ -184,7 +187,12 @@ export class TaskFilesDialogComponent implements OnInit {
     }
   }
 
+  async restore() {
+    await this.tasksService.updateTaskStatus(this.data.taskId, 'VALIDATION');
+    this.dialogRef.close('VALIDATION');
+  }
+
   cancel(): void {
-    this.dialogRef.close('');
+    this.dialogRef.close(undefined);
   }
 }

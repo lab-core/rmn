@@ -102,10 +102,12 @@ tbody td {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
 }
 
 .validate-job-button {
   width: fit-content;
+  margin-top: 15px;
   border-radius: 5px;
   height: 100%;
   font-size: 90%;

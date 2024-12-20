@@ -531,6 +531,7 @@ def get_job():
         "n_max_points_per_question": job["n_max_points_per_question"],
         "n_pages_per_question": job["n_pages_per_question"],
         "bonus_enabled_map": job["bonus_enabled_map"],
+        "statistics_for_students": job["statistics_for_students"],
         "groups": job.get("groups", [""])
     }
     return Response(response=json.dumps({"response": resp}), status=200)
@@ -626,6 +627,77 @@ def unshare_job(user_id):
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
             status=404
         )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+@app.route("/job/stats", methods=["POST"])
+@cross_origin()
+@verify_token()
+def stats_job(user_id):
+    request_form = request.form
+    #
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400,
+        )
+
+    if "statistics_for_students" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: statistics_for_students not provided."}),
+            status=400,
+        )
+
+    job_id = str(request_form["job_id"])
+    statistics_for_students = request_form["statistics_for_students"].lower() == "true"
+    db = mongo["RMN"]
+    db["eval_jobs"].update_one(
+            {"job_id": job_id},
+            {
+                "$set": {"statistics_for_students": statistics_for_students},
+            },
+    )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+@app.route("/job/status", methods=["POST"])
+@cross_origin()
+@verify_token()
+def status_job(user_id):
+    request_form = request.form
+    #
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400,
+        )
+
+    if "job_status" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_status not provided."}),
+            status=400,
+        )
+
+
+
+    job_id = str(request_form["job_id"])
+    try:
+        status = Job_Status(request_form["job_status"].upper())
+    except:
+        return Response(
+            response=json.dumps({"response": "Error: job_status not recognized."}),
+            status=400,
+        )
+
+    db = mongo["RMN"]
+    db["eval_jobs"].update_one(
+            {"job_id": job_id},
+            {
+                "$set": {"job_status": status.value},
+            },
+    )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
@@ -945,7 +1017,12 @@ def get_info_zip():
 
     #
     db = mongo["RMN"]
+    collection = db["eval_jobs"]
     output_collection = db["jobs_output"]
+
+    #
+    job = collection.find_one({"job_id": job_id})
+    stats = job["statistics_for_students"]
 
     #
     output_files = output_collection.find_one({"job_id": job_id})
@@ -955,10 +1032,11 @@ def get_info_zip():
             status=404
         )
     #
-    resp = len(output_files["zip_id_list"])
+    nZips = len(output_files["zip_id_list"])
 
     #
-    return Response(response=json.dumps({"response": resp}), status=200)
+    return Response(response=json.dumps({"nZips": nZips, "stats": stats}), status=200)
+
 
 @app.route("/matricule/update", methods=["POST"])
 @cross_origin()
@@ -1154,6 +1232,7 @@ def get_documents(validity):
                 "question": doc["question"],
                 "basename": doc["basename"],
                 "grade": doc["grade"],
+                "tag": doc.get("tag"),
                 "n_total_doc": count
             }
             for doc in docs if question is None or doc["question"] == question
@@ -1339,6 +1418,28 @@ def save_new_version(filename):
     return version_filepath
 
 
+@app.route("/document/tag", methods=["POST"])
+@cross_origin()
+@verify_share_token(matricule=False, return_validity=True)
+def tag_document(validity):
+    request_form = request.form
+    required_fields = ["job_id", "document_index", "tag"]
+    for field in required_fields:
+        if field not in request_form:
+            return Response(
+                response=json.dumps({"response": f"Error: {field} not provided."}),
+                status=400,
+            )
+
+    db["job_questions"].update_one({
+        "job_id": str(request_form["job_id"]),
+        "document_index": int(request_form["document_index"])
+    }, {
+        "$set": { "tag": request_form["tag"] }
+    })
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
 @app.route("/document/update", methods=["POST"])
 @cross_origin()
 @verify_share_token(matricule=False, return_validity=True)
@@ -1363,22 +1464,35 @@ def update_document(validity):
         version = int(request_form["version"])
         annotations = json.loads(request_form.get("annotations"))
 
+    try:
+        status = request_form["status"].upper()
+        doc_status = Document_Status(status)
+    except:
+        return Response(
+            response=json.dumps({"response": "Error: document status not recognized."}),
+            status=400,
+        )
+
     job_id = str(request_form["job_id"])
     document_index = int(request_form["document_index"])
 
     # update the database
     db = mongo["RMN"]
     # first update question and job if any
-    if "grades" in request_form:
-        grades = [float(g) for g in json.loads(request_form["grades"])]
+    if "grades" in request_form or "tag" in request_form:
         if "question_index" in request_form:
-            grade = grades[0]
+            set_query = {
+                "status": doc_status.value,
+            }
+            grade = None
+            if request_form.get("grades") is not None:
+                grade = float(request_form["grades"])
+                set_query['grade'] = grade
+            if request_form.get("tag") is not None:
+                set_query['tag'] = request_form.get("tag")
             q_doc = db["job_questions"].find_one_and_update(
                 {"job_id": job_id, "document_index": document_index},
-                {"$set": {
-                    "status": Document_Status.VALIDATED.value,
-                    "grade": grade
-                }}
+                {"$set": set_query}
             )
             if q_doc is None:
                 return Response(response=json.dumps({"response": f"Error: question {document_index} not found."}),
@@ -1389,22 +1503,23 @@ def update_document(validity):
                     validity != "all" and int(validity) != q_doc["question_index"]):
                 return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=401)
 
-            q_index = int(request_form["question_index"]) - 1
-            r = db["job_documents"].update_one(
-                {"job_id": job_id, "filename": q_doc["basename"]},
-                {"$set": {
-                    f"grades.{q_index}": grade
-                }}
-            )
-            if not r:
-                return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
-                                status=404)
+            if grade is not None:
+                q_index = int(request_form["question_index"]) - 1
+                r = db["job_documents"].update_one(
+                    {"job_id": job_id, "filename": q_doc["basename"]},
+                    {"$set": {
+                        f"grades.{q_index}": grade
+                    }}
+                )
+                if not r:
+                    return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
+                                    status=404)
         else:
             grades = [float(g) for g in request_form["grades"]]
             r = db["job_documents"].update_one(
                 {"job_id": job_id, "document_index": document_index},
                 {"$set": {
-                    "status": Document_Status.VALIDATED.value,
+                    "status": doc_status.value,
                     "grades": grades
                 }}
             )

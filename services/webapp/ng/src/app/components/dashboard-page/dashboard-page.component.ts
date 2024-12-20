@@ -35,6 +35,7 @@ export class DashboardPageComponent {
   task: any;
   taskId: string;
   taskName: string;
+  taskStats: boolean;
   examsList: Array<any> = [];
   questionsDocList: Array<any> = [];
   examsCount: number = 0;
@@ -117,7 +118,12 @@ export class DashboardPageComponent {
 
   async getTask() {
     this.task = await this.tasksService.getTaskById(this.taskId);
+    this.taskStats = this.task.statistics_for_students;
     this.updateViewOnStatus();
+  }
+
+  taskStatsChange(): void {
+    this.tasksService.updateTaskStats(this.taskId, this.taskStats);
   }
 
   updateViewOnStatus() {
@@ -304,12 +310,19 @@ export class DashboardPageComponent {
     formdata.append('job_id', jobId);
     this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).pipe(first()).subscribe(
       (data) => {
-        const nbZipFile = data['response']
-        this.dialog.open(TaskFilesDialogComponent, {
+        let dialogRef = this.dialog.open(TaskFilesDialogComponent, {
           width: '30%',
           height: '60%',
-          data: { taskId: jobId, nbZipFile: nbZipFile, share: this.userService.shared() }
+          data: { taskId: jobId, nbZipFile: data['nZips'], stats: data['stats'], share: this.userService.shared() }
         })
+        dialogRef.afterClosed().pipe(first()).subscribe(async result => {
+          if (result) {
+            this.task.job_status = result;
+            this.updateViewOnStatus();
+          }
+        }, (error) => {
+          console.error(error);
+        });
       }, (error) => {
         console.error(error);
       });

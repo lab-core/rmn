@@ -18,7 +18,7 @@ export class ValidationService {
 
   async validateDocument(jobId: string, validatingCopy: number, file: File,
                          questionIndex, grade, nMaxPointsPerQuestion, status,
-                         version, annotations) {
+                         version, annotations, tag) {
     const formData: FormData = new FormData();
     this.userService.addTokens(formData);
     formData.append('job_id', jobId);
@@ -28,7 +28,7 @@ export class ValidationService {
       formData.set('question_index', questionIndex);
     }
     if (grade !== undefined) {
-      formData.append('grades', JSON.stringify([grade]));
+      formData.append('grades', grade.toString());
     }
     formData.append('status', status);
     if (version !== undefined) {
@@ -36,6 +36,9 @@ export class ValidationService {
     }
     if (annotations !== undefined) {
       formData.append('annotations', JSON.stringify(annotations));
+    }
+    if (tag !== undefined) {
+      formData.append('tag', tag);
     }
 
     let response;
