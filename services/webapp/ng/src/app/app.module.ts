@@ -47,6 +47,7 @@ import { TaskShareDialogComponent } from "./components/tasks-history/task-share-
 import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
 import { TaskRetryDialogComponent } from './components/tasks-history/task-retry-dialog/task-retry-dialog.component';
 import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
+import { CsvUpdateDialogComponent } from './components/dashboard-page/csv-update/csv-update-dialog.component';
 import { MatriculeVerificationComponent } from './components/matricule-verification/matricule-verification.component';
 import { WarningDialogComponent } from './components/warning-dialog/warning-dialog.component';
 

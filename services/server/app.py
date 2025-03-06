@@ -353,13 +353,7 @@ def evaluate(user_id):
 def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_name, notes_csv_file_name):
     try:
         file_name = str(TEMP_FOLDER.joinpath(notes_csv_file_name))
-        # Check if separated by ; or , -> and transform to real csv (,) if needed
-        df_comma = pd.read_csv(file_name, nrows=1, sep=",")
-        df_semi = pd.read_csv(file_name, nrows=1, sep=";")
-        if df_semi.shape[1]>df_comma.shape[1]:
-            df_semi = pd.read_csv(file_name, sep=";")
-            df_semi.to_csv(file_name)  # save with a ',' separator
-        storage.move_to(file_name, notes_file_id)
+        save_csv(file_name, notes_file_id)
 
         file_name = str(TEMP_FOLDER.joinpath(zip_file_name))
         storage.move_to(file_name, zip_file_id)
@@ -392,6 +386,16 @@ def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_n
             ),
         )
         exit()
+
+
+def save_csv(file_name, notes_file_id):
+    # Check if separated by ; or , -> and transform to real csv (,) if needed
+    df_comma = pd.read_csv(file_name, nrows=1, sep=",")
+    df_semi = pd.read_csv(file_name, nrows=1, sep=";")
+    if df_semi.shape[1]>df_comma.shape[1]:
+        df_semi = pd.read_csv(file_name, sep=";")
+        df_semi.to_csv(file_name)  # save with a ',' separator
+    storage.move_to(file_name, notes_file_id)
 
 
 @app.route("/template", methods=["POST"])
@@ -631,7 +635,38 @@ def unshare_job(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@app.route("/job/stats", methods=["POST"])
+@app.route("/job/update/bonus", methods=["POST"])
+@cross_origin()
+@verify_token()
+def bonus_job(user_id):
+    request_form = request.form
+    #
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400,
+        )
+
+    if "bonus_enabled_map" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: statistics_for_students not provided."}),
+            status=400,
+        )
+
+    job_id = str(request_form["job_id"])
+    bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
+    db = mongo["RMN"]
+    db["eval_jobs"].update_one(
+            {"job_id": job_id},
+            {
+                "$set": {"bonus_enabled_map": bonus_enabled_map},
+            },
+    )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+@app.route("/job/update/stats", methods=["POST"])
 @cross_origin()
 @verify_token()
 def stats_job(user_id):
@@ -662,7 +697,39 @@ def stats_job(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@app.route("/job/status", methods=["POST"])
+@app.route("/job/update/csv", methods=["POST"])
+@cross_origin()
+@verify_token()
+def csv_job(user_id):
+    request_form = request.form
+
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400,
+        )
+    job_id = str(request_form["job_id"])
+
+    if "csv" not in request.files:
+        return Response(
+            response=json.dumps({"response": "Error: csv file not provided."}),
+            status=400,
+        )
+
+    if not os.path.exists(TEMP_FOLDER):
+        os.makedirs(TEMP_FOLDER)
+    notes_csv_file = request.files.get("csv")
+    notes_csv_file_name = secure_filename(notes_csv_file.filename)
+    notes_csv_file_name = str(TEMP_FOLDER.joinpath(notes_csv_file_name))
+    notes_csv_file.save(FileIO(notes_csv_file_name, "wb"))
+
+    notes_file_id = f"output_csv{os.sep}{job_id}.csv"
+    save_csv(notes_csv_file_name, notes_file_id)
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+@app.route("/job/update/status", methods=["POST"])
 @cross_origin()
 @verify_token()
 def status_job(user_id):

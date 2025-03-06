@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { TasksService } from 'src/app/services/tasks.service';
 import { UserService } from 'src/app/services/user.service';
 import { SERVER_URL } from 'src/app/utils';
+import { CsvUpdateDialogComponent } from './csv-update/csv-update-dialog.component'
 import { TaskFilesDialogComponent } from '../tasks-history/task-files-dialog/task-files-dialog.component';
 import { TaskShareDialogComponent } from '../tasks-history/task-share-dialog/task-share-dialog.component';
 import { SocketService } from 'src/app/services/socket.service';
@@ -124,6 +125,13 @@ export class DashboardPageComponent {
 
   taskStatsChange(): void {
     this.tasksService.updateTaskStats(this.taskId, this.taskStats);
+  }
+
+  questionBonusChange(question: Question): void {
+    this.task["bonus_enabled_map"][question.index][1] = question.bonus;
+    const nQ = this.questions.length - 1;
+    this.questions[nQ].max += question.bonus ? -question.max : question.max;
+    this.tasksService.updateTaskBonus(this.taskId, this.task["bonus_enabled_map"]);
   }
 
   updateViewOnStatus() {
@@ -391,6 +399,14 @@ export class DashboardPageComponent {
       }
     }, (error) => {
       console.error(error);
+    });
+  }
+
+  updateCsv() {
+    this.dialog.open(CsvUpdateDialogComponent, {
+      width: '30%',
+      height: '40%',
+      data: { jobId: this.taskId }
     });
   }
 

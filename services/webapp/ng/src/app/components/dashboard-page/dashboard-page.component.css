@@ -105,6 +105,14 @@ tbody td {
   flex-direction: column;
 }
 
+.checkbox-container {
+  display: flex;
+  width: 80%;
+  align-items: center;
+  justify-content: space-between;
+  flex-direction: row;
+}
+
 .validate-job-button {
   width: fit-content;
   margin-top: 15px;

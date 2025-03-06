@@ -107,7 +107,7 @@ export class TasksService {
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     formdata.append('statistics_for_students', taskStats);
-    await this.http.post<any>(`${SERVER_URL}job/stats`, formdata).toPromise();
+    await this.http.post<any>(`${SERVER_URL}job/update/stats`, formdata).toPromise();
   }
 
   async updateTaskStatus(jobId: string, jobStatus: string): Promise<void> {
@@ -115,6 +115,15 @@ export class TasksService {
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     formdata.append('job_status', jobStatus);
-    await this.http.post<any>(`${SERVER_URL}job/status`, formdata).toPromise();
+    await this.http.post<any>(`${SERVER_URL}job/update/status`, formdata).toPromise();
   }
+
+  async updateTaskBonus(jobId: string, bonusMap): Promise<void> {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', jobId);
+    formdata.append('bonus_enabled_map', JSON.stringify(bonusMap));
+    await this.http.post<any>(`${SERVER_URL}job/update/bonus`, formdata).toPromise();
+  }
+
 }

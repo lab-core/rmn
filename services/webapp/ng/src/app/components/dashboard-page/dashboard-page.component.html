@@ -11,21 +11,25 @@
             <th>Questions</th>
             <th>Copies corrigées</th>
             <th>Moyennes</th>
+            <th>Bonus</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let question of questions; let i = index">
-            <td>
-              <div *ngIf="question.bonus">
+            <td> {{ question.name }}
+              <!-- <div *ngIf="question.bonus">
                 {{ question.name }} (Bonus)
               </div>
               <div *ngIf="!question.bonus">
                 {{ question.name }}
-              </div>
+              </div> -->
             </td>
             <td>{{ question.validatedCount }} / {{ question.count }}</td>
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
+            <td>
+                <input *ngIf="question.name != 'Total'" type="checkbox" [(ngModel)]="question.bonus" (change)="questionBonusChange(question)" [ngModelOptions]="{standalone: true}">
+            </td>
             <td class="action-buttons">
               <button class="correct-button" *ngIf="!disableButtons" mat-raised-button color="primary" (click)="correctQuestion(i)">Corriger</button>
               <button class="correct-button" *ngIf="!shared() && !disableButtons" mat-raised-button color="primary" (click)="shareQuestion(i+1 < questions.length ? i : undefined)">Partager</button>
@@ -34,6 +38,7 @@
           <tr>
             <td>Matricules</td>
             <td>{{ totalVerifiedMatricules }} / {{ examsCount }}</td>
+            <td></td>
             <td></td>
             <td class="action-buttons">
               <button class="correct-button" *ngIf="!disableButtons" mat-raised-button color="primary" (click)="verifyMatricules()">Verifier</button>
@@ -44,6 +49,7 @@
       </table>
       <div class="validate-job-container" *ngIf="loggued() && !shared() && !disableButtons">
         <div class="checkbox-container">
+          <button class="csv-job-button" mat-raised-button color="primary" (click)="updateCsv()">Mettre à jour csv</button>
           <label>
               <input type="checkbox" [(ngModel)]="taskStats" (change)="taskStatsChange()" [ngModelOptions]="{standalone: true}">
               Statistiques pour les élèves

@@ -32,11 +32,11 @@
             <button mat-raised-button color="primary" *ngIf="!data.share" (click)="checkInputBox('stats_pdf_file', true)">Partager</button>
         </div>
     </div>
-    <div class="cancel-container">
-        <button mat-raised-button color="warn" (click)="cancel()">Sortir</button>
-    </div>
+    <!-- <div class="cancel-container">
+        <button mat-raised-button (click)="cancel()">Sortir</button>
+    </div> -->
     <div class="restore-container">
-        <button mat-raised-button color="primary" (click)="restore()">Restaurer</button>
+        <button mat-raised-button color="warn" (click)="restore()">Restaurer</button>
     </div>
 </div>
 <div id="overlay" *ngIf="this.downloading"></div>

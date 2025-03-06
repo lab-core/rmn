@@ -272,6 +272,10 @@ export class PdfManagementDialogComponent implements OnInit {
                     mergedPDFDocs[questionIndex] = await PDFDocument.create();
                 }
 
+                if (!match) {
+                  this.notificationService.showWarning(`The pdf document name does not match a question: ${name}.`, 'Warning');
+                }
+
                 const totalPageCount = pdfDoc.getPageCount();
                 console.log(`The document ${name} has ${totalPageCount} pages.`);
 
@@ -313,6 +317,7 @@ export class PdfManagementDialogComponent implements OnInit {
 
                     if (totalPageCount < endPage) {
                         console.warn(`The merged document for ${questionIndex} does not have enough pages for ${originalDoc["filename"]}.pdf. Required: ${endPage}, available: ${totalPageCount}.`);
+                        this.notificationService.showWarning(`The merged document for ${questionIndex} does not have enough pages for ${originalDoc["filename"]}.pdf. Required: ${endPage}, available: ${totalPageCount}.`, 'Warning');
                         break;
                     }
 
@@ -329,6 +334,7 @@ export class PdfManagementDialogComponent implements OnInit {
                     startPage = endPage;
                 } catch (innerError) {
                     console.error(`Error processing original document: ${originalDoc["filename"]}.pdf`, innerError);
+                    this.notificationService.showError(`Error processing original document: ${originalDoc["filename"]}.pdf`, 'Erreur');
                 }
                 i++;
                 this.percentageDone = Math.round(100 * i / nQuestionExams);
