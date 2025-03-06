@@ -16,6 +16,8 @@ export interface DialogData {
   index: string;
   jobName: string;
   nPagesPerQuestion: Map<string, number>;
+  nMaxPointsPerQuestion: Map<string, number>;
+  bonusEnabledMap: Map<string, boolean>;
   examsList: Array<any>;
   offlineCopies: Map<number, OfflineCopy>;
 }
@@ -337,11 +339,23 @@ export class PdfManagementDialogComponent implements OnInit {
         const finalZipFile = new File([finalZipBlob], 'split_documents.zip', { type: 'application/zip' });
 
         // update exam grades
+        let gradeError = false;
         for (const docIndex of Object.keys(grades)) {
           const doc_idx = parseInt(docIndex);
           const exam = this.data.examsList.find((e) => { return e['document_index'] == doc_idx; });
-          exam['grade'] = grades[docIndex];
-          exam['status'] = "VALIDATED";
+          exam.grade = grades[docIndex];
+          const total = this.data.nMaxPointsPerQuestion.get(exam.question);
+          if (exam.grade <= total + 1e-3) {
+            exam['status'] = "VALIDATED";
+          } else {
+            gradeError = true;
+            exam['status'] = "TO VALIDATE";
+          }
+        }
+
+        // display error notification
+        if (gradeError) {
+          this.notificationService.showError(`Some grades seem wrong. Check the non validated copies.`, 'Erreur');
         }
 
         const uploadFormData = new FormData();

@@ -1,5 +1,13 @@
 # Reconaissance des matricules et notes
 
+### Minimum configuration
+
+To use the webapp, you need one of the following versions at minimum for your browser:
+- Chrome 119
+- Edge 119
+- Firefox 121
+- Safari 17.4
+
 ### User guide
 
 - Add a front page to your copy, if necessary, to grade them

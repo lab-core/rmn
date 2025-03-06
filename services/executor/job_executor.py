@@ -86,7 +86,6 @@ def check_for_idle_jobs_to_requeue(db, sleep):
                     # Set Job status from IGNORED to VALIDATION
                     job_id = job["job_id"]
                     user_id = job["user_id"]
-
                     update_status(db, sio, user_id, job_id, Job_Status.VALIDATION)
 
                 # requeue old idle jobs
@@ -651,8 +650,10 @@ if __name__ == "__main__":
     try:
         # retrieve job
         blocking = os.getenv("REDIS_POP") == "block" or os.getenv("ENVIRONMENT") != "production"
-        while True:
-            print("Retrieving job from redis")
+        n_loop = 0
+        while blocking or n_loop <= 1:
+            n_loop += 1
+            print(f"[{n_loop}] Retrieving job from redis")
             if blocking:
                 job = redis.blpop("job_queue", timeout=MAX_IDLE_TIME)
                 # output of blocking is a tuple (job_queue, job)
@@ -669,30 +670,28 @@ if __name__ == "__main__":
                     job = job[1]
                 job = json.loads(job)
 
-                # create tmp work dir
-                jid = job["template_id"] if "template_id" in job else job["job_id"]
-                WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{jid}")
-                WORK_TMP_DIR.mkdir(exist_ok=True)
+                if job:
+                    # create tmp work dir
+                    jid = job["template_id"] if "template_id" in job else job["job_id"]
+                    WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{jid}")
+                    WORK_TMP_DIR.mkdir(exist_ok=True)
 
-                # process job
-                try:
-                    if "template_id" in job:
-                        process_template(jid, WORK_TMP_DIR)
-                    else:
-                        process(job, WORK_TMP_DIR)
-                except Exception as e:
-                    print("Caught an error while processing job:")
-                    print(e)
-                    pass
+                    # process job
+                    try:
+                        if "template_id" in job:
+                            process_template(jid, WORK_TMP_DIR)
+                        else:
+                            process(job, WORK_TMP_DIR)
+                    except Exception as e:
+                        print("Caught an error while processing job:")
+                        print(e)
+                        pass
 
-                # clean ENLEVER
-                shutil.rmtree(WORK_TMP_DIR)
+                    # clean ENLEVER
+                    shutil.rmtree(WORK_TMP_DIR)
 
             # check if any job is idle and dangling
             check_for_idle_jobs_to_requeue(db, not blocking)
-
-            if not blocking:
-                break
 
     except Exception as e:
         print(e)

@@ -27,17 +27,17 @@ export class ValidationService {
     if (questionIndex) {
       formData.set('question_index', questionIndex);
     }
-    if (grade !== undefined) {
+    if (grade != undefined) {
       formData.append('grades', grade.toString());
     }
     formData.append('status', status);
-    if (version !== undefined) {
+    if (version != undefined) {
       formData.append('version', version.toString());
     }
-    if (annotations !== undefined) {
+    if (annotations != undefined) {
       formData.append('annotations', JSON.stringify(annotations));
     }
-    if (tag !== undefined) {
+    if (tag != undefined) {
       formData.append('tag', tag);
     }
 

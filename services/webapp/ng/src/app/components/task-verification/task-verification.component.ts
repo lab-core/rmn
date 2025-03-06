@@ -174,6 +174,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
   }
 
+  isScoreActive() {
+    let el = document.activeElement;
+    return el.id === 'score';
+  }
+
   @HostListener('document:keydown.enter', ['$event'])
   onKeydownEnterHandler(event: KeyboardEvent) {
     if (!this.pdfViewer.isWriting() && !this.pdfLoading) {
@@ -183,20 +188,23 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.arrowright', ['$event'])
   onKeydownArrowRightHandler(event: KeyboardEvent) {
-    if (!this.pdfViewer.isWriting()) {
+    if (!this.pdfViewer.isWriting() && !this.isScoreActive()) {
       this.nextCopy();
     }
   }
 
   @HostListener('document:keydown.arrowleft', ['$event'])
   onKeydownArrowLeftHandler(event: KeyboardEvent) {
-    if (!this.pdfViewer.isWriting()) {
+    if (!this.pdfViewer.isWriting() && !this.isScoreActive()) {
       this.previousCopy();
     }
   }
 
   @HostListener('document:keydown.arrowup', ['$event'])
   onKeydownArrowUpHandler(event: KeyboardEvent) {
+    if (this.isScoreActive()) {
+      return;
+    }
     // move up (-> 4 copies)
     let tempIndex = this.previousCopyIndex();
     let i = 1;
@@ -214,6 +222,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.arrowdown', ['$event'])
   onKeydownArrowDownHandler(event: KeyboardEvent) {
+    if (this.isScoreActive()) {
+      return;
+    }
+
     // move down (-> 4 copies)
     let tempIndex = this.nextCopyIndex();
     let i = 1;
@@ -553,7 +565,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.colorChosen = "blue";
     }
     if(status === "VALIDATED") {
-      this.colorChosen = "greenyellow";
+      this.colorChosen = "green";
     }
   }
 
@@ -570,7 +582,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   setValidatedStatus(): boolean {
     if (this.currentStatus != "VALIDATED") {
       this.currentStatus = "VALIDATED";
-      this.currentExam()["status"] = this.currentStatus;
       return true;
     } else {
       return false;
@@ -593,12 +604,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
     this.currentStatus = "TO VALIDATE";
     exam["tag"] = tag;
-    exam["status"] = this.currentStatus;
     await this.updateCurrentCopy(false);
   }
 
   isRespectingTagFilter(exam) {
+    // default current copy
+    if (this.tagFilter === "") return true;
     if (exam.status === 'TO VALIDATE') {
+      // default next copy to validate -> comment first line
       if (this.tagFilter === "") return true;
       if (this.tagFilter === exam.tag) return true;
       if (this.tagFilter === "0" && exam.tag == undefined) return true;
@@ -629,6 +642,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         if (gradeChanged) {
           this.currentGradeModified = true;  // ensure that the copy will be saved
         }
+        this.currentExam()["status"] = this.currentStatus;  // update status
         if (this.isSidebarHidden) {
           hasNext = await this.nextCopy(() => { return this.nextCopyIndexTagFilter() });
         } else {
@@ -637,7 +651,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     } catch (error) {
         console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
         this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
-        this.changeCurrentExam(this.currentIndex());
+        // this.changeCurrentExam(this.currentIndex());
     }
     this.checkValidationButton();
 
@@ -818,6 +832,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         index: this.index,
         jobName: this.job.job_name,
         nPagesPerQuestion: this.job.n_pages_per_question,
+        nMaxPointsPerQuestion: this.nMaxPointsPerQuestion,
+        bonusEnabledMap: this.bonusEnabledMap,
         examsList: this.subExamsList,
         offlineCopies: this.offlineCopies
       }
