@@ -10,7 +10,7 @@ import { TaskFilesDialogComponent } from '../tasks-history/task-files-dialog/tas
 import { TaskShareDialogComponent } from '../tasks-history/task-share-dialog/task-share-dialog.component';
 import { SocketService } from 'src/app/services/socket.service';
 import { NotificationService } from 'src/app/services/notification.service';
-import { DocumentsService } from 'src/app/services/documents.service';
+import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { ValidationService } from 'src/app/services/validation.service';
 import { first } from 'rxjs/operators';
 
@@ -423,6 +423,9 @@ export class DashboardPageComponent {
         // this.router.navigate(['/tasks-history']);
         const message = "La tâche est en cours de finalisation!";
         this.notificationService.showInfo(message, "Alerte!")
+        // clear local storage
+        localStorage.removeItem(`${this.task.job_id}_copy`);
+        PDFSource.clearAll(this.task.job_id, this.questionsDocList.length);
       }
     }
   }

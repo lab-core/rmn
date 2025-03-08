@@ -228,12 +228,15 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     return this.eraserHistory[this.eraserHistory.length - 1];
   }
 
-  public async renderAnnotations(annotations: EditorAnnotation[]) {
+  public async renderAnnotations(annotations: EditorAnnotation[], pdfModified: boolean=false) {
     if (annotations) {
       this.pdfAnnotations = [ ...this.pdfAnnotations, ...annotations];
       // if pdf already rendered, call loadAnnotations(). Otherwise, it will be called naturlaly
       if (this.pdfRendered) {
         setTimeout(() => { this.loadAnnotations(); }, this.timeout);
+      }
+      if (pdfModified) {
+        setTimeout(() => { this.pdfModified = pdfModified; });
       }
     }
   }

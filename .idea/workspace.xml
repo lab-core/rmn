@@ -5,19 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/csv-update/csv-update-dialog.component.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/csv-update/csv-update-dialog.component.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/csv-update/csv-update-dialog.component.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/app.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/dashboard-page/dashboard-page.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/pdf-management/pdf-management-dialog.component.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/task-verification/pdf-management/pdf-management-dialog.component.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.css" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.html" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/components/tasks-history/task-files-dialog/task-files-dialog.component.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/webapp/ng/src/app/services/tasks.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/webapp/ng/src/app/services/tasks.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -215,7 +203,7 @@
       <workItem from="1729862994894" duration="768000" />
       <workItem from="1733757333775" duration="5381000" />
       <workItem from="1734724455028" duration="755000" />
-      <workItem from="1741274928040" duration="8336000" />
+      <workItem from="1741274928040" duration="9803000" />
     </task>
     <servers />
   </component>
