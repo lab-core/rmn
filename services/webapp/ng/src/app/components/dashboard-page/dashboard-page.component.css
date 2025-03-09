@@ -23,16 +23,40 @@ app-main-menu {
 .task-container {
   z-index: 2;
   height: 90%;
+  width: 70%;
   margin-top: 10%;
+  margin-left: 10px;
   overflow: auto;
   text-align: center;
   font-size: 1.2em;
 }
 
 .task-header {
-  margin-bottom: 20px;
-  font-weight: 500;
-  /* cursor: pointer; */
+  font-weight: 300;
+}
+
+.task-header>h1 {
+  margin-bottom: 5px;
+}
+
+.select-index-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 0px;
+}
+
+.select-index-container>p {
+  margin-right: 20px;
+}
+
+.index-input-div {
+  width: 40%;
+  margin-right: 30px;
+}
+
+.select-index-button {
+  margin-left: 20px;
 }
 
 /* .task-header:hover {
@@ -115,7 +139,6 @@ tbody td {
 
 .validate-job-button {
   width: fit-content;
-  margin-top: 15px;
   border-radius: 5px;
   height: 100%;
   font-size: 90%;

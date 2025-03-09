@@ -4,6 +4,18 @@
     <div class="task-header">
       <h1>{{ taskName }}</h1>
     </div>
+    <div class="select-index-container">
+        <p>Recherche index: </p>
+        <div class="index-input-div">
+            <ng-select id="copy" [items]="copiesList" bindLabel="identifiant"
+                [multiple]="false" [searchable]="true" [clearable]="false" [closeOnSelect]="true"
+                appendTo="app-dashboard-page" [virtualScroll]="false"
+                [(ngModel)]="copySelection">
+            </ng-select>
+        </div>
+        <p>{{ this.copySelection ? (this.copySelection.index || "N/A") : "" }}</p>
+        <button class="select-index-button" *ngIf="this.copySelection && this.copySelection.index" mat-raised-button color="primary" (click)="selectCopy()">Sélectionner</button>
+    </div>
     <div class="task-content">
       <table *ngIf="task && task.job_status !== 'ARCHIVED'">
         <thead>
@@ -54,8 +66,8 @@
               <input type="checkbox" [(ngModel)]="taskStats" (change)="taskStatsChange()" [ngModelOptions]="{standalone: true}">
               Statistiques pour les élèves
           </label>
+          <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()" [disabled]="ongoingTask">Finaliser</button>
         </div>
-        <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()" [disabled]="ongoingTask">Finaliser</button>
       </div>
       <div class="validate-job-container" *ngIf="disableButtons && task.job_status === 'ARCHIVED'">
         <button class="validate-job-button" mat-raised-button color="warn" (click)="openTaskFilesDialog()">Télécharger</button>

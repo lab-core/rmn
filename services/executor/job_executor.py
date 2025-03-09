@@ -313,7 +313,7 @@ if __name__ == "__main__":
                         # print("TOTAL SCORE FOR ", doc["filename"], ":", total_score)
                         df.loc[mat, MF.grade] = total_score
                         df.loc[mat, MF.mdate] = date
-                        df.loc[mat, "index"] = doc["document_index"]
+                        df.loc[mat, "index"] = doc["document_index"] + 1
 
             # save grades
             df.to_csv(csv_file_path, mode="w+")

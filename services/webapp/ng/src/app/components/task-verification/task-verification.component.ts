@@ -325,7 +325,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           this.index = index;
           this.onQuestionIndexChange({ value: index } as MatSelectChange);
         } else if (this.checkForAvailableCopies()) {
-          this.nextCopy();
+          this.changeCurrentExam(this.currentCopy);
         }
       });
     }
@@ -339,11 +339,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.filterExamsByQuestion(event.value);
     }
     if (this.subExamsList.length > 0) {
-        let initExam = this.subExamsList[0];
-        const diff = this.currentCopy + this.initialCopyIndex - initExam.document_index;
-        if (diff > 0 && diff < this.subExamsList.length) {
-          initExam = this.subExamsList[diff];
-        }
+        const left = (this.currentCopy - this.initialCopyIndex) % this.subExamsList.length + this.initialCopyIndex;
+        let initExam = this.subExamsList[left >= 0 ? left : 0];
         this.changeCurrentCopy(initExam["document_index"], initExam["status"]);
     }
   }
@@ -391,7 +388,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (copy != undefined) {
       this.currentCopy = parseInt(copy);
     } else {
-      this.currentCopy = this.initialCopyIndex - 1;
+      this.currentCopy = this.initialCopyIndex;
     }
   }
 

@@ -44,6 +44,9 @@ export class DashboardPageComponent {
   totalVerifiedMatricules: number = 0;
   ongoingTask: boolean = true;
   disableButtons: boolean = false;
+  copySelection: any;
+  copiesList: any;
+
 
   constructor(
     private router: Router,
@@ -71,6 +74,8 @@ export class DashboardPageComponent {
       await this.getDocuments(this.taskId);
       if (this.examsCount > 0) {
         await this.getQuestions(this.taskId);
+        // compute copies list
+        this.getCopiesList();
         // update metrics
         this.computeTotalMatricules();
         this.computeQuestions();
@@ -115,6 +120,28 @@ export class DashboardPageComponent {
 
   shared(): boolean {
     return this.userService.shared();
+  }
+
+  getCopiesList(): void {
+    let tempDict = {};
+    this.task["students_list"].forEach(x => {
+      tempDict[x['matricule']] = { identifiant: x['matricule'] + ' - ' + x["Nom complet"] };
+    });
+    const initialCopyIndex = this.examsList[0]["document_index"];
+    this.examsList.forEach(exam => {
+      if (exam["matricule"] && tempDict[exam["matricule"]]) {
+        tempDict[exam["matricule"]]['index'] = exam["document_index"] - initialCopyIndex + 1;
+        tempDict[exam["matricule"]]['copy'] = exam["document_index"];
+      }
+    });
+    this.copiesList = Object.values(tempDict).map(x => {
+      // x['identifiant'] = (x['index'] || 'N/A') + ' -> ' + x['identifiant'];
+      return x;
+    });
+  }
+
+  selectCopy() {
+    localStorage.setItem(`${this.taskId}_copy`, this.copySelection.copy);
   }
 
   async getTask() {

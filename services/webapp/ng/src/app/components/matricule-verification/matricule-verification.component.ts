@@ -184,9 +184,25 @@ export class MatriculeVerificationComponent implements OnInit {
     // initialize initialCopyIndex and currentCopy
     if (this.examsList.length > 0 && this.initialCopyIndex < 0) {
       this.initialCopyIndex = this.examsList[0].document_index;
-      this.currentCopy = this.initialCopyIndex - 1;
+      this.initializeCopy();
     }
     this.updateStatusOfAllDuplicatedMatricules();
+  }
+
+  initializeCopy() {
+    const sCopy = localStorage.getItem(`${this.tasksService.getvalidatingTaskId()}_copy`);
+    if (sCopy != undefined) {
+      const copy = parseInt(sCopy);
+      this.currentCopy = (copy - this.initialCopyIndex) % this.examsList.length + this.initialCopyIndex;
+    } else {
+      this.currentCopy = this.initialCopyIndex;
+    }
+  }
+
+  setCurrentCopy(copy: number) {
+    const jobId = this.tasksService.getvalidatingTaskId();
+    localStorage.setItem(`${jobId}_copy`, copy.toString());
+    this.currentCopy = copy;
   }
 
   getSubExamsList(): void {
@@ -211,7 +227,7 @@ export class MatriculeVerificationComponent implements OnInit {
     console.log("Group:", this.group, this.subExamsList.length, "exams");
     // if any copy available
     if (this.checkForAvailableCopies()) {
-      this.currentCopy = this.initialCopyIndex - 1;
+      this.currentCopy -= 1;
       this.nextCopy();
     } else {
       this.disabledValidationcontainer = true;
@@ -234,7 +250,7 @@ export class MatriculeVerificationComponent implements OnInit {
         let exam = this.examsList[copyIndex-this.initialCopyIndex];
         console.log("Change current copy to", copyIndex);
         this.currentCopyName = exam.filename;
-        this.currentCopy = copyIndex;
+        this.setCurrentCopy(copyIndex);
         this.disabledValidationcontainer = false;
         await this.loadCopy();
         this.setChosenColor(status);
