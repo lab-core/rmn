@@ -30,11 +30,11 @@
                     </div>
                 </div>
             </div>
-            <button class="offline-button" mat-raised-button color="primary" *ngIf="!offline" (click)="correctOffline()">Corriger hors ligne</button>
+            <!-- <button class="offline-button" mat-raised-button color="primary" *ngIf="!offline" (click)="correctOffline()">Corriger hors ligne</button>
             <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(false)" [disabled]="downloadingOffline">Sauvegarder en ligne</button>
             <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(true)" [disabled]="downloadingOffline">Finaliser</button>
-            <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="cancelOffline()">Annuler</button>
-            <button class="pdf-management-button" mat-flat-button (click)="managePdfs()" [disabled]="downloadingOffline">Gérer mes copies</button>
+            <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="cancelOffline()">Annuler</button> -->
+            <button class="pdf-management-button" mat-flat-button color="primary" (click)="managePdfs()" [disabled]="downloadingOffline">Gérer mes copies offline</button>
         </div>
         <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
           <div class="validation-check-container" *ngIf="currentCopy >= 0" [ngClass]="{'expanded': isSidebarHidden}">

@@ -17,9 +17,11 @@
 
     <div class="upload-container">
       <button class="replace-zip-button" mat-flat-button (click)="fileInput.click()">Tout téléverser</button>
-      <input #fileInput type="file" id="file-input" accept=".zip,.pdf" (change)="onFileSelected($event)">
+      <!-- <input #fileInput type="file" id="file-input" accept=".zip,.pdf" (change)="onFileSelected($event)"> -->
+      <input #fileInput type="file" id="file-input" accept=".zip" (change)="onFileSelected($event)">
       <div class="drop-zone" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
-        <p>Déposez votre fichier pdf ou zip ici</p>
+        <!-- <p>Déposez votre fichier pdf ou zip ici</p> -->
+        <p>Déposez votre fichier zip ici</p>
       </div>
     </div>
   </div>

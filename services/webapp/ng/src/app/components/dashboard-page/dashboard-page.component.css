@@ -66,6 +66,7 @@ app-main-menu {
 .task-content {
   display: flex;
   flex-direction: column;
+  margin-bottom: 5%;
 }
 
 table {
@@ -82,7 +83,7 @@ thead th {
 }
 
 tbody td {
-  padding: 10px;
+  padding: 5px;
   border: 1px solid black;
   text-align: center;
 }
@@ -105,7 +106,8 @@ tbody td {
   border-radius: 10px;
   cursor: pointer;
   font-size: 0.75em;
-  margin-left: 5px;
+  margin-right: 5%;
+  margin-left: 5%;
 }
 
 .totals {
