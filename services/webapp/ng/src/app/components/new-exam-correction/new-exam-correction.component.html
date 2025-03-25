@@ -49,7 +49,7 @@
                 <form [formGroup]="secondFormGroup">
                     <div class="files-steps-options-container">
                         <input #copiesFileInput hidden="true" type="file" onclick="this.value=null"
-                            (change)="CopiesFileEvent($event)" accept=".zip,.pdf" />
+                            (change)="CopiesFileEvent($event)" accept=".zip" />
                         <button id="copies-input-button" mat-flat-button color="primary"
                             (click)="copiesFileInput.click()" [disabled]="this.uploading">Téléverser localement</button>
                         <button id="files-dropbox-input" (click)="getDropBoxUpload()"
@@ -103,10 +103,12 @@
                             <tr *ngFor="let key of questionKeys">
                               <td>{{ key }}</td>
                               <td>
-                                <input (change)="updatePageCount(key, $event)" type="number" min="1" step="1" required>
+                                <input type="number" min="1" step="1"
+                                       [(ngModel)]="nPagesPerQuestion[key]" [ngModelOptions]="{standalone: true}"
+                                       (change)="updatePageCount(key, $event)" required>
                               </td>
                               <td>
-                                <input (change)="updateMaxPoints(key, $event)" type="number" min="1" step="1" required>
+                                <input (change)="updateMaxPoints(key, $event)" type="number" min="1" step="1" [(ngModel)]="nMaxPointsPerQuestion[key]" [ngModelOptions]="{standalone: true}" required>
                               </td>
                               <td>
                                 <input type="checkbox" [(ngModel)]="bonusEnabledMap[key]" [ngModelOptions]="{standalone: true}" (change)="toggleBonus(key)">

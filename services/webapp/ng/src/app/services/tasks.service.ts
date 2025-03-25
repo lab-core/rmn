@@ -64,7 +64,10 @@ export class TasksService {
     }
   }
 
-  addTask(copies, csv, front_template_id, regular_template_id, n_pages_per_question, n_max_points_per_question, bonus_enabled_map, taskName, front_template_name, regular_template_name, statistics_for_students) {
+  async addTask(copies, csv, front_template_id, regular_template_id,
+                n_pages_per_question, n_max_points_per_question, bonus_enabled_map,
+                taskName, front_template_name, regular_template_name,
+                statistics_for_students): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('front_template_id', front_template_id);
@@ -81,25 +84,27 @@ export class TasksService {
     formdata.append('statistics_for_students', statistics_for_students);
 
     this.percentDone = 0;
-
-    const sub = this.http.post<any>(`${SERVER_URL}evaluate`, formdata, {reportProgress: true, observe: "events"})
-    .subscribe(
-      (data) => {
-        this.uploadPart1 = true;
-        if (data.type == HttpEventType.UploadProgress) {
-          this.percentDone = data.total ? Math.round(100 * data.loaded / data.total) : 0
-        }
-        else if (data.type == HttpEventType.Response) {
-          this.percentDone = 100;
-          this.router.navigate(['/main-menu']);
-          this.notification.showInfo("Tâche créée avec succès!", "Alerte!");
+    return new Promise((resolve, reject) => {
+      const sub = this.http.post<any>(`${SERVER_URL}evaluate`, formdata, {reportProgress: true, observe: "events"}).subscribe(
+        (data) => {
+          this.uploadPart1 = true;
+          if (data.type == HttpEventType.UploadProgress) {
+            this.percentDone = data.total ? Math.round(100 * data.loaded / data.total) : 0
+          }
+          else if (data.type == HttpEventType.Response) {
+            this.percentDone = 100;
+            this.notification.showInfo("Tâche créée avec succès!", "Alerte!");
+            sub.unsubscribe();
+            resolve();
+          }
+        },
+        (error) => {
+          console.error(error.error);
           sub.unsubscribe();
+          reject(error);
         }
-      },
-      (error) => {
-        console.error(error.error);
-        sub.unsubscribe();
-      });
+      );
+    });
   }
 
   async updateTaskStats(jobId: string, taskStats): Promise<void> {

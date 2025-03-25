@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit, OnChanges, SimpleChanges, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from 'src/app/services/user.service';
@@ -24,7 +24,7 @@ declare function onedrivePickerCSV(): void;
   templateUrl: './new-exam-correction.component.html',
   styleUrls: ['./new-exam-correction.component.css']
 })
-export class NewExamCorrectionComponent implements OnInit {
+export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy {
   copies: File;
   csv: File;
   firstFormGroup: any;
@@ -43,6 +43,7 @@ export class NewExamCorrectionComponent implements OnInit {
   disabled: boolean = false;
   uploading: boolean = false;
   statisticsForStudents: boolean = true;
+  doNotSaveTask: boolean = false;
 
   nQuestions: number;
   totalPages: number = 0;
@@ -89,7 +90,23 @@ export class NewExamCorrectionComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.getTemplates();
+    await this.loadTask();
+    this.updateQuestionsCount();
+    this.updateTotals();
   }
+
+  async ngOnChanges(changes: SimpleChanges): Promise<void> {
+    this.saveTask();
+  }
+
+  async ngOnDestroy(): Promise<void> {
+    this.saveTask();
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  beforeUnloadHandler(event) {
+     this.saveTask();
+   }
 
   selectText(event): void {
     event.target.select();
@@ -121,13 +138,14 @@ export class NewExamCorrectionComponent implements OnInit {
   updateQuestionsCount() {
     this.nPagesPerQuestion.clear();
     this.nMaxPointsPerQuestion.clear();
-    this.questionKeys = [];
     this.bonusEnabledMap.clear();
+    this.questionKeys = [];
     for (let i = 1; i <= this.nQuestions; i++) {
-      this.nPagesPerQuestion.set(`Q${i}`, 0);
-      this.nMaxPointsPerQuestion.set(`Q${i}`, 0);
-      this.questionKeys.push(`Q${i}`);
-      this.bonusEnabledMap.set(`Q${i}`, false);
+      const key = `Q${i}`;
+      this.nPagesPerQuestion.set(key, this.nPagesPerQuestion[key] || 0);
+      this.nMaxPointsPerQuestion.set(key, this.nMaxPointsPerQuestion[key] || 0);
+      this.bonusEnabledMap.set(key, this.bonusEnabledMap[key] || false);
+      this.questionKeys.push(key);
     }
   }
 
@@ -136,6 +154,7 @@ export class NewExamCorrectionComponent implements OnInit {
     const pageCount = parseInt(inputElement.value, 10);
     this.nPagesPerQuestion.set(key, pageCount);
     this.updateTotals();
+    this.saveTask();
   }
 
   updateMaxPoints(key: string, event: Event) {
@@ -143,12 +162,14 @@ export class NewExamCorrectionComponent implements OnInit {
     const maxPoints = parseInt(inputElement.value, 10);
     this.nMaxPointsPerQuestion.set(key, maxPoints);
     this.updateTotals();
+    this.saveTask();
   }
 
   toggleBonus(key: string) {
     const currentValue = this.bonusEnabledMap.get(key) || false;
     this.bonusEnabledMap.set(key, !currentValue);
     this.updateTotals();
+    this.saveTask();
   }
 
   updateSuffix(event: KeyboardEvent) {
@@ -157,6 +178,7 @@ export class NewExamCorrectionComponent implements OnInit {
     if (!regex.test(key)) {
       event.preventDefault();
     }
+    this.saveTask();
   }
 
   presentationCopiesFileEvent(fileInput: Event) {
@@ -321,16 +343,21 @@ export class NewExamCorrectionComponent implements OnInit {
       }
 
       if (validCSV) {
-        this.csvName = file.name;
-        document.getElementById("csv-upload-label").setAttribute("value", this.csvName);
-        document.getElementById("csv-upload-label").innerHTML = this.csvName;
         this.csv = file;
+        this.setCSVName(file.name);
+        this.saveTask();
       } else {
         this.csvName = "";
         this.notifyService.showError("Veuillez fournir un csv valide", "ERREUR");
       }
     };
     reader.readAsText(file);
+  }
+
+  setCSVName(csvName: string) {
+    this.csvName = csvName;
+    document.getElementById("csv-upload-label").setAttribute("value", this.csvName);
+    document.getElementById("csv-upload-label").innerHTML = this.csvName;
   }
 
   checkDisabled(): boolean {
@@ -412,6 +439,7 @@ export class NewExamCorrectionComponent implements OnInit {
   }
 
   cancel() {
+    this.saveTask();
     this.copiesName = "";
     this.csvName = "";
     this.router.navigate(['/main-menu']);
@@ -468,9 +496,79 @@ export class NewExamCorrectionComponent implements OnInit {
       await this.convertDownloadableCSV();
       let front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
       let regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
-
-      this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate, this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName, front_template_name, regular_template_name, this.statisticsForStudents);
+      await this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate,
+                                      this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName,
+                                      front_template_name, regular_template_name, this.statisticsForStudents);
+      this.removeTask();
+      this.doNotSaveTask = true;
+      this.reroute();
     }
+  }
+
+  saveToLocalStorage(task) {
+    const reader = new FileReader();
+    reader.readAsDataURL(this.csv); // Convert to Base64
+    reader.onload = function () {
+      task.csv = reader.result;
+      const taskJson = JSON.stringify(task);
+      localStorage.setItem('newTask', taskJson);
+    };
+  }
+
+
+  saveTask() {
+    if (this.doNotSaveTask) return;
+
+    var task = {
+      name: this.taskName,
+      frontTemplate: this.selectedFrontTemplate,
+      regularTemplate: this.selectedRegularTemplate,
+      nQuestions: this.nQuestions,
+      nPages: this.nPagesPerQuestion,
+      maxPoints: this.nMaxPointsPerQuestion,
+      bonus: this.bonusEnabledMap,
+      stats: this.statisticsForStudents,
+      csvName: this.csvName
+    }
+
+    if (this.csv == undefined) {
+      const taskJson = JSON.stringify(task);
+      localStorage.setItem('newTask', taskJson);
+    } else {
+      const reader = new FileReader();
+      reader.readAsDataURL(this.csv); // Convert to Base64
+      reader.onload = function () {
+        task['csv'] = reader.result;
+        const taskJson = JSON.stringify(task);
+        localStorage.setItem('newTask', taskJson);
+      };
+    }
+  }
+
+  async loadTask() {
+    const taskJson = localStorage.getItem('newTask');
+
+    if (taskJson != undefined) {
+      const task = JSON.parse(taskJson);
+      this.taskName = task.name;
+      this.selectedFrontTemplate = task.frontTemplate;
+      this.selectedRegularTemplate = task.regularTemplate;
+      this.nQuestions = task.nQuestions;
+      for (let key in task.nPages) this.nPagesPerQuestion[key] = task.nPages[key];
+      for (let key in task.maxPoints) this.nMaxPointsPerQuestion[key] = task.maxPoints[key];
+      for (let key in task.bonus) this.bonusEnabledMap[key] = task.bonus[key];
+      this.statisticsForStudents = task.stats;
+
+      if (task.csv) {
+        const csvBlob = await fetch(task.csv).then(async (r) => r.blob());
+        this.csv = new File([csvBlob], task.csvName);
+        this.setCSVName(task.csvName);
+      }
+    }
+  }
+
+  removeTask() {
+    localStorage.removeItem('newTask');
   }
 
   reroute() {
