@@ -1009,6 +1009,28 @@ def find_matricule(
                     distri[d] = p
         return True
 
+    def best_matricule_match():
+        # build matricules and sort them by probabilities
+        matricules = [(0, "")]
+        for distri in possible_digits:
+            matricules = [
+                (c + p, "%s%d" % (m, d)) for c, m in matricules for d, p in distri.items()
+            ]
+        smats = sorted(matricules, reverse=True)
+
+        # find the most probable matricule that exists
+        if grades_dfs:
+            for p, mat in smats:
+                i, name = get_name(mat, grades_dfs)
+                if i >= 0:
+                    return mat, i
+        # find the most valid and probable one if no csv (or not valid) to check the matricule
+        for p, mat in smats:
+            if re.match(re_mat, mat):
+                return mat, None
+
+        return None, None
+
     def stop_processing():
         # check if enough images processed
         n_img = sum(possible_digits[0].values())
@@ -1020,7 +1042,11 @@ def find_matricule(
         for distri in possible_digits:
             if len([p for p in distri.values() if p >= min_threshold]) == 0:
                 return False
-        return True
+
+        # check if has a match
+        _ , index = best_matricule_match()
+
+        return index is not None
 
     # find the id box
     biggest_c, ret = find_matricule_box_contours(grays[0], front_box, find_digits, True)
@@ -1034,28 +1060,12 @@ def find_matricule(
                 break
 
     # build matricules and sort them by probabilities
-    matricules = [(0, "")]
-    for distri in possible_digits:
-        matricules = [
-            (c + p, "%s%d" % (m, d)) for c, m in matricules for d, p in distri.items()
-        ]
-    smats = sorted(matricules, reverse=True)
+    mat, index = best_matricule_match()
 
     cropped = fetch_box(grays[0], front_box)
     id_box = get_image_from_contour(cropped, biggest_c)
 
-    # find the most probable matricule that exists
-    if grades_dfs:
-        for p, mat in smats:
-            i, name = get_name(mat, grades_dfs)
-            if i >= 0:
-                return mat, id_box, i
-    # find the most valid and probable one if no csv (or not valid) to check the matricule
-    for p, mat in smats:
-        if re.match(re_mat, mat):
-            return mat, id_box, None
-
-    return None, id_box, None
+    return mat, id_box, index
 
 
 def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False):
