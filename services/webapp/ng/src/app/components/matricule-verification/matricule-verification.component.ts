@@ -499,6 +499,7 @@ export class MatriculeVerificationComponent implements OnInit {
     let warning = "";
     this.examsList.forEach((exam: any) => {
       if (exam["status"] != 'DELETED' &&
+          exam["status"] != 'NOT_READY' &&
           exam["matricule"] === mat &&
           exam["document_index"] !== this.currentCopy) {
         if (counter < 3) {
@@ -524,6 +525,7 @@ export class MatriculeVerificationComponent implements OnInit {
     let matricules = new Map<String, Array<any>>();
     this.examsList.forEach((exam: any) => {
       if (exam["status"] != 'DELETED' &&
+          exam["status"] != 'NOT_READY' &&
           (!matricule || exam.matricule === matricule)) {
         if (!matricules[exam.matricule]) {
           matricules[exam.matricule] = [];
