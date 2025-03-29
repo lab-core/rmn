@@ -325,7 +325,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           this.index = index;
           this.onQuestionIndexChange({ value: index } as MatSelectChange);
         } else if (this.checkForAvailableCopies()) {
-          this.changeCurrentExam(this.currentCopy);
+          this.changeCurrentExam();
         }
       });
     }
@@ -339,7 +339,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.filterExamsByQuestion(event.value);
     }
     if (this.subExamsList.length > 0) {
-        const left = (this.currentCopy - this.initialCopyIndex) % this.subExamsList.length + this.initialCopyIndex;
+        const left = (this.currentCopy - this.initialCopyIndex) % this.subExamsList.length;
         let initExam = this.subExamsList[left >= 0 ? left : 0];
         this.changeCurrentCopy(initExam["document_index"], initExam["status"]);
     }
@@ -536,7 +536,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
   }
 
-  async changeCurrentExam(examIndex): Promise<void> {
+  async changeCurrentExam(examIndex: number = this.currentIndex()): Promise<void> {
     await this.changeCurrentCopy(this.initialCopyIndex + examIndex, this.examsList[examIndex].status);
   }
 
@@ -647,22 +647,22 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return nextIndex;
   }
 
-  async updateCurrentCopy(checkCalidGrade: boolean) {
+  async updateCurrentCopy(checkValidGrade: boolean) {
     if (!this.offline && this.hasDownloadedZip && !this.hasUploadedZip && this.currentIndex() === this.examsList.length - 1) {
       this.notificationService.showWarning("Vous n'avez téléversé aucun nouveaux fichiers.", 'Attention!');
     }
 
     let hasNext = false;
     try {
-        const gradeChanged = this.addGradeToQuestion(checkCalidGrade);
+        const gradeChanged = this.addGradeToQuestion(checkValidGrade);
         if (gradeChanged) {
           this.currentGradeModified = true;  // ensure that the copy will be saved
         }
         this.currentExam()["status"] = this.currentStatus;  // update status
         if (this.isSidebarHidden) {
-          hasNext = await this.nextCopy(() => { return this.nextCopyIndexTagFilter() });
+          hasNext = await this.nextCopy(gradeChanged, () => { return this.nextCopyIndexTagFilter() });
         } else {
-          hasNext = await this.nextCopy();
+          hasNext = await this.nextCopy(gradeChanged);
         }
     } catch (error) {
         console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
@@ -799,11 +799,13 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return tempIndex;
   }
 
-  async nextCopy(indexFilter = () => { return this.nextCopyIndex() }): Promise<boolean> {
+  async nextCopy(changeAnyway: boolean = false, indexFilter = () => { return this.nextCopyIndex() }): Promise<boolean> {
     let tempIndex = indexFilter();
     if (tempIndex < this.examsList.length) {
       await this.changeCurrentExam(tempIndex);
       return true
+    } else if (changeAnyway) {
+      await this.changeCurrentExam();
     }
     return false
   }
