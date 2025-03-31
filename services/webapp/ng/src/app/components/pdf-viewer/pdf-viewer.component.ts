@@ -308,6 +308,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
 
   loadAnnotations() {
     setTimeout(async () => {
+      for (const a of this.pdfAnnotations) {
+        await this.ngxService?.renderPage(a.pageIndex);
+      }
       await this.waitRender();
       this.pdfAnnotations.forEach(a => this.addAnnotation(a));
       this.pdfAnnotations = [];

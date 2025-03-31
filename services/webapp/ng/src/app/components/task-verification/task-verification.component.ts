@@ -682,36 +682,41 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (currentExam) {
       // get the file only if it has been modified
       const filename = currentExam["filename"] + ".pdf";
-      const file = await this.pdfViewer.getRenderedPdfFile(filename, !(this.currentGradeModified || this.currentTagModified));
-      if (file != undefined) {
-        this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
-        if (this.offline) {
-          const copy = this.offlineCopies.get(this.currentCopy);
-          copy.file64 = await PDFSource.readBlobSync(file);
-          copy.status = this.currentStatus;
-          if (this.currentTagModified) copy.tag = this.currentTag;
-          copy.updated = false;
-          if (this.currentGradeModified) {
-            copy.grade = this.currentGrade;
-          }
-          db.updateCopy(copy);
-        } else {
-          let validationResponse = await this.saveCopy(
-            this.currentPdfSrc,
-            file,
-            this.currentGradeModified ? this.currentGrade : undefined,
-            this.currentStatus,
-            this.currentQuestionIndex.slice(1),
-            this.currentTagModified ? this.currentTag : undefined);
-          if (validationResponse === undefined) {
-            this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
+      try {
+        const file = await this.pdfViewer.getRenderedPdfFile(filename, !(this.currentGradeModified || this.currentTagModified));
+        if (file != undefined) {
+          this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
+          if (this.offline) {
+            const copy = this.offlineCopies.get(this.currentCopy);
+            copy.file64 = await PDFSource.readBlobSync(file);
+            copy.status = this.currentStatus;
+            if (this.currentTagModified) copy.tag = this.currentTag;
+            copy.updated = false;
+            if (this.currentGradeModified) {
+              copy.grade = this.currentGrade;
+            }
+            db.updateCopy(copy);
           } else {
-            this.currentPdfSrc.lastVersion++;
-            this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
+            let validationResponse = await this.saveCopy(
+              this.currentPdfSrc,
+              file,
+              this.currentGradeModified ? this.currentGrade : undefined,
+              this.currentStatus,
+              this.currentQuestionIndex.slice(1),
+              this.currentTagModified ? this.currentTag : undefined);
+            if (validationResponse === undefined) {
+              this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
+            } else {
+              this.currentPdfSrc.lastVersion++;
+              this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
+            }
+            console.log('Save current copy and obtained response:', validationResponse);
+            return validationResponse;
           }
-          console.log('Save current copy and obtained response:', validationResponse);
-          return validationResponse;
         }
+      } catch(err) {
+        console.error(err);
+        return false;
       }
     }
     return true;  // nothing to do -> true
