@@ -282,6 +282,11 @@ if __name__ == "__main__":
             # check if group or gr column is present
             l_group = group_label(df)
 
+            # initialize grade to 0 by default
+            df[MF.grade] = df[MF.grade].fillna(0)
+            date = get_date()
+            df[MF.mdate] = df[MF.mdate].apply(lambda x: x if pd.notna(x) and x != '-' else date)
+
             # fetch questions information
             eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
             n_max_points_per_question = eval_job["n_max_points_per_question"]
@@ -296,7 +301,6 @@ if __name__ == "__main__":
 
             # store grades
             docs = db.documents_collection().find({"job_id": job_id})
-            date = get_date()
             grades_dict = {}
             for doc in docs:
                 if doc['status'] == Document_Status.DELETED.value:
