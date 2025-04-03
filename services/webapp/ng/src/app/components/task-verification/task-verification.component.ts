@@ -246,7 +246,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.isSidebarHidden = !this.isSidebarHidden;
     if (this.isSidebarHidden) {
       const nextIndex = this.nextCopyIndexTagFilter(this.currentIndex() - 1);
-      if (nextIndex < this.examsList.length) {
+      if (nextIndex != this.currentIndex() && nextIndex < this.examsList.length) {
         this.changeCurrentExam(nextIndex);
       }
     }
