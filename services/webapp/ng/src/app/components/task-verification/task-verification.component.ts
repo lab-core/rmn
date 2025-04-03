@@ -51,6 +51,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   pdfLoading: boolean = false;
   disablePrevious: boolean = false;
   disableNext: boolean = false;
+  isRestoreHiglighted: boolean = false;
   hasDownloadedZip: boolean = false;
   hasUploadedZip: boolean = false;
 
@@ -486,9 +487,24 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
   }
 
+  async restoreLatestPdf(): Promise<void> {
+    // load latest pdf without annotations separated
+    this.pdfLoading = true;
+    let pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false, undefined, -1);
+    this.pdfLoading = false;
+    if (pdfSource) {
+      pdfSource.lastVersion = this.currentPdfSrc.lastVersion;
+      this.currentPdfSrc = pdfSource;
+      this.pdfUrl = pdfSource.url;
+      this.currentVersion = pdfSource.version;
+    } else {
+      this.notificationService.showError('Échec de la récupération de la dernière version du PDF.', 'Erreur de restoration');
+    }
+  }
+
   checkNavigationArrows(pdfLoaded: boolean) {
     this.disablePrevious = !pdfLoaded || this.offline || (this.currentVersion == 0);
-    this.disableNext = !pdfLoaded || this.offline || (this.currentVersion >= this.currentPdfSrc.lastVersion);
+    this.disableNext = !pdfLoaded || this.offline || (this.currentVersion >= this.currentPdfSrc.lastVersion) || (this.currentVersion == undefined);
   }
 
   async changeCurrentCopy(copyIndex, status, updateScroll: boolean=true): Promise<void> {
@@ -682,41 +698,43 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (currentExam) {
       // get the file only if it has been modified
       const filename = currentExam["filename"] + ".pdf";
+      let file;
       try {
-        const file = await this.pdfViewer.getRenderedPdfFile(filename, !(this.currentGradeModified || this.currentTagModified));
-        if (file != undefined) {
-          this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
-          if (this.offline) {
-            const copy = this.offlineCopies.get(this.currentCopy);
-            copy.file64 = await PDFSource.readBlobSync(file);
-            copy.status = this.currentStatus;
-            if (this.currentTagModified) copy.tag = this.currentTag;
-            copy.updated = false;
-            if (this.currentGradeModified) {
-              copy.grade = this.currentGrade;
-            }
-            db.updateCopy(copy);
-          } else {
-            let validationResponse = await this.saveCopy(
-              this.currentPdfSrc,
-              file,
-              this.currentGradeModified ? this.currentGrade : undefined,
-              this.currentStatus,
-              this.currentQuestionIndex.slice(1),
-              this.currentTagModified ? this.currentTag : undefined);
-            if (validationResponse === undefined) {
-              this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche non disponible');
-            } else {
-              this.currentPdfSrc.lastVersion++;
-              this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
-            }
-            console.log('Save current copy and obtained response:', validationResponse);
-            return validationResponse;
-          }
-        }
+        file = await this.pdfViewer.getRenderedPdfFile(filename, !(this.currentGradeModified || this.currentTagModified));
+        this.isRestoreHiglighted = false;
       } catch(err) {
         console.error(err);
+        this.notificationService.showError('Le document PDF semble corrompu. Essayer de le restorer.', 'PDF corrompu');
+        this.isRestoreHiglighted = true;
+        setTimeout(() => this.isRestoreHiglighted = false, 8000);
         return false;
+      }
+      if (file != undefined) {
+        this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
+        if (this.offline) {
+          const copy = this.offlineCopies.get(this.currentCopy);
+          copy.file64 = await PDFSource.readBlobSync(file);
+          copy.status = this.currentStatus;
+          if (this.currentTagModified) copy.tag = this.currentTag;
+          copy.updated = false;
+          if (this.currentGradeModified) {
+            copy.grade = this.currentGrade;
+          }
+          db.updateCopy(copy);
+        } else {
+          let result = await this.saveCopy(
+            this.currentPdfSrc,
+            file,
+            this.currentGradeModified ? this.currentGrade : undefined,
+            this.currentStatus,
+            this.currentQuestionIndex.slice(1),
+            this.currentTagModified ? this.currentTag : undefined);
+          if (result) {
+            this.currentPdfSrc.lastVersion++;
+            this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
+          }
+          return result;
+        }
       }
     }
     return true;  // nothing to do -> true
@@ -733,10 +751,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         grade,
         this.nMaxPointsPerQuestion,
         status,
-        pdfSource.version,
+        pdfSource.version == undefined ? -1 : pdfSource.version,
         pdfSource.annotations,
         tag
     );
+    console.log('Try to save current copy and obtained response:', validationResponse);
     if (validationResponse === "OK") {
       pdfSource.clear(jobId);
       return true;
@@ -924,19 +943,18 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           const exam = this.examsList[copy.pdfSrc.index];
           return new File([blob], exam["filename"] + ".pdf", { type: "application/pdf" });
         })
-        let validationResponse = await this.saveCopy(
+        let result = await this.saveCopy(
           copy.pdfSrc,
           cFile,
           copy.grade,
           copy.status,
           copy.questionIndex);
-        if (!validationResponse) {
+        if (!result) {
           const index = copy.pdfSrc.index - this.subExamsList[0]['document_index'] + 1;
           this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
           return;
-        } else {
-          copy.updated = true;
         }
+        copy.updated = true;
         this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
       }
       if (finalize) this.examsList[copy.pdfSrc.index]['offline'] = false;

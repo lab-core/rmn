@@ -471,6 +471,34 @@ input[type=number] {
   justify-content: center;
 }
 
+.reload-buttons {
+  width: 100%;
+  margin-left: 2px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  text-align: center;
+}
+
+.pdf-button {
+  aspect-ratio: 1.5 / 1;
+  height: 80%;
+  border-radius: 24%/48%;
+  border: 2px solid black;
+  margin-left: 30px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+}
+
+.highlight {
+  border: 4px solid red;
+}
+
 .validate-container {
     width: 20%;
     height: 80%;

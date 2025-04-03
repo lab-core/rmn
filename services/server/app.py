@@ -1458,7 +1458,7 @@ def replace_thread(validity, job_id, grades, temp_file):
                 # moving the extracted file to the final destination
                 shutil.move(extracted_path, final_destination)
                 # save new version
-                version_filepath = save_new_version(final_destination)
+                version_filepath = save_new_pdf_version(final_destination)
                 last_version = get_last_version(job_id, storage_path)
                 db["versions"].insert_one(
                     {"job_id": job_id, "rel_filepath": storage_path, "version": last_version + 1,
@@ -1473,14 +1473,14 @@ def version_basename(filename):
     return os.path.join(version_dir, version_name)
 
 
-def save_new_version(filename):
+def save_new_pdf_version(filename):
     version_base = version_basename(filename)
     all_versions = glob.glob(version_base+"-*.pdf")
     n_version = len(all_versions)
 
     # create backup of the file
     version_filepath = version_base + "-%d.pdf" % n_version
-    print(f"Save new version ({n_version}):", version_filepath)
+    print(f"Save new pdf version ({n_version}):", version_filepath)
     shutil.copy(filename, version_filepath)
     return version_filepath
 
@@ -1602,10 +1602,9 @@ def update_document(validity):
         extension_index = file_name.rfind('.pdf')
         question = file_name[last_underscore_index + 1:extension_index]
 
-        # save with default name
+        # get default name
         rel_filepath = os.path.join('documents', job_id, question, file_name)
         abs_filepath = storage.abs_path(rel_filepath)
-        file.save(abs_filepath)
 
         # get last version
         last_version = get_last_version(job_id, rel_filepath)
@@ -1614,9 +1613,18 @@ def update_document(validity):
         if version is None or version > last_version:
             version = last_version
 
+        # if document has been restored, use a new version from the last available pdf
+        if version == -1:
+            # save the last available pdf as a new version
+            version_filepath = save_new_pdf_version(abs_filepath)
+            version = last_version
         # fetch doc version
-        version_doc = db["versions"].find_one({"job_id": job_id, "rel_filepath": rel_filepath, "version": version})
-        version_filepath = version_doc["version_filepath"]
+        else:
+            version_doc = db["versions"].find_one({"job_id": job_id, "rel_filepath": rel_filepath, "version": version})
+            version_filepath = version_doc["version_filepath"]
+
+        # save this pdf with default name -> become latest available pdf
+        file.save(abs_filepath)
 
         # save new version
         db["versions"].insert_one(
@@ -1625,7 +1633,8 @@ def update_document(validity):
         )
 
         print(f"Saved new version ({last_version + 1}) for",
-              {"job_id": job_id, "rel_filepath": rel_filepath, "version": version},
+              {"job_id": job_id, "rel_filepath": rel_filepath,
+              "version_filepath": version_filepath, "version": version},
               "with %d annotation layers" % len(annotations))
 
     user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]

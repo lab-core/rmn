@@ -97,18 +97,23 @@
               <div class="version-block container-block" [ngClass]="{'expanded': isSidebarHidden}">
                 <div class="version-container">
                   <div class="h3-container">
-                    <h3>Version ({{currentVersion}})</h3>
+                    <h3>Version ({{currentVersion != undefined ? currentVersion : 'N/A'}})</h3>
                   </div>
                   <!-- <input type="number"
                       class="version-number" id="text-box" [(ngModel)]="currentVersion"
                       (input)="setNewVersion($event)" step=any
                       [disabled]="pdfLoading"> -->
                   <div class="version-buttons">
-                   <button type="button" class="nav-button" [disabled]="disablePrevious" (click)="loadPdf(currentVersion-1)">
+                   <button type="button" class="nav-button" [disabled]="disablePrevious" (click)="loadPdf(currentVersion != undefined ? currentVersion-1 : currentPdfSrc.lastVersion)">
                      <mat-icon>arrow_back_ios</mat-icon>
                    </button>
-                   <button type="button" class="nav-button" [disabled]="disableNext" (click)="loadPdf(currentVersion+1)">
+                   <button type="button" class="nav-button" [disabled]="disableNext" (click)="loadPdf(currentVersion != undefined ? currentVersion+1 : currentPdfSrc.lastVersion)">
                      <mat-icon>arrow_forward_ios</mat-icon>
+                   </button>
+                 </div>
+                 <div class="reload-button">
+                   <button type="button" class="pdf-button" [ngClass]="{ 'highlight': isRestoreHiglighted }" (click)="restoreLatestPdf()">
+                     <mat-icon>restore_page</mat-icon>
                    </button>
                  </div>
                 </div>
