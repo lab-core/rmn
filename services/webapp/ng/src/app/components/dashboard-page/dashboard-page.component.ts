@@ -76,10 +76,10 @@ export class DashboardPageComponent {
         await this.getQuestions(this.taskId);
         // compute copies list
         this.getCopiesList();
-        // update metrics
-        this.computeTotalMatricules();
-        this.computeQuestions();
       }
+      // update metrics
+      this.computeTotalMatricules();
+      this.computeQuestions();
     } else {
       this.router.navigate(['/tasks-history']);
     }
@@ -206,23 +206,28 @@ export class DashboardPageComponent {
   }
 
   computeQuestions() {
+    // initialize stats
     const questionsStats = new Map<string, Question>();
-    this.questionsDocList.forEach(doc => {
-      if (questionsStats[doc.question] === undefined) {
-        let question: Question = {
-          name: doc.question,
-          index: doc.question_index - 1,
-          bonus: this.isQuestionBonus(doc.question),
-          max: this.getQuestionMax(doc.question),
-          count: 0,
-          validatedCount: 0,
-          total: 0,
-          average: 0,
-          validatedFilenames: new Set<string>()
-        };
-        questionsStats[doc.question] = question;
-      }
+    this.task.n_max_points_per_question.forEach(element => {
+      const question_index = parseInt(element[0].slice(1));
+      questionsStats[element[0]] = {
+        name: element[0],
+        index: question_index - 1,
+        bonus: false,
+        max: element[1],
+        count: 0,
+        validatedCount: 0,
+        total: 0,
+        average: 0,
+        validatedFilenames: new Set<string>()
+      };
+    });
+    this.task.bonus_enabled_map.forEach(element => {
+      questionsStats[element[0]].bonus = element[1];
+    });
 
+    // populate stats
+    this.questionsDocList.forEach(doc => {
       let stats = questionsStats[doc.question];
       stats.count++;
       if (doc.status === 'VALIDATED') {
