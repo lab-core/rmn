@@ -51,7 +51,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   pdfLoading: boolean = false;
   disablePrevious: boolean = false;
   disableNext: boolean = false;
-  isRestoreHiglighted: boolean = false;
+  isRestoreHiglighted: number = 0;
   hasDownloadedZip: boolean = false;
   hasUploadedZip: boolean = false;
 
@@ -489,6 +489,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async restoreLatestPdf(): Promise<void> {
     // load latest pdf without annotations separated
+    this.isRestoreHiglighted = 0;
     this.pdfLoading = true;
     let pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false, undefined, -1);
     this.pdfLoading = false;
@@ -701,12 +702,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       let file;
       try {
         file = await this.pdfViewer.getRenderedPdfFile(filename, !(this.currentGradeModified || this.currentTagModified));
-        this.isRestoreHiglighted = false;
+        this.isRestoreHiglighted = 0;
       } catch(err) {
         console.error(err);
         this.notificationService.showError('Le document PDF semble corrompu. Essayer de le restorer.', 'PDF corrompu');
-        this.isRestoreHiglighted = true;
-        setTimeout(() => this.isRestoreHiglighted = false, 8000);
+        this.isRestoreHiglighted += 1;
+        setTimeout(() => { if (this.isRestoreHiglighted > 0) this.isRestoreHiglighted -= 1 }, 20000);
         return false;
       }
       if (file != undefined) {
@@ -793,15 +794,16 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async reroute() {
-    await this.saveCurrentCopy();
-    if (this.shareAll) {
-      const queryParams = {
-        job_id: this.job.job_id,
+    if (await this.saveCurrentCopy()) {
+      if (this.shareAll) {
+        const queryParams = {
+          job_id: this.job.job_id,
+        }
+        this.userService.addShareToken(queryParams);
+        this.router.navigate([`/dashboard`], { queryParams: queryParams });
+      } else {
+        this.router.navigate(['/dashboard', this.job.job_id]);
       }
-      this.userService.addShareToken(queryParams);
-      this.router.navigate([`/dashboard`], { queryParams: queryParams });
-    } else {
-      this.router.navigate(['/dashboard', this.job.job_id]);
     }
   }
 

@@ -108,7 +108,7 @@
                                        (change)="updatePageCount(key, $event)" required>
                               </td>
                               <td>
-                                <input (change)="updateMaxPoints(key, $event)" type="number" min="1" step="1" [(ngModel)]="nMaxPointsPerQuestion[key]" [ngModelOptions]="{standalone: true}" required>
+                                <input (change)="updateMaxPoints(key, $event)" type="number" [(ngModel)]="nMaxPointsPerQuestion[key]" [ngModelOptions]="{standalone: true}" required>
                               </td>
                               <td>
                                 <input type="checkbox" [(ngModel)]="bonusEnabledMap[key]" [ngModelOptions]="{standalone: true}" (change)="toggleBonus(key)">

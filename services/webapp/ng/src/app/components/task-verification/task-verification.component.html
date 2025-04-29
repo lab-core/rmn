@@ -112,7 +112,7 @@
                    </button>
                  </div>
                  <div class="reload-button">
-                   <button type="button" class="pdf-button" [ngClass]="{ 'highlight': isRestoreHiglighted }" (click)="restoreLatestPdf()">
+                   <button type="button" class="pdf-button" [ngClass]="{ 'highlight': isRestoreHiglighted > 0 }" (click)="restoreLatestPdf()">
                      <mat-icon>restore_page</mat-icon>
                    </button>
                  </div>

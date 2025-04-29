@@ -151,18 +151,40 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
 
   updatePageCount(key: string, event: Event) {
     const inputElement = event.target as HTMLInputElement;
-    const pageCount = parseInt(inputElement.value, 10);
-    this.nPagesPerQuestion.set(key, pageCount);
-    this.updateTotals();
-    this.saveTask();
+    if (inputElement.value === '') {
+      this.nPagesPerQuestion.delete(key);
+      this.saveTask();
+      return;
+    }
+    const pageCount = Number(inputElement.value);
+    if (!Number.isInteger(pageCount) || pageCount <= 0) {
+      console.log("invalide valeur:", inputElement.value);
+      this.notifyService.showError("Veuillez entrer une valeur entière positive.", "ERREUR");
+      inputElement.value = '';
+    } else {
+      this.nPagesPerQuestion.set(key, pageCount);
+      this.updateTotals();
+      this.saveTask();
+    }
   }
 
   updateMaxPoints(key: string, event: Event) {
     const inputElement = event.target as HTMLInputElement;
-    const maxPoints = parseInt(inputElement.value, 10);
-    this.nMaxPointsPerQuestion.set(key, maxPoints);
-    this.updateTotals();
-    this.saveTask();
+    if (inputElement.value === '') {
+      this.nMaxPointsPerQuestion.delete(key);
+      this.saveTask();
+      return;
+    }
+    const maxPoints = Number(inputElement.value);
+    if (!Number.isFinite(maxPoints) || maxPoints <= 0.001) {
+      console.log("invalide valeur:", inputElement.value);
+      this.notifyService.showError("Veuillez entrer une valeur positive.", "ERREUR");
+      inputElement.value = '';
+    } else {
+      this.nMaxPointsPerQuestion.set(key, maxPoints);
+      this.updateTotals();
+      this.saveTask();
+    }
   }
 
   toggleBonus(key: string) {
