@@ -716,6 +716,7 @@ def csv_job(user_id):
             status=400,
         )
 
+    # save csv locally
     if not os.path.exists(TEMP_FOLDER):
         os.makedirs(TEMP_FOLDER)
     notes_csv_file = request.files.get("csv")
@@ -723,6 +724,17 @@ def csv_job(user_id):
     notes_csv_file_name = str(TEMP_FOLDER.joinpath(notes_csv_file_name))
     notes_csv_file.save(FileIO(notes_csv_file_name, "wb"))
 
+    # update students list
+    grades_df = pd.read_csv(notes_csv_file_name)
+    names_mat_df = grades_df.reset_index()[["Matricule", "Nom complet"]]
+    names_mat_df = names_mat_df.rename(columns={"Matricule": "matricule"})
+    students_list = names_mat_df.to_dict(orient="records")
+    mongo["RMN"]["eval_jobs"].update_one(
+        {"job_id": job_id},
+        {"$set": { "students_list": students_list }
+    })
+
+    # replace old csv file
     notes_file_id = f"output_csv{os.sep}{job_id}.csv"
     save_csv(notes_csv_file_name, notes_file_id)
 
