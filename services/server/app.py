@@ -395,9 +395,7 @@ def save_csv(file_name, notes_file_id):
     if df_semi.shape[1]>df_comma.shape[1]:
         df_semi = pd.read_csv(file_name, sep=";")
         df_semi.to_csv(file_name)  # save with a ',' separator
-        df_comma = df_semi
-    storage.move_to(file_name, notes_file_id)
-    return df_comma
+    return storage.move_to(file_name, notes_file_id)
 
 
 @app.route("/template", methods=["POST"])
@@ -728,9 +726,10 @@ def csv_job(user_id):
 
     # replace old csv file
     notes_file_id = f"output_csv{os.sep}{job_id}.csv"
-    grades_df = save_csv(notes_csv_file_name, notes_file_id)
+    grades_csv_file = save_csv(notes_csv_file_name, notes_file_id)
 
     # update students list
+    grades_df = pd.read_csv(grades_csv_file)
     names_mat_df = grades_df.reset_index()[["Matricule", "Nom complet"]]
     names_mat_df = names_mat_df.rename(columns={"Matricule": "matricule"})
     students_list = names_mat_df.to_dict(orient="records")
