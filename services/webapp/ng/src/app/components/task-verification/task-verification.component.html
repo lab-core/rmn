@@ -132,7 +132,7 @@
         </div>
     </div>
     <div *ngIf="isSidebarHidden && currentCopy >= 0" [ngClass]="isSidebarHidden ? 'page-count' : 'page-count margin-left'">
-        {{currentIndex() + (subExamsList.length > 0 ? 1 : 0)}} / {{subExamsList.length}}
+        {{ (subExamsList.length > 0 ?  currentIndex() % subExamsList.length + 1 : 0) }} / {{subExamsList.length}}
     </div>
 </div>
 <button mat-button *ngIf="(loggued() || shareAll) && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
