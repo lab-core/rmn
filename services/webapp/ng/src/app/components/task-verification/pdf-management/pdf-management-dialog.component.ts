@@ -6,7 +6,7 @@ import { UserService } from 'src/app/services/user.service';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
 import { OfflineCopy } from '../offline-db';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFArray, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import * as JSZip from 'jszip';
 
@@ -99,10 +99,12 @@ export class PdfManagementDialogComponent implements OnInit {
           rows[question].push([`${question}${i > 0 ? `_${i}` : ''}.pdf`,
             exam["grade"] != undefined ? exam["grade"] : "",
             exam["document_index"]]);
+          await this.addCopyIndex(pdfDoc, exam["document_index"]);
 
           const copiedPages = await cDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
           copiedPages.forEach((page) => {
               cDoc.addPage(page);
+              this.addAnnotation(cDoc, cDoc.getPageCount() - 1);
           });
         }
         i++;
@@ -113,9 +115,11 @@ export class PdfManagementDialogComponent implements OnInit {
         for (let i = 0; i < mergedDocs[question].length; i++) {
             const doc = mergedDocs[question][i];
             if (doc.getPageCount() > 0) {
+                const pdfFileName = `${question}${i > 0 ? `_${i}` : ''}.pdf`;
+                doc.setSubject(pdfFileName);
                 const mergedPdfBytes = await doc.save();
                 const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-                zip.file(`${question}/${question}${i > 0 ? `_${i}` : ''}.pdf`, blob);
+                zip.file(`${question}/${pdfFileName}`, blob);
             }
         }
     }
@@ -141,6 +145,98 @@ export class PdfManagementDialogComponent implements OnInit {
     this.processing = false;
     this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
     this.dialogRef.close({hasDownloadedZip: true});
+  }
+
+  async addCopyIndex(pdfDoc, index, pageNumber = 0) {
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontSize = 12;
+    const text = `Copie ${index}`;
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
+
+    const page = pdfDoc.getPages()[pageNumber];
+    const { width, height } = page.getSize();
+    page.drawText(text, {
+      x: width - textWidth - 5, // 20px right margin
+      y: height - fontSize - 5, // 20px top margin
+      size: fontSize,
+      font,
+      color: rgb(0.8, 0, 0), // dark red
+    });
+  }
+
+  async hideCopyIndex(pdfDoc, pageNumber) {
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontSize = 12;
+    const text = `Copie 1000`;
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
+    const page = pdfDoc.getPages()[pageNumber];
+    const { width, height } = page.getSize();
+    page.drawRectangle({
+      x: width - textWidth - 10, // match the original drawText x
+      y: height - fontSize - 10, // match the original y
+      width: textWidth + 10, // make sure it covers the text
+      height: fontSize + 10,
+      color: rgb(1, 1, 1), // white
+    });
+  }
+
+  addAnnotation(pdfDoc, pageNumber) {
+    // Create a PDFArray for Rect manually
+    const rectArray = PDFArray.withContext(pdfDoc.context);
+    rectArray.push(PDFNumber.of(0));
+    rectArray.push(PDFNumber.of(0));
+    rectArray.push(PDFNumber.of(0));
+    rectArray.push(PDFNumber.of(0));
+
+    // Create a PDFArray for the RGB color (red)
+    const colorArray = PDFArray.withContext(pdfDoc.context);
+    colorArray.push(PDFNumber.of(1)); // R
+    colorArray.push(PDFNumber.of(0)); // G
+    colorArray.push(PDFNumber.of(0)); // B
+
+    const textAnnotation = pdfDoc.context.obj({
+      Type: PDFName.of('Annot'),
+      Subtype: PDFName.of('Text'),
+      Rect: rectArray, // Position (x1, y1, x2, y2)
+      Contents: PDFString.of(`Page${pageNumber} - NE PAS TOUCHER!`),
+      Name: PDFString.of(`Page${pageNumber}`),
+      T: PDFString.of('RMN'),
+      C: colorArray, // RGB color for the icon (red)
+      Open: false,
+    });
+    const annotationRef = pdfDoc.context.register(textAnnotation);
+
+    // Check for existing annotations and add new annotation
+    const page = pdfDoc.getPages()[pageNumber];
+    const existingAnnots = page.node.lookup(PDFName.of('Annots'));
+    if (existingAnnots instanceof PDFArray) {
+      existingAnnots.push(annotationRef);
+    } else {
+      const annotsArray = PDFArray.withContext(pdfDoc.context);
+      annotsArray.push(annotationRef);
+      page.node.set(PDFName.of('Annots'), annotsArray);
+    }
+  }
+
+  checkAnnotationAndRemove(pdfDoc, pageNumber) {
+    const page = pdfDoc.getPages()[pageNumber];
+    const annots = page.node.lookup(PDFName.of('Annots'));
+    const newAnnotsArray = PDFArray.withContext(pdfDoc.context);
+    for (let i = 0; i < annots.size(); i++) {
+      const annotRef = annots.get(i);
+      const annot = page.doc.context.lookup(annotRef);
+      const title = annot.get(PDFName.of('T'));
+      if (title instanceof PDFString && title.decodeText() === 'RMN') {
+        const contents = annot.get(PDFName.of('Contents')).decodeText();
+        if (contents.startsWith('Page') && !contents.startsWith(`Page${pageNumber}`)) {
+          return false;
+        }
+      } else {
+        newAnnotsArray.push(annotRef);
+      }
+    }
+    page.node.set(PDFName.of('Annots'), newAnnotsArray);
+    return true;
   }
 
   onFileSelected(event: any) {
@@ -266,6 +362,7 @@ export class PdfManagementDialogComponent implements OnInit {
         for (const name of keys) {
             try {
                 const pdfDoc = await PDFDocument.load(mergedFiles[name]);
+
                 const match = name.match(/Q\d+(?=(_\d+)?.pdf$)/);
                 const questionIndex = match ? match[0] : "Unknown";
                 if (!mergedPDFDocs[questionIndex]) {
@@ -274,6 +371,26 @@ export class PdfManagementDialogComponent implements OnInit {
 
                 if (!match) {
                   this.notificationService.showWarning(`The pdf document name does not match a question: ${name}.`, 'Warning');
+                } else {
+                  const pdfSubject = pdfDoc.getSubject();
+                  const pdfName = name.split('/').length > 0 ? name.split('/').pop() : name;
+                  if (pdfSubject !== pdfName) {
+                    this.notificationService.showError(`The pdf document name has been changed or the subject metadata has been modified: ${pdfName} instead of ${pdfSubject}.`, 'Error');
+                    this.processing = false;
+                    return;
+                  }
+
+                  const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
+                  for (let i = 0; i < pdfDoc.getPageCount(); i++) {
+                    if(!this.checkAnnotationAndRemove(pdfDoc, i)) {
+                      this.notificationService.showError(`The page order of the pdf document has been changed: page ${i+1} is not at the right place.`, 'Error');
+                      this.processing = false;
+                      return;
+                    }
+                    if (i % pagesPerQuestion == 0) {
+                      await this.hideCopyIndex(pdfDoc, i);
+                    }
+                  }
                 }
 
                 const totalPageCount = pdfDoc.getPageCount();
