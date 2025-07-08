@@ -1,11 +1,10 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest, HttpResponse } from '@angular/common/http';
-import { EMPTY, Observable, of } from 'rxjs';
-import { catchError, tap  } from 'rxjs/operators';
+import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest, HttpResponse, HttpParams, HttpHeaders } from '@angular/common/http';
+import { EMPTY, Observable, of, throwError, timer } from 'rxjs';
+import { catchError, tap, switchMap } from 'rxjs/operators';
 import { UserService } from './user.service';
 import { NotificationService } from 'src/app/services/notification.service';
-
 
 
 @Injectable({
@@ -56,7 +55,7 @@ export class ErrorInterceptor implements HttpInterceptor {
 export class CacheInterceptor implements HttpInterceptor {
   private cache = new Map<string, HttpResponse<any>>();
 
-  intercept(request: HttpRequest<any>, next: HttpHandler) {
+  intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     if (request.method !== 'GET') {
       return next.handle(request);
     }
@@ -72,6 +71,56 @@ export class CacheInterceptor implements HttpInterceptor {
         if (event instanceof HttpResponse) {
           this.cache.set(request.url, event);
         }
+      })
+    );
+  }
+}
+
+
+@Injectable({
+  providedIn: 'root',
+})
+export class FreshHttpInterceptor implements HttpInterceptor {
+  maxRetries = 2;
+  delayMs = 300;
+
+  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+    return this.handle(req, next, 0);
+  }
+
+  private handle(req: HttpRequest<any>, next: HttpHandler, attempt: number): Observable<HttpEvent<any>> {
+    let req2 = req;
+    if (attempt > 0) {
+      const ts = Date.now().toString();
+      const updatedParams = req.params
+        ? req.params.set('_ts', ts)
+        : new HttpParams().set('_ts', ts);
+
+      const headers = req.headers
+        .set('Cache-Control', 'no-cache')
+        .set('Pragma', 'no-cache')
+        .set('Connection', 'close');
+
+      req2 = req.clone({
+        headers,
+        params: updatedParams,
+        withCredentials: req.withCredentials
+      });
+    }
+
+    return next.handle(req2).pipe(
+      catchError(error => {
+        const isRetryable = error.status === 0 || error.status >= 500;
+        if (isRetryable && attempt < this.maxRetries) {
+          console.warn(`Retry ${attempt + 1} after error:`, error);
+          return timer(this.delayMs).pipe(
+            switchMap(() =>
+              this.handle(req, next, attempt + 1)
+            )
+          );
+        }
+
+        return throwError(() => error);
       })
     );
   }

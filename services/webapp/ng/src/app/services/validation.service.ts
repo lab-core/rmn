@@ -3,7 +3,6 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { UserService } from './user.service';
 import { SERVER_URL } from '../utils';
-import { timeout } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root'
@@ -43,7 +42,7 @@ export class ValidationService {
 
     let response;
     try {
-        const promise = await this.http.post<any>(`${SERVER_URL}document/update`, formData).pipe(timeout(15000)).toPromise();
+        const promise = await this.http.post<any>(`${SERVER_URL}document/update`, formData).toPromise();
         response = promise['response'];
     } catch (error) {
         console.error(error);

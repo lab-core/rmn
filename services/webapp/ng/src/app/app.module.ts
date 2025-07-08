@@ -52,7 +52,7 @@ import { MatriculeVerificationComponent } from './components/matricule-verificat
 import { WarningDialogComponent } from './components/warning-dialog/warning-dialog.component';
 
 // providers
-import { ErrorInterceptor, CacheInterceptor } from './services/interceptor.service';
+import { ErrorInterceptor, CacheInterceptor, FreshHttpInterceptor } from './services/interceptor.service';
 
 
 @NgModule({ declarations: [
@@ -112,6 +112,7 @@ import { ErrorInterceptor, CacheInterceptor } from './services/interceptor.servi
         // },
         provideHttpClient(withInterceptorsFromDi()),
         { provide: HTTP_INTERCEPTORS, useClass: CacheInterceptor, multi: true },
-        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true }
+        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
+        { provide: HTTP_INTERCEPTORS, useClass: FreshHttpInterceptor, multi: true }  // should be applied before ErrorInterceptor (in reverse for multi=true)
     ] })
 export class AppModule { }

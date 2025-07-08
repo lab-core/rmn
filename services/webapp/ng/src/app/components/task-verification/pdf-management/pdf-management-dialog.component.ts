@@ -93,12 +93,12 @@ export class PdfManagementDialogComponent implements OnInit {
           }
 
           if (!rows[question]) {
-              rows[question] = [["Fichier", "Note", "Index"]];
+              rows[question] = [["Fichier", "Index", "Note"]];
           }
           let i = mergedDocs[question].length - 1;
           rows[question].push([`${question}${i > 0 ? `_${i}` : ''}.pdf`,
-            exam["grade"] != undefined ? exam["grade"] : "",
-            exam["document_index"]]);
+            exam["document_index"],
+            exam["grade"] != undefined ? exam["grade"] : ""]);
           await this.addCopyIndex(pdfDoc, exam["document_index"]);
 
           const copiedPages = await cDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
