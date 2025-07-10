@@ -6,7 +6,15 @@
   <component name="ChangeListManager">
     <list default="true" id="683e5252-fb37-43f0-af9f-7f8cce163f3f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+<<<<<<< Updated upstream
       <change beforePath="$PROJECT_DIR$/services/executor/python/process_copy/recognize.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/python/process_copy/recognize.py" afterDir="false" />
+=======
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/executor/job_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/job_executor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/executor/utils/split.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/executor/utils/split.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/nginx/default.conf" beforeDir="false" afterPath="$PROJECT_DIR$/services/nginx/default.conf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/server/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/server/app.py" afterDir="false" />
+>>>>>>> Stashed changes
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,7 +60,12 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Python.app.executor": "Debug",
+<<<<<<< Updated upstream
     "Python.exec.executor": "Run",
+=======
+    "Python.exec.executor": "Debug",
+    "Python.slack.executor": "Run",
+>>>>>>> Stashed changes
     "Python.split_and_merge.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -237,11 +250,14 @@
           <option name="timeStamp" value="12" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+<<<<<<< Updated upstream
           <url>file://$PROJECT_DIR$/services/server/app.py</url>
           <line>1321</line>
           <option name="timeStamp" value="25" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+=======
+>>>>>>> Stashed changes
           <url>file://$PROJECT_DIR$/services/executor/python/process_copy/recognize.py</url>
           <line>1139</line>
           <option name="timeStamp" value="66" />
@@ -261,6 +277,39 @@
           <line>88</line>
           <option name="timeStamp" value="196" />
         </line-breakpoint>
+<<<<<<< Updated upstream
+=======
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/services/executor/venv-exec/lib/python3.12/site-packages/slack_sdk/web/client.py</url>
+          <line>2709</line>
+          <option name="timeStamp" value="207" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/services/server/venv/lib/python3.12/site-packages/slack_sdk/web/base_client.py</url>
+          <line>307</line>
+          <option name="timeStamp" value="210" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/services/server/service/health_check.py</url>
+          <line>41</line>
+          <option name="timeStamp" value="219" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/services/server/app.py</url>
+          <line>1437</line>
+          <option name="timeStamp" value="229" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/services/server/app.py</url>
+          <line>1267</line>
+          <option name="timeStamp" value="265" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/services/server/app.py</url>
+          <line>338</line>
+          <option name="timeStamp" value="266" />
+        </line-breakpoint>
+>>>>>>> Stashed changes
       </breakpoints>
     </breakpoint-manager>
   </component>
@@ -268,10 +317,14 @@
     <SUITE FILE_PATH="coverage/rmn$exam_stats.coverage" NAME="exam_stats Coverage Results" MODIFIED="1721181412006" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
     <SUITE FILE_PATH="coverage/rmn$stats.coverage" NAME="stats Coverage Results" MODIFIED="1721444101878" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
     <SUITE FILE_PATH="coverage/rmn$.coverage" NAME=" Coverage Results" MODIFIED="1729023048796" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+<<<<<<< Updated upstream
     <SUITE FILE_PATH="coverage/rmn$app.coverage" NAME="app Coverage Results" MODIFIED="1741278578912" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/server" />
+=======
+    <SUITE FILE_PATH="coverage/rmn$app.coverage" NAME="app Coverage Results" MODIFIED="1752124224289" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/server" />
+>>>>>>> Stashed changes
     <SUITE FILE_PATH="coverage/rmn$config.coverage" NAME="config Coverage Results" MODIFIED="1721796042838" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/python/process_copy" />
     <SUITE FILE_PATH="coverage/rmn$test.coverage" NAME="test Coverage Results" MODIFIED="1721796076415" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
-    <SUITE FILE_PATH="coverage/rmn$exec.coverage" NAME="exec Coverage Results" MODIFIED="1742871797519" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
+    <SUITE FILE_PATH="coverage/rmn$exec.coverage" NAME="exec Coverage Results" MODIFIED="1752123822343" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor" />
     <SUITE FILE_PATH="coverage/rmn$split_and_merge.coverage" NAME="split_and_merge Coverage Results" MODIFIED="1716597389703" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/utils" />
     <SUITE FILE_PATH="coverage/rmn$recognize.coverage" NAME="recognize Coverage Results" MODIFIED="1721795247863" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/services/executor/python/process_copy" />
   </component>

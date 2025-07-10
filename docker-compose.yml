@@ -15,17 +15,17 @@ services:
       - "27017:27017"
     volumes:
       - ./storage/mongo:/data/db
-  executor:
-   build: ./services/executor
-#   command: bash -c "while true; do echo hello; sleep 2; done"
-   restart: always
-   # ports:
-   #   - "5001:5001"
-   environment:
-     STORAGE: /Executor/storage
-     REDIS_POP: block
-   volumes:
-     - ./storage:/Executor/storage
+#  executor:
+#   build: ./services/executor
+##   command: bash -c "while true; do echo hello; sleep 2; done"
+#   restart: always
+#   # ports:
+#   #   - "5001:5001"
+#   environment:
+#     STORAGE: /Executor/storage
+#     REDIS_POP: block
+#   volumes:
+#     - ./storage:/Executor/storage
   server:
     build: ./services/server
     restart: always

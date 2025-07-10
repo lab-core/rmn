@@ -49,7 +49,7 @@ def save_number_images(storage, job_id, document_index, questions):
             number = float(number)
             if number.is_integer() and 0 <= int(number) <= 9:
                 try:
-                    unverified_filename = os.path.join("unverified_numbers", job_id, str(document_index),f"{index}.png")
+                    unverified_filename = os.path.join("unverified_numbers", job_id, str(document_index), f"{index}.png")
                     new_filename = os.path.join("numbers", str(int(number)), f"{uuid.uuid4()}.png")
                     storage.move_to(storage.abs_path(unverified_filename), new_filename)
                 except Exception as e:
@@ -235,7 +235,6 @@ if __name__ == "__main__":
 
         MOODLE_FOLDER = TMP_DIR.joinpath("moodle")
         OUTPUT_FOLDER = TMP_DIR.joinpath("output")
-        EXTRACT_FOLDER = TMP_DIR.joinpath("extract")
         VALIDATE_FOLDER = TMP_DIR.joinpath("validate")
         TEX_FOLDER = TMP_DIR.joinpath("tex")
 
@@ -526,7 +525,6 @@ if __name__ == "__main__":
             # make directories
             MOODLE_FOLDER.mkdir(exist_ok=True)
             OUTPUT_FOLDER.mkdir(exist_ok=True)
-            EXTRACT_FOLDER.mkdir(exist_ok=True)
 
             # Query job params
             print("Querying job details from Database...")
@@ -549,11 +547,9 @@ if __name__ == "__main__":
 
             # Save notes.csv file to local
             storage.copy_from(job_params["notes_file_id"], str(OUTPUT_FOLDER.joinpath("notes.csv")))
-            # Save zip file to local
-            storage.copy_from(job_params["zip_file_id"], str(OUTPUT_FOLDER.joinpath("content.zip")))
 
-            with ZipFile(str(OUTPUT_FOLDER.joinpath("content.zip")), 'r') as zip_ref:
-                zip_ref.extractall(EXTRACT_FOLDER)
+            # Path to all copies
+            copies_folder = storage.abs_path(os.path.join("documents", job_id, "all"))
 
             # fetch the user-defined boxes
             box_grade_list, box_matricule_list, regular_box_matricule_list = \
@@ -567,7 +563,7 @@ if __name__ == "__main__":
                 grade_box['exam']['grade'] = tuple([round(x, 2) for x in box_grade_list])
 
             args = [
-                str(EXTRACT_FOLDER),
+                copies_folder,
                 "-m",
                 str(MOODLE_FOLDER),
                 "-f",
@@ -596,7 +592,7 @@ if __name__ == "__main__":
                 retry = job_params.get("retry", 0)
                 db.eval_jobs_collection().update_one(
                     {"job_id": job_id},
-                    {"$set": {"job_infos": str(e)} })
+                    {"$set": {"job_infos": str(e)}})
                 if retry < MAX_RETRY:
                     raise e
 
@@ -629,7 +625,7 @@ if __name__ == "__main__":
             n_pages_per_question = {key: value for key, value in job_params["n_pages_per_question"]}
 
             try:
-                insert_copies('zips', job_id, n_pages_per_question, TMP_DIR)
+                insert_copies(os.path.join('zips', job_id), job_id, n_pages_per_question, TMP_DIR)
                 print("Copies inserted in database")
 
                 # Set Job status to QUEUED as no error have been raised. Process can continue

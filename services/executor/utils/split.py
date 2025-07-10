@@ -83,7 +83,8 @@ def verify_names_and_n_pages(n_pages_per_question, input_pdfs, job_id):
     """
     error_messages = []
     total_expected_pages = calculate_total_expected_pages(n_pages_per_question)
-    names = set()
+    copies_pattern = storage.abs_path(os.path.join("documents", job_id, "all", "*.pdf"))
+    names = set(os.path.basename(cpdf) for cpdf in glob.glob(copies_pattern))
     new_input_pdfs = []
 
     for input_pdf in input_pdfs:
@@ -141,7 +142,7 @@ def split_and_save(n_pages_per_question, input_pdfs, job_id):
     os.makedirs(cover_page_folder, exist_ok=True)
 
     db = Database()
-    document_index = 0
+    document_index = db.documents_collection().count_documents({"job_id": job_id})
     def_grades = [None] * len(n_pages_per_question)
     for input_pdf in input_pdfs:
         with open(input_pdf, 'rb') as f:
@@ -174,6 +175,7 @@ def split_and_save(n_pages_per_question, input_pdfs, job_id):
                 cover_output_path = os.path.join(cover_page_folder, cover_basename)
                 with open(cover_output_path, 'wb') as cover_output_file:
                     cover_writer.write(cover_output_file)
+
                 # inserting the cover_pages into the database
                 db.insert_document(
                     job_id=job_id,
@@ -185,81 +187,58 @@ def split_and_save(n_pages_per_question, input_pdfs, job_id):
                     time=0,
                     filename=base_filename
                 )
+
+                # save whole pdf
+                storage.move_to(input_pdf, os.path.join(output_folder, "all", f"{base_filename}.pdf"))
+
                 document_index += 1
 
     return generated_pdfs_per_question, error_messages
 
 
-def process_zip(zip_path, tmp_folder, n_pages_per_question, job_id):
-    """
-    Extracts the contents of a zip file, processes the extracted PDF files, and saves the generated PDFs.
-
-    Args:
-        zip_path (str): The path to the zip file.
-        tmp_folder (str): The temporary folder to extract the zip contents.
-        n_pages_per_question (dict): The number of pages per question.
-        job_id (str): The ID of the job.
-
-    Returns:
-        couple: A couple containing the generated PDFs, and any error messages.
-    """
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(tmp_folder)
-        extracted_files = []
-        for root, dirs, files in os.walk(tmp_folder):
-            for file in files:
-                if "__MACOSX" in file or not file.endswith(".pdf") or file.startswith("."):
-                    os.remove(os.path.join(root, file))
-                elif file.lower().endswith('.pdf'):
-                    extracted_files.append(os.path.join(root, file))
-
-    generated_pdfs, error_messages = \
-        split_and_save(n_pages_per_question, extracted_files, job_id)
-
-    # create a new zip replacing the previous one
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files in os.walk(tmp_folder):
-            for file in files:
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, tmp_folder)
-                zipf.write(file_path, arcname)
-
-    # remove zip tmp directory
-    shutil.rmtree(tmp_folder)
-
-    return generated_pdfs, error_messages
-
-
-def process_path(zip_folder, job_id, n_pages_per_question, TMP_DIR):
+def process_folder(zip_folder, job_id, n_pages_per_question, TMP_DIR):
     """
     Process the path for a given job.
 
     Args:
-        zip_folder (str): The folder containing the ZIP file.
+        zip_folder (str): The path to the folder containing the ZIP files.
         job_id (str): The ID of the job.
         n_pages_per_question (dict): A mapping of questions to page numbers.
         TMP_DIR (Path): temporary folder to put temporary files
 
     Returns:
-        couple: A couple containing the generated PDFs, and any error messages.
+        couple: A couple containing the generated PDFs, any error messages, and all processed zip files.
 
     Raises:
         FileNotFoundError: If no ZIP file is found in the specified folder.
         ValueError: If no mapping of questions to page numbers is provided.
     """
-    zip_path = Path(storage.abs_path(zip_folder))
-    zip_file_path = os.path.join(zip_path, '%s.zip' % job_id)
-    
-    if not zip_file_path:
-        raise FileNotFoundError("No ZIP file found in specified folder.")
-
     if not n_pages_per_question:
         raise ValueError("Please provide a mapping of questions to page numbers.")
 
-    temp_path = TMP_DIR.joinpath('extracted')
+    all_zips = []
+    zip_path = Path(storage.abs_path(zip_folder))
+    temp_path = str(TMP_DIR.joinpath('extracted'))
+    for zip_file in zip_path.glob('*.zip'):
+        with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+            zip_ref.extractall(temp_path)
+            extracted_files = []
+            for root, dirs, files in os.walk(temp_path):
+                for file in files:
+                    if "__MACOSX" in file or not file.endswith(".pdf") or file.startswith("."):
+                        os.remove(os.path.join(root, file))
+                    elif file.lower().endswith('.pdf'):
+                        extracted_files.append(os.path.join(root, file))
+
+        all_zips.append(zip_file)
+
     generated_pdfs, error_messages = \
-        process_zip(zip_file_path, str(temp_path), n_pages_per_question, job_id)
-    return generated_pdfs, error_messages
+        split_and_save(n_pages_per_question, extracted_files, job_id)
+
+    # remove zip tmp directory
+    shutil.rmtree(temp_path)
+
+    return generated_pdfs, error_messages, all_zips
 
 
 def insert_copies(zip_folder, job_id, n_pages_per_question, TMP_DIR):
@@ -267,7 +246,7 @@ def insert_copies(zip_folder, job_id, n_pages_per_question, TMP_DIR):
     Inserts copies of PDF documents into the database.
 
     Args:
-        zip_folder (str): The path to the folder containing the ZIP file.
+        zip_folder (str): The path to the folder containing the ZIP files.
         job_id (str): The ID of the job.
         n_pages_per_question (dict): The number of pages per question.
 
@@ -277,11 +256,10 @@ def insert_copies(zip_folder, job_id, n_pages_per_question, TMP_DIR):
     Returns:
         None
     """
-    db = Database()
+    generated_pdfs, error_messages, zips = process_folder(zip_folder, job_id, n_pages_per_question, TMP_DIR)
 
-    generated_pdfs, error_messages = process_path(zip_folder, job_id, n_pages_per_question, TMP_DIR)
-    
-    document_index = 0
+    db = Database()
+    document_index = db.questions_collection().count_documents({"job_id": job_id})
     for question, pdf_paths in generated_pdfs.items():
         for pdf_path in pdf_paths:
             filename = os.path.basename(pdf_path).rsplit(".", 1)[0]
@@ -297,6 +275,9 @@ def insert_copies(zip_folder, job_id, n_pages_per_question, TMP_DIR):
                 basename=basename
             )
             document_index += 1
+
+    for zip_file in zips:
+        os.remove(zip_file)
 
     if error_messages:
         raise ValueError(error_messages)
