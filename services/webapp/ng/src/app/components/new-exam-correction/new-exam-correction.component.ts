@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, OnChanges, SimpleChanges, OnDestroy } from '@angular/core';
+import { Component, HostListener, OnInit, OnChanges, SimpleChanges, OnDestroy, Renderer2 } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from 'src/app/services/user.service';
@@ -70,6 +70,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     private router: Router,
     private tasksService: TasksService,
     private http: HttpClient,
+    private renderer: Renderer2,
     private userService: UserService,
     private notifyService: NotificationService,
     private _formBuilder: FormBuilder
@@ -89,10 +90,39 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   }
 
   async ngOnInit(): Promise<void> {
+    if (this.showDropbox) await this.loadDropbox();
+    if (this.showOneDrive) await this.loadOnedrive();
     this.getTemplates();
     await this.loadTask();
     this.updateQuestionsCount();
     this.updateTotals();
+  }
+
+  async loadDropbox(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const script = this.renderer.createElement('script');
+      script.src = 'https://www.dropbox.com/static/api/2/dropins.js';
+      script.type = 'text/javascript';
+      script.async = true;
+      script.id="dropboxjs";
+      script['data-app-key']="auq6uoeobdj8du4";
+      script.onload = () => resolve();
+      script.onerror = () => reject();
+      this.renderer.appendChild(document.body, script);
+    });
+  }
+
+  async loadOnedrive(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const script = this.renderer.createElement('script');
+      script.src = 'https://js.live.net/v7.2/OneDrive.js';
+      script.type = 'text/javascript';
+      script.async = true;
+      script.id="onedrivejs";
+      script.onload = () => resolve();
+      script.onerror = () => reject();
+      this.renderer.appendChild(document.body, script);
+    });
   }
 
   async ngOnChanges(changes: SimpleChanges): Promise<void> {
