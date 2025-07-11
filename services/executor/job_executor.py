@@ -23,7 +23,7 @@ from utils.merge import process_merge
 from utils.utils import Job_Status, Document_Status
 from utils.storage import Storage
 from utils.stop_handler import StopHandler
-from utils.clients import redis_client, socketio_client, update_status, emit_job
+from utils.clients import redis_client, socketio_client, update_status
 from zipfile import ZipFile
 from utils.split import insert_copies
 
