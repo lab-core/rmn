@@ -25,7 +25,7 @@ class Storage:
             self.path = Path(storage_path)
             print("Storage path:", self.path)
         elif os.getenv('STORAGE'):
-            self.path = Path(os.getenv('STORAGE'))
+            self.path = Path(os.getenv('STORAGE')).resolve()
         else:
             self.path = ROOT_DIR.joinpath("storage")
         print(f"Access for {self.path}: ", os.access(self.path, os.R_OK))
@@ -36,6 +36,18 @@ class Storage:
             return r_path
         abs_path = str(self.path.joinpath(r_path))
         return abs_path
+
+    def rel_path(self, abs_path):
+        if not os.path.isabs(abs_path):
+            return abs_path
+        try:
+            rel_path = str(Path(abs_path).relative_to(self.path))
+            return rel_path
+        except ValueError:
+            path_split = abs_path.split("storage/")
+            if len(path_split) > 1:
+                return path_split[1]
+            return abs_path
 
     def move_to(self, l_file, s_file):
         s_abs_file = self.abs_path(s_file)

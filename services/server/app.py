@@ -13,6 +13,7 @@ from utils.zip import update_zip
 import datetime as dt
 from io import FileIO
 from service.front_page_service import FrontPageHandler
+from service.health_check import start_health_check
 from threading import Thread
 from zipfile import ZipFile
 import pandas as pd
@@ -33,6 +34,8 @@ mongo = mongo_client()
 redis = redis_client()
 sio = socketio_client()
 storage = Storage()
+
+start_health_check()
 
 ROOT_DIR = Path(__file__).resolve().parent
 TEMP_FOLDER = ROOT_DIR.joinpath("temp")
@@ -170,6 +173,13 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                 return f()
         return __verify_token
     return _verify_token
+
+
+@app.after_request
+def intercept_response(response: Response):
+    # force to close the connection to avoid to hang
+    response.headers["Connection"] = "close"
+    return response
 
 
 @app.route(os.sep)
@@ -1706,7 +1716,7 @@ def download_document(validity):
             )
             if vers:
                 print("Found version:", vers["version_filepath"])
-                file_path = vers["version_filepath"]
+                file_path = storage.rel_path(vers["version_filepath"])
             else:
                 return Response(response=json.dumps({"Error": "You don't request a valid version"}), status=400)
         elif request_form.get("version") is not None:
