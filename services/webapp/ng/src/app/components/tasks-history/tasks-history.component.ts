@@ -208,7 +208,7 @@ export class TasksHistoryComponent implements OnInit {
     }
     task.info = this.statusInfo[task.job_status];
     if (task.job_status === 'RETRY') {
-        let cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
+        const cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
         task.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
     }
   }
@@ -271,7 +271,7 @@ export class TasksHistoryComponent implements OnInit {
     let dialogRef = this.dialog.open(TaskRetryDialogComponent, {
       width: '60%',
       height: '90%',
-      data: {taskId: task.job_id, taskName: task.job_name, taskMessages: task.job_infos }
+      data: {taskId: task.job_id, taskName: task.job_name, taskMessages: task.job_infos}
     });
     dialogRef.afterClosed().pipe(first()).subscribe(async result => {
         if (result === false) {

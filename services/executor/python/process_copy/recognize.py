@@ -313,7 +313,6 @@ def process_all(
                     db.insert_document(job_id, doc_index, [], "",
                                        Document_Status.NOT_READY, "", 0, f)
                     doc_index += 1
-    db.close()
     sio.disconnect()
 
     # get max RAM
@@ -322,7 +321,7 @@ def process_all(
     batch = 1
     matricules_data = {}
     last_index = len(g_files) - 1
-    while doc_index < len(g_files):
+    while doc_index <= last_index:
         # grade file in a different process
         g_args = (g_files[doc_index:], doc_index, grades_csv,
                   min_documents_for_max_questions,
@@ -344,6 +343,8 @@ def process_all(
         print(f"[{datetime.now()}]", doc_index, "files have been processed.")
         print(f"[{datetime.now()}]", 'RAM Used - end batch', batch, '(GB):', psutil.virtual_memory()[3] / 1000000000)
         batch += 1
+        last_index = db.documents_collection().count_documents({"job_id": job_id}) - 1
+    db.close()
 
     # check the number of files that have been dropped on moodle if any
     print(f"[{datetime.now()}]", "Store grades in csv")

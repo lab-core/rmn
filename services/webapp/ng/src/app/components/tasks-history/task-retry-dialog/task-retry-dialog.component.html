@@ -4,7 +4,7 @@
     </div>
     <div class="content-container">
         <div class="error-messages-container">
-            <div class="error-message" *ngIf="this.filenames.length > 0">
+            <div class="error-message" *ngIf="!isFileNamesEmpty()">
                 <div *ngFor="let filename of filenames">
                     {{ filename }}
                     <button mat-icon-button color="primary" (click)="downloadFile(filename)">
@@ -12,7 +12,7 @@
                     </button>
                 </div>
             </div>
-            <button mat-raised-button color="primary" (click)="downloadAllAsZip()" class="download-zip-button">Télécharger tous les fichiers en ZIP</button>
+            <button mat-raised-button color="primary" (click)="downloadAllAsZip()" class="download-zip-button" [disabled]="isFileNamesEmpty()">Télécharger tous les fichiers en ZIP</button>
         </div>
         <div class="upload-container"
             (drop)="onDrop($event)"

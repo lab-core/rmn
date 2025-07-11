@@ -497,7 +497,8 @@ def get_job():
         "n_pages_per_question": job["n_pages_per_question"],
         "bonus_enabled_map": job["bonus_enabled_map"],
         "statistics_for_students": job["statistics_for_students"],
-        "groups": job.get("groups", [""])
+        "groups": job.get("groups", [""]),
+        "copies_errors": job.get("copies_errors"),
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
@@ -754,15 +755,17 @@ def ignore_job(user_id):
             status=400,
         )
 
+    # fetch current job
     job_id = str(request_form["job_id"])
     db = mongo["RMN"]
-    db["eval_jobs"].update_one(
-            {"job_id": job_id},
-            {
-                "$set": {"job_status": Job_Status.IGNORED.value},
-                "$unset": {"job_infos": ""}
-            },
-    )
+    collection_eval_jobs = db["eval_jobs"]
+    job = collection_eval_jobs.find_one({"job_id": job_id})
+
+    # set new status and remove job infos message
+    query = {"$unset": {"copies_errors": "", "job_infos": ""}}
+    if job["job_status"] == Job_Status.RETRY.value:
+        query["$set"] = {"job_status": Job_Status.IGNORED.value}
+    db["eval_jobs"].update_one({"job_id": job_id}, query)
 
     # delete incorrect_files
     storage.remove_tree(os.path.join("incorrect_files", job_id))
@@ -796,9 +799,10 @@ def continue_job(user_id):
     collection_eval_jobs = db["eval_jobs"]
     job = collection_eval_jobs.find_one({"job_id": job_id})
 
-    if job["job_status"] != Job_Status.RETRY.value:
+    avail_status = [Job_Status.RETRY.value, Job_Status.QUEUED.value, Job_Status.RUN.value, Job_Status.VALIDATION.value]
+    if job["job_status"] not in avail_status:
         return Response(
-            response=json.dumps({"response": f"Error: job status is not {Job_Status.RETRY.value}."}),
+            response=json.dumps({"response": f"Error: job status is not in {avail_status}."}),
             status=404,
         )
 
@@ -813,18 +817,15 @@ def continue_job(user_id):
     # removing incorrect pdfs
     storage.remove_tree(os.path.join("incorrect_files", job_id))
 
-    # set status to CORRECTED
-    collection_eval_jobs.update_one(
-            {"job_id": job_id},
-            {
-                "$set": {
-                    "job_status": Job_Status.CORRECTED.value,
-                }
-            },
-    )
+    # set new status and remove job infos message
+    query = {"$unset": {"copies_errors": "", "job_infos": ""}}
+    if job["job_status"] == Job_Status.RETRY.value:
+        query["$set"] = {"job_status": Job_Status.CORRECTED.value}
+
+    collection_eval_jobs.update_one({"job_id": job_id}, query)
 
     # add to Redis Queue
-    redis.rpush("job_queue", json.dumps({"job_id": job_id}))
+    redis.rpush("job_queue", json.dumps({"job_id": job_id, "add_copies": True}))
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 

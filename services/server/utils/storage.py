@@ -71,7 +71,7 @@ class Storage:
             os.remove(f)
 
     def remove_tree(self, s_dir):
-        shutil.rmtree(self.abs_path(s_dir))
+        shutil.rmtree(self.abs_path(s_dir), ignore_errors=True)
 
     def remove_all_match(self, key):
         files_to_delete = []
