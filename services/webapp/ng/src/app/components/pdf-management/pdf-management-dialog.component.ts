@@ -487,7 +487,7 @@ export class PdfManagementDialogComponent implements OnInit {
 
         for (const questionIndex of Object.keys(errorCopies)) {
             if (errorCopies[questionIndex].length > 0) {
-              const message = `The ${questionIndex} havs errors on copies: ${errorCopies[questionIndex].join(', ')}.`;
+              const message = `The ${questionIndex} have errors on copies: ${errorCopies[questionIndex].join(', ')}.`;
               console.warn(message);
               this.notificationService.showWarning(message+" Check them.", 'Warning');
             }
