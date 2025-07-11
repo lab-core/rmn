@@ -9,7 +9,6 @@ from pathlib import Path
 from utils.utils import Job_Status, Output_File, Document_Status
 from utils.storage import Storage
 from utils.clients import redis_client, socketio_client, mongo_client
-from utils.zip import update_zip
 import datetime as dt
 from io import FileIO
 from service.front_page_service import FrontPageHandler
@@ -283,9 +282,6 @@ def evaluate(user_id):
 
     job_id = str(uuid.uuid4())
 
-    path_on_cloud_zip = f"zips{os.sep}"
-    zip_file_id = f"{path_on_cloud_zip}{job_id}.zip"
-
     path_on_cloud_csv = f"csv{os.sep}"
     notes_file_id = f"{path_on_cloud_csv}{job_id}.csv"
 
@@ -301,7 +297,6 @@ def evaluate(user_id):
         "job_status": Job_Status.SPLIT.value,
         "retry": 0,
         "notes_file_id": notes_file_id,
-        "zip_file_id": zip_file_id,
         "n_pages_per_question": n_pages_per_question,
         "n_max_points_per_question": n_max_points_per_question,
         "bonus_enabled_map": bonus_enabled_map,
@@ -323,19 +318,25 @@ def evaluate(user_id):
     try:
         # only for a zip with a folder for each student
         notes_csv_file = request.files.get("notes_csv_file")
-        notes_csv_file_name = secure_filename(notes_csv_file.filename)
-        notes_csv_file.save(FileIO(TEMP_FOLDER.joinpath(notes_csv_file_name), "wb"))
+        notes_csv_file_name = TEMP_FOLDER.joinpath(secure_filename(notes_csv_file.filename))
+        notes_csv_file.save(FileIO(notes_csv_file_name, "wb"))
+        save_csv(str(notes_csv_file_name), notes_file_id)
 
         zip_file = request.files.get("zip_file")
-        zip_file_name = secure_filename(zip_file.filename)
-
-        with open(str(TEMP_FOLDER.joinpath(zip_file_name)), "wb") as f_out:
+        zip_file_path = str(TEMP_FOLDER.joinpath(secure_filename(zip_file.filename)))
+        with open(zip_file_path, "wb") as f_out:
             file_content = zip_file.stream.read()
             f_out.write(file_content)
 
+        random_id = uuid.uuid4()
+        zip_file_id = os.path.join("zips", job_id, f"{random_id}.zip")
+        storage.move_to(zip_file_path, zip_file_id)
     except Exception as e:
         print(e)
         return Response(response="Error: Failed to download files.", status=500)
+
+    # add to Redis Queue
+    redis.rpush("job_queue", json.dumps({"job_id": job["job_id"]}))
 
     # Create SocketIO connection
     sio.emit(
@@ -345,64 +346,14 @@ def evaluate(user_id):
         ),
     )
 
-    thread = Thread(target=evaluate_thread,
-                    kwargs={
-                        "job_id": job_id,
-                        "notes_file_id": notes_file_id,
-                        "zip_file_id": zip_file_id,
-                        "job": job,
-                        "user_id": user_id,
-                        "zip_file_name": zip_file_name,
-                        "notes_csv_file_name": notes_csv_file_name
-                    })
-    thread.start()
-
     return Response(response=json.dumps({"response": "OK"}), status=200)
-
-
-def evaluate_thread(job_id, notes_file_id, zip_file_id, job, user_id, zip_file_name, notes_csv_file_name):
-    try:
-        file_name = str(TEMP_FOLDER.joinpath(notes_csv_file_name))
-        save_csv(file_name, notes_file_id)
-
-        file_name = str(TEMP_FOLDER.joinpath(zip_file_name))
-        storage.move_to(file_name, zip_file_id)
-
-        # add to Redis Queue
-        redis.rpush("job_queue", json.dumps({"job_id": job["job_id"]}))
-    except Exception as e:
-        print("Error when preparing job to be submitted for evaluation.")
-        print(e)
-
-        db = mongo["RMN"]
-        collection_eval_jobs = db["eval_jobs"]
-        collection_eval_jobs.update_one(
-                {"job_id": job_id},
-                {
-                    "$set": {
-                        "job_status": Job_Status.ERROR.value,
-                    }
-                },
-            )
-
-        sio.emit(
-            "job_status",
-            json.dumps(
-                {
-                    "job_id": job_id,
-                    "user_id": user_id,
-                    "status": Job_Status.ERROR.value,
-                }
-            ),
-        )
-        exit()
 
 
 def save_csv(file_name, notes_file_id):
     # Check if separated by ; or , -> and transform to real csv (,) if needed
     df_comma = pd.read_csv(file_name, nrows=1, sep=",")
     df_semi = pd.read_csv(file_name, nrows=1, sep=";")
-    if df_semi.shape[1]>df_comma.shape[1]:
+    if df_semi.shape[1] > df_comma.shape[1]:
         df_semi = pd.read_csv(file_name, sep=";")
         df_semi.to_csv(file_name)  # save with a ',' separator
     return storage.move_to(file_name, notes_file_id)
@@ -546,7 +497,8 @@ def get_job():
         "n_pages_per_question": job["n_pages_per_question"],
         "bonus_enabled_map": job["bonus_enabled_map"],
         "statistics_for_students": job["statistics_for_students"],
-        "groups": job.get("groups", [""])
+        "groups": job.get("groups", [""]),
+        "copies_errors": job.get("copies_errors"),
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
@@ -803,15 +755,17 @@ def ignore_job(user_id):
             status=400,
         )
 
+    # fetch current job
     job_id = str(request_form["job_id"])
     db = mongo["RMN"]
-    db["eval_jobs"].update_one(
-            {"job_id": job_id},
-            {
-                "$set": {"job_status": Job_Status.IGNORED.value},
-                "$unset": {"job_infos": ""}
-            },
-    )
+    collection_eval_jobs = db["eval_jobs"]
+    job = collection_eval_jobs.find_one({"job_id": job_id})
+
+    # set new status and remove job infos message
+    query = {"$unset": {"copies_errors": "", "job_infos": ""}}
+    if job["job_status"] == Job_Status.RETRY.value:
+        query["$set"] = {"job_status": Job_Status.IGNORED.value}
+    db["eval_jobs"].update_one({"job_id": job_id}, query)
 
     # delete incorrect_files
     storage.remove_tree(os.path.join("incorrect_files", job_id))
@@ -845,49 +799,35 @@ def continue_job(user_id):
     collection_eval_jobs = db["eval_jobs"]
     job = collection_eval_jobs.find_one({"job_id": job_id})
 
-    if job["job_status"] != Job_Status.RETRY.value:
+    avail_status = [Job_Status.RETRY.value, Job_Status.QUEUED.value, Job_Status.RUN.value, Job_Status.VALIDATION.value]
+    if job["job_status"] not in avail_status:
         return Response(
-            response=json.dumps({"response": f"Error: job status is not {Job_Status.RETRY.value}."}),
+            response=json.dumps({"response": f"Error: job status is not in {avail_status}."}),
             status=404,
         )
 
-    pdf_files = []
-    for f in request.files.values():
-        file_path = os.path.join("/tmp", f.filename)
-        f.save(file_path)
-        pdf_files.append(file_path)
-    thread = Thread(target=continue_thread, args=[job_id, pdf_files])
-    thread.start()
+    random_id = uuid.uuid4()
+    zip_path = storage.abs_path(os.path.join("zips", job_id, f"{random_id}.zip"))
+    with ZipFile(zip_path, 'w') as new_zip:
+        for f in request.files.values():
+            file_path = os.path.join("/tmp", f.filename)
+            f.save(file_path)
+            new_zip.write(file_path)
 
-    # set status to CORRECTED
-    collection_eval_jobs.update_one(
-            {"job_id": job_id},
-            {
-                "$set": {
-                    "job_status": Job_Status.CORRECTED.value,
-                }
-            },
-    )
-
-    return Response(response=json.dumps({"response": "OK"}), status=200)
-
-
-def continue_thread(job_id, pdf_files):
-    zip_path = storage.abs_path(os.path.join("zips", f"{job_id}.zip"))
-    update_zip(zip_path, pdf_files, f'/tmp/zip_contents_{job_id}')
-
-    # removing questions pdfs
-    storage.remove_tree(os.path.join("documents", job_id))
+    # removing incorrect pdfs
     storage.remove_tree(os.path.join("incorrect_files", job_id))
 
-    # removing files in database
-    db = mongo["RMN"]
-    db["job_documents"].delete_many({"job_id": job_id})
-    db["job_questions"].delete_many({"job_id": job_id})
-    db["versions"].delete_many({"job_id": job_id})
+    # set new status and remove job infos message
+    query = {"$unset": {"copies_errors": "", "job_infos": ""}}
+    if job["job_status"] == Job_Status.RETRY.value:
+        query["$set"] = {"job_status": Job_Status.CORRECTED.value}
+
+    collection_eval_jobs.update_one({"job_id": job_id}, query)
 
     # add to Redis Queue
-    redis.rpush("job_queue", json.dumps({"job_id": job_id}))
+    redis.rpush("job_queue", json.dumps({"job_id": job_id, "add_copies": True}))
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
 @app.route("/incorrect/download", methods=["POST"])

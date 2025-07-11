@@ -5,7 +5,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { UserService } from 'src/app/services/user.service';
 import { TemplateService } from 'src/app/services/template.service';
 import { RectangleService } from 'src/app/services/drawing/rectangle.service';
-import { NewTemplateDialogComponent } from './new-template-dialog/new-template-dialog.component';
+import { NewTemplateDialogComponent } from '../new-template-dialog/new-template-dialog.component';
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { SERVER_URL } from 'src/app/utils';
 import { filter, first } from 'rxjs/operators';

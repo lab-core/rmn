@@ -4,15 +4,18 @@
     </div>
     <div class="content-container">
         <div class="error-messages-container">
-            <div class="error-message" *ngIf="this.filenames.length > 0">
-                <div *ngFor="let filename of filenames">
-                    {{ filename }}
+            <div class="files-container error-message" *ngIf="!isFileNamesEmpty()">
+                <ul>
+                  <li *ngFor="let filename of filenames; let i = index" class="filename-div">
+                    <span class="filename-text">{{ filename }}</span>
                     <button mat-icon-button color="primary" (click)="downloadFile(filename)">
                         <mat-icon>download</mat-icon>
                     </button>
-                </div>
+<!--                  <span class="file-error">{{ errorMessages[i] }}</span>-->
+                  </li>
+                </ul>
             </div>
-            <button mat-raised-button color="primary" (click)="downloadAllAsZip()" class="download-zip-button">Télécharger tous les fichiers en ZIP</button>
+            <button mat-raised-button color="primary" (click)="downloadAllAsZip()" class="download-zip-button" [disabled]="isFileNamesEmpty()">Télécharger tous les fichiers en ZIP</button>
         </div>
         <div class="upload-container"
             (drop)="onDrop($event)"
@@ -22,7 +25,7 @@
             </div>
             <input #fileUpload type="file" id="file-upload" (change)="onFileSelected($event)" multiple>
 
-            <div class="selected-files-container" *ngIf="selectedFiles.length > 0">
+            <div class="files-container selected-files-container" *ngIf="selectedFiles.length > 0">
                 <h3>Fichiers sélectionnés:</h3>
                 <ul>
                     <li *ngFor="let file of selectedFiles; let i = index">
@@ -49,5 +52,4 @@
 </div>
 <div id="overlay" *ngIf="this.downloading"></div>
 <mat-spinner *ngIf="this.downloading" color="accent" [diameter]="150" mode="determinate" [value]="this.downloadProgress"></mat-spinner>
-<div id="overlay" *ngIf="this.downloading"></div>
 <div class="files-uploading-steps" *ngIf="this.downloading">Téléversement du fichier...</div>

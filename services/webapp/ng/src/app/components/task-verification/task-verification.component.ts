@@ -1,6 +1,6 @@
 import { Component, HostListener, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { PdfManagementDialogComponent } from './pdf-management/pdf-management-dialog.component'
+import { PdfManagementDialogComponent } from '../pdf-management/pdf-management-dialog.component'
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';

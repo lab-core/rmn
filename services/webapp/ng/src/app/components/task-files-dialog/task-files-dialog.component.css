@@ -52,13 +52,13 @@ input[type=text] {
 }
 
 .pdf-logo {
-    background-image: url("~src/assets/pdf-logo.png");
+    background-image: url("~/src/assets/pdf-logo.png");
 }
 .zip-logo {
-    background-image: url("~src/assets/zip-logo.png");
+    background-image: url("~/src/assets/zip-logo.png");
 }
 .csv-logo {
-    background-image: url("~src/assets/csv-logo.png");
+    background-image: url("~/src/assets/csv-logo.png");
 }
 
 .header-container {

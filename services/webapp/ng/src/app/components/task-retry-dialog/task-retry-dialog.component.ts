@@ -50,10 +50,14 @@ export class TaskRetryDialogComponent implements OnInit {
   }
 
   extractFilenames(): void {
-    this.filenames = this.errorMessages.map(msg => {
-      const match = msg.match(/Erreur: (.+?)\.pdf/);
-      return match ? `${match[1]}.pdf` : '';
-    });
+    if (Array.isArray(this.errorMessages)) {
+      this.filenames = this.errorMessages.map(msg => {
+        // const match = msg.match(/Erreur: (.+?)\.pdf/);
+        // return match ? `${match[1]}.pdf` : '';
+        const parts = msg.split('Erreur:');
+        return parts.length > 1 ? parts[1].trim() : '';
+      });
+    }
   }
 
   onUploadClick(): void {
@@ -82,11 +86,11 @@ export class TaskRetryDialogComponent implements OnInit {
   }
 
   isContinueDisabled(): boolean {
-    return this.selectedFiles.length != this.filenames.length;
+    return this.selectedFiles.length !== this.filenames.length;
   }
 
   isFileNamesEmpty(): boolean {
-    return this.filenames.length == 0;
+    return this.filenames.length === 0;
   }
 
   async handleFiles(): Promise<void> {

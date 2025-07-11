@@ -431,10 +431,11 @@ export class MatriculeVerificationComponent implements OnInit {
     }
   }
 
-  deletePdf(): void {
+  async deletePdf(): Promise<void> {
     this.pdfDeleted = true;
     this.disabledValidationButton = true;
-    this.updateExamStatus('DELETED');
+    await this.updateExamStatus('DELETED');
+    this.nextCopy();
   }
 
   restorePdf(): void {

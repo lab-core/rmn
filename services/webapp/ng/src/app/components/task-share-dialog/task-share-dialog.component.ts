@@ -1,7 +1,7 @@
 import { Component, OnInit, Inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { NotificationService } from "../../../services/notification.service";
-import { UserService } from "../../../services/user.service";
+import { NotificationService } from '../../services/notification.service';
+import { UserService } from '../../services/user.service';
 import { TasksService } from 'src/app/services/tasks.service';
 import { HttpClient } from '@angular/common/http';
 import { Clipboard } from '@angular/cdk/clipboard';

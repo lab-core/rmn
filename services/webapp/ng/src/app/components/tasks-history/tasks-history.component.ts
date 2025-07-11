@@ -3,12 +3,12 @@ import { Location } from '@angular/common';
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { TasksService } from 'src/app/services/tasks.service';
-import { TaskFilesDialogComponent } from './task-files-dialog/task-files-dialog.component';
-import { TaskShareDialogComponent } from "./task-share-dialog/task-share-dialog.component";
-import { TaskRetryDialogComponent } from './task-retry-dialog/task-retry-dialog.component';
+import { TaskFilesDialogComponent } from '../task-files-dialog/task-files-dialog.component';
+import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
+import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog.component';
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { NavigationStart, Router } from '@angular/router';
-import { MatTableDataSource } from '@angular/material/table'
+import { MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { SocketService } from 'src/app/services/socket.service';
@@ -208,7 +208,7 @@ export class TasksHistoryComponent implements OnInit {
     }
     task.info = this.statusInfo[task.job_status];
     if (task.job_status === 'RETRY') {
-        let cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
+        const cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
         task.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
     }
   }
@@ -269,9 +269,9 @@ export class TasksHistoryComponent implements OnInit {
 
   retryJob(task: any): void {
     let dialogRef = this.dialog.open(TaskRetryDialogComponent, {
-      width: '60%',
+      data: {taskId: task.job_id, taskName: task.job_name, taskMessages: task.job_infos},
       height: '90%',
-      data: {taskId: task.job_id, taskName: task.job_name, taskMessages: task.job_infos }
+      width: '80%',
     });
     dialogRef.afterClosed().pipe(first()).subscribe(async result => {
         if (result === false) {
