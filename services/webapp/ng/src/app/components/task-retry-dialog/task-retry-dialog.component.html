@@ -4,14 +4,16 @@
     </div>
     <div class="content-container">
         <div class="error-messages-container">
-            <div class="error-message" *ngIf="!isFileNamesEmpty()">
-                <div *ngFor="let filename of filenames; let i = index" class="filename-div">
+            <div class="files-container error-message" *ngIf="!isFileNamesEmpty()">
+                <ul>
+                  <li *ngFor="let filename of filenames; let i = index" class="filename-div">
                     <span class="filename-text">{{ filename }}</span>
                     <button mat-icon-button color="primary" (click)="downloadFile(filename)">
                         <mat-icon>download</mat-icon>
                     </button>
 <!--                  <span class="file-error">{{ errorMessages[i] }}</span>-->
-                </div>
+                  </li>
+                </ul>
             </div>
             <button mat-raised-button color="primary" (click)="downloadAllAsZip()" class="download-zip-button" [disabled]="isFileNamesEmpty()">Télécharger tous les fichiers en ZIP</button>
         </div>
@@ -23,7 +25,7 @@
             </div>
             <input #fileUpload type="file" id="file-upload" (change)="onFileSelected($event)" multiple>
 
-            <div class="selected-files-container" *ngIf="selectedFiles.length > 0">
+            <div class="files-container selected-files-container" *ngIf="selectedFiles.length > 0">
                 <h3>Fichiers sélectionnés:</h3>
                 <ul>
                     <li *ngFor="let file of selectedFiles; let i = index">

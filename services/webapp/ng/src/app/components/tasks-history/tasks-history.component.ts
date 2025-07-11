@@ -269,9 +269,9 @@ export class TasksHistoryComponent implements OnInit {
 
   retryJob(task: any): void {
     let dialogRef = this.dialog.open(TaskRetryDialogComponent, {
-      width: '60%',
+      data: {taskId: task.job_id, taskName: task.job_name, taskMessages: task.job_infos},
       height: '90%',
-      data: {taskId: task.job_id, taskName: task.job_name, taskMessages: task.job_infos}
+      width: '80%',
     });
     dialogRef.afterClosed().pipe(first()).subscribe(async result => {
         if (result === false) {

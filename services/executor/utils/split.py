@@ -109,7 +109,12 @@ def verify_names_and_n_pages(n_pages_per_question, input_pdfs, job_id):
             total_pages = len(reader.pages)
 
             if total_pages != total_expected_pages:
-                error_messages.append(f"Erreur: {fname} a {total_pages} page{"s" if total_pages > 1 else ""}.")
+                diff = total_expected_pages - total_pages
+                s_str = "s" if abs(diff) > 1 else ""
+                if diff > 0:
+                    error_messages.append(f"Erreur: {fname} a {diff} page{s_str} manquante{s_str}.")
+                else:
+                    error_messages.append(f"Erreur: {fname} a {abs(diff)} page{s_str} de trop.")
                 file_path = os.path.join('incorrect_files', job_id, fname)
                 storage.move_to(new_input, file_path)
             else:

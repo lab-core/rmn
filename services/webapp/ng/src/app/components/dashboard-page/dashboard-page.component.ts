@@ -462,7 +462,7 @@ export class DashboardPageComponent {
     const dialogRef = this.dialog.open(TaskRetryDialogComponent, {
       data: {taskId: this.taskId, taskName: this.taskName, taskMessages: this.task.copies_errors},
       height: '90%',
-      width: '60%',
+      width: '80%',
     });
     dialogRef.afterClosed().pipe(first()).subscribe(async (result) => {
         if (result === false) {
