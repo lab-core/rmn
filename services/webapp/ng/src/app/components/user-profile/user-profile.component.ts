@@ -2,8 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
-import { ChangePasswordDialogComponent } from './change-password-dialog/change-password-dialog.component';
-import { CreateUserDialogComponent } from './create-user-dialog/create-user-dialog.component';
+import { ChangePasswordDialogComponent } from '../change-password-dialog/change-password-dialog.component';
+import { CreateUserDialogComponent } from '../create-user-dialog/create-user-dialog.component';
 import { first } from 'rxjs/operators';
 
 @Component({

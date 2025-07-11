@@ -4,7 +4,7 @@
 
     <div class="upload-container">
       <button class="replace-zip-button" mat-flat-button (click)="fileInput.click()">Téléverser</button>
-      <input #fileInput type="file" id="file-input" accept=".zip,.pdf" (change)="onFileSelected($event)">
+      <input #fileInput type="file" id="file-input" accept=".csv" (change)="onFileSelected($event)">
       <div class="drop-zone" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
         <p>Déposez votre fichier csv ici</p>
       </div>

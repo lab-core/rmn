@@ -10,10 +10,10 @@ import { TasksService } from 'src/app/services/tasks.service';
 import { UserService } from 'src/app/services/user.service';
 import { ValidationService } from 'src/app/services/validation.service';
 import { SERVER_URL } from 'src/app/utils';
-import { TaskFilesDialogComponent } from '../tasks-history/task-files-dialog/task-files-dialog.component';
-import { TaskRetryDialogComponent } from '../tasks-history/task-retry-dialog/task-retry-dialog.component';
-import { TaskShareDialogComponent } from '../tasks-history/task-share-dialog/task-share-dialog.component';
-import { CsvUpdateDialogComponent } from './csv-update/csv-update-dialog.component';
+import { TaskFilesDialogComponent } from '../task-files-dialog/task-files-dialog.component';
+import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog.component';
+import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
+import { CsvUpdateDialogComponent } from '../csv-update/csv-update-dialog.component';
 
 interface Question {
   name: string;

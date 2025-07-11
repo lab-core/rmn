@@ -3,7 +3,7 @@ import { BrowserModule } from '@angular/platform-browser';
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi, withInterceptors } from '@angular/common/http';
 import { CSP_NONCE, NgModule } from '@angular/core';
 import { AppRoutingModule } from './app-routing.module';
-import { MatCardModule } from "@angular/material/card";
+import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -31,23 +31,23 @@ import { AppComponent } from './components/app/app.component';
 import { LoginPageComponent } from './components/login-page/login-page.component';
 import { MainMenuComponent } from './components/main-menu/main-menu.component';
 import { TasksHistoryComponent } from './components/tasks-history/tasks-history.component';
-import { TaskFilesDialogComponent } from './components/tasks-history/task-files-dialog/task-files-dialog.component';
+import { TaskFilesDialogComponent } from './components/task-files-dialog/task-files-dialog.component';
 import { UserProfileComponent } from './components/user-profile/user-profile.component';
-import { ChangePasswordDialogComponent } from './components/user-profile/change-password-dialog/change-password-dialog.component';
-import { CreateUserDialogComponent } from './components/user-profile/create-user-dialog/create-user-dialog.component';
+import { ChangePasswordDialogComponent } from './components/change-password-dialog/change-password-dialog.component';
+import { CreateUserDialogComponent } from './components/create-user-dialog/create-user-dialog.component';
 import { PDFViewerComponent } from './components/pdf-viewer/pdf-viewer.component';
 import { TaskVerificationComponent } from './components/task-verification/task-verification.component';
-import { PdfManagementDialogComponent } from './components/task-verification/pdf-management/pdf-management-dialog.component';
+import { PdfManagementDialogComponent } from './components/pdf-management/pdf-management-dialog.component';
 import { TemplatesPageComponent } from './components/templates-page/templates-page.component';
-import { NewTemplateDialogComponent } from './components/templates-page/new-template-dialog/new-template-dialog.component';
+import { NewTemplateDialogComponent } from './components/new-template-dialog/new-template-dialog.component';
 import { TemplateEditorComponent } from './components/template-editor/template-editor.component';
 import { PresentationPageComponent } from './components/presentation-page/presentation-page.component';
 import { UserGuideComponent } from './components/user-guide/user-guide.component';
-import { TaskShareDialogComponent } from "./components/tasks-history/task-share-dialog/task-share-dialog.component";
+import { TaskShareDialogComponent } from './components/task-share-dialog/task-share-dialog.component';
 import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
-import { TaskRetryDialogComponent } from './components/tasks-history/task-retry-dialog/task-retry-dialog.component';
+import { TaskRetryDialogComponent } from './components/task-retry-dialog/task-retry-dialog.component';
 import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
-import { CsvUpdateDialogComponent } from './components/dashboard-page/csv-update/csv-update-dialog.component';
+import { CsvUpdateDialogComponent } from './components/csv-update/csv-update-dialog.component';
 import { MatriculeVerificationComponent } from './components/matricule-verification/matricule-verification.component';
 import { WarningDialogComponent } from './components/warning-dialog/warning-dialog.component';
 
@@ -65,6 +65,7 @@ import { ErrorInterceptor, CacheInterceptor, FreshHttpInterceptor } from './serv
         UserProfileComponent,
         ChangePasswordDialogComponent,
         CreateUserDialogComponent,
+        CsvUpdateDialogComponent,
         PDFViewerComponent,
         TaskVerificationComponent,
         PdfManagementDialogComponent,
@@ -113,6 +114,6 @@ import { ErrorInterceptor, CacheInterceptor, FreshHttpInterceptor } from './serv
         provideHttpClient(withInterceptorsFromDi()),
         { provide: HTTP_INTERCEPTORS, useClass: CacheInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
-        { provide: HTTP_INTERCEPTORS, useClass: FreshHttpInterceptor, multi: true }  // should be applied before ErrorInterceptor (in reverse for multi=true)
+        { provide: HTTP_INTERCEPTORS, useClass: FreshHttpInterceptor, multi: true },  // should be applied before ErrorInterceptor (in reverse for multi=true)
     ] })
 export class AppModule { }

@@ -3,12 +3,12 @@ import { Location } from '@angular/common';
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { TasksService } from 'src/app/services/tasks.service';
-import { TaskFilesDialogComponent } from './task-files-dialog/task-files-dialog.component';
-import { TaskShareDialogComponent } from "./task-share-dialog/task-share-dialog.component";
-import { TaskRetryDialogComponent } from './task-retry-dialog/task-retry-dialog.component';
+import { TaskFilesDialogComponent } from '../task-files-dialog/task-files-dialog.component';
+import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
+import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog.component';
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { NavigationStart, Router } from '@angular/router';
-import { MatTableDataSource } from '@angular/material/table'
+import { MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { SocketService } from 'src/app/services/socket.service';
