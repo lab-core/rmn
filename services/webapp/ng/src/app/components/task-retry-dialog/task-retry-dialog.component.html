@@ -5,11 +5,12 @@
     <div class="content-container">
         <div class="error-messages-container">
             <div class="error-message" *ngIf="!isFileNamesEmpty()">
-                <div *ngFor="let filename of filenames">
-                    {{ filename }}
+                <div *ngFor="let filename of filenames; let i = index" class="filename-div">
+                    <span class="filename-text">{{ filename }}</span>
                     <button mat-icon-button color="primary" (click)="downloadFile(filename)">
                         <mat-icon>download</mat-icon>
                     </button>
+<!--                  <span class="file-error">{{ errorMessages[i] }}</span>-->
                 </div>
             </div>
             <button mat-raised-button color="primary" (click)="downloadAllAsZip()" class="download-zip-button" [disabled]="isFileNamesEmpty()">Télécharger tous les fichiers en ZIP</button>
@@ -49,5 +50,4 @@
 </div>
 <div id="overlay" *ngIf="this.downloading"></div>
 <mat-spinner *ngIf="this.downloading" color="accent" [diameter]="150" mode="determinate" [value]="this.downloadProgress"></mat-spinner>
-<div id="overlay" *ngIf="this.downloading"></div>
 <div class="files-uploading-steps" *ngIf="this.downloading">Téléversement du fichier...</div>

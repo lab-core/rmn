@@ -35,6 +35,10 @@
     box-sizing: border-box;
 }
 
+/*.filename-div {*/
+/*  margin-bottom: 10px;*/
+/*}*/
+
 .upload-container {
     width: 45%;
     border: 2px dashed #000;

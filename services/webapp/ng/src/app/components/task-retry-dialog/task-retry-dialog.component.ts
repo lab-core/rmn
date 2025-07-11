@@ -52,8 +52,10 @@ export class TaskRetryDialogComponent implements OnInit {
   extractFilenames(): void {
     if (Array.isArray(this.errorMessages)) {
       this.filenames = this.errorMessages.map(msg => {
-        const match = msg.match(/Erreur: (.+?)\.pdf/);
-        return match ? `${match[1]}.pdf` : '';
+        // const match = msg.match(/Erreur: (.+?)\.pdf/);
+        // return match ? `${match[1]}.pdf` : '';
+        const parts = msg.split('Erreur:');
+        return parts.length > 1 ? parts[1].trim() : '';
       });
     }
   }
