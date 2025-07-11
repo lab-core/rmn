@@ -334,7 +334,7 @@ export class PdfManagementDialogComponent implements OnInit {
           const zipContent = await JSZip.loadAsync(file);
           const zipMergedFiles = Object.keys(zipContent.files).filter(filename => filename.endsWith('.pdf'));
           const zipMergedCSV = Object.keys(zipContent.files).filter(filename => filename.endsWith('.csv'));
-          const nLength = zipMergedFiles.length + zipMergedCSV.length
+          const nLength = zipMergedFiles.length + zipMergedCSV.length;
 
           for (const f of zipMergedFiles) {
             if (f.startsWith('__MACOSX')) continue;
@@ -358,6 +358,8 @@ export class PdfManagementDialogComponent implements OnInit {
         let keys = Object.keys(mergedFiles);
         keys.sort();
         const mergedPDFDocs = {};
+        const errorMessages = {};
+        const errorCopies = {};
         i = 0;
         for (const name of keys) {
             try {
@@ -367,8 +369,10 @@ export class PdfManagementDialogComponent implements OnInit {
                 const questionIndex = match ? match[0] : "Unknown";
                 if (!mergedPDFDocs[questionIndex]) {
                     mergedPDFDocs[questionIndex] = await PDFDocument.create();
+                    errorMessages[questionIndex] = [];
                 }
 
+                const errorMessagesDoc = [];
                 if (!match) {
                   this.notificationService.showWarning(`The pdf document name does not match a question: ${name}.`, 'Warning');
                 } else {
@@ -382,13 +386,20 @@ export class PdfManagementDialogComponent implements OnInit {
 
                   const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
                   for (let i = 0; i < pdfDoc.getPageCount(); i++) {
-                    if(!this.checkAnnotationAndRemove(pdfDoc, i)) {
-                      this.notificationService.showError(`The page order of the pdf document has been changed: page ${i+1} is not at the right place.`, 'Error');
-                      this.processing = false;
-                      return;
-                    }
-                    if (i % pagesPerQuestion == 0) {
-                      await this.hideCopyIndex(pdfDoc, i);
+                    try {
+                      if (!this.checkAnnotationAndRemove(pdfDoc, i)) {
+                        this.notificationService.showError(`The page order of the pdf document has been changed: page ${i + 1} is not at the right place.`, 'Error');
+                        this.processing = false;
+                        return;
+                      }
+                      if (i % pagesPerQuestion == 0) {
+                        await this.hideCopyIndex(pdfDoc, i);
+                      }
+                    } catch (pdfError) {
+                      const p = i + 1;
+                      const errorMessage = `Error checking annotation on page ${p} of document ${name}`;
+                      console.error(errorMessage, pdfError);
+                      errorMessagesDoc.push(i);
                     }
                   }
                 }
@@ -396,9 +407,15 @@ export class PdfManagementDialogComponent implements OnInit {
                 const totalPageCount = pdfDoc.getPageCount();
                 console.log(`The document ${name} has ${totalPageCount} pages.`);
 
+                let k = 0;
+                const pageCount = mergedPDFDocs[questionIndex].getPageCount();
                 const copiedPages = await mergedPDFDocs[questionIndex].copyPages(pdfDoc, pdfDoc.getPageIndices());
                 copiedPages.forEach((page) => {
-                    mergedPDFDocs[questionIndex].addPage(page);
+                  if (errorMessagesDoc.includes(k)) {
+                    errorMessages[questionIndex].push(pageCount + k);
+                  }
+                  k++;
+                  mergedPDFDocs[questionIndex].addPage(page);
                 });
             } catch (pdfError) {
                 console.error(`Error processing merged file: ${name}`, pdfError);
@@ -427,19 +444,28 @@ export class PdfManagementDialogComponent implements OnInit {
             const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
 
             let startPage = 0;
+            let j = 0;
+            errorCopies[questionIndex] = [];
             for (const originalDoc of originalDocs) {
                 try {
                     const singlePagePdf = await PDFDocument.create();
                     const endPage = startPage + pagesPerQuestion;
 
                     if (totalPageCount < endPage) {
-                        console.warn(`The merged document for ${questionIndex} does not have enough pages for ${originalDoc["filename"]}.pdf. Required: ${endPage}, available: ${totalPageCount}.`);
-                        this.notificationService.showWarning(`The merged document for ${questionIndex} does not have enough pages for ${originalDoc["filename"]}.pdf. Required: ${endPage}, available: ${totalPageCount}.`, 'Warning');
+                        const miss = (endPage - totalPageCount) / pagesPerQuestion;
+                        const message = `The merged document for ${questionIndex} does not have enough pages for ${originalDoc["filename"]}.pdf. Required: ${endPage}, available: ${totalPageCount}, missing: ${miss} copies.`;
+                        console.warn(message);
+                        this.notificationService.showWarning(message, 'Warning');
                         break;
                     }
 
                     const copiedPages = await singlePagePdf.copyPages(mergedDoc, Array.from({ length: pagesPerQuestion }, (_, k) => startPage + k));
+                    let k = j * pagesPerQuestion;
                     copiedPages.forEach((page) => {
+                        if (errorMessages[questionIndex].includes(k) && !errorCopies[questionIndex].includes(j + 1)) {
+                            errorCopies[questionIndex].push(j + 1);
+                        }
+                        k++;
                         singlePagePdf.addPage(page);
                     });
 
@@ -449,12 +475,21 @@ export class PdfManagementDialogComponent implements OnInit {
                     zip.file(fileName, blob);
 
                     startPage = endPage;
+                    j++;
                 } catch (innerError) {
                     console.error(`Error processing original document: ${originalDoc["filename"]}.pdf`, innerError);
                     this.notificationService.showError(`Error processing original document: ${originalDoc["filename"]}.pdf`, 'Erreur');
                 }
                 i++;
                 this.percentageDone = Math.round(100 * i / nQuestionExams);
+            }
+        }
+
+        for (const questionIndex of Object.keys(errorCopies)) {
+            if (errorCopies[questionIndex].length > 0) {
+              const message = `The ${questionIndex} havs errors on copies: ${errorCopies[questionIndex].join(', ')}.`;
+              console.warn(message);
+              this.notificationService.showWarning(message+" Check them.", 'Warning');
             }
         }
 
