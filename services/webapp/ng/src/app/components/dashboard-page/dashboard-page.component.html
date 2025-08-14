@@ -63,7 +63,7 @@
         <div class="checkbox-container">
           <button class="copies-job-button" mat-raised-button color="primary" (click)="addCopies()">Copies additionnelles</button>
           <button class="csv-job-button" mat-raised-button color="primary" (click)="updateCsv()">Mettre à jour csv</button>
-          <label>
+          <label *ngIf="questions.length >0">
               <input type="checkbox" [(ngModel)]="taskStats" (change)="taskStatsChange()" [ngModelOptions]="{standalone: true}">
               Statistiques pour les élèves
           </label>

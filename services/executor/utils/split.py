@@ -108,7 +108,7 @@ def verify_names_and_n_pages(n_pages_per_question, input_pdfs, job_id):
             reader = PdfReader(f)
             total_pages = len(reader.pages)
 
-            if total_pages != total_expected_pages:
+            if n_pages_per_question and total_pages != total_expected_pages:
                 diff = total_expected_pages - total_pages
                 s_str = "s" if abs(diff) > 1 else ""
                 if diff > 0:
@@ -154,8 +154,10 @@ def split_and_save(n_pages_per_question, input_pdfs, job_id):
             reader = PdfReader(f)
             pages_for_questions = calculate_pages(n_pages_per_question)
 
-            if len(reader.pages) == total_expected_pages:
+            # if no question, store all copies in the "all" folder
+            if not n_pages_per_question or len(reader.pages) == total_expected_pages:
                 base_filename = os.path.splitext(os.path.basename(input_pdf))[0]
+                # won't iterate if no question
                 for question, pages in pages_for_questions.items():
                     writer = PdfWriter()
                     for page_index in pages:
@@ -218,9 +220,6 @@ def process_folder(zip_folder, job_id, n_pages_per_question, TMP_DIR):
         FileNotFoundError: If no ZIP file is found in the specified folder.
         ValueError: If no mapping of questions to page numbers is provided.
     """
-    if not n_pages_per_question:
-        raise ValueError("Please provide a mapping of questions to page numbers.")
-
     all_zips = []
     zip_path = Path(storage.abs_path(zip_folder))
     temp_path = str(TMP_DIR.joinpath('extracted'))

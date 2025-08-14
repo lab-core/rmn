@@ -240,14 +240,23 @@ if __name__ == "__main__":
         if job["job_status"] != Job_Status.FINALIZING.value:
             update_status(db, sio, user_id, job_id, Job_Status.FINALIZING)
 
-        if os.path.exists(storage.abs_path(os.path.join("documents", job_id))):
+        correcting = len(job["n_max_points_per_question"]) > 0
+
+        if not correcting:
+            # copy the original files
+            input_folder = storage.abs_path(os.path.join('documents', job_id, "all"))
+            corrected_copies = storage.abs_path(os.path.join('corrected_copies', job_id))
+            os.makedirs(corrected_copies, exist_ok=True)
+            print("Copying original files to corrected_copies ...")
+            shutil.copytree(input_folder, corrected_copies, dirs_exist_ok=True)
+        elif os.path.exists(storage.abs_path(os.path.join("documents", job_id))):
             # adding grades
             print("Adding grades...")
-            process_writing(job_id, TMP_DIR)
+            process_writing(job, TMP_DIR)
 
             # merging copies
             print("Merging copies...")
-            corrected_copies = process_merge(job_id)
+            corrected_copies = process_merge(job)
 
             # # cleaning storage
             # print("Cleaning storage...")
@@ -327,14 +336,18 @@ if __name__ == "__main__":
 
         # create box plots for statistics
         filenames = []
-        all_grades = [[] for _ in range(n_questions)]
-        for filename, grades in grades_dict.items():
-            filenames.append(filename)
-            for i in range(n_questions):
-                all_grades[i].append(grades[i])
-        all_grades = np.array(all_grades)
-        f_boxplots = create_all_boxplots(all_grades, str(TMP_DIR))
-        TEX_FOLDER.mkdir(exist_ok=True)
+        if n_questions > 0:
+            all_grades = [[] for _ in range(n_questions)]
+            for filename, grades in grades_dict.items():
+                filenames.append(filename)
+                for i in range(n_questions):
+                    all_grades[i].append(grades[i])
+            all_grades = np.array(all_grades)
+            f_boxplots = create_all_boxplots(all_grades, str(TMP_DIR))
+            TEX_FOLDER.mkdir(exist_ok=True)
+        else:
+            all_grades = [[]]
+            f_boxplots = []
 
         # create folders for all copies zips
         all_copies_folder_path = VALIDATE_FOLDER.joinpath("all")

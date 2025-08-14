@@ -31,8 +31,9 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   secondFormGroup: any;
   thirdFormGroup: any;
   fourthFormGroup: any;
-  isLinear = true;
-  nQuestionsReadOnly = true;
+  isLinear: boolean = true;
+  nQuestionsReadOnly: boolean = true;
+  correct: boolean = true;
 
   copiesName: string = "";
   csvName: string = "";
@@ -548,6 +549,12 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       await this.convertDownloadableCSV();
       let front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
       let regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
+      if (!this.correct) {
+        this.nPagesPerQuestion.clear();
+        this.nMaxPointsPerQuestion.clear();
+        this.bonusEnabledMap.clear();
+        this.statisticsForStudents = false;
+      }
       await this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate,
                                       this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName,
                                       front_template_name, regular_template_name, this.statisticsForStudents);

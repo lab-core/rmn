@@ -31,9 +31,11 @@ def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, lat
         for i in range(n_questions):
             f.write(latex_line.format("%d (/ %d)" % (i+1, totals[i]), all_notes[i][index] if index is not None else "",
                                       averages[i], boxplots[i])+"\n")
-        f.write(n_latex_line.format("Total (/ %d)" % totals[-1],
-                                    sum(notes[index] for notes in all_notes) if index is not None else "",
-                                    sum(averages), boxplots[-1])+"\n")
+        if n_questions > 0:
+            averages = np.average(all_notes, axis=1)
+            f.write(n_latex_line.format("Total (/ %d)" % totals[-1],
+                                        sum(notes[index] for notes in all_notes) if index is not None else "",
+                                        sum(averages), boxplots[-1])+"\n")
 
     TEX_DIR = Path(latex_dir).resolve()
     fpdf = create_tex_pdf(TEX_DIR.joinpath("main.tex"), TMP_DIR)

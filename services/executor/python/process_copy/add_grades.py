@@ -10,25 +10,23 @@ from process_copy.config import grade_box as def_grade_box
 storage = Storage()
 
 
-def process_writing(job_id, TMP_DIR, dpi=300, shape=(8.5, 11) ):
+def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11) ):
     """
     Process the writing job by adding grades to the PDF files.
 
     Args:
-        job_id (str): The ID of the job.
+        job (dict): The job.
 
     Returns:
         None
     """
+    job_id = job["job_id"]
     box_grades = def_grade_box["exam"]["grade"]  # default box for grades recognition
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
 
     db = Database()
-    eval_jobs_collection = db.eval_jobs_collection()
-    eval_job = eval_jobs_collection.find_one({"job_id": job_id})
-
-    front_template_id = eval_job["front_template_id"]
-    regular_template_id = eval_job["regular_template_id"]
+    front_template_id = job["front_template_id"]
+    regular_template_id = job["regular_template_id"]
     box_grades_list, _, _ = db.get_templates_info(front_template_id, regular_template_id)
     if box_grades_list is not None:
         box_grades = box_grades_list

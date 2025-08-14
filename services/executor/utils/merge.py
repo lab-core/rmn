@@ -41,8 +41,7 @@ def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
     Returns:
         None
     """
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
 
     print("Merging PDF files...")
     k = 0
@@ -70,20 +69,18 @@ def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
         print(f"({k}/{n_docs}) Merged PDF for {base_name} saved at {output_path}")
 
 
-def process_merge(job_id):
+def process_merge(job):
     """
     Merge PDF files for a given job ID.
 
     Args:
-        job_id (str): The ID of the job.
+        job (dict): The job.
 
     Returns:
         output_folder (str): path to the directory with all corrected copies
     """
-    db = Database()
-    eval_jobs_collection = db.eval_jobs_collection()
-    eval_job = eval_jobs_collection.find_one({"job_id": job_id})
-    n_max_points_per_question = eval_job["n_max_points_per_question"]
+    job_id = job["job_id"]
+    n_max_points_per_question = job["n_max_points_per_question"]
     question_indexes = [item[0] for item in n_max_points_per_question]
     question_indexes.sort()
 
@@ -94,6 +91,7 @@ def process_merge(job_id):
         folder_paths.append(question_index_path)
 
     # files to merge
+    db = Database()
     documents = db.documents_collection().find({"job_id": job_id})
     base_names = [doc["filename"] for doc in documents if doc['status'] != Document_Status.DELETED.value]
 

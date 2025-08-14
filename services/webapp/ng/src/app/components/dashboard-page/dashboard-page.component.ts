@@ -92,6 +92,8 @@ export class DashboardPageComponent {
           this.questionsDocList[resp.document_index] = this.docService.documentsList[0];
           this.computeQuestions();
         }
+        // check if can be finalized
+        this.checkIfTaskFinished();
       } catch (error) {
         console.error(error);
       }
@@ -123,6 +125,8 @@ export class DashboardPageComponent {
     // update metrics
     this.computeTotalMatricules();
     this.computeQuestions();
+    // check if can be finalized
+    this.checkIfTaskFinished();
   }
 
   public loggued(): boolean {
@@ -221,6 +225,12 @@ export class DashboardPageComponent {
   }
 
   public computeQuestions() {
+    // if there is no question, stop right here
+    if (this.questionsDocList.length === 0) {
+      this.questions = Array<Question>(0);
+      return;
+    }
+
     // initialize stats
     const questionsStats = new Map<string, Question>();
     this.task.n_max_points_per_question.forEach((element) => {
@@ -317,21 +327,16 @@ export class DashboardPageComponent {
       }
     });
     this.questions.push(totalQuestion);
-
-    this.checkIfTaskFinished();
   }
 
   public checkIfTaskFinished() {
     this.ongoingTask = this.totalVerifiedMatricules < this.examsCount
-          || this.getTotalQuestion() == null
-          || this.getTotalQuestion().validatedCount < this.examsCount;
+          || (this.questions.length > 0 &&
+              this.getTotalQuestion().validatedCount < this.examsCount);
   }
 
   public getTotalQuestion() {
-    if (this.questions.length > 0) {
-      return this.questions[this.questions.length - 1];
-    }
-    return null;
+    return this.questions[this.questions.length - 1];
   }
 
   public isQuestionBonus(questionName) {
@@ -479,7 +484,8 @@ export class DashboardPageComponent {
   public async validateJob() {
     if (this.totalVerifiedMatricules < this.examsCount) {
       this.notificationService.showError('Veuillez vérifier tous les matricules avant de valider la tâche!', 'Erreur!');
-    } else if (this.getTotalQuestion().validatedCount < this.examsCount) {
+    } else if (this.questions.length > 0 &&
+               this.getTotalQuestion().validatedCount < this.examsCount) {
       this.notificationService.showError('Veuillez corriger toutes les copies avant de valider la tâche!', 'Erreur!');
     } else {
       this.disableButtons = true;

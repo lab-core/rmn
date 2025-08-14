@@ -133,6 +133,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     // fetch job and documents
     await this.getDocuments();
 
+    // if no exam available -> reroute to the dashboard
+    if (this.examsList.length === 0) {
+      console.log('No question is available for this task', this.tasksService.getvalidatingTaskId());
+      this.router.navigate(['/dashboard', this.tasksService.getvalidatingTaskId()]);
+    }
+
     // create indexedDB store
     db.setCurrentJobId(this.tasksService.getvalidatingTaskId());
 
