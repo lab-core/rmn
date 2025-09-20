@@ -538,6 +538,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       }
       this.pdfLoading = false;
     }
+    // hide score keyboard
+    document.getElementById('score')?.blur();
   }
 
   updateScrollPosition() {
@@ -693,6 +695,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.pdfLoading = false;
         // this.changeCurrentExam(this.currentIndex());
     }
+
     this.checkValidationButton();
 
     if (!hasNext) {
@@ -750,7 +753,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async saveCopy(pdfSource, file, grade, status, questionIndex, tag = undefined): Promise<any> {
     const jobId = this.tasksService.getvalidatingTaskId();
     pdfSource.save(jobId);
-    let validationResponse = await this.validationService.validateDocument(
+    const validationResponse = await this.validationService.validateDocument(
         jobId,
         pdfSource.index,
         file,
@@ -760,10 +763,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         status,
         pdfSource.version == undefined ? -1 : pdfSource.version,
         pdfSource.annotations,
-        tag
+        tag,
     );
     console.log('Try to save current copy and obtained response:', validationResponse);
-    if (validationResponse === "OK") {
+    if (validationResponse === 'OK') {
       pdfSource.clear(jobId);
       return true;
     }
@@ -806,7 +809,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           job_id: this.job.job_id,
         }
         this.userService.addShareToken(queryParams);
-        this.router.navigate([`/dashboard`], { queryParams: queryParams });
+        this.router.navigate([`/dashboard`], { queryParams });
       } else {
         this.router.navigate(['/dashboard', this.job.job_id]);
       }
@@ -814,12 +817,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async previousCopy(): Promise<boolean> {
-    let tempIndex = this.previousCopyIndex();
+    const tempIndex = this.previousCopyIndex();
     if (tempIndex >= 0) {
       await this.changeCurrentExam(tempIndex);
-      return true
+      return true;
     }
-    return false
+    return false;
   }
 
   previousCopyIndex(currentIndex = undefined): number {
@@ -832,14 +835,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async nextCopy(changeAnyway: boolean = false, indexFilter = () => { return this.nextCopyIndex() }): Promise<boolean> {
-    let tempIndex = indexFilter();
+    // get next index according to filter
+    const tempIndex = indexFilter();
     if (tempIndex < this.examsList.length) {
       await this.changeCurrentExam(tempIndex);
-      return true
+      return true;
     } else if (changeAnyway) {
       await this.changeCurrentExam();
     }
-    return false
+    return false;
   }
 
   nextCopyIndex(currentIndex = undefined): number {

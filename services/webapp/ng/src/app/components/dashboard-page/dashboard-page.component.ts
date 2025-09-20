@@ -224,7 +224,7 @@ export class DashboardPageComponent {
     this.checkIfTaskFinished();
   }
 
-  public computeQuestions() {
+  public computeQuestions(): void {
     // if there is no question, stop right here
     if (this.questionsDocList.length === 0) {
       this.questions = Array<Question>(0);
@@ -234,7 +234,7 @@ export class DashboardPageComponent {
     // initialize stats
     const questionsStats = new Map<string, Question>();
     this.task.n_max_points_per_question.forEach((element) => {
-      const question_index = parseInt(element[0].slice(1));
+      const question_index: number = parseInt(element[0].slice(1));
       questionsStats[element[0]] = {
         name: element[0],
         index: question_index - 1,
@@ -269,7 +269,9 @@ export class DashboardPageComponent {
     });
 
     // compute the total
-    this.computeTotalQuestion();
+    if (this.questions.length > 1) {
+      this.computeTotalQuestion();
+    }
 
     // compute the averages
     this.questions.forEach((question) => {
@@ -277,7 +279,7 @@ export class DashboardPageComponent {
     });
   }
 
-  public computeAverage(question: Question) {
+  public computeAverage(question: Question): void {
     if (question.validatedCount > 0) {
       const average = question.total / question.validatedCount;
       question.average = Number(average.toFixed(2));
