@@ -13,8 +13,8 @@
                 [(ngModel)]="copySelection">
             </ng-select>
         </div>
-        <p>{{ this.copySelection ? (this.copySelection.index || "N/A") : "" }}</p>
-        <button class="select-index-button" *ngIf="this.copySelection && this.copySelection.index" mat-raised-button color="primary" (click)="selectCopy()">Sélectionner</button>
+        <p>{{ this.copySelection ? (this.copySelection.copy + 1 || "N/A") : "" }}</p>
+        <button class="select-index-button" *ngIf="this.copySelection" mat-raised-button color="primary" (click)="selectCopy()">Sélectionner</button>
     </div>
     <div class="task-content">
       <table *ngIf="task && task.job_status !== 'ARCHIVED'">

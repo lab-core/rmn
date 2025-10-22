@@ -142,11 +142,12 @@ export class DashboardPageComponent {
     this.task.students_list.forEach((x) => {
       tempDict[x.matricule] = { identifiant: x.matricule + ' - ' + x['Nom complet'] };
     });
-    const initialCopyIndex = this.examsList[0].document_index;
+    let copy = 0;
     this.examsList.forEach((exam) => {
       if (exam.matricule && tempDict[exam.matricule]) {
-        tempDict[exam.matricule].index = exam.document_index - initialCopyIndex + 1;
-        tempDict[exam.matricule].copy = exam.document_index;
+        tempDict[exam.matricule].index = exam.document_index;
+        tempDict[exam.matricule].copy = copy;
+        copy += 1;
       }
     });
     this.copiesList = Object.values(tempDict).map((x) => {

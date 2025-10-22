@@ -193,7 +193,7 @@ export class MatriculeVerificationComponent implements OnInit {
     const sCopy = localStorage.getItem(`${this.tasksService.getvalidatingTaskId()}_copy`);
     if (sCopy != undefined) {
       const copy = parseInt(sCopy);
-      this.currentCopy = (copy - this.initialCopyIndex) % this.examsList.length + this.initialCopyIndex;
+      this.currentCopy = copy % this.examsList.length + this.initialCopyIndex;
     } else {
       this.currentCopy = this.initialCopyIndex;
     }
@@ -201,8 +201,9 @@ export class MatriculeVerificationComponent implements OnInit {
 
   setCurrentCopy(copy: number) {
     const jobId = this.tasksService.getvalidatingTaskId();
-    localStorage.setItem(`${jobId}_copy`, copy.toString());
     this.currentCopy = copy;
+    copy -= this.initialCopyIndex;
+    localStorage.setItem(`${jobId}_copy`, copy.toString());
   }
 
   getSubExamsList(): void {
