@@ -186,7 +186,7 @@ export class MatriculeVerificationComponent implements OnInit {
       this.initialCopyIndex = this.examsList[0].document_index;
       this.initializeCopy();
     }
-    this.updateStatusOfAllDuplicatedMatricules();
+    await this.updateStatusOfAllDuplicatedMatricules();
   }
 
   initializeCopy() {
@@ -375,16 +375,16 @@ export class MatriculeVerificationComponent implements OnInit {
       return;
     }
     this.getCurrentMatricule();
-    this.updateStatusOfAllDuplicatedMatricules(this.currentMatricule);
+    await this.updateStatusOfAllDuplicatedMatricules(this.currentMatricule);
     this.pdfLoadStarts();
     const formdata: FormData = new FormData();
-    formdata.append('job_id', this.job["job_id"]);
+    formdata.append('job_id', this.job.job_id);
     formdata.append('document_index', this.currentCopy.toString());
     formdata.append('matricule', this.currentMatricule.toString());
     this.userService.addTokens(formdata);
     try {
       const response = await this.http.post(`${SERVER_URL}matricule/update`, formdata).toPromise();
-      if (response["response"] === "OK") {
+      if (response['response'] === 'OK') {
         this.setValidatedStatus();
         this.nextCopy();
       }
@@ -444,16 +444,18 @@ export class MatriculeVerificationComponent implements OnInit {
     this.updateExamStatus('TO VALIDATE');
   }
 
-  async updateExamStatus(examStatus) {
+  async updateExamStatus(examStatus, copy = this.currentCopy) {
     const formdata: FormData = new FormData();
-    formdata.append('job_id', this.job["job_id"]);
-    formdata.append('document_index', this.currentCopy.toString());
+    formdata.append('job_id', this.job.job_id);
+    formdata.append('document_index', copy.toString());
     formdata.append('status', examStatus);
     this.userService.addTokens(formdata);
     try {
       await this.http.post(`${SERVER_URL}matricule/status/update`, formdata).toPromise();
-      this.currentExam().status = examStatus;
-      this.getCurrentMatricule();
+      if (copy === this.currentCopy) {
+        this.currentExam().status = examStatus;
+        this.getCurrentMatricule();
+      }
     } catch (error) {
       console.error('Erreur lors de la mise à jour du status:', error);
       this.notificationService.showError('Erreur lors de la mise à jour du status.', 'Erreur de validation');
@@ -461,21 +463,21 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   openwarningDialog(): void {
-    let dialogRef = this.dialog.open(WarningDialogComponent, {
+    const dialogRef = this.dialog.open(WarningDialogComponent, {
       width: '30%',
       height: '40%',
       data: "Êtes-vous sûr de vouloir finaliser même si toutes les copies n'ont pas été validées ?"
     });
-    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
+    dialogRef.afterClosed().pipe(first()).subscribe(async (result) => {
         if (result !== undefined && result === true) {
           this.disabledValidationcontainer = true;
           this.pdfLoadStarts();
-          let response = await this.validationService.validateJob(
+          const response = await this.validationService.validateJob(
             this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
-          if (response === "OK") {
+          if (response === 'OK') {
             this.router.navigate(['/tasks-history']);
-            const message = "La tâche est en cours de finalisation!";
-            this.notificationService.showInfo(message, "Alerte!")
+            const message = 'La tâche est en cours de finalisation!';
+            this.notificationService.showInfo(message, 'Alerte!');
             // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
           }
         }
@@ -488,46 +490,46 @@ export class MatriculeVerificationComponent implements OnInit {
 
   changeMatricule(selection): void {
     this.currentMatricule = Number(selection.matricule);
-    let exam = this.examsList[this.currentCopy];
-    exam["matricule"] = String(this.currentMatricule);
+    const exam = this.examsList[this.currentCopy];
+    exam.matricule = String(this.currentMatricule);
     this.getDuplicatedMatricules();
   }
 
   getDuplicatedMatricules(): void {
     // search for duplicated matricules
-    let mat = String(this.currentMatricule);
+    const mat = String(this.currentMatricule);
     let counter = 0;
-    let warning = "";
+    let warning = '';
     this.examsList.forEach((exam: any) => {
-      if (exam["status"] != 'DELETED' &&
-          exam["status"] != 'NOT_READY' &&
-          exam["matricule"] === mat &&
-          exam["document_index"] !== this.currentCopy) {
+      if (exam.status !== 'DELETED' &&
+          exam.status !== 'NOT_READY' &&
+          exam.matricule === mat &&
+          exam.document_index !== this.currentCopy) {
         if (counter < 3) {
           if (counter > 0) {
-            warning += ", ";
+            warning += ', ';
           }
-          warning += exam["document_index"] - this.initialCopyIndex + 1;
-        } else if (counter == 3) {
-          warning += " ..";
+          warning += exam.document_index - this.initialCopyIndex + 1;
+        } else if (counter === 3) {
+          warning += ' ..';
         }
         counter += 1;
       }
     });
     // update warning message for matricule
-    if (counter == 0) {
+    if (counter === 0) {
       this.currentMatriculeWarning = undefined;
     } else {
       this.currentMatriculeWarning = warning;
     }
   }
 
-  updateStatusOfAllDuplicatedMatricules(matricule = undefined): void {
-    let matricules = new Map<String, Array<any>>();
+  async updateStatusOfAllDuplicatedMatricules(matricule = undefined): Promise<void> {
+    const matricules = new Map<string, Array<any>>();
     this.examsList.forEach((exam: any) => {
-      if (exam["status"] != 'DELETED' &&
-          exam["status"] != 'NOT_READY' &&
-          (!matricule || exam.matricule === matricule)) {
+      if (exam.status !== 'DELETED' &&
+        exam.status !== 'NOT_READY' &&
+        (!matricule || exam.matricule === matricule)) {
         if (!matricules[exam.matricule]) {
           matricules[exam.matricule] = [];
         }
@@ -537,9 +539,12 @@ export class MatriculeVerificationComponent implements OnInit {
 
     for (const exams of Object.values(matricules)) {
       if (exams.length > 1) {
-        exams.forEach((exam: any) => {
-          exam.status = 'TO VALIDATE';
-        });
+        for (const exam of exams) {
+          if (exam.status !== 'TO VALIDATE') {
+            exam.status = 'TO VALIDATE';
+            await this.updateExamStatus(exam.status, exam.document_index);
+          }
+        }
       }
     }
   }
