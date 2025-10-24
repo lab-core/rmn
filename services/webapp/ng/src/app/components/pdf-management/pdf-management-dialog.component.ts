@@ -100,9 +100,9 @@ export class PdfManagementDialogComponent implements OnInit {
         }
         let i = mergedDocs[question].length - 1;
         rows[question].push([`${question}${i > 0 ? `_${i}` : ''}.pdf`,
-          exam["document_index"],
-          exam["grade"] != undefined ? exam["grade"] : ""]);
-        await this.addCopyIndex(pdfDoc, exam["document_index"]);
+          exam.document_index,
+          exam.grade !== undefined ? exam.grade : '']);
+        await this.addCopyIndex(pdfDoc, exam.document_index);
 
         const copiedPages = await cDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
         copiedPages.forEach((page) => {
@@ -332,14 +332,14 @@ export class PdfManagementDialogComponent implements OnInit {
 
     const grades = {};
     const mergedFiles = new Map<string, ArrayBuffer>();
-    const pdfNamesByIndex = new Map<string, string>();
+    const pdfFilesByIndex = new Map<string, string>();
     const mergedPDFDocs = {};
     const errorMessages = {};
     const errorCopies = {};
 
     this.percentageDone = 0;
     this.processing = true;
-    this.info = 'Loading (1/3)';
+    this.info = 'Loading (1/4)';
     let i = 0;
     try {
       const zipContent = await JSZip.loadAsync(file);
@@ -361,7 +361,7 @@ export class PdfManagementDialogComponent implements OnInit {
             suffix = suffix.slice(0, suffix.lastIndexOf('.'));  // remove extension
             suffix = suffix.replace('_', '');  // remove leading underscore if any
             const indexKey = suffix ? parseInt(suffix) : 0;
-            pdfNamesByIndex[1e6 * questionIndex + indexKey] = f;  // large multiplier to avoid collisions
+            pdfFilesByIndex[1e6 * questionIndex + indexKey] = f;  // large multiplier to avoid collisions
           }
 
           i++;
@@ -378,19 +378,19 @@ export class PdfManagementDialogComponent implements OnInit {
         }
       }
 
-      this.info = 'Processing (2/3)';
+      this.info = 'Processing (2/4)';
       // loading and merge PDFs based on their question indices
       // sort names to process them in the right order
-      const keys = Object.keys(pdfNamesByIndex);
+      const keys = Object.keys(pdfFilesByIndex);
       keys.sort();
       i = 0;
       for (const index of keys) {
+        const pdfFile = pdfFilesByIndex[index];
         try {
-          const name = pdfNamesByIndex[index];
-          const pdfDoc = await PDFDocument.load(mergedFiles[name]);
+          const pdfDoc = await PDFDocument.load(mergedFiles[pdfFile]);
 
           // recover question index
-          const match = name.match(/Q\d+(?=(_\d+)?.pdf$)/);
+          const match = pdfFile.match(/Q\d+(?=(_\d+)?.pdf$)/);
           const questionIndex = match[0];
 
           // initialize merged PDF doc if not already done
@@ -401,7 +401,7 @@ export class PdfManagementDialogComponent implements OnInit {
 
           const errorMessagesDoc = [];
           const pdfSubject = pdfDoc.getSubject();
-          const pdfName = name.split('/').length > 0 ? name.split('/').pop() : name;
+          const pdfName = pdfFile.split('/').length > 0 ? pdfFile.split('/').pop() : pdfFile;
           if (pdfSubject !== pdfName) {
             this.notificationService.showError(`The pdf document name has been changed or the subject metadata has been modified: ${pdfName} instead of ${pdfSubject}.`, 'Error');
             this.processing = false;
@@ -421,14 +421,14 @@ export class PdfManagementDialogComponent implements OnInit {
               }
             } catch (pdfError) {
               const p = j + 1;
-              const errorMessage = `Error checking annotation on page ${p} of document ${name}`;
+              const errorMessage = `Error checking annotation on page ${p} of document ${pdfFile}`;
               console.error(errorMessage, pdfError);
               errorMessagesDoc.push(j);
             }
           }
 
           const totalPageCount = pdfDoc.getPageCount();
-          console.log(`The document ${name} has ${totalPageCount} pages.`);
+          console.log(`The document ${pdfFile} has ${totalPageCount} pages.`);
 
           let k = 0;
           const pageCount = mergedPDFDocs[questionIndex].getPageCount();
@@ -441,11 +441,12 @@ export class PdfManagementDialogComponent implements OnInit {
             mergedPDFDocs[questionIndex].addPage(page);
           });
         } catch (pdfError) {
-          console.error(`Error processing merged file: ${name}`, pdfError);
-          this.notificationService.showError(`Error processing merged file: ${name}.`, 'Erreur');
+          console.error(`Error processing merged file: ${pdfFile}`, pdfError);
+          this.notificationService.showError(`Error processing merged file: ${pdfFile}.`, 'Erreur');
         }
         i++;
         this.percentageDone = 50 + Math.round(50 * i / keys.length);
+        console.log(`Processed ${i} / ${keys.length} merged files.`);
       }
 
       // processing each question index and replace the original documents
@@ -455,10 +456,12 @@ export class PdfManagementDialogComponent implements OnInit {
         const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
         nQuestionExams += totalPageCount / pagesPerQuestion;
       }
+      console.log(`Total number of exams to process: ${nQuestionExams}`);
 
-      this.info = 'Splitting (2/3)';
+      this.info = 'Splitting (3/4)';
       this.percentageDone = 0;
       i = 0;
+      console.log('Starting splitting merged documents...');
       for (const questionIndex of Object.keys(mergedPDFDocs)) {
         await this.timeout();
         const mergedDoc = mergedPDFDocs[questionIndex];
@@ -505,6 +508,7 @@ export class PdfManagementDialogComponent implements OnInit {
           }
           i++;
           this.percentageDone = Math.round(100 * i / nQuestionExams);
+          console.log(`Processed ${originalDoc.filename}: ${i} / ${nQuestionExams} original documents.`);
         }
       }
 
@@ -526,6 +530,10 @@ export class PdfManagementDialogComponent implements OnInit {
         const exam = this.data.examsList.find((e) => {
           return e.document_index === docIdx;
         });
+        if (!exam) {
+          console.log(`No exam found for document index: ${docIndex}`);
+          continue;
+        }
         exam.grade = grades[docIndex];
         const total = this.data.nMaxPointsPerQuestion.get(exam.question);
         if (exam.grade <= total + 1e-3) {
@@ -549,7 +557,7 @@ export class PdfManagementDialogComponent implements OnInit {
       uploadFormData.append('questions', 'true');
 
       this.percentageDone = 0;
-      this.info = 'Uploading (3/3)';
+      this.info = 'Uploading (4/4)';
       const sub = this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData,
         {reportProgress: true, observe: 'events'})
         .subscribe(
@@ -576,6 +584,7 @@ export class PdfManagementDialogComponent implements OnInit {
     } catch (zipError) {
       console.error('Error processing zip file:', zipError);
       this.notificationService.showError('Erreur lors du traitement du fichier zip', 'Erreur');
+      this.processing = false;
     }
   }
 }
