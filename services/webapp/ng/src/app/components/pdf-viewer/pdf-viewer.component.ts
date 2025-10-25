@@ -716,7 +716,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     // remove parts of the points => transform it in several paths
     const newPaths: BezierPath[] = [];
     let newPath: BezierPath = new BezierPath();
-    const bezierIndex = 0, radius2 = Math.pow(this.radius / this.getScaleFactor(), 2);
+    const radius2 = Math.pow(this.radius / this.getScaleFactor(), 2);
     let modified = false;
     for (const [x, y] of path.points) {
       // keep this (x,y) if far enough from center
