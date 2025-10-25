@@ -63,7 +63,7 @@ export class TaskShareDialogComponent implements OnInit {
     await this.http.post<any>(`${SERVER_URL}${this.data.shareType}/share`, formdata)
     .toPromise()
     .then(async (data: any) => {
-        let resp = data['response'];
+        const resp = data['response'];
         if (resp.share_url) {
           this.shareUrl = resp.share_url;
           this.group = "";
@@ -101,7 +101,7 @@ export class TaskShareDialogComponent implements OnInit {
     }
     this.http.post<any>(`${SERVER_URL}${this.data.shareType}/unshare`, formdata).pipe(first()).subscribe(
       (data) => {
-        let resp = {success: data['response'] === "OK"};
+        const resp = {success: data['response'] === "OK"};
         if (resp.success) {
           resp["message"] = "L'accès a été enlevé pour cette tâche.";
         } else {

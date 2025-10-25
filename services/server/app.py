@@ -1359,7 +1359,6 @@ def replace_document(validity):
                     args=[validity, job_id, grades, temp_file])
     thread.start()
 
-
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
@@ -1376,7 +1375,7 @@ def replace_thread(validity, job_id, grades, temp_file):
             }}
         )
         if q_doc is None:
-            print('Invalid document_index:', job_id, doc)
+            print('Invalid document_index:', job_id, doc_index)
             continue
 
         # validity = None => logged user
@@ -1460,6 +1459,7 @@ def tag_document(validity):
                 status=400,
             )
 
+    db = mongo["RMN"]
     db["job_questions"].update_one({
         "job_id": str(request_form["job_id"]),
         "document_index": int(request_form["document_index"])

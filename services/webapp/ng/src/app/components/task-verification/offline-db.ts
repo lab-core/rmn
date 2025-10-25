@@ -64,7 +64,7 @@ class OfflineDB extends Dexie {
 
   async getAllCopies(): Promise<OfflineCopy[]> {
     const allCopies: OfflineCopy[] = await db.copyItems.where({'jobId': this.jobId}).toArray();
-    for (let copy of allCopies) {
+    for (const copy of allCopies) {
       copy.pdfSrc = new PDFSource();
       await copy.pdfSrc.loadDict(copy.pdfSrcJSON);
     }
@@ -73,7 +73,7 @@ class OfflineDB extends Dexie {
 
   async saveAllCopies(copies: Map<number, OfflineCopy>) {
     const allCopies: OfflineCopy[] = [];
-    for (let copy of copies.values()) {
+    for (const copy of copies.values()) {
       copy.pdfSrcJSON = await copy.pdfSrc.toJSONDict();
       copy.jobId = this.jobId;
       allCopies.push(copy);
@@ -92,7 +92,7 @@ class OfflineDB extends Dexie {
 
   async deleteAllCopies(copies: Map<number, OfflineCopy>) {
     const keys: number[] = [];
-    for (let copy of copies.values()) {
+    for (const copy of copies.values()) {
       keys.push(copy.id);
     }
     await db.copyItems.bulkDelete(keys)

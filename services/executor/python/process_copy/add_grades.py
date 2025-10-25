@@ -2,6 +2,7 @@ from fpdf import FPDF
 from PIL import Image
 import img2pdf
 import os
+import shutil
 from process_copy.database import Database
 from process_copy.recognize import add_grades
 from utils.storage import Storage
@@ -46,8 +47,14 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11) ):
         grades = doc["grades"]
         grades.append(sum(grades))
 
+        # copy a backup of the original cover page
+        input_pdf_path_backup = input_pdf_path.replace(".pdf", "_nograde.pdf")
+        if not os.path.exists(input_pdf_path_backup):
+            shutil.copy(input_pdf_path, input_pdf_path_backup)
+
         try:
-            add_grades(grades, input_pdf_path, box_grades, img_path,  add_border=False, shape=shape)
+            # use backup to add grades (not to overwrite grades if re-processing)
+            add_grades(grades, input_pdf_path_backup, box_grades, img_path,  add_border=False, shape=shape)
         except Exception as e:
             print(f"Error while adding grades to {input_pdf_path}: {e}")
 

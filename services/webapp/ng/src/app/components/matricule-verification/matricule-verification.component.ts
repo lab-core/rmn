@@ -67,7 +67,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
-    let jobId = this.route.snapshot.queryParams['job_id'];
+    const jobId = this.route.snapshot.queryParams['job_id'];
     if (jobId) {
       this.tasksService.setvalidatingTaskId(jobId);
     }
@@ -193,7 +193,7 @@ export class MatriculeVerificationComponent implements OnInit {
     const sCopy = localStorage.getItem(`${this.tasksService.getvalidatingTaskId()}_copy`);
     if (sCopy != undefined) {
       const copy = parseInt(sCopy);
-      this.currentCopy = (copy - this.initialCopyIndex) % this.examsList.length + this.initialCopyIndex;
+      this.currentCopy = copy % this.examsList.length + this.initialCopyIndex;
     } else {
       this.currentCopy = this.initialCopyIndex;
     }
@@ -201,14 +201,15 @@ export class MatriculeVerificationComponent implements OnInit {
 
   setCurrentCopy(copy: number) {
     const jobId = this.tasksService.getvalidatingTaskId();
-    localStorage.setItem(`${jobId}_copy`, copy.toString());
     this.currentCopy = copy;
+    copy -= this.initialCopyIndex;
+    localStorage.setItem(`${jobId}_copy`, copy.toString());
   }
 
   getSubExamsList(): void {
     console.log("group", this.group);
     if (this.group) {
-      let subExamsList = [];
+      const subExamsList = [];
       this.examsList.forEach((exam: any) => {
         if (exam['group'] == this.group) {
           subExamsList.push(exam);
@@ -247,7 +248,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   async changeCurrentCopy(copyIndex: number, status: string, updateScroll: boolean=true) {
     if (status !== "NOT_READY") {
-        let exam = this.examsList[copyIndex-this.initialCopyIndex];
+        const exam = this.examsList[copyIndex-this.initialCopyIndex];
         console.log("Change current copy to", copyIndex);
         this.currentCopyName = exam.filename;
         this.setCurrentCopy(copyIndex);
@@ -261,17 +262,17 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   updateScrollPosition() {
-    let e = document.getElementById('files-list-container');  // scrollTop + clientHeight = scrollHeight
+    const e = document.getElementById('files-list-container');  // scrollTop + clientHeight = scrollHeight
     if (e && e.firstElementChild) {
-      let child = e.firstElementChild;
-      let r = e.clientWidth / child.clientWidth;
-      let nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
-      let nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
-      let subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentCopy);
-      let currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
-      let distanceTop = e.scrollHeight * currentRow / nRows;
+      const child = e.firstElementChild;
+      const r = e.clientWidth / child.clientWidth;
+      const nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
+      const nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
+      const subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentCopy);
+      const currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
+      const distanceTop = e.scrollHeight * currentRow / nRows;
       // goal is to be in the middle => clientHeight / 2
-      let targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
+      const targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
       if (targetScrollTop > 0) {
         e.scrollTop = targetScrollTop;
       }
@@ -313,7 +314,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   checkForAvailableCopies(): boolean {
     if (this.subExamsList.length == 0) return false;
-    let exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
+    const exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
     return exam != undefined;
   }
 
@@ -425,7 +426,7 @@ export class MatriculeVerificationComponent implements OnInit {
       this.disabledValidationcontainer = true;
       this.pdfLoadEnds();
       this.router.navigate(['/tasks-history']);
-      let message = "Les matricules ont été validés avec succès!";
+      const message = "Les matricules ont été validés avec succès!";
       this.notificationService.showInfo(message, "Alerte!")
       // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
     }
@@ -464,7 +465,8 @@ export class MatriculeVerificationComponent implements OnInit {
 
   openwarningDialog(): void {
     const dialogRef = this.dialog.open(WarningDialogComponent, {
-      width: '30%',
+      width: '80%',
+      maxWidth: '400px',
       height: '40%',
       data: "Êtes-vous sûr de vouloir finaliser même si toutes les copies n'ont pas été validées ?"
     });
@@ -579,7 +581,7 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   previousCopy(): void {
-    let tempIndex = this.previousCopyIndex();
+    const tempIndex = this.previousCopyIndex();
     if (tempIndex >= 0) {
       this.changeCurrentExam(tempIndex);
     }
@@ -595,7 +597,7 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   nextCopy(): void {
-    let tempIndex = this.nextCopyIndex();
+    const tempIndex = this.nextCopyIndex();
     if (tempIndex < this.examsList.length) {
       this.changeCurrentExam(tempIndex);
     }

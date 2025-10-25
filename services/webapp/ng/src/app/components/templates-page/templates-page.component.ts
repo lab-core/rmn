@@ -81,8 +81,8 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   }
 
   filterTemplates() {
-    let newList:Array<Map<string, string>> = [];
-    for(let template of this.allTemplatesList) {
+    const newList:Array<Map<string, string>> = [];
+    for(const template of this.allTemplatesList) {
       //filter by template name
       if(template["template_name"].toLowerCase().includes(this.filterSearch.toLowerCase())){
         newList.push(template);
@@ -110,7 +110,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
         this.userService.addTokens(formdata);
         formdata.append('template_id', template["template_id"]);
          this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
-            var file = new File([data], this.templateService.getName());
+            const file = new File([data], this.templateService.getName());
             this.templateService.setFile(file);
             await this.templateService.createNewTemplate(file);
             this.router.navigate(['/template-editor']);
@@ -136,15 +136,17 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   openNewTemplateDialog(): void {
     this.rectangleService.resetRects();
     this.dialog.open(NewTemplateDialogComponent, {
-        width: '40%',
+        width: '80%',
+        maxWidth: '500px',
         height: '60%',
     })
   }
 
 
   openDeleteDialog(template: Map<string, string>): void {
-    let dialogRef = this.dialog.open(WarningDialogComponent, {
-      width: '40%',
+    const dialogRef = this.dialog.open(WarningDialogComponent, {
+      width: '80%',
+      maxWidth: '500px',
       height: '50%',
       data: "Êtes-vous sur de vouloir supprimer le template?"
     })

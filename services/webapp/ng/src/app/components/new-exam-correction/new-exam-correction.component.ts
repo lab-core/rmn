@@ -226,8 +226,8 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   }
 
   updateSuffix(event: KeyboardEvent) {
-    let regex = new RegExp("^[a-zA-ZÀ-ÿ0-9\-\_\ ]+$");
-    let key = String.fromCharCode(!event.charCode ? event.which : event.charCode);
+    const regex = new RegExp("^[a-zA-ZÀ-ÿ0-9\-\_\ ]+$");
+    const key = String.fromCharCode(!event.charCode ? event.which : event.charCode);
     if (!regex.test(key)) {
       event.preventDefault();
     }
@@ -235,15 +235,15 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   }
 
   presentationCopiesFileEvent(fileInput: Event) {
-    let target = fileInput.target as HTMLInputElement;
-    let file: File = (target.files as FileList)[0];
+    const target = fileInput.target as HTMLInputElement;
+    const file: File = (target.files as FileList)[0];
     this.presentationCopiesName = file.name;
     this.presentationCopies = file;
   }
 
   latexFrontPageEvent(fileInput: Event) {
-    let target = fileInput.target as HTMLInputElement;
-    let file: File = (target.files as FileList)[0];
+    const target = fileInput.target as HTMLInputElement;
+    const file: File = (target.files as FileList)[0];
     this.latexFrontPageName = file.name;
     this.latexFrontPage = file;
   }
@@ -339,8 +339,8 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       document.getElementById("files-upload-label").innerHTML = "";
     }
 
-    let target = fileInput.target as HTMLInputElement;
-    let file: File = (target.files as FileList)[0];
+    const target = fileInput.target as HTMLInputElement;
+    const file: File = (target.files as FileList)[0];
     this.copiesName = file.name;
     document.getElementById("files-upload-label").setAttribute("value", this.copiesName);
     document.getElementById("files-upload-label").innerHTML = this.copiesName;
@@ -361,29 +361,29 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       document.getElementById("csv-upload-label").innerHTML = "";
     }
 
-    let target = fileInput.target as HTMLInputElement;
-    let file: File = (target.files as FileList)[0];
+    const target = fileInput.target as HTMLInputElement;
+    const file: File = (target.files as FileList)[0];
 
     // Verify csv file
-    var reader = new FileReader();
+    const reader = new FileReader();
     reader.onload = () => {
       // Entire file
       const text = String(reader.result);
 
       // By lines
       let validCSV = false;
-      var lines = text.split('\n');
+      const lines = text.split('\n');
       if (lines.length > 0) {
-        var line = lines[0];
-        let commas = (line.match(/,/g) || []).length;
-        let semicolumn = (line.match(/;/g) || []).length;
+        const line = lines[0];
+        const commas = (line.match(/,/g) || []).length;
+        const semicolumn = (line.match(/;/g) || []).length;
         validCSV = commas >= 3 || semicolumn >= 3;
         if (validCSV) {
-          let re_sep = commas >= 3 ? /,/g : /;/g;
-          let count = commas >= 3 ? commas : semicolumn;
+          const re_sep = commas >= 3 ? /,/g : /;/g;
+          const count = commas >= 3 ? commas : semicolumn;
           lines.forEach(line => {
             if (line) {
-              let lCount = (line.match(re_sep) || []).length;
+              const lCount = (line.match(re_sep) || []).length;
               if (lCount < count) {  // could be bigger if some separators are used between quotes
                 if (validCSV) {
                   this.notifyService.showError("Cette ligne est invalide: "+line, "ERREUR");
@@ -414,11 +414,11 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   }
 
   checkDisabled(): boolean {
-    let dropboxInput = this.getDropboxAttibute("files-dropbox-input");
-    let onedriveInput = this.getOneDriveAttibute("files-onedrive-input");
+    const dropboxInput = this.getDropboxAttibute("files-dropbox-input");
+    const onedriveInput = this.getOneDriveAttibute("files-onedrive-input");
 
-    let dropboxInputCSV = this.getDropboxAttibute("csv-dropbox-input");
-    let onedriveInputCSV = this.getOneDriveAttibute("csv-onedrive-input");
+    const dropboxInputCSV = this.getDropboxAttibute("csv-dropbox-input");
+    const onedriveInputCSV = this.getOneDriveAttibute("csv-onedrive-input");
 
     if (this.copiesName === "" && dropboxInput === null && onedriveInput === null) {
       return true;
@@ -433,20 +433,20 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
 
   async convertDownloadableFile() {
     if (this.getDropboxAttibute("files-dropbox-input") != null) {
-      let blob = await fetch(document.getElementById("files-dropbox-input").getAttribute("value")).then(r => r.blob());
+      const blob = await fetch(document.getElementById("files-dropbox-input").getAttribute("value")).then(r => r.blob());
       this.copies = new File([blob], document.getElementById("files-upload-label").getAttribute("value"));
     } else if (this.getOneDriveAttibute("files-onedrive-input") != null) {
-      let blob = await fetch(document.getElementById("files-onedrive-input").getAttribute("value")).then(r => r.blob());
+      const blob = await fetch(document.getElementById("files-onedrive-input").getAttribute("value")).then(r => r.blob());
       this.copies = new File([blob], document.getElementById("files-upload-label").getAttribute("value"));
     }
   }
 
   async convertDownloadableCSV() {
     if (this.getDropboxAttibute("csv-dropbox-input") != null) {
-      let blob = await fetch(document.getElementById("csv-dropbox-input").getAttribute("value")).then(r => r.blob());
+      const blob = await fetch(document.getElementById("csv-dropbox-input").getAttribute("value")).then(r => r.blob());
       this.csv = new File([blob], document.getElementById("csv-upload-label").getAttribute("value"));
     } else if (this.getOneDriveAttibute("csv-onedrive-input") != null) {
-      let blob = await fetch(document.getElementById("csv-onedrive-input").getAttribute("value")).then(r => r.blob());
+      const blob = await fetch(document.getElementById("csv-onedrive-input").getAttribute("value")).then(r => r.blob());
       this.csv = new File([blob], document.getElementById("csv-upload-label").getAttribute("value"));
     }
   }
@@ -547,8 +547,8 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       this.uploading = true;
       await this.convertDownloadableFile();
       await this.convertDownloadableCSV();
-      let front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
-      let regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
+      const front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
+      const regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
       if (!this.correct) {
         this.nPagesPerQuestion.clear();
         this.nMaxPointsPerQuestion.clear();
@@ -578,7 +578,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   saveTask() {
     if (this.doNotSaveTask) return;
 
-    var task = {
+    const task = {
       name: this.taskName,
       frontTemplate: this.selectedFrontTemplate,
       regularTemplate: this.selectedRegularTemplate,
@@ -613,9 +613,9 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       this.selectedFrontTemplate = task.frontTemplate;
       this.selectedRegularTemplate = task.regularTemplate;
       this.nQuestions = task.nQuestions;
-      for (let key in task.nPages) this.nPagesPerQuestion[key] = task.nPages[key];
-      for (let key in task.maxPoints) this.nMaxPointsPerQuestion[key] = task.maxPoints[key];
-      for (let key in task.bonus) this.bonusEnabledMap[key] = task.bonus[key];
+      for (const key in task.nPages) this.nPagesPerQuestion[key] = task.nPages[key];
+      for (const key in task.maxPoints) this.nMaxPointsPerQuestion[key] = task.maxPoints[key];
+      for (const key in task.bonus) this.bonusEnabledMap[key] = task.bonus[key];
       this.statisticsForStudents = task.stats;
 
       if (task.csv) {

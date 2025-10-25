@@ -27,14 +27,14 @@ export class UserService {
     this.role = localStorage.getItem('role')
     this.token = localStorage.getItem('token')
 
-    let saveImages = localStorage.getItem('saveVerifiedImages')
+    const saveImages = localStorage.getItem('saveVerifiedImages')
     this.saveVerifiedImages = (saveImages && saveImages != "undefined") ? JSON.parse(localStorage.getItem('saveVerifiedImages')) : false
 
-    let moodleInd = localStorage.getItem('moodleStructureInd')
+    const moodleInd = localStorage.getItem('moodleStructureInd')
     this.moodleStructureInd = (moodleInd && moodleInd != "undefined") ? JSON.parse(localStorage.getItem('moodleStructureInd')) : false
   }
 
-  private setShareToken(queryParams: any): void {
+  private setShareToken(queryParams): void {
     this.clearShareToken();
     if (queryParams.token) {
       this.shareToken = queryParams.token;
@@ -67,10 +67,10 @@ export class UserService {
     const formdata: FormData = new FormData();
     formdata.append('username', username);
     formdata.append('password', password);
-    let url = SERVER_URL + "login"
-    let resp = await this.http.post(url, formdata).toPromise();
+    const url = SERVER_URL + "login"
+    const resp = await this.http.post(url, formdata).toPromise();
     //Insert loading bar condition
-    let response = resp['response']
+    const response = resp['response']
     localStorage.setItem('user_id', response['username'])
     localStorage.setItem('role', response['role'])
     localStorage.setItem('token', response['token'])
@@ -100,7 +100,7 @@ export class UserService {
     formdata.append('role', role);
     if (this.saveVerifiedImages) formdata.append('saveVerifiedImages', "on");
     if (this.moodleStructureInd) formdata.append('moodleStructureInd', "on");
-    let url = SERVER_URL + "signup"
+    const url = SERVER_URL + "signup"
 
     return this.http.post(url, formdata)
   }

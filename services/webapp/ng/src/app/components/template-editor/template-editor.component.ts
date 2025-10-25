@@ -64,10 +64,10 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
 
   async loadTemplate() {
     // Apply page dimensions to the `<canvas>` element.
-    let canvas = document.getElementById("cv") as HTMLCanvasElement;
-    let context = canvas.getContext("2d");
+    const canvas = document.getElementById("cv") as HTMLCanvasElement;
+    const context = canvas.getContext("2d");
 
-    var img = new Image();
+    const img = new Image();
     img.onload = function(){
       canvas.height = img.height;
       canvas.width = img.width;
@@ -85,7 +85,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
       this.userService.addTokens(formdata);
       formdata.append('template_id', this.templateService.getId());
        this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
-          var file = new File([data], this.templateService.getName());
+          const file = new File([data], this.templateService.getName());
           this.templateService.setFile(file);
           await this.templateService.createNewTemplate(file);
           this.nQuestions = this.templateService.getNQuestions();

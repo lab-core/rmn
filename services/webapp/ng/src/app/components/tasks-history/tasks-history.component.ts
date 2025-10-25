@@ -86,9 +86,9 @@ export class TasksHistoryComponent implements OnInit {
     this.getTasks();
     this.socketService.join(this.userService.currentUsername)
     this.socketService.getSocket().on('job_status', async (params: any) => {
-      let resp = JSON.parse(params)
-      let job_id = resp.job_id;
-      let job_status = resp.status;
+      const resp = JSON.parse(params)
+      const job_id = resp.job_id;
+      const job_status = resp.status;
 
       const task = this.tasksList.find(task => task.job_id === job_id);
       if (task !== undefined) {
@@ -108,10 +108,10 @@ export class TasksHistoryComponent implements OnInit {
     });
 
     this.socketService.getSocket().on('document_ready', async (params: any) => {
-      let resp = JSON.parse(params)
-      let job_id = resp.job_id;
-      let lastN = resp.document_index;
-      let lastExecTime = resp.execution_time;
+      const resp = JSON.parse(params)
+      const job_id = resp.job_id;
+      const lastN = resp.document_index;
+      const lastExecTime = resp.execution_time;
       // let n_total_doc = resp.n_total_doc;
       this.tasksList.forEach(x => {
         if (x.job_id === job_id) {
@@ -162,14 +162,14 @@ export class TasksHistoryComponent implements OnInit {
               let lastExecTime = 0;
               let lastStatus = "NOT_READY";
 
-              let mapStatus = new Map<string, number>();
+              const mapStatus = new Map<string, number>();
               mapStatus.set("NOT_READY", 0);
               mapStatus.set("VALIDATED", 1);
               mapStatus.set("TO VALIDATE", 1);
               mapStatus.set("HIGH ACCURACY", 1);
               mapStatus.set("READY", 2);
 
-              let response = data["response"];
+              const response = data["response"];
               response.forEach(y => {
                 if ((x.job_status === "RUN" && mapStatus.get(y.status) === 1) || (x.job_status === "FINALIZING" && mapStatus.get(y.status) === 2)) {
                   lastN = y.document_index;
@@ -215,8 +215,9 @@ export class TasksHistoryComponent implements OnInit {
 
   openDeleteDialog(jobId: string): void {
     const task = this.tasksList.find(task => { return task.job_id == jobId });
-    let dialogRef = this.dialog.open(WarningDialogComponent, {
-      width: '40%',
+    const dialogRef = this.dialog.open(WarningDialogComponent, {
+      width: '80%',
+      maxWidth: '500px',
       height: '50%',
       data: "Êtes-vous sur de vouloir supprimer la tâche " + task.job_name + " ?"
     })
@@ -248,8 +249,9 @@ export class TasksHistoryComponent implements OnInit {
   }
 
   shareJob(jobId: string, jobName: string): void {
-    let dialogRef = this.dialog.open(TaskShareDialogComponent, {
-      width: '30%',
+    const dialogRef = this.dialog.open(TaskShareDialogComponent, {
+      width: '80%',
+      maxWidth: '300px',
       height: '40%',
       data: {taskId: jobId, taskName: jobName, shareType: 'job', all: true}
     });
@@ -268,7 +270,7 @@ export class TasksHistoryComponent implements OnInit {
   }
 
   retryJob(task: any): void {
-    let dialogRef = this.dialog.open(TaskRetryDialogComponent, {
+    const dialogRef = this.dialog.open(TaskRetryDialogComponent, {
       data: {taskId: task.job_id, taskName: task.job_name, taskMessages: task.job_infos},
       height: '90%',
       width: '80%',
@@ -288,15 +290,16 @@ export class TasksHistoryComponent implements OnInit {
   }
 
   goToDashBoard(task: any) {
-    if (task.job_status === 'ARCHIVED') {
-      this.openTaskFilesDialog(task);
-    }
-    else if (task.job_status === 'IGNORED' ||
+    // if (task.job_status === 'ARCHIVED') {
+    //   this.openTaskFilesDialog(task);
+    // }
+    if (task.job_status === 'IGNORED' ||
              task.job_status === 'QUEUED' ||
              task.job_status === 'RUN' ||
              task.job_status === 'VALIDATION' ||
              task.job_status === 'VALIDATED' ||
-             task.job_status === 'FINALIZING') {
+             task.job_status === 'FINALIZING' ||
+             task.job_status === 'ARCHIVED') {
       this.router.navigate(['/dashboard', task.job_id]);
     } else if (task.job_status === 'RETRY') {
       this.retryJob(task);
@@ -320,8 +323,9 @@ export class TasksHistoryComponent implements OnInit {
     formdata.append('job_id', task.job_id);
     this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).pipe(first()).subscribe(
       (data) => {
-        let dialogRef = this.dialog.open(TaskFilesDialogComponent, {
-          width: '40%',
+        const dialogRef = this.dialog.open(TaskFilesDialogComponent, {
+          width: '80%',
+          maxWidth: '600px',
           height: '90%',
           data: { taskId: task.job_id, nbZipFile: data['nZips'], stats: data['stats'] }
         })

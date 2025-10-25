@@ -19,7 +19,7 @@
             </div>
             <div class="files-list-container" [ngStyle]="{'height': filesListHeight()}" id="files-list-container">
                 <div class="file-container" *ngFor="let exam of subExamsList; let i = index"
-                    (click)="changeCurrentCopy(exam.document_index, exam.status, false)">
+                    (click)="changeCurrentDocumentIndex(exam.document_index, exam.status, false)">
                     <div class="disabled-copy" *ngIf="exam.status == 'NOT_READY'">
                         <strong>{{formattedIndexes[i]}}</strong>
                         <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
@@ -132,7 +132,7 @@
         </div>
     </div>
     <div *ngIf="isSidebarHidden && currentCopy >= 0" [ngClass]="isSidebarHidden ? 'page-count' : 'page-count margin-left'">
-        {{ (subExamsList.length > 0 ?  currentIndex() % subExamsList.length + 1 : 0) }} / {{subExamsList.length}}
+        {{ (subExamsList.length > 0 ?  currentSubCopy() + 1 : 0) }} / {{subExamsList.length}}
     </div>
 </div>
 <button mat-button *ngIf="(loggued() || shareAll) && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>

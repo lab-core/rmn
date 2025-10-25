@@ -4,7 +4,7 @@
     <div class="task-header">
       <h1>{{ taskName }}</h1>
     </div>
-    <div class="select-index-container">
+    <div class="select-index-container" *ngIf="!disableButtons">
         <p>Recherche index: </p>
         <div class="index-input-div">
             <ng-select id="copy" [items]="copiesList" bindLabel="identifiant"
@@ -13,11 +13,11 @@
                 [(ngModel)]="copySelection">
             </ng-select>
         </div>
-        <p>{{ this.copySelection ? (this.copySelection.index || "N/A") : "" }}</p>
-        <button class="select-index-button" *ngIf="this.copySelection && this.copySelection.index" mat-raised-button color="primary" (click)="selectCopy()">Sélectionner</button>
+        <p>{{ this.copySelection ? (this.copySelection.copy + 1 || "N/A") : "" }}</p>
+        <button class="select-index-button" *ngIf="this.copySelection" mat-raised-button color="primary" (click)="selectCopy()">Sélectionner</button>
     </div>
     <div class="task-content">
-      <table *ngIf="task && task.job_status !== 'ARCHIVED'">
+      <table *ngIf="task">
         <thead>
           <tr>
             <th>Questions</th>
@@ -40,7 +40,7 @@
             <td>{{ question.validatedCount }} / {{ question.count }}</td>
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
             <td>
-                <input *ngIf="question.name != 'Total'" type="checkbox" [(ngModel)]="question.bonus" (change)="questionBonusChange(question)" [ngModelOptions]="{standalone: true}">
+                <input *ngIf="question.name != 'Total'" type="checkbox" [(ngModel)]="question.bonus" [disabled]="disableButtons" (change)="questionBonusChange(question)" [ngModelOptions]="{standalone: true}">
             </td>
             <td class="action-buttons">
               <button class="correct-button" *ngIf="!disableButtons" mat-raised-button color="primary" (click)="correctQuestion(i)">Corriger</button>
@@ -71,7 +71,7 @@
         </div>
       </div>
       <div class="validate-job-container" *ngIf="disableButtons && task.job_status === 'ARCHIVED'">
-        <button class="validate-job-button" mat-raised-button color="warn" (click)="openTaskFilesDialog()">Télécharger</button>
+        <button class="validate-job-button" mat-raised-button color="warn" (click)="openTaskFilesDialog()">Télécharger copies</button>
       </div>
     </div>
   </div>

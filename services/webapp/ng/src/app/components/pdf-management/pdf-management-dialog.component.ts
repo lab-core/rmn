@@ -55,7 +55,7 @@ export class PdfManagementDialogComponent implements OnInit {
   }
 
   async ngOnInit() {
-    let e = document.getElementById('maxCopies') as HTMLInputElement;
+    const e = document.getElementById('maxCopies') as HTMLInputElement;
     e.value = this.maxCopiesPerPdf.toString();
   }
 
@@ -98,7 +98,7 @@ export class PdfManagementDialogComponent implements OnInit {
         if (!rows[question]) {
           rows[question] = [["Fichier", "Index", "Note"]];
         }
-        let i = mergedDocs[question].length - 1;
+        const i = mergedDocs[question].length - 1;
         rows[question].push([`${question}${i > 0 ? `_${i}` : ''}.pdf`,
           exam.document_index,
           exam.grade !== undefined ? exam.grade : '']);
@@ -130,7 +130,7 @@ export class PdfManagementDialogComponent implements OnInit {
     for (const question of Object.keys(rows)) {
       let csvContent = "";
       rows[question].forEach((rowArray) => {
-        let row = rowArray.join(this.csvSeparator);
+        const row = rowArray.join(this.csvSeparator);
         csvContent += row + "\r\n";
       });
       zip.file(`${question}/notes.csv`, csvContent);

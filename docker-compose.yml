@@ -27,7 +27,9 @@ services:
    volumes:
      - ./storage:/Executor/storage
   server:
-    build: ./services/server
+    build:
+      context: ./services/server
+      dockerfile: Dockerfile-dev
     restart: always
     # ports:
     #   - "5000:5000"

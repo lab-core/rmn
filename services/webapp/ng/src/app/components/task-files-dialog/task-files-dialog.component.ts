@@ -47,7 +47,7 @@ export class TaskFilesDialogComponent implements OnInit {
   }
 
   setZipIds(index : number) : string{
-    let value : string = "zip_file-index-" + index.toString();
+    const value : string = "zip_file-index-" + index.toString();
     return value;
   }
 
@@ -103,7 +103,7 @@ export class TaskFilesDialogComponent implements OnInit {
     await this.http.post<any>(`${SERVER_URL}file/share`, formdata)
     .toPromise()
     .then(async (data: any) => {
-      let resp = data['response'];
+      const resp = data['response'];
       if (resp.share_url) {
         const download = document.getElementById('download-file');
         // const download = document.createElement('download-file');
@@ -119,9 +119,10 @@ export class TaskFilesDialogComponent implements OnInit {
   }
 
   shareTask(inputValue, inputId, index=undefined) {
-    let data = { taskId: this.data.taskId, taskName: inputValue, file: inputId, shareType: 'file', zip_index: index}
+    const data = { taskId: this.data.taskId, taskName: inputValue, file: inputId, shareType: 'file', zip_index: index}
     this.dialog.open(TaskShareDialogComponent, {
       width: '30%',
+      maxWidth: '400px',
       height: '40%',
       data: data
     }).afterClosed().pipe(first()).subscribe(resp => {
@@ -163,7 +164,7 @@ export class TaskFilesDialogComponent implements OnInit {
               typeExport = 'application/pdf'
             }
             const file = new Blob([data.body as any], { type: typeExport });
-            let downloadURL = window.URL.createObjectURL(file);
+            const downloadURL = window.URL.createObjectURL(file);
             // const download = document.createElement('download-file');
             // download.setAttribute("href", downloadURL);
             // download.setAttribute("download", filename);

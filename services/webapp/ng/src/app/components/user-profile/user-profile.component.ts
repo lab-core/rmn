@@ -23,15 +23,17 @@ export class UserProfileComponent implements OnInit {
 
 
   openChangePasswordDialog(): void {
-    let dialogRef = this.dialog.open(ChangePasswordDialogComponent, {
-        width: '30%',
+    const dialogRef = this.dialog.open(ChangePasswordDialogComponent, {
+        width: '80%',
+        maxWidth: '400px',
         height: '60%'
       })
   }
 
   openCreateUserDialog(): void {
-    let dialogRef = this.dialog.open(CreateUserDialogComponent, {
-      width: '30%',
+    const dialogRef = this.dialog.open(CreateUserDialogComponent, {
+      width: '80%',
+      maxWidth: '600px',
       height: '73%'
     })
   }
