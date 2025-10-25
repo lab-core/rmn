@@ -27,7 +27,7 @@ export class ChangePasswordDialogComponent implements OnInit {
   }
 
   updateCharacters(event: KeyboardEvent) {
-    let regex = new RegExp("^[a-zA-ZÀ-ÿ0-9.@!#%$?_-]+$");
+    const regex = new RegExp("^[a-zA-ZÀ-ÿ0-9.@!#%$?_-]+$");
     if (!regex.test(event.key)) {
       event.preventDefault();
    }
@@ -57,7 +57,7 @@ export class ChangePasswordDialogComponent implements OnInit {
           this.dialogRef.close('');
         },
         (error) => {
-          let errorResponse = error['error']['response']
+          const errorResponse = error['error']['response']
 
           this.notification.showError(errorResponse != null? errorResponse : "Erreur lors du changement de mot de passe", 'Erreur')
         });

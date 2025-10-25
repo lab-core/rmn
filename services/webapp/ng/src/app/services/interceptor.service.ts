@@ -32,7 +32,7 @@ export class ErrorInterceptor implements HttpInterceptor {
         if (warningMsg) {
           if (error.error instanceof Blob) {
             error.error.text().then(data => {
-              let errorMsg = JSON.parse(data).Error;
+              const errorMsg = JSON.parse(data).Error;
               this.notificationService.showError(errorMsg, "Erreur !");
             });
           } else {

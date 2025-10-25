@@ -33,7 +33,7 @@ class EraserChange {
   }
 
   getInkAnnotations() {
-    let inkAnnotations = new Array<InkEditorAnnotation>();
+    const inkAnnotations = new Array<InkEditorAnnotation>();
     this.newAnnotations.forEach(annotation => {
       if (annotation.paths.length > 0) {
         inkAnnotations.push(annotation.getInkAnnotation());
@@ -56,7 +56,7 @@ class BezierPath {
   }
 
   toObject() {
-    let points = [], bezier = [];
+    const points = [], bezier = [];
     this.points.forEach(([x,y]) => {
       points.push(y);
       points.push(x);
@@ -110,13 +110,13 @@ class BezierAnnotation {
     this.rect = inkAnnotation.rect;
     this.paths = [];
     inkAnnotation.paths.forEach(path => {
-      let newPath = new BezierPath();
+      const newPath = new BezierPath();
       for (let i = 0; i < path.points.length; i+=2) {
-        let y = path.points[i], x = path.points[i+1];
+        const y = path.points[i], x = path.points[i+1];
         newPath.pushPoint(x, y);
       }
       for (let i = 0; i < path.bezier.length; i+=2) {
-        let y = path.bezier[i], x = path.bezier[i+1];
+        const y = path.bezier[i], x = path.bezier[i+1];
         newPath.pushBezierPoint(x, y);
       }
       this.paths.push(newPath);
@@ -139,7 +139,7 @@ class BezierAnnotation {
   computeRectangle() {
     const rect = [undefined, undefined, undefined, undefined];
     this.paths.forEach(path => {
-      for (let [x, y] of [...path.points, ...path.bezier]) {
+      for (const [x, y] of [...path.points, ...path.bezier]) {
         if (rect[0] === undefined || y < rect[0]) rect[0] = y;
         if (rect[1] === undefined || x < rect[1]) rect[1] = x;
         if (rect[2] === undefined || y > rect[2]) rect[2] = y;
@@ -339,7 +339,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     // if any ink annotations to remove
     else if (inkAnnotations.length > 0) {
       // get last annotation
-      let lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1];
+      const lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1];
       // remove last element
       if (lastInkAnnotation.paths.length > 1) {
         change.rect = lastInkAnnotation.rect;
@@ -365,7 +365,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       const change: AnnotationsChange = this.annotationsHistory.pop();
       if (change.path) {
         const inkAnnotations: InkEditorAnnotation[] = this.getInkAnnotations();
-        let lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1];
+        const lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1];
         lastInkAnnotation.paths.push(change.path);
         lastInkAnnotation.rect = change.rect;
         this.replaceAllInkAnnotations(inkAnnotations);
@@ -373,8 +373,8 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
         this.addAnnotation(change.annotation);
         this.nInkAnnotations += 1;
       } else {
-        let eraserChange: EraserChange = change.eraser;
-        let inkAnnotations = eraserChange.getInkAnnotations();
+        const eraserChange: EraserChange = change.eraser;
+        const inkAnnotations = eraserChange.getInkAnnotations();
         this.replaceAllInkAnnotations(inkAnnotations);
         this.nInkAnnotations = eraserChange.nInkAnnotations;
         this.eraserHistory.push(eraserChange);
@@ -410,7 +410,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
 
   private cleanInkEditors() {
     // disable ink annotation pointers event
-    let editorColl = document.getElementsByClassName('inkEditor');
+    const editorColl = document.getElementsByClassName('inkEditor');
     // add new rendered canvas
     for (let i = 0; i < editorColl.length; i++) {
       const element = editorColl[i];
@@ -428,7 +428,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     // disable ink annotation pointers event
-    let annotationColl = document.getElementsByClassName('inkAnnotation');
+    const annotationColl = document.getElementsByClassName('inkAnnotation');
     for (let i = 0; i < annotationColl.length; i++) {
       annotationColl[i]['style']['pointerEvents'] = 'none';
     }
@@ -437,7 +437,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   private observeAnnotationEditorLayer() {
     // Options for the observer (which mutations to observe)
     const config = { childList: true };
-    var that = this;
+    const that = this;
 
     // Select the node that will be observed for mutations
     const editorColl = document.getElementsByClassName("annotationEditorLayer");
@@ -461,9 +461,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   closeOpenEditors() {
-    let toolColl = document.getElementsByClassName('toolbarButton');
+    const toolColl = document.getElementsByClassName('toolbarButton');
     for (let i = 0; i < toolColl.length; i++) {
-      let eTool = toolColl[i] as HTMLButtonElement;
+      const eTool = toolColl[i] as HTMLButtonElement;
       // toolColl[i]['classList'].remove('toggled');
       if (eTool['id'].includes('Editor') && eTool['classList'].contains('toggled')) {
         eTool.click();
@@ -505,7 +505,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.removeCanvasListeners();
     // register event for each page canvas
     this.eventListeners = [];
-    let wrapperColl = document.getElementsByClassName('textLayer');
+    const wrapperColl = document.getElementsByClassName('textLayer');
     for (let i = 0; i < wrapperColl.length; i++) {
       // const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
       const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
@@ -519,7 +519,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       eventListeners['pointerleave'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
       eventListeners['pointermove'] = function(event: PointerEvent) { return self.onEraserMove(i, event) };
       eventListeners['touchmove'] = function(event: TouchEvent) { return self.onTouchMove(i, event) };
-      for (let k in eventListeners) {
+      for (const k in eventListeners) {
         canvas.addEventListener(k, eventListeners[k], { passive: false });
       }
       this.eventListeners.push(eventListeners);
@@ -527,12 +527,12 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private removeCanvasListeners() {
-    let wrapperColl = document.getElementsByClassName('textLayer');
+    const wrapperColl = document.getElementsByClassName('textLayer');
     for (let i = 0; i < this.eventListeners.length; i++) {
       // remove the listeners on the child if the canvas still exists
       if (wrapperColl[i]) {
         const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
-        for (let k in this.eventListeners[i]) {
+        for (const k in this.eventListeners[i]) {
           canvas.removeEventListener(k, this.eventListeners[i][k]);
         }
         canvas['classList'].remove('inkErasing');
@@ -548,28 +548,28 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       this.canvases.set(i, []);
     }
     // store ink editor canvas associated with each page
-    let inkEditorColl = document.getElementsByClassName('inkEditor');
+    const inkEditorColl = document.getElementsByClassName('inkEditor');
     for (let i = 0; i < inkEditorColl.length; i++) {
       const element = inkEditorColl[i];
       if (element['childNodes'].length > 1) {
         const canvas: HTMLCanvasElement = element['childNodes'][1] as HTMLCanvasElement;
-        let grandParent = element['parentNode']['parentNode'];
-        let label = grandParent['ariaLabel'];
-        let page = parseInt(label.match(/\d+/)[0]) - 1;
+        const grandParent = element['parentNode']['parentNode'];
+        const label = grandParent['ariaLabel'];
+        const page = parseInt(label.match(/\d+/)[0]) - 1;
         this.canvases.get(page).push(canvas);
       }
     }
   }
 
   private enableAnnotationLayers() {
-    let wrapperColl = document.getElementsByClassName('annotationEditorLayer');
+    const wrapperColl = document.getElementsByClassName('annotationEditorLayer');
     for (let i = 0; i < wrapperColl.length; i++) {
       wrapperColl[i]['classList'].remove('disabled');
     }
   }
 
   private disableAnnotationLayers() {
-    let wrapperColl = document.getElementsByClassName('annotationEditorLayer');
+    const wrapperColl = document.getElementsByClassName('annotationEditorLayer');
     for (let i = 0; i < wrapperColl.length; i++) {
       wrapperColl[i]['classList'].add('disabled');
     }
@@ -611,7 +611,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     if (eraserChange.used) {
       this.pdfModified = true;
       this.annotationsHistory = [];  // flush history as erasing
-      let inkAnnotations = eraserChange.getInkAnnotations();
+      const inkAnnotations = eraserChange.getInkAnnotations();
       this.replaceAllInkAnnotations(inkAnnotations);
       eraserChange.nInkAnnotations = inkAnnotations.length;
     } else {
@@ -652,9 +652,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private getScaleFactor() {
-    let viewer = document.getElementById('viewer');
-    let style = viewer['style']['cssText'];
-    let matches = style.match(/\d+\.\d+/);
+    const viewer = document.getElementById('viewer');
+    const style = viewer['style']['cssText'];
+    const matches = style.match(/\d+\.\d+/);
     return parseFloat(matches[0]);
   }
 
@@ -716,11 +716,11 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     // remove parts of the points => transform it in several paths
     const newPaths: BezierPath[] = [];
     let newPath: BezierPath = new BezierPath();
-    let bezierIndex = 0, radius2 = Math.pow(this.radius / this.getScaleFactor(), 2);
+    const bezierIndex = 0, radius2 = Math.pow(this.radius / this.getScaleFactor(), 2);
     let modified = false;
-    for (let [x, y] of path.points) {
+    for (const [x, y] of path.points) {
       // keep this (x,y) if far enough from center
-      let dist = Math.pow(x-centerX, 2) + Math.pow(y-centerY, 2);
+      const dist = Math.pow(x-centerX, 2) + Math.pow(y-centerY, 2);
       if (dist >= radius2) {
         newPath.pushPoint(x, y);
       } else {
@@ -749,7 +749,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     const scaleFactor = this.getScaleFactor();
     // 1- flip origin. Canvas => top left, Annotations => bottom right
     const rect = canvas.getBoundingClientRect();
-    let pX = rect.width - cX, pY = rect.height - cY;
+    const pX = rect.width - cX, pY = rect.height - cY;
     // 2- Change scale
     return [pX / scaleFactor, pY / scaleFactor]
   }
@@ -758,7 +758,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     // rewrite current pointer position into the points coordinates with the right scale
     const scaleFactor = this.getScaleFactor();
     // 1- Change scale
-    let cX = pX * scaleFactor, cY = pY * scaleFactor;
+    const cX = pX * scaleFactor, cY = pY * scaleFactor;
     // 2- flip origin. Canvas => top left, Annotations => bottom right
     return [canvas.width - cX, canvas.height - cY]
   }

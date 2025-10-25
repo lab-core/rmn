@@ -26,10 +26,11 @@
     flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
+    margin: auto;
 }
 
 .file-input-div{
-    width: 80%;
+    width: 60%;
     height: 100%;
     margin: auto;
     transform: translate(0, 15px);

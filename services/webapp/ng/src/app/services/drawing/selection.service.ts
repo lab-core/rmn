@@ -22,14 +22,14 @@ export class SelectionService {
     this.selectedRect = null;
     this.selectedCircle = null;
 
-    let indentificationRect = document.querySelector('#identification');
+    const indentificationRect = document.querySelector('#identification');
     if(indentificationRect !== null){
       indentificationRect.setAttribute( 'cursor', 'grab');
 
       this.createControlPoints(indentificationRect, 'identification');
     }
 
-    let questionsRect = document.querySelector('#questions');
+    const questionsRect = document.querySelector('#questions');
     if(questionsRect !== null){
       questionsRect.setAttribute( 'cursor', 'grab');
 
@@ -39,7 +39,7 @@ export class SelectionService {
 
   
   mouseDown(event: MouseEvent): void  {
-    let selectedElement = event.target as SVGGraphicsElement;
+    const selectedElement = event.target as SVGGraphicsElement;
     if (selectedElement.tagName === 'rect'){
       this.selectedRect = selectedElement;
       this.selectedRect.setAttribute( 'cursor', 'grabbing');
@@ -51,7 +51,7 @@ export class SelectionService {
       this.rectOffsetY = event.offsetY - rectY;
     }else if (selectedElement.tagName === 'circle'){
       this.selectedCircle = selectedElement;
-      let assignedRect = '#' + this.selectedCircle.getAttribute('id').split('-')[0];
+      const assignedRect = '#' + this.selectedCircle.getAttribute('id').split('-')[0];
       this.selectedRect = document.querySelector(assignedRect);
     }
   }
@@ -90,7 +90,7 @@ export class SelectionService {
 
 
   createControlPoints(rectangle : Element, type : string){
-    let controlPointsCoords = {};
+    const controlPointsCoords = {};
 
     //circle placed at half the rect width on top
     let circleX = Number(rectangle.getAttribute('x')) + (Number(rectangle.getAttribute('width'))/2);
@@ -117,7 +117,7 @@ export class SelectionService {
     controlPointsCoords[id] = [circleX, circleY];
 
     Object.keys(controlPointsCoords).forEach(key=>{
-      let svgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      const svgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       svgCircle.setAttribute('cx', controlPointsCoords[key][0].toString());
       svgCircle.setAttribute( 'cy', controlPointsCoords[key][1].toString());
       svgCircle.setAttribute( 'r', "7");
@@ -139,8 +139,8 @@ export class SelectionService {
 
 
   moveControlPoints(rectangle : SVGGraphicsElement, coordX : number, coordY : number, scalingX2 : boolean, scalingY2 : boolean){
-    let controlPointsCoords = {};
-    let type = rectangle.getAttribute('id')
+    const controlPointsCoords = {};
+    const type = rectangle.getAttribute('id')
 
     //circle placed at half the rect width on top
     let circleX = coordX + (Number(rectangle.getAttribute('width'))/2);
@@ -171,8 +171,8 @@ export class SelectionService {
     }
 
     Object.keys(controlPointsCoords).forEach(key=>{
-      let queryId = '#' + key
-      let svgCircle = document.querySelector(queryId);
+      const queryId = '#' + key
+      const svgCircle = document.querySelector(queryId);
       svgCircle.setAttribute('cx', controlPointsCoords[key][0].toString());
       svgCircle.setAttribute( 'cy', controlPointsCoords[key][1].toString());
     })
@@ -181,18 +181,18 @@ export class SelectionService {
 
 
   scaleControlPoints(event: MouseEvent){
-    let rectX1 = Number(this.selectedRect.getAttribute('x'));
-    let rectY1 = Number(this.selectedRect.getAttribute('y'));
+    const rectX1 = Number(this.selectedRect.getAttribute('x'));
+    const rectY1 = Number(this.selectedRect.getAttribute('y'));
 
     if (this.selectedCircle.getAttribute('id').includes("circleX1")){
-      let newHeight = Number(this.selectedRect.getAttribute('height')) - (event.offsetY - rectY1);
+      const newHeight = Number(this.selectedRect.getAttribute('height')) - (event.offsetY - rectY1);
       if(newHeight >= 18 ){
         this.selectedRect.setAttribute( 'y', event.offsetY.toString());
         this.selectedRect.setAttribute( 'height', newHeight.toString());
       }
       this.moveControlPoints(this.selectedRect,rectX1, rectY1, true, false);
     }else if (this.selectedCircle.getAttribute('id').includes("circleX2")){
-      let newHeight = event.offsetY - rectY1;
+      const newHeight = event.offsetY - rectY1;
       if(newHeight < 18 ){
         this.selectedRect.setAttribute( 'height', '18');
       }else{
@@ -200,14 +200,14 @@ export class SelectionService {
       }
       this.moveControlPoints(this.selectedRect,rectX1, rectY1, false, false);
     }else if (this.selectedCircle.getAttribute('id').includes("circleY1")){
-      let newWidth = Number(this.selectedRect.getAttribute('width')) - (event.offsetX - rectX1);
+      const newWidth = Number(this.selectedRect.getAttribute('width')) - (event.offsetX - rectX1);
       if(newWidth >= 18 ){
         this.selectedRect.setAttribute( 'x', event.offsetX.toString());
         this.selectedRect.setAttribute( 'width', newWidth.toString());
       }
       this.moveControlPoints(this.selectedRect,rectX1, rectY1, false, true);
     }else if (this.selectedCircle.getAttribute('id').includes("circleY2")){
-      let newWidth = event.offsetX - rectX1;
+      const newWidth = event.offsetX - rectX1;
       if(newWidth < 18 ){
         this.selectedRect.setAttribute( 'width', '18');
       }else{
@@ -245,7 +245,7 @@ export class SelectionService {
     const rectX2 = Number(this.selectedRect.getAttribute('width')) + rectX1;
     const rectY2 = Number(this.selectedRect.getAttribute('height')) + rectY1;
 
-    let rectCoord = {x1:(rectX1/svgContainerWidth)*100, x2:(rectX2/svgContainerWidth)*100, y1:(rectY1/svgContainerHeight)*100, y2:(rectY2/svgContainerHeight)*100};
+    const rectCoord = {x1:(rectX1/svgContainerWidth)*100, x2:(rectX2/svgContainerWidth)*100, y1:(rectY1/svgContainerHeight)*100, y2:(rectY2/svgContainerHeight)*100};
 
     if (this.selectedRect.getAttribute('id') === 'identification'){
       this.rectangleService.setIdentificationRectCoords(rectCoord);
@@ -283,14 +283,14 @@ export class SelectionService {
       this.checkForOutOfBounds();
     }
     else if (rectX2 > svgContainerWidth){
-      let difference = rectX2 - svgContainerWidth;
+      const difference = rectX2 - svgContainerWidth;
       this.selectedRect.setAttribute('x', (Number(rectX1) - difference).toString());
       this.selectedRect.setAttribute( 'y',  rectY1);
       this.moveControlPoints(this.selectedRect,(Number(rectX1) - difference),Number(rectY1),false,false);
       this.checkForOutOfBounds();
     }
     else if (rectY2 > svgContainerHeight){
-      let difference = rectY2 - svgContainerHeight;
+      const difference = rectY2 - svgContainerHeight;
       this.selectedRect.setAttribute('x', rectX1);
       this.selectedRect.setAttribute( 'y',  (Number(rectY1) - difference).toString());
       this.moveControlPoints(this.selectedRect,Number(rectX1),(Number(rectY1) - difference),false,false);

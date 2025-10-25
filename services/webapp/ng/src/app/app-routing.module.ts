@@ -1,19 +1,18 @@
-import { NgModule, inject } from '@angular/core';
-import { ActivatedRouteSnapshot, CanActivateFn, RouterStateSnapshot, RouterModule, Routes } from '@angular/router';
+import { inject, NgModule } from '@angular/core';
+import { ActivatedRouteSnapshot, CanActivateFn, RouterModule, RouterStateSnapshot, Routes } from '@angular/router';
+import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
 import { LoginPageComponent } from './components/login-page/login-page.component';
 import { MainMenuComponent } from './components/main-menu/main-menu.component';
-import { TasksHistoryComponent } from './components/tasks-history/tasks-history.component';
-import { TemplatesPageComponent } from './components/templates-page/templates-page.component';
-import { TemplateEditorComponent } from './components/template-editor/template-editor.component';
-import { TaskVerificationComponent } from './components/task-verification/task-verification.component';
-import { PresentationPageComponent } from './components/presentation-page/presentation-page.component';
-import { UserProfileComponent } from './components/user-profile/user-profile.component';
-import { UserGuideComponent } from './components/user-guide/user-guide.component';
-import { UserService } from './services/user.service';
-import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
-import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
 import { MatriculeVerificationComponent } from './components/matricule-verification/matricule-verification.component';
-
+import { NewExamCorrectionComponent } from './components/new-exam-correction/new-exam-correction.component';
+import { PresentationPageComponent } from './components/presentation-page/presentation-page.component';
+import { TaskVerificationComponent } from './components/task-verification/task-verification.component';
+import { TasksHistoryComponent } from './components/tasks-history/tasks-history.component';
+import { TemplateEditorComponent } from './components/template-editor/template-editor.component';
+import { TemplatesPageComponent } from './components/templates-page/templates-page.component';
+import { UserGuideComponent } from './components/user-guide/user-guide.component';
+import { UserProfileComponent } from './components/user-profile/user-profile.component';
+import { UserService } from './services/user.service';
 
 const canActivateLoggued: CanActivateFn = (
   route: ActivatedRouteSnapshot,
@@ -21,7 +20,6 @@ const canActivateLoggued: CanActivateFn = (
 ) => {
   return inject(UserService).canActivateLoggued(route, state);
 };
-
 
 const canActivateShared: CanActivateFn = (
   route: ActivatedRouteSnapshot,
@@ -35,7 +33,7 @@ const routes: Routes = [
     {
         path: '',
         component : TasksHistoryComponent,
-        canActivate: [canActivateLoggued]
+        canActivate: [canActivateLoggued],
     },
     {
         path: 'tasks-history',
@@ -47,52 +45,52 @@ const routes: Routes = [
     },
     {
       path : 'login',
-      component : LoginPageComponent
+      component : LoginPageComponent,
     },
     {
         path: 'dashboard',
         component : DashboardPageComponent,
-        canActivate: [canActivateShared]
+        canActivate: [canActivateShared],
     },
     {
         path: 'dashboard/:taskId',
         component : DashboardPageComponent,
-        canActivate: [canActivateLoggued]
+        canActivate: [canActivateLoggued],
     },
     {
         path: 'templates',
         component : TemplatesPageComponent,
-        canActivate: [canActivateLoggued]
+        canActivate: [canActivateLoggued],
     },
     {
         path: 'template-editor',
         component : TemplateEditorComponent,
-        canActivate: [canActivateLoggued]
+        canActivate: [canActivateLoggued],
     },
     {
         path: 'task-validation',
         component: TaskVerificationComponent,
-        canActivate: [canActivateShared]
+        canActivate: [canActivateShared],
     },
     {
         path: 'task-validation/:job_id',
         component : TaskVerificationComponent,
-        canActivate: [canActivateLoggued]
+        canActivate: [canActivateLoggued],
     },
     {
         path: 'task-validation/:job_id/:index',
         component : TaskVerificationComponent,
-        canActivate: [canActivateLoggued]
+        canActivate: [canActivateLoggued],
     },
     {
         path: 'matricule-validation',
         component: MatriculeVerificationComponent,
-        canActivate: [canActivateShared]
+        canActivate: [canActivateShared],
     },
     {
         path: 'matricule-validation/:job_id',
         component: MatriculeVerificationComponent,
-        canActivate: [canActivateLoggued]
+        canActivate: [canActivateLoggued],
     },
     // {
     //     path: 'presentation-page',
@@ -102,17 +100,17 @@ const routes: Routes = [
     {
         path: 'new-exam-correction',
         component : NewExamCorrectionComponent,
-        canActivate: [canActivateLoggued]
+        canActivate: [canActivateLoggued],
     },
     {
         path: 'user-profile',
         component : UserProfileComponent,
-        canActivate: [canActivateLoggued]
+        canActivate: [canActivateLoggued],
     },
     {
         path: 'user-guide',
         component : UserGuideComponent,
-        canActivate: [canActivateLoggued]
+        canActivate: [canActivateLoggued],
     },
     {
         path: '**',
@@ -124,7 +122,7 @@ const routes: Routes = [
   imports: [RouterModule.forRoot(routes, {
       // onSameUrlNavigation: 'reload'
   })],
-  exports: [RouterModule]
+  exports: [RouterModule],
 })
 
 export class AppRoutingModule { }

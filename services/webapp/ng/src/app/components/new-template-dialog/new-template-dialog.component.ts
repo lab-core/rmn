@@ -33,7 +33,7 @@ export class NewTemplateDialogComponent implements OnInit {
   }
 
   onFileSelected(event: any) {
-    let file: File = (event.target.files as FileList)[0];
+    const file: File = (event.target.files as FileList)[0];
     this.setCopy(file);
   }
 
@@ -93,7 +93,7 @@ export class NewTemplateDialogComponent implements OnInit {
           this.userService.addTokens(formdata);
           formdata.append('template_id', data["response"]["template_id"]);
            this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
-              var file = new File([data], this.templateService.getName());
+              const file = new File([data], this.templateService.getName());
               this.templateService.setFile(file);
               await this.templateService.createNewTemplate(file);
               this.dialogRef.close();

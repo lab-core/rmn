@@ -23,12 +23,12 @@ export class RectangleService {
     this.svgContainer = document.querySelector('#svg');
     this.svgContainer.setAttribute( 'cursor', 'crosshair');
 
-    let indentificationRect = document.querySelector('#identification');
+    const indentificationRect = document.querySelector('#identification');
     if(indentificationRect !== null){
       indentificationRect.setAttribute( 'cursor', 'default');
     }
 
-    let questionsRect = document.querySelector('#questions');
+    const questionsRect = document.querySelector('#questions');
     if(questionsRect !== null){
       questionsRect.setAttribute( 'cursor', 'default');
     }
@@ -72,7 +72,7 @@ export class RectangleService {
     }
     
     this.svgContainer = document.querySelector('#svg');
-    let svgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    const svgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     this.svgRect = svgRect as SVGGraphicsElement;
     this.previous_mousex = event.offsetX;
     this.previous_mousey = event.offsetY;
@@ -115,7 +115,7 @@ export class RectangleService {
     const rectX2 = Number(this.svgRect.getAttribute('width')) + rectX1;
     const rectY2 = Number(this.svgRect.getAttribute('height')) + rectY1;
 
-    let rectCoord = {x1:(rectX1/svgContainerWidth)*100, x2:(rectX2/svgContainerWidth)*100, y1:(rectY1/svgContainerHeight)*100, y2:(rectY2/svgContainerHeight)*100};
+    const rectCoord = {x1:(rectX1/svgContainerWidth)*100, x2:(rectX2/svgContainerWidth)*100, y1:(rectY1/svgContainerHeight)*100, y2:(rectY2/svgContainerHeight)*100};
 
     if (identification === true){
       this.setIdentificationRectCoords(rectCoord);
@@ -134,7 +134,7 @@ export class RectangleService {
       const rectX2 = Number(this.svgRect.getAttribute('width')) + rectX1;
       const rectY2 = Number(this.svgRect.getAttribute('height')) + rectY1;
 
-      let rectCoord = {x1:(rectX1/svgContainerWidth)*100, x2:(rectX2/svgContainerWidth)*100, y1:(rectY1/svgContainerHeight)*100, y2:(rectY2/svgContainerHeight)*100};
+      const rectCoord = {x1:(rectX1/svgContainerWidth)*100, x2:(rectX2/svgContainerWidth)*100, y1:(rectY1/svgContainerHeight)*100, y2:(rectY2/svgContainerHeight)*100};
 
       if (identification === true){
         this.setIdentificationRectCoords(rectCoord);
@@ -146,13 +146,13 @@ export class RectangleService {
   }
 
   initExistingRects(): void  {
-    let svgContainer = document.querySelector('#svg');
+    const svgContainer = document.querySelector('#svg');
 
     const svgContainerWidth = svgContainer.clientWidth;
     const svgContainerHeight = svgContainer.clientHeight;
 
-    let identification = this.getIdentificationRectCoords();
-    let identificationCoords = {x1:null, x2:null, y1:null, y2:null};
+    const identification = this.getIdentificationRectCoords();
+    const identificationCoords = {x1:null, x2:null, y1:null, y2:null};
     if(identification != null) {
       identificationCoords.x1 = identification.x1/100*svgContainerWidth;
       identificationCoords.x2 = identification.x2/100*svgContainerWidth;
@@ -161,8 +161,8 @@ export class RectangleService {
     }
     
 
-    let questions = this.getQuestionsRectCoords();
-    let questionsCoords = {x1:null, x2:null, y1:null, y2:null};
+    const questions = this.getQuestionsRectCoords();
+    const questionsCoords = {x1:null, x2:null, y1:null, y2:null};
     if (questions != null) {
       questionsCoords.x1 = questions.x1 / 100 * svgContainerWidth;
       questionsCoords.x2 = questions.x2 / 100 * svgContainerWidth;
@@ -171,7 +171,7 @@ export class RectangleService {
     }
 
     //identification
-    let identificationRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect') as SVGGraphicsElement;
+    const identificationRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect') as SVGGraphicsElement;
     if(identification != null) {
       identificationRect.setAttribute('x', identificationCoords.x1.toString());
       identificationRect.setAttribute( 'y', identificationCoords.y1.toString());
@@ -184,7 +184,7 @@ export class RectangleService {
     identificationRect.setAttribute( 'stroke-width', '3');
 
     //questions
-    let questionsRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect') as SVGGraphicsElement;
+    const questionsRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect') as SVGGraphicsElement;
     if (questions != null) {
       questionsRect.setAttribute('x', questionsCoords.x1.toString());
       questionsRect.setAttribute( 'y', questionsCoords.y1.toString());

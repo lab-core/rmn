@@ -374,8 +374,9 @@ export class DashboardPageComponent {
     this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).pipe(first()).subscribe(
       (data) => {
         const dialogRef = this.dialog.open(TaskFilesDialogComponent, {
-          width: '30%',
-          height: '60%',
+          width: '80%',
+          maxWidth: '600px',
+          height: '90%',
           data: { taskId: jobId, nbZipFile: data.nZips, stats: data.stats, share: this.userService.shared() },
         });
         dialogRef.afterClosed().pipe(first()).subscribe(async (result) => {
@@ -394,7 +395,7 @@ export class DashboardPageComponent {
   public correctQuestion(index) {
     this.tasksService.setvalidatingTaskId(this.task.job_id);
     if (this.shared()) {
-      let queryParams = {
+      const queryParams = {
         job_id: this.task.job_id,
         all: true,
       };
@@ -435,12 +436,13 @@ export class DashboardPageComponent {
   }
 
   public shareTask(job, questionIndex= undefined) {
-    let data = { taskId: this.taskId, taskName: this.taskName, shareType: job ? 'job' : 'matricule'};
+    const data = { taskId: this.taskId, taskName: this.taskName, shareType: job ? 'job' : 'matricule'};
     if (questionIndex !== undefined) {
       data['questionIndex'] = questionIndex + 1;
     }
     this.dialog.open(TaskShareDialogComponent, {
-      width: '30%',
+      width: '80%',
+      maxWidth: '300px',
       height: '40%',
       data,
     }).afterClosed().pipe(first()).subscribe((resp) => {
@@ -460,7 +462,8 @@ export class DashboardPageComponent {
 
   public updateCsv() {
     this.dialog.open(CsvUpdateDialogComponent, {
-      width: '30%',
+      width: '80%',
+      maxWidth: '400px',
       height: '40%',
       data: { jobId: this.taskId },
     });

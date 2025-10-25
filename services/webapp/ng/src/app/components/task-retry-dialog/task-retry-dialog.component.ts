@@ -202,7 +202,7 @@ export class TaskRetryDialogComponent implements OnInit {
             if (data.type === HttpEventType.DownloadProgress) {
                 this.downloadProgress = data.total ? Math.round(100 * data.loaded / data.total) : 0;
             } else if (data.type === HttpEventType.Response) {
-                let typeExport = 'application/pdf';
+                const typeExport = 'application/pdf';
                 const file = new Blob([data.body as any], { type: typeExport });
                 const downloadURL = window.URL.createObjectURL(file);
                 saveAs(downloadURL, filename);

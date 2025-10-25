@@ -32,23 +32,23 @@ export class PresentationPageComponent implements OnInit {
   }
 
   CopiesFileEvent(fileInput: Event) {
-    let target = fileInput.target as HTMLInputElement;
-    let file: File = (target.files as FileList)[0];
+    const target = fileInput.target as HTMLInputElement;
+    const file: File = (target.files as FileList)[0];
     this.copiesName = file.name;
     this.copies = file;
   }
 
   latexFrontPageEvent(fileInput: Event) {
-    let target = fileInput.target as HTMLInputElement;
-    let file: File = (target.files as FileList)[0];
+    const target = fileInput.target as HTMLInputElement;
+    const file: File = (target.files as FileList)[0];
     this.latexFrontPageName = file.name;
     this.latexFrontPage = file;
   }
 
 
   updateSuffix(event: KeyboardEvent) {
-    let regex = new RegExp("^[a-zA-ZÀ-ÿ0-9\-\_\ ]+$");
-    let key = String.fromCharCode(!event.charCode ? event.which : event.charCode);
+    const regex = new RegExp("^[a-zA-ZÀ-ÿ0-9\-\_\ ]+$");
+    const key = String.fromCharCode(!event.charCode ? event.which : event.charCode);
     if (!regex.test(key)) {
       event.preventDefault();
     }

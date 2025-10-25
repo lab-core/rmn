@@ -26,7 +26,7 @@ export class TemplateService {
 
   async createNewTemplate(data: Blob) {
     this.revokeUrl();
-    let url = window.URL.createObjectURL(data);
+    const url = window.URL.createObjectURL(data);
     this.url = url;
   }
 

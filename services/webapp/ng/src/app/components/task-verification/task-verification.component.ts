@@ -93,7 +93,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<any> {
     // fetch query entries
-    let jobId = this.route.snapshot.queryParams['job_id'];
+    const jobId = this.route.snapshot.queryParams['job_id'];
     if (jobId) {
       this.tasksService.setvalidatingTaskId(jobId);
     }
@@ -182,7 +182,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   isScoreActive() {
-    let el = document.activeElement;
+    const el = document.activeElement;
     return el.id === 'score';
   }
 
@@ -265,7 +265,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   generateFormattedIndexes(): void {
     this.formattedIndexes = [];
-    let indices = {};
+    const indices = {};
     for (const exam of this.examsList) {
       if (!(exam.question in indices)) {
         indices[exam.question] = 1;
@@ -445,7 +445,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   getSubExamsList(): void {
     console.log("group", this.group)
     if (this.group) {
-      let subExamsList = [];
+      const subExamsList = [];
       this.examsList.forEach((exam: any) => {
         if (exam['group'] == this.group) {
           subExamsList.push(exam);
@@ -521,7 +521,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     // load latest pdf without annotations separated
     this.isRestoreHiglighted = 0;
     this.pdfLoading = true;
-    let pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentDocumentIndex, false, undefined, -1);
+    const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentDocumentIndex, false, undefined, -1);
     this.pdfLoading = false;
     if (pdfSource) {
       pdfSource.lastVersion = this.currentPdfSrc.lastVersion;
@@ -571,17 +571,17 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   updateScrollPosition() {
-    let e = document.getElementById('files-list-container');  // scrollTop + clientHeight = scrollHeight
+    const e = document.getElementById('files-list-container');  // scrollTop + clientHeight = scrollHeight
     if (e) {
-      let child = e.firstElementChild;
+      const child = e.firstElementChild;
       if (child) {
-        let nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
-        let nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
-        let subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentDocumentIndex);
-        let currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
-        let distanceTop = e.scrollHeight * currentRow / nRows;
+        const nChildrenByRow = Math.floor(e.clientWidth / child.clientWidth);
+        const nRows = Math.ceil(this.subExamsList.length / nChildrenByRow);
+        const subIndex = 1 + this.subExamsList.findIndex(exam => exam.document_index === this.currentDocumentIndex);
+        const currentRow = Math.ceil(subIndex / nChildrenByRow);  // start at 1
+        const distanceTop = e.scrollHeight * currentRow / nRows;
         // goal is to be in the middle => clientHeight / 2
-        let targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
+        const targetScrollTop = Math.floor(distanceTop - (e.clientHeight / 2));
         if (targetScrollTop > 0) {
           e.scrollTop = targetScrollTop;
         }
@@ -604,7 +604,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.getCurrentStatus();
     // try to load the following copy
     if (!this.offline) {
-      let nextIndex = this.nextCopyIndex();
+      const nextIndex = this.nextCopyIndex();
       if (nextIndex < this.examsList.length) {
         this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.examsList[nextIndex]['document_index']);
       }
@@ -640,7 +640,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   checkForAvailableCopies(): boolean {
     if (this.subExamsList.length == 0) return false;
-    let exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
+    const exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
     return exam !== undefined;
   }
 
@@ -915,8 +915,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   managePdfs() {
-    let dialogRef = this.dialog.open(PdfManagementDialogComponent, {
-      width: '30%',
+    const dialogRef = this.dialog.open(PdfManagementDialogComponent, {
+      width: '80%',
+      maxWidth: '400px',
       height: '60%',
       data: {
         jobId: this.tasksService.getvalidatingTaskId(),
@@ -1029,8 +1030,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   cancelOffline() {
-    let dialogRef = this.dialog.open(WarningDialogComponent, {
-      width: '40%',
+    const dialogRef = this.dialog.open(WarningDialogComponent, {
+      width: '80%',
+      maxWidth: '500px',
       height: '50%',
       data: "Êtes-vous sur de vouloir annuler la correction?"
     })

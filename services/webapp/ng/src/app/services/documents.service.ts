@@ -35,7 +35,7 @@ export class PDFSource {
   }
 
   isOlderThan(minutes) {
-    let t = Date.now() / 60000;
+    const t = Date.now() / 60000;
     return t - this.timestamp_min > minutes;
   }
 
@@ -55,7 +55,7 @@ export class PDFSource {
   }
 
   async toJSONDict() {
-    let json = this.toMinimalJSONDict();
+    const json = this.toMinimalJSONDict();
     const blob = await fetch(this.url).then(r => r.blob());
     json['base64'] = await PDFSource.readBlobSync(blob);
     return json;
@@ -216,17 +216,17 @@ export class DocumentsService {
 
   async getPdfSource(jobId: string, index: number, fetchAnnotations: boolean=true,
                      version=undefined, minutes=undefined): Promise<PDFSource> {
-    let pdfSource = this.getAvailablePdfSource(jobId, index, version, minutes || this.refreshMinutes);
+    const pdfSource = this.getAvailablePdfSource(jobId, index, version, minutes || this.refreshMinutes);
     if (pdfSource !== undefined) {
       return pdfSource;
     } else {
-      let pdfSource = await this.downloadPdf(jobId, index, fetchAnnotations, version);
+      const pdfSource = await this.downloadPdf(jobId, index, fetchAnnotations, version);
       return pdfSource;
     }
   }
 
   getAvailablePdfSource(jobId: string, index: number, version=undefined, minutes=undefined) {
-    let pdfSource = this.pdfSources[index];
+    const pdfSource = this.pdfSources[index];
     if (pdfSource && pdfSource.canBeUsed(minutes, version)) {
       return pdfSource;
     }
@@ -241,7 +241,7 @@ export class DocumentsService {
   }
 
   clearPdfSources() {
-    for (let pdfSrc of Object.values(this.pdfSources)) {
+    for (const pdfSrc of Object.values(this.pdfSources)) {
       pdfSrc.revokeURL();
     }
     this.pdfSources = new Map<number, PDFSource>();

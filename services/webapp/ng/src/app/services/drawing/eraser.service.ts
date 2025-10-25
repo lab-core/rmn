@@ -28,14 +28,14 @@ export class EraserService {
   }
 
   mouseDown(event: MouseEvent): void  {
-    let svgElement = event.target as SVGGraphicsElement;
+    const svgElement = event.target as SVGGraphicsElement;
     if(svgElement === this.indentificationRect){
       svgElement.remove();
-      let nullCoords = {x1:null, x2:null, y1:null, y2:null};
+      const nullCoords = {x1:null, x2:null, y1:null, y2:null};
       this.rectangleService.setIdentificationRectCoords(nullCoords);
     }else if (svgElement === this.questionsRect){
       svgElement.remove();
-      let nullCoords = {x1:null, x2:null, y1:null, y2:null};
+      const nullCoords = {x1:null, x2:null, y1:null, y2:null};
       this.rectangleService.setquestionsRectCoords(nullCoords);
     }
   }
