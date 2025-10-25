@@ -187,9 +187,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('document:keydown.enter', ['$event'])
-  onKeydownEnterHandler(event: KeyboardEvent) {
+  async onKeydownEnterHandler(event: KeyboardEvent) {
     if (!this.pdfViewer.isWriting() && !this.pdfLoading) {
-      this.validateCurrentCopy();
+      await this.validateCurrentCopy();
+      setTimeout(() => {
+        const input = document.getElementById('score') as HTMLInputElement;
+        input.focus();
+        input.select();
+      });
     }
   }
 
@@ -260,20 +265,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   generateFormattedIndexes(): void {
     this.formattedIndexes = [];
-    const maxIndex = this.examsList.length;
-    const questionString = `Q1`;
-    let subExamsListSize = this.examsList.filter(exam => exam.question === questionString).length;
-    if (subExamsListSize === 0) {
-      subExamsListSize = maxIndex;
-    }
-
-    for (let i = 1; i <= Math.ceil(maxIndex / subExamsListSize); i++) {
-        for (let j = 1; j <= subExamsListSize; j++) {
-            const index = `${j}|Q${i}`;
-            if ((i - 1) * subExamsListSize + j <= maxIndex) {
-                this.formattedIndexes.push(index);
-            }
-        }
+    let indices = {};
+    for (const exam of this.examsList) {
+      if (!(exam.question in indices)) {
+        indices[exam.question] = 1;
+      }
+      const index = `${indices[exam.question]}|${exam.question}`;
+      this.formattedIndexes.push(index);
+      indices[exam.question] += 1;
     }
   }
 
@@ -340,15 +339,20 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   onQuestionIndexChange(event: MatSelectChange): void {
     if (event.value === "Tout sélectionner") {
-        this.subExamsList = this.examsList;
-        this.generateFormattedIndexes();
+      this.subExamsList = this.examsList;
+      this.generateFormattedIndexes();
     } else {
-        this.filterExamsByQuestion(event.value);
+      this.filterExamsByQuestion(event.value);
+      if (this.currentCopy >= 0) {
+        // fetch previous exam base name. If not found, start from beginning with -1
+        const previousExam = this.currentExam();
+        const newExam = this.subExamsList.find((exam) => exam.basename === previousExam.basename);
+        this.currentCopy = newExam ? this.examsList.indexOf(newExam) - 1 : -1;
+      }
     }
     if (this.subExamsList.length > 0) {
-        this.currentCopy = this.currentCopy % this.subExamsList.length - 1;
-        this.currentDocumentIndex = -1;
-        this.nextCopy();
+      this.currentDocumentIndex = -1;
+      this.nextCopy();
     }
   }
 
@@ -383,10 +387,32 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async getDocuments() {
     await this.docService.getDocuments(this.tasksService.getvalidatingTaskId(), true);
     this.examsList = this.docService.documentsList;
+    // // sort examsList by question and then by document_index
+    // this.examsList.sort((e1, e2) => {
+    //   if (e1.question === e2.question) {
+    //     return e1.document_index - e2.document_index;
+    //   }
+    //   const q1 = parseInt(e1.question.match(/\d+/)[0], 10);
+    //   const q2 = parseInt(e2.question.match(/\d+/)[0], 10);
+    //   return q1 - q2;
+    // });
+    // sort by copy number within each question
+    const indexFirstExam = {};
+    this.examsList.forEach((exam) => {
+      if (!(exam.basename in indexFirstExam)) {
+        indexFirstExam[exam.basename] = exam.document_index;
+      }
+    });
+    this.examsList.sort((e1, e2) => {
+      if (e1.basename === e2.basename) {
+        return e1.document_index - e2.document_index;
+      }
+      return indexFirstExam[e1.basename] - indexFirstExam[e2.basename];
+    });
     // initialize initialCopyIndex and currentCopy
     if (this.examsList.length > 0 && this.currentCopy < 0) {
       const copy = localStorage.getItem(`${this.tasksService.getvalidatingTaskId()}_copy`);
-      if (copy !== undefined) {
+      if (copy !== null) {
         this.currentCopy = parseInt(copy);
       } else {
         this.currentCopy = 0;
@@ -508,8 +534,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   checkNavigationArrows(pdfLoaded: boolean) {
-    this.disablePrevious = !pdfLoaded || this.offline || (this.currentVersion == 0);
-    this.disableNext = !pdfLoaded || this.offline || (this.currentVersion >= this.currentPdfSrc.lastVersion) || (this.currentVersion == undefined);
+    this.disablePrevious = !pdfLoaded || this.offline || (this.currentVersion === 0);
+    this.disableNext = !pdfLoaded || this.offline || (this.currentVersion >= this.currentPdfSrc.lastVersion) || (this.currentVersion === undefined);
   }
 
   async changeCurrentDocumentIndex(docIndex, status, updateScroll: boolean=true): Promise<void> {
@@ -615,7 +641,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   checkForAvailableCopies(): boolean {
     if (this.subExamsList.length == 0) return false;
     let exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
-    return exam != undefined;
+    return exam !== undefined;
   }
 
   getCurrentStatus() {
@@ -652,12 +678,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   isRespectingTagFilter(exam) {
     // default current copy
-    if (this.tagFilter === "") return true;
+    if (this.tagFilter === '') return true;
     if (exam.status === 'TO VALIDATE') {
       // default next copy to validate -> comment first line
-      if (this.tagFilter === "") return true;
+      if (this.tagFilter === '') return true;
       if (this.tagFilter === exam.tag) return true;
-      if (this.tagFilter === "0" && exam.tag == undefined) return true;
+      if (this.tagFilter === '0' && exam.tag === undefined) return true;
     } else if (exam.status === this.tagFilter) {
       return true;
     }
@@ -721,7 +747,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         setTimeout(() => { if (this.isRestoreHiglighted > 0) this.isRestoreHiglighted -= 1 }, 20000);
         return false;
       }
-      if (file != undefined) {
+      if (file !== undefined) {
         this.currentPdfSrc.annotations = this.pdfViewer.getAnnotations() || [];
         if (this.offline) {
           const copy = this.offlineCopies.get(this.currentDocumentIndex);
@@ -734,7 +760,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           }
           db.updateCopy(copy);
         } else {
-          let result = await this.saveCopy(
+          const result = await this.saveCopy(
             this.currentPdfSrc,
             file,
             this.currentGradeModified ? this.currentGrade : undefined,
@@ -763,7 +789,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         grade,
         this.nMaxPointsPerQuestion,
         status,
-        pdfSource.version == undefined ? -1 : pdfSource.version,
+        pdfSource.version === undefined ? -1 : pdfSource.version,
         pdfSource.annotations,
         tag,
     );
@@ -872,19 +898,19 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     let height = 80;
     if (!this.userService.shared()) height += 10;
     if (!this.showFilter()) height += 10;
-    return height+"%";
+    return height + '%';
   }
 
   checkValidationButton(): void {
     // this.disabledValidationButton = !this.job || this.job["job_status"] !== 'VALIDATION';
-    const disabledValidationButton = this.examsList.some(exam => exam.status !== 'VALIDATED');
-    const questionIndex = this.route.snapshot.queryParams['question_index'];
+    const disabledValidationButton = this.examsList.some((exam) => exam.status !== 'VALIDATED');
+    const questionIndex = this.route.snapshot.queryParams.question_index;
 
     if (!this.disabledDropDown) {
       this.disabledValidationButton = disabledValidationButton;
     } else if (questionIndex) {
-      const subExams = this.examsList.filter(exam => exam.filename.includes(`Q${questionIndex}`));
-      this.disabledValidationButton = subExams.some(exam => exam["status"] !== 'VALIDATED');
+      const subExams = this.examsList.filter((exam) => exam.filename.includes(`Q${questionIndex}`));
+      this.disabledValidationButton = subExams.some((exam) => exam.status !== 'VALIDATED');
     }
   }
 
@@ -901,16 +927,16 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         bonusEnabledMap: this.bonusEnabledMap,
         examsList: this.subExamsList,
         offlineCopies: this.offlineCopies
-      }
+      },
     });
-    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
+    dialogRef.afterClosed().pipe(first()).subscribe(async (result) => {
       if (result) {
         if (result.hasDownloadedZip) {
           this.hasDownloadedZip = true;
         } else if (result.hasUploadedZip) {
           this.hasUploadedZip = true;
           this.docService.clearPdfSources();
-          this.loadCopy();
+          await this.loadCopy();
           this.loadScore();
         }
       }
@@ -932,12 +958,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         break;
       }
       const copy: OfflineCopy = {
-        pdfSrc: pdfSrc,
-        status: exam['status'],
-        questionIndex: exam['question_index']
+        pdfSrc,
+        status: exam.status,
+        questionIndex: exam.question_index,
       };
       this.offlineCopies.set(pdfSrc.index, copy);
-      exam['offline'] = true;
+      exam.offline = true;
       this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
     }
     await db.saveAllCopies(this.offlineCopies);
@@ -953,26 +979,26 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
     this.downloadingOffline = true;
     for (const copy of this.offlineCopies.values()) {
-      if (copy.file64 != undefined && !copy.updated) {
-        let cFile: File = await fetch(copy.file64).then(res => res.blob()).then(blob => {
+      if (copy.file64 !== undefined && !copy.updated) {
+        const cFile: File = await fetch(copy.file64).then((res) => res.blob()).then((blob) => {
           const exam = this.examsList[copy.pdfSrc.index];
-          return new File([blob], exam["filename"] + ".pdf", { type: "application/pdf" });
-        })
-        let result = await this.saveCopy(
+          return new File([blob], exam.filename + '.pdf', { type: 'application/pdf' });
+        });
+        const result = await this.saveCopy(
           copy.pdfSrc,
           cFile,
           copy.grade,
           copy.status,
           copy.questionIndex);
         if (!result) {
-          const index = copy.pdfSrc.index - this.subExamsList[0]['document_index'] + 1;
+          const index = copy.pdfSrc.index - this.subExamsList[0].document_index + 1;
           this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
           return;
         }
         copy.updated = true;
         this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
       }
-      if (finalize) this.examsList[copy.pdfSrc.index]['offline'] = false;
+      if (finalize) this.examsList[copy.pdfSrc.index].offline = false;
     }
     this.notificationService.showSuccess('Téléversement terminé!', 'Success');
     if (finalize) await this.cleanOffline();
@@ -981,7 +1007,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async cleanOffline() {
     for (const exam of this.subExamsList) {
-      exam['offline'] = false;
+      exam.offline = false;
     }
     db.deleteAllCopies(this.offlineCopies);
     this.offline = false;
@@ -991,13 +1017,13 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async loadOfflineCopies() {
     const allCopies = await db.getAllCopies();
-    for (let copy of allCopies) {
-      if (copy.grade != undefined) {
-        this.examsList[copy.pdfSrc.index]["grade"] = copy.grade;
+    for (const copy of allCopies) {
+      if (copy.grade !== undefined) {
+        this.examsList[copy.pdfSrc.index].grade = copy.grade;
       }
       copy.pdfSrc = await this.docService.loadPDFSource(copy.pdfSrc);
-      this.examsList[copy.pdfSrc.index]['offline'] = true;
-      this.examsList[copy.pdfSrc.index]['status'] = copy.status;
+      this.examsList[copy.pdfSrc.index].offline = true;
+      this.examsList[copy.pdfSrc.index].status = copy.status;
       this.offlineCopies.set(copy.pdfSrc.index, copy);
     }
   }
@@ -1008,10 +1034,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       height: '50%',
       data: "Êtes-vous sur de vouloir annuler la correction?"
     })
-    dialogRef.afterClosed().pipe(first()).subscribe(async result => {
-      if (result != undefined && result === true) {
+    dialogRef.afterClosed().pipe(first()).subscribe(async (result) => {
+      if (result !== undefined && result === true) {
         this.notificationService.showSuccess('Correction annulée!', 'Success');
-        this.cleanOffline();
+        await this.cleanOffline();
       }
     });
   }
