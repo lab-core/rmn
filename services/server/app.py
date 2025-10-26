@@ -301,7 +301,8 @@ def evaluate(user_id):
         "n_max_points_per_question": n_max_points_per_question,
         "bonus_enabled_map": bonus_enabled_map,
         "students_list": [],
-        "statistics_for_students": statistics_for_students
+        "statistics_for_students": statistics_for_students,
+        "validate_matricule": request_form.get("validate_matricule", "true").lower() == "true",
     }
 
     try:

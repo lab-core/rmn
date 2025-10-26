@@ -315,6 +315,10 @@ def process_all(
                     doc_index += 1
     sio.disconnect()
 
+    # set default doc status
+    eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
+    default_status = Document_Status.HIGH_ACCURACY if eval_job["validate_matricule"] else Document_Status.VALIDATED
+
     # get max RAM
     max_RAM_GB = int(os.getenv("MAX_RAM_GB", "1000"))
     doc_index = 0
@@ -327,7 +331,7 @@ def process_all(
                   min_documents_for_max_questions,
                   job_id, user_id,
                   box_matricule, box, matricules_data,
-                  dpi, shape, max_RAM_GB)
+                  dpi, shape, max_RAM_GB, default_status)
         print(f"[{datetime.now()}]", "Run batch", batch, f"from {doc_index} (/{last_index})")
 
         if detach:
@@ -395,6 +399,7 @@ def grade_files(
         dpi=300,
         shape=(8.5, 11),
         max_RAM_GB=1000,
+        default_status=Document_Status.HIGH_ACCURACY,
         q_results=None
 ):
     db = Database()
@@ -556,7 +561,7 @@ def grade_files(
 
             # DB update
             doc_status = (
-                Document_Status.HIGH_ACCURACY
+                default_status
                 if is_matricule_valid
                 else Document_Status.TO_VALIDATE
             )
@@ -659,6 +664,7 @@ def find_matricules(
         dpi=300,
         shape=(8.5, 11),
         max_RAM_GB=1000,
+        default_status=Document_Status.HIGH_ACCURACY,
         q_results=None
 ):
     db = Database()
@@ -694,7 +700,7 @@ def find_matricules(
 
             # rel_filepath = db.save_preview_image(src, job_id, doc_index)
             doc_status = (
-                Document_Status.HIGH_ACCURACY
+                default_status
                 if is_matricule_valid
                 else Document_Status.TO_VALIDATE
             )
