@@ -90,7 +90,7 @@ export class MatriculeVerificationComponent implements OnInit {
       this.router.navigate(['/tasks-history']);
     } else {
       this.groupsList = this.job['groups'];
-      if (this.groupsList[0] !== '') {
+      if (this.groupsList.length === 0 || this.groupsList[0] !== '') {
         this.groupsList.unshift("");
       }
       this.getMatriculeList();
