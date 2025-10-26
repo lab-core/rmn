@@ -2,7 +2,7 @@ import glob
 import re
 from service.template_service import TemplateService
 from service.user_service import UserService, Role
-from flask import Flask, request, Response, json, send_file, after_this_request
+from flask import Flask, request, Response, json, send_file
 from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from pathlib import Path
@@ -1025,7 +1025,6 @@ def download_file():
     filepath = str(TEMP_FOLDER.joinpath(file_id.split(os.sep)[-1]))
     storage.copy_from(file_id, filepath)
     file_send = send_file(filepath, download_name=filename, as_attachment=True)
-    file_send.headers.set("Content-Length", str(os.path.getsize(filepath)))
     os.remove(filepath)
 
     return file_send
