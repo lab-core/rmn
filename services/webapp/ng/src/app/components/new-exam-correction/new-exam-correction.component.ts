@@ -34,6 +34,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   isLinear: boolean = true;
   nQuestionsReadOnly: boolean = true;
   correct: boolean = true;
+  validateMatricule: boolean = false;
 
   copiesName: string = "";
   csvName: string = "";
@@ -557,7 +558,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       }
       await this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate,
                                       this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName,
-                                      front_template_name, regular_template_name, this.statisticsForStudents);
+                                      front_template_name, regular_template_name, this.statisticsForStudents, this.validateMatricule);
       this.removeTask();
       this.doNotSaveTask = true;
       this.reroute();

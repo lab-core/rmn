@@ -68,6 +68,12 @@
                               Corriger
                           </label>
                         </div>
+                      <div class="checkbox-container">
+                          <label>
+                              <input type="checkbox" [(ngModel)]="validateMatricule" [ngModelOptions]="{standalone: true}">
+                              Valider tous les matricules
+                          </label>
+                        </div>
                     </div>
                     <span id="files-upload-label"></span>
                     <div *ngIf="correct" class="pages-number-div">

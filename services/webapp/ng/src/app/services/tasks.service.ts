@@ -67,7 +67,7 @@ export class TasksService {
   async addTask(copies, csv, front_template_id, regular_template_id,
                 n_pages_per_question, n_max_points_per_question, bonus_enabled_map,
                 taskName, front_template_name, regular_template_name,
-                statistics_for_students): Promise<void> {
+                statistics_for_students, validateMatricule): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('front_template_id', front_template_id);
@@ -82,6 +82,7 @@ export class TasksService {
     formdata.append('front_template_name', front_template_name);
     formdata.append('regular_template_name', regular_template_name);
     formdata.append('statistics_for_students', statistics_for_students);
+    formdata.append('validate_matricule', validateMatricule ? "true" : "false");
 
     this.percentDone = 0;
     return new Promise((resolve, reject) => {

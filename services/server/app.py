@@ -2,7 +2,7 @@ import glob
 import re
 from service.template_service import TemplateService
 from service.user_service import UserService, Role
-from flask import Flask, request, Response, json, send_file, after_this_request
+from flask import Flask, request, Response, json, send_file
 from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from pathlib import Path
@@ -301,7 +301,8 @@ def evaluate(user_id):
         "n_max_points_per_question": n_max_points_per_question,
         "bonus_enabled_map": bonus_enabled_map,
         "students_list": [],
-        "statistics_for_students": statistics_for_students
+        "statistics_for_students": statistics_for_students,
+        "validate_matricule": request_form.get("validate_matricule", "true").lower() == "true",
     }
 
     try:
