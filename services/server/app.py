@@ -1025,6 +1025,7 @@ def download_file():
     filepath = str(TEMP_FOLDER.joinpath(file_id.split(os.sep)[-1]))
     storage.copy_from(file_id, filepath)
     file_send = send_file(filepath, download_name=filename, as_attachment=True)
+    file_send.headers.set("Content-Length", str(os.path.getsize(filepath)))
     os.remove(filepath)
 
     return file_send

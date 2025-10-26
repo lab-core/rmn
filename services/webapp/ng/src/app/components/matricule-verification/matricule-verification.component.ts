@@ -90,7 +90,9 @@ export class MatriculeVerificationComponent implements OnInit {
       this.router.navigate(['/tasks-history']);
     } else {
       this.groupsList = this.job['groups'];
-      this.groupsList.unshift("");
+      if (this.groupsList[0] !== '') {
+        this.groupsList.unshift("");
+      }
       this.getMatriculeList();
       await this.getDocuments();
       this.loadSubExamsList();
@@ -387,7 +389,7 @@ export class MatriculeVerificationComponent implements OnInit {
       const response = await this.http.post(`${SERVER_URL}matricule/update`, formdata).toPromise();
       if (response['response'] === 'OK') {
         this.setValidatedStatus();
-        this.nextCopy();
+        this.nextCopy(true);
       }
     } catch (error) {
       console.error('Erreur lors de la mise à jour du matricule:', error);
@@ -596,20 +598,23 @@ export class MatriculeVerificationComponent implements OnInit {
     return tempIndex;
   }
 
-  nextCopy(): void {
-    const tempIndex = this.nextCopyIndex();
+  nextCopy(notValidated: boolean = false): void {
+    const tempIndex = this.nextCopyIndex(this.currentIndex(), notValidated);
     if (tempIndex < this.examsList.length) {
       this.changeCurrentExam(tempIndex);
     }
   }
 
-  nextCopyIndex(currentIndex = undefined): number {
-    let tempIndex = currentIndex != undefined ? currentIndex : this.currentIndex();
-    tempIndex++;
-    while (tempIndex < this.examsList.length && (!this.subExamsList.includes(this.examsList[tempIndex]) || this.examsList[tempIndex].status == "NOT_READY")) {
-      tempIndex ++;
+  nextCopyIndex(currentIndex: number = this.currentIndex(), notValidated: boolean = false): number {
+    currentIndex++;
+    while (currentIndex < this.examsList.length && (
+      !this.subExamsList.includes(this.examsList[currentIndex])
+      || this.examsList[currentIndex].status === "NOT_READY"
+      || (notValidated && this.examsList[currentIndex].status === "VALIDATED")
+    )) {
+      currentIndex++;
     }
-    return tempIndex;
+    return currentIndex;
   }
 
   loggued(): boolean {

@@ -347,12 +347,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         // fetch previous exam base name. If not found, start from beginning with -1
         const previousExam = this.currentExam();
         const newExam = this.subExamsList.find((exam) => exam.basename === previousExam.basename);
-        this.currentCopy = newExam ? this.examsList.indexOf(newExam) - 1 : -1;
+        this.currentCopy = newExam ? this.examsList.indexOf(newExam) : -1;
       }
     }
     if (this.subExamsList.length > 0) {
+      if (this.currentCopy < 0) {
+        this.currentCopy = this.examsList.indexOf(this.subExamsList[0]);
+      }
       this.currentDocumentIndex = -1;
-      this.nextCopy();
+      this.changeCurrentExam(this.currentCopy);
     }
   }
 
@@ -554,7 +557,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.setCurrentCopy(copyIndex);
         if (await this.loadCopy()) {
           if (updateScroll) {
-            this.updateScrollPosition();
+            // ensure that the scroll height is updated after view update
+            setTimeout(() => this.updateScrollPosition());
           }
           this.setChosenColor(status, this.currentTag);
           this.loadScore();
