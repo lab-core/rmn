@@ -23,6 +23,8 @@
             <th>Questions</th>
             <th>Copies corrigées</th>
             <th>Moyennes</th>
+            <th>Écart-type</th>
+            <th>Histogramme</th>
             <th>Bonus</th>
             <th>Actions</th>
           </tr>
@@ -39,6 +41,18 @@
             </td>
             <td>{{ question.validatedCount }} / {{ question.count }}</td>
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
+            <td>{{ question.stdDev | number:'1.2-2' }}</td>
+            <td>
+              <div class="histogram-container">
+                <div class="histogram-bar" *ngFor="let bin of question.histogram">
+                  <div class="histogram-bar-inner" [style.height.%]="bin.count > 0 ? 10 + (bin.count / this.getMaxCount(question)) * 90 : 2"
+                       [title]="'Count: ' + bin.count">
+                    <span *ngIf="bin.count > 0">{{ bin.count }}</span>
+                  </div>
+                  <span class="histogram-label">{{ bin.value }}</span>
+                </div>
+              </div>
+            </td>
             <td>
                 <input *ngIf="question.name != 'Total'" type="checkbox" [(ngModel)]="question.bonus" [disabled]="disableButtons" (change)="questionBonusChange(question)" [ngModelOptions]="{standalone: true}">
             </td>
@@ -50,6 +64,8 @@
           <tr>
             <td>Matricules</td>
             <td>{{ totalVerifiedMatricules }} / {{ examsCount }}</td>
+            <td></td>
+            <td></td>
             <td></td>
             <td></td>
             <td class="action-buttons">
@@ -71,7 +87,11 @@
         </div>
       </div>
       <div class="validate-job-container" *ngIf="disableButtons && task.job_status === 'ARCHIVED'">
-        <button class="validate-job-button" mat-raised-button color="warn" (click)="openTaskFilesDialog()">Télécharger copies</button>
+        <div class="checkbox-container" *ngIf="loggued() && !shared()">
+          <button class="validate-job-button" mat-raised-button color="warn" (click)="restore()">Restaurer</button>
+          <button class="validate-job-button" mat-raised-button color="primary" (click)="openTaskFilesDialog()">Télécharger copies</button>
+        </div>
+        <button class="validate-job-button" *ngIf="!loggued() || shared()" mat-raised-button color="primary" (click)="openTaskFilesDialog()">Télécharger copies</button>
       </div>
     </div>
   </div>

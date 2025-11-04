@@ -24,6 +24,9 @@ interface Question {
   count: number;
   total: number;
   average: number;
+  stdDev: number;
+  grades: number[];
+  histogram: Array<{value: number, count: number}>;
   validatedFilenames: Set<string>;
 }
 
@@ -245,6 +248,9 @@ export class DashboardPageComponent {
         validatedCount: 0,
         total: 0,
         average: 0,
+        stdDev: 0,
+        grades: [],
+        histogram: [],
         validatedFilenames: new Set<string>(),
       };
     });
@@ -258,6 +264,7 @@ export class DashboardPageComponent {
       stats.count++;
       if (doc.status === 'VALIDATED') {
         stats.validatedCount++;
+        stats.grades.push(doc.grade);
         stats.total += doc.grade;
         stats.validatedFilenames.add(doc.basename);
       }
@@ -276,17 +283,45 @@ export class DashboardPageComponent {
 
     // compute the averages
     this.questions.forEach((question) => {
-      this.computeAverage(question);
+      this.computeStats(question);
     });
   }
 
-  public computeAverage(question: Question): void {
+  public computeStats(question: Question): void {
     if (question.validatedCount > 0) {
       const average = question.total / question.validatedCount;
       question.average = Number(average.toFixed(2));
+      const variance = question.grades.reduce(
+        (sum, val) => sum + Math.pow(val - question.average, 2), 0
+      ) / question.validatedCount;
+      question.stdDev = Math.sqrt(variance);
+      question.histogram = this.computeHistogram(question);
     } else {
       question.average = 0;
+      question.stdDev = 0;
+      question.histogram = [];
     }
+  }
+
+  public getMaxCount(question: Question): number {
+    return Math.max(...question.histogram.map(bin => bin.count), 1);
+  }
+
+  // Compute histogram bins
+  private computeHistogram(question: Question, maxBins = 10): Array<{value: number, count: number}> {
+    // Prepare histogram bins
+    const maxGrade = Math.max(...question.grades, question.max)
+    const binRange = Math.ceil(maxGrade / maxBins);
+    const nBins = Math.ceil(maxGrade / binRange);
+    const bins = [];
+    for (let i = 0; i <= nBins; i++) {
+      bins.push({value: i * binRange, count: 0});
+    }
+    question.grades.forEach(value => {
+      const binIndex = Math.floor(value / binRange);
+      bins[binIndex].count++;
+    });
+    return bins;
   }
 
   public computeTotalQuestion() {
@@ -299,6 +334,9 @@ export class DashboardPageComponent {
       validatedCount: 0,
       total: 0,
       average: 0,
+      stdDev: 0,
+      grades: [],
+      histogram: [],
       validatedFilenames: null,
     };
 
@@ -324,11 +362,14 @@ export class DashboardPageComponent {
     totalQuestion.validatedCount = totalQuestion.validatedFilenames.size;
 
     // compute the total for those copies
+    const totalGradesMap = new Map<string, number>();
     this.questionsDocList.forEach((doc) => {
       if (totalQuestion.validatedFilenames.has(doc.basename)) {
         totalQuestion.total += doc.grade;
+        totalGradesMap.set(doc.basename, (totalGradesMap.get(doc.basename) || 0) + doc.grade);
       }
     });
+    totalQuestion.grades = Array.from(totalGradesMap.values());
     this.questions.push(totalQuestion);
   }
 
@@ -390,6 +431,11 @@ export class DashboardPageComponent {
       }, (error) => {
         console.error(error);
       });
+  }
+
+  async restore() {
+    await this.tasksService.updateTaskStatus(this.task.job_id, 'VALIDATION');
+    this.task.job_status = 'VALIDATION';
   }
 
   public correctQuestion(index) {
