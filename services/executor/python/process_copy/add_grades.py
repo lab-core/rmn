@@ -43,9 +43,12 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11) ):
         if doc['status'] == Document_Status.DELETED.value:
             i += 1
             print(f"({i}/{n_docs}) PDF is deleted {input_pdf_path}")
+            # a deleted copy is never graded (grades are [None, ...]); skip it
+            # instead of falling through and summing None (which crashed finalize)
+            continue
 
         grades = doc["grades"]
-        grades.append(sum(grades))
+        grades.append(sum(g for g in grades if g is not None))
 
         # copy a backup of the original cover page
         input_pdf_path_backup = input_pdf_path.replace(".pdf", "_nograde.pdf")
