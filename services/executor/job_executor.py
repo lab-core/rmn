@@ -1,5 +1,6 @@
 import os
 import re
+import glob
 import shutil
 import json
 import pandas as pd
@@ -225,6 +226,36 @@ if __name__ == "__main__":
             ),
         )
 
+    def cleanup_deleted_job(job_id):
+        # The job was deleted (via /job/delete) while it was being processed:
+        # the server already removed everything it knew about, so mirror that
+        # deletion here for the data recreated since then.
+        print("Job has been deleted. Cleaning up recreated data...")
+        storage.clean_storage(job_id)
+        for folder in ("zips", "corrected_copies"):
+            try:
+                storage.remove_tree(os.path.join(folder, job_id))
+            except Exception:
+                pass
+        for file_id in (os.path.normpath(f"output_csv{os.sep}{job_id}.csv"),
+                        os.path.normpath(f"output_stats{os.sep}{job_id}.pdf")):
+            try:
+                storage.remove(file_id)
+            except Exception:
+                pass
+        for zip_path in glob.glob(storage.abs_path(os.path.normpath(f"output_zip{os.sep}{job_id}_*.zip"))):
+            try:
+                os.remove(zip_path)
+            except Exception:
+                pass
+        try:
+            db.documents_collection().delete_many({"job_id": job_id})
+            db.questions_collection().delete_many({"job_id": job_id})
+            db.jobs_output_collection().delete_many({"job_id": job_id})
+            db.mongo_database["versions"].delete_many({"job_id": job_id})
+        except Exception as e:
+            print(e)
+
     def finalize_job(job, TMP_DIR, stopH):
         job_id = job["job_id"]
         user_id = job["user_id"]
@@ -247,7 +278,9 @@ if __name__ == "__main__":
             corrected_copies = storage.abs_path(os.path.join('corrected_copies', job_id))
             os.makedirs(corrected_copies, exist_ok=True)
             print("Copying original files to corrected_copies ...")
-            shutil.copytree(input_folder, corrected_copies, dirs_exist_ok=True)
+            # the folder does not exist when the job was created without any copy
+            if os.path.exists(input_folder):
+                shutil.copytree(input_folder, corrected_copies, dirs_exist_ok=True)
         elif os.path.exists(storage.abs_path(os.path.join("documents", job_id))):
             # adding grades
             print("Adding grades...")
@@ -353,6 +386,10 @@ if __name__ == "__main__":
         all_copies_folder_path.mkdir(exist_ok=True)
         moodle_folder_path = VALIDATE_FOLDER.joinpath("moodle")
         moodle_folder_path.mkdir(exist_ok=True)
+
+        if stopH.stop():
+            cleanup_deleted_job(job_id)
+            return
 
         # create zip files for all copies and moodle
         print("Preparing zip files ...")
@@ -473,7 +510,7 @@ if __name__ == "__main__":
         storage.move_to(fpdf, stats_file_id)
 
         if stopH.stop():
-            print("Job has been deleted.")
+            cleanup_deleted_job(job_id)
             return
 
         try:
@@ -594,9 +631,7 @@ if __name__ == "__main__":
             print("Error in process-copy:", e)
 
             if stopH.stop():
-                print("Job has been deleted.")
-                # storage.remove(os.path.normpath(f"csv{os.sep}{job_id}.csv"))
-                # storage.remove(os.path.normpath(f"zips{os.sep}{job_id}.zip"))
+                cleanup_deleted_job(job_id)
                 return
 
             # check if should retry
@@ -612,6 +647,10 @@ if __name__ == "__main__":
             return
 
         print("Module Done")
+
+        if stopH.stop():
+            cleanup_deleted_job(job_id)
+            return
 
         # Save csv files in storage
         notes_csv_file_id = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
@@ -658,9 +697,14 @@ if __name__ == "__main__":
         job_params = db.eval_jobs_collection().find_one({"job_id": job_id})
         n_pages_per_question = {key: value for key, value in job_params["n_pages_per_question"]}
 
+        stopH = StopHandler(db.eval_jobs_collection(), job_id)
         try:
             insert_copies(os.path.join('zips', job_id), job_id, n_pages_per_question, TMP_DIR)
             print("Copies inserted in database")
+
+            if stopH.stop():
+                cleanup_deleted_job(job_id)
+                return
 
             # Set Job status to QUEUED as no error have been raised. Process can continue
             update_status(db, sio, user_id, job_id, Job_Status.QUEUED)
@@ -668,6 +712,10 @@ if __name__ == "__main__":
             # push the job to the queue to be continued
             redis.rpush("job_queue", json.dumps({"job_id": job_id}))
         except ValueError as e:
+            if stopH.stop():
+                cleanup_deleted_job(job_id)
+                return
+
             error_messages = str(e)
             print(e)
             # Set Job status to RETRY

@@ -44,7 +44,7 @@
                     </div>
                 </form>
             </mat-step>
-            <mat-step [stepControl]="secondFormGroup" label="Téléverser les copies à corriger">
+            <mat-step [stepControl]="secondFormGroup" label="Téléverser les copies à corriger (optionnel)">
                 <div class="breaker"></div>
                 <form [formGroup]="secondFormGroup">
                     <div class="files-steps-options-container">
@@ -76,6 +76,10 @@
                         </div>
                     </div>
                     <span id="files-upload-label"></span>
+                    <div class="info" *ngIf="copiesName === ''">
+                        <small>Aucune copie téléversée : la tâche sera créée sans copie.
+                          Elles pourront être ajoutées après.</small>
+                    </div>
                     <div *ngIf="correct" class="pages-number-div">
                         <div class="number-pages-container" id="number-page-container">
                           <div class="n-questions-container">

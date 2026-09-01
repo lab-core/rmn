@@ -1947,6 +1947,15 @@ def delete_job(job_id):
     (admin sweep) and the enqueue fallback call it directly.
     """
     print("Delete job:", job_id)
+
+    # remove any queued reference to the job so the executor never picks it up
+    # (payloads must match the exact strings pushed to the queue)
+    try:
+        redis.lrem("job_queue", 0, json.dumps({"job_id": job_id}))
+        redis.lrem("job_queue", 0, json.dumps({"job_id": job_id, "add_copies": True}))
+    except Exception as e:
+        print(e)
+
     try:
         # targeted per-job deletion; remove_all_match walked the whole storage
         # tree on every call and made concurrent deletes hang the worker
