@@ -115,9 +115,11 @@ kubectl apply -f deployment/daily-rollout.yml
 They need to be run locally on the server (depending on nginx/ingress configuration).
 
 Every `/admin/*` endpoint requires the shared operator secret `ADMIN_API_KEY`,
-passed as the `admin_key` form field (or `?admin_key=...` query string for the
-`GET` endpoints). Set the secret in the server environment first; if it is unset
-the admin endpoints are disabled (fail closed).
+passed in the `X-Admin-Key` request header. Set the secret in the server
+environment first; if it is unset the admin endpoints are disabled (fail closed).
+(An `admin_key` form field or `?admin_key=...` query string is also accepted as a
+fallback, but prefer the header: query-string and form secrets tend to be
+captured in access logs, browser history and Referer headers.)
 
 ```
 # docker compose (host env, sourced by docker-compose.yml):
@@ -132,46 +134,46 @@ In the examples below, `$ADMIN_API_KEY` is the value you configured above.
 ##### Create a user
 Role can be either "Utilisateur" or "Administrateur":
 ```
-curl -X POST -H "Content-Type:multipart/form-data" --form "admin_key=$ADMIN_API_KEY" --form "username=admin" --form "password=testtest" --form "role=Administrateur" http://localhost/api/admin/signup
+curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "username=admin" --form "password=testtest" --form "role=Administrateur" http://localhost/api/admin/signup
 ```
 
 ##### Get all users
 ```
-curl -X POST -H "Content-Type:multipart/form-data" --form "admin_key=$ADMIN_API_KEY" http://localhost/api/admin/users
+curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost/api/admin/users
 ```
 
 ##### Change user password
 Change a user's password without knowing the old one:
 ```
-curl -X POST -H "Content-Type:multipart/form-data" --form "admin_key=$ADMIN_API_KEY" --form "username=admin" --form "new_password=testtest" http://localhost/api/admin/change_password
+curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "username=admin" --form "new_password=testtest" http://localhost/api/admin/change_password
 ```
 
 ##### Delete user
 Delete all data related to the given user as well as the user account itself:
 ```
-curl -X POST -H "Content-Type:multipart/form-data" --form "admin_key=$ADMIN_API_KEY" --form "username=admin" http://localhost/api/admin/delete/user
+curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "username=admin" http://localhost/api/admin/delete/user
 ```
 
 ##### Delete old tokens
 "username" or "user_id" and "n_days_old" are optional. All tokens that are more than "n_days_old" days old are deleted:
 ```
-curl -X POST -H "Content-Type:multipart/form-data" --form "admin_key=$ADMIN_API_KEY" --form "username=admin" --form "n_days_old=5" http://localhost/api/admin/delete/tokens
+curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "username=admin" --form "n_days_old=5" http://localhost/api/admin/delete/tokens
 ```
 
 ##### Delete old jobs
 "username" or "user_id" is optional. All jobs that are more than "n_days_old" days old are deleted:
 ```
-curl -X POST -H "Content-Type:multipart/form-data" --form "admin_key=$ADMIN_API_KEY" --form "username=admin" --form "n_days_old=5" http://localhost/api/admin/delete/jobs
+curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "username=admin" --form "n_days_old=5" http://localhost/api/admin/delete/jobs
 ```
 
 ##### Add default template
 "user_id" is required. It will add the default templates defined on the server default_templates folder:
 ```
-curl -X POST -H "Content-Type:multipart/form-data" --form "admin_key=$ADMIN_API_KEY" --form "user_id=admin" http://localhost/api/admin/template
+curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "user_id=admin" http://localhost/api/admin/template
 ```
 
 ##### Create an executor pod
 It will add an empty job in the redis queue to trigger the creation of an executor pod.
 ```
-curl "http://localhost/api/admin/executor?admin_key=$ADMIN_API_KEY"
+curl -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost/api/admin/executor
 ```

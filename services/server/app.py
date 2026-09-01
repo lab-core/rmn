@@ -95,9 +95,12 @@ def verify_token(role=None):
 def verify_admin(f):
     """Guard an /admin/* operator endpoint with the shared ADMIN_API_KEY.
 
-    The secret may be passed as ``admin_key`` in the POST form or the query
-    string (for GET endpoints). Fails closed: if ADMIN_API_KEY is not set the
-    endpoint is disabled rather than left open.
+    The secret is read primarily from the ``X-Admin-Key`` request header;
+    the ``admin_key`` form/query field is accepted only as a fallback.
+    The header is preferred because query-string and form secrets tend to be
+    captured in access logs, browser history and Referer headers.
+    Fails closed: if ADMIN_API_KEY is not set the endpoint is disabled rather
+    than left open.
     """
     @wraps(f)
     def __verify_admin(*args, **kwargs):
@@ -108,7 +111,7 @@ def verify_admin(f):
                 status=403,
             )
         request_form = request.form if request.method == "POST" else request.args
-        provided = request_form.get("admin_key", "")
+        provided = request.headers.get("X-Admin-Key") or request_form.get("admin_key", "")
         if not hmac.compare_digest(provided.encode("utf-8"), ADMIN_API_KEY.encode("utf-8")):
             return Response(
                 response=json.dumps({"response": "Error: invalid admin key."}),
