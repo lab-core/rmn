@@ -326,6 +326,7 @@ def process_all(
     matricules_data = {}
     last_index = len(g_files) - 1
     while doc_index <= last_index:
+        batch_start = doc_index
         # grade file in a different process
         g_args = (g_files[doc_index:], doc_index, grades_csv,
                   min_documents_for_max_questions,
@@ -348,6 +349,17 @@ def process_all(
         print(f"[{datetime.now()}]", 'RAM Used - end batch', batch, '(GB):', psutil.virtual_memory()[3] / 1000000000)
         batch += 1
         last_index = db.documents_collection().count_documents({"job_id": job_id}) - 1
+
+        # Safety net: if a batch made no progress (e.g. the first file crashed
+        # the worker before it could be advanced), stop instead of retrying the
+        # same file forever and starving the executor.
+        if doc_index <= batch_start:
+            print(
+                Fore.RED
+                + f"No progress at document {batch_start}; stopping this job to avoid an infinite loop."
+                + Style.RESET_ALL
+            )
+            break
     db.close()
 
     # check the number of files that have been dropped on moodle if any
@@ -641,12 +653,17 @@ def grade_files(
         sio.disconnect()
         db.close()
 
-    # store grades
-    for i, f in enumerate(grades_csv):
-        grades_dfs[i].to_csv(f)
+        # store grades and hand the progress back to the parent process even if
+        # the loop above raised — otherwise a crash left the parent blocked
+        # forever on q_results.get().
+        for i, f in enumerate(grades_csv):
+            try:
+                grades_dfs[i].to_csv(f)
+            except Exception as e:
+                print(e)
 
-    if q_results:
-        q_results.put((doc_index, matricules_data))
+        if q_results is not None:
+            q_results.put((doc_index, matricules_data))
 
     return doc_index
 
@@ -690,63 +707,75 @@ def find_matricules(
             filename = os.path.basename(file)
             print(f"[{datetime.now()}] Processing file:", filename, f"({job_id}, {doc_index})")
 
-            is_matricule_valid, m = find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_dfs,
-                                                        box_matricule, matricules_data, n_questions)
+            try:
+                is_matricule_valid, m = find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_dfs,
+                                                            box_matricule, matricules_data, n_questions)
 
-            # if doc already processed
-            if is_matricule_valid and m is None:
-                doc_index += 1
-                continue
+                # if doc already processed
+                if is_matricule_valid and m is None:
+                    doc_index += 1
+                    continue
 
-            # rel_filepath = db.save_preview_image(src, job_id, doc_index)
-            doc_status = (
-                default_status
-                if is_matricule_valid
-                else Document_Status.TO_VALIDATE
-            )
-
-            # getting group
-            i, name = get_name(m, grades_dfs)
-            group = ""
-            if i < 0:
-                print(
-                    Fore.RED
-                    + "%s: Matricule (%s) not found in csv files" % (filename, m)
-                    + Style.RESET_ALL
+                # rel_filepath = db.save_preview_image(src, job_id, doc_index)
+                doc_status = (
+                    default_status
+                    if is_matricule_valid
+                    else Document_Status.TO_VALIDATE
                 )
-            else:
-                l_group = group_label(grades_dfs[i])
-                if l_group:
-                    group = str(grades_dfs[i].at[m, l_group])
-                    print("Group:", group)
 
-            exec_time = time.time() - start_time
-            if not db.update_document(
-                    job_id,
-                    doc_index,
-                    None,
-                    doc_status,
-                    m,
-                    exec_time,
-                    group
-            ):
-                raise KeyError(f"Document {filename} was not found.")
+                # getting group
+                i, name = get_name(m, grades_dfs)
+                group = ""
+                if i < 0:
+                    print(
+                        Fore.RED
+                        + "%s: Matricule (%s) not found in csv files" % (filename, m)
+                        + Style.RESET_ALL
+                    )
+                else:
+                    l_group = group_label(grades_dfs[i])
+                    if l_group:
+                        group = str(grades_dfs[i].at[m, l_group])
+                        print("Group:", group)
 
-            sio.emit(
-                "document_ready",
-                json.dumps(
-                    {
-                        "job_id": job_id,
-                        "user_id": user_id,
-                        "document_index": doc_index,
-                        "execution_time": exec_time,
-                        "status": doc_status.value,
-                        "n_total_doc": doc_index + 1,
-                    }
-                ),
-            )
+                exec_time = time.time() - start_time
+                if not db.update_document(
+                        job_id,
+                        doc_index,
+                        None,
+                        doc_status,
+                        m,
+                        exec_time,
+                        group
+                ):
+                    raise KeyError(f"Document {filename} was not found.")
 
-            print(f"[{datetime.now()}]", 'Processed file:', filename, f"({job_id}, {doc_index})")
+                sio.emit(
+                    "document_ready",
+                    json.dumps(
+                        {
+                            "job_id": job_id,
+                            "user_id": user_id,
+                            "document_index": doc_index,
+                            "execution_time": exec_time,
+                            "status": doc_status.value,
+                            "n_total_doc": doc_index + 1,
+                        }
+                    ),
+                )
+
+                print(f"[{datetime.now()}]", 'Processed file:', filename, f"({job_id}, {doc_index})")
+            except Exception as e:
+                # a single unreadable copy must not crash the job or make the
+                # batch loop retry it forever: flag it for manual validation and
+                # carry on to the next file.
+                print(Fore.RED + f"{filename}: matricule recognition failed: {e}" + Style.RESET_ALL)
+                try:
+                    db.update_document(job_id, doc_index, None, Document_Status.TO_VALIDATE,
+                                       "", time.time() - start_time, "")
+                except Exception as e2:
+                    print(e2)
+
             doc_index += 1
 
             # Getting usage of virtual_memory in GB ( 4th field)
@@ -1070,7 +1099,8 @@ def find_matricule(
     mat, index = best_matricule_match()
 
     cropped = fetch_box(grays[0], front_box)
-    id_box = get_image_from_contour(cropped, biggest_c)
+    # biggest_c is None when the box had no contour (blank / unreadable)
+    id_box = get_image_from_contour(cropped, biggest_c) if biggest_c is not None else None
 
     return mat, id_box, index
 
@@ -1084,6 +1114,11 @@ def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False
         )
         cnts = imutils.grab_contours((cnts, hierarchy))
         imwrite_contours("rgray", cropped, cnts, thick=5)
+        # a blank / unreadable matricule box yields no contours: there is
+        # nothing to analyse, so report "no box found" instead of crashing on
+        # max() over an empty sequence (which used to kill the whole job).
+        if len(cnts) == 0:
+            return None, False
         # Find the biggest contour for the front box
         pos, biggest_c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
         for cnt in biggest_children(cnts, hierarchy, pos):
