@@ -798,7 +798,16 @@ def continue_job(user_id):
     # replacing files in zip
     db = mongo["RMN"]
     collection_eval_jobs = db["eval_jobs"]
-    job = collection_eval_jobs.find_one({"job_id": job_id})
+    # scope the lookup to the requesting user so a user cannot add copies to
+    # another user's job (returns None -> 404 for a missing or foreign job_id,
+    # which also avoids dereferencing None below).
+    job = collection_eval_jobs.find_one({"job_id": job_id, "user_id": user_id})
+
+    if job is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
+        )
 
     avail_status = [Job_Status.RETRY.value, Job_Status.QUEUED.value, Job_Status.RUN.value, Job_Status.VALIDATION.value]
     if job["job_status"] not in avail_status:
