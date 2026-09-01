@@ -1993,9 +1993,10 @@ def delete(user_id):
     try:
         redis.rpush("job_queue", json.dumps({"job_id": job_id, "delete": True}))
     except Exception as e:
-        # if the queue is unreachable, fall back to an inline cleanup
-        print("Failed to enqueue delete task; cleaning up inline:", e)
-        delete_job(job_id)
+        # if the queue is unreachable, still keep the cleanup off the request
+        # path by running it in a background thread rather than inline
+        print("Failed to enqueue delete task; cleaning up in a background thread:", e)
+        Thread(target=delete_job, args=[job_id]).start()
 
     #
     return Response(response=json.dumps({"response": "OK"}), status=200)
