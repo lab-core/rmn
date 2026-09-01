@@ -1,4 +1,5 @@
 import os
+import glob
 import shutil
 from pathlib import Path
 
@@ -51,6 +52,44 @@ class Storage:
 
     def remove_tree(self, s_dir):
         shutil.rmtree(self.abs_path(s_dir))
+
+    # Per-job storage layout. Keep in sync with the server's Storage.remove_job
+    # (services/server/utils/storage.py) — both delete the same paths.
+    _JOB_DIRS = (
+        "documents",
+        "cover_pages",
+        "corrected_copies",
+        "incorrect_files",
+        "zips",
+        "unverified_numbers",
+    )
+    _JOB_FILES = (
+        ("csv", "{job_id}.csv"),
+        ("output_csv", "{job_id}.csv"),
+        ("output_stats", "{job_id}.pdf"),
+        ("zips", "{job_id}.zip"),  # legacy single-zip layout
+    )
+    _JOB_GLOBS = (
+        ("output_zip", "{job_id}_*.zip"),
+    )
+
+    def remove_job(self, job_id):
+        """Delete all storage belonging to a single job, by its known paths."""
+        for prefix in self._JOB_DIRS:
+            shutil.rmtree(self.abs_path(os.path.join(prefix, job_id)), ignore_errors=True)
+
+        for prefix, name in self._JOB_FILES:
+            try:
+                os.remove(self.abs_path(os.path.join(prefix, name.format(job_id=job_id))))
+            except OSError:
+                pass
+
+        for prefix, pattern in self._JOB_GLOBS:
+            for f in glob.glob(self.abs_path(os.path.join(prefix, pattern.format(job_id=job_id)))):
+                try:
+                    os.remove(f)
+                except OSError:
+                    pass
 
     def clean_storage(self, job_id):
         try:

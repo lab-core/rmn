@@ -1823,6 +1823,11 @@ def validate(user_id):
 
 
 def delete_job(job_id):
+    """Remove all storage and database records for a job (synchronous).
+
+    /job/delete offloads this to an executor via the queue; delete_old_jobs
+    (admin sweep) and the enqueue fallback call it directly.
+    """
     print("Delete job:", job_id)
     try:
         # targeted per-job deletion; remove_all_match walked the whole storage
@@ -1832,30 +1837,11 @@ def delete_job(job_id):
         print(e)
 
     db = mongo["RMN"]
-    try:
-        db["job_documents"].delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
-
-    try:
-        db["job_questions"].delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
-
-    try:
-        db["eval_jobs"].delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
-
-    try:
-        db["jobs_output"].delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
-
-    try:
-        db["versions"].delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
+    for collection in ("job_documents", "job_questions", "eval_jobs", "jobs_output", "versions"):
+        try:
+            db[collection].delete_many({"job_id": job_id})
+        except Exception as e:
+            print(e)
 
 
 @app.route("/job/delete", methods=["POST"])
@@ -1880,7 +1866,18 @@ def delete(user_id):
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
             status=404
         )
-    delete_job(job_id)
+
+    # Remove the job record synchronously so it disappears from listings right
+    # away and any running executor sees it as deleted (StopHandler), then hand
+    # the heavy storage + collection cleanup to an executor via the queue so the
+    # request returns immediately and never blocks the (NFS-bound) web worker.
+    collection.delete_many({"user_id": user_id, "job_id": job_id})
+    try:
+        redis.rpush("job_queue", json.dumps({"job_id": job_id, "delete": True}))
+    except Exception as e:
+        # if the queue is unreachable, fall back to an inline cleanup
+        print("Failed to enqueue delete task; cleaning up inline:", e)
+        delete_job(job_id)
 
     #
     return Response(response=json.dumps({"response": "OK"}), status=200)
