@@ -1941,6 +1941,11 @@ def validate(user_id):
 
 
 def delete_job(job_id):
+    """Remove all storage and database records for a job.
+
+    The storage removal can be slow on the NFS-backed store, so /job/delete
+    runs this in a background thread; delete_old_jobs calls it directly.
+    """
     print("Delete job:", job_id)
     try:
         # targeted per-job deletion; remove_all_match walked the whole storage
@@ -1950,30 +1955,11 @@ def delete_job(job_id):
         print(e)
 
     db = mongo["RMN"]
-    try:
-        db["job_documents"].delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
-
-    try:
-        db["job_questions"].delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
-
-    try:
-        db["eval_jobs"].delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
-
-    try:
-        db["jobs_output"].delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
-
-    try:
-        db["versions"].delete_many({"job_id": job_id})
-    except Exception as e:
-        print(e)
+    for collection in ("job_documents", "job_questions", "eval_jobs", "jobs_output", "versions"):
+        try:
+            db[collection].delete_many({"job_id": job_id})
+        except Exception as e:
+            print(e)
 
 
 @app.route("/job/delete", methods=["POST"])
@@ -1998,7 +1984,13 @@ def delete(user_id):
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
             status=404
         )
-    delete_job(job_id)
+
+    # Remove the job record synchronously so it disappears from listings right
+    # away and any running executor sees it as deleted (StopHandler). Run the
+    # slower storage + ancillary cleanup in a background thread so the request
+    # returns immediately and a burst of deletes cannot block the worker.
+    collection.delete_many({"user_id": user_id, "job_id": job_id})
+    Thread(target=delete_job, args=[job_id]).start()
 
     #
     return Response(response=json.dumps({"response": "OK"}), status=200)
