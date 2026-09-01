@@ -680,6 +680,24 @@ if __name__ == "__main__":
                 update_status(db, sio, user_id, job_id, status_for_error,
                               infos={"job_infos": error_messages}, db_infos={"copies_errors": error_messages})
 
+    def delete_job(job_id):
+        """Drain a delete task: remove the job's storage and database records.
+
+        The server already removed the eval_jobs record synchronously and
+        enqueued this task, so the heavy (NFS) cleanup runs here off the web
+        request path.
+        """
+        print("Delete job:", job_id)
+        try:
+            storage.remove_job(job_id)
+        except Exception as e:
+            print(e)
+        for collection in ("job_documents", "job_questions", "eval_jobs", "jobs_output", "versions"):
+            try:
+                db.get_collection(collection).delete_many({"job_id": job_id})
+            except Exception as e:
+                print(e)
+
     def process(p_job, TMP_DIR):
         job_id = p_job["job_id"]
         job = db.eval_jobs_collection().find_one({"job_id": job_id})
@@ -737,6 +755,8 @@ if __name__ == "__main__":
                     try:
                         if "template_id" in job:
                             process_template(jid, WORK_TMP_DIR)
+                        elif job.get("delete"):
+                            delete_job(job["job_id"])
                         else:
                             process(job, WORK_TMP_DIR)
                     except Exception as e:

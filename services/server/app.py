@@ -1941,10 +1941,10 @@ def validate(user_id):
 
 
 def delete_job(job_id):
-    """Remove all storage and database records for a job.
+    """Remove all storage and database records for a job (synchronous).
 
-    The storage removal can be slow on the NFS-backed store, so /job/delete
-    runs this in a background thread; delete_old_jobs calls it directly.
+    /job/delete offloads this to an executor via the queue; delete_old_jobs
+    (admin sweep) and the enqueue fallback call it directly.
     """
     print("Delete job:", job_id)
     try:
@@ -1986,11 +1986,16 @@ def delete(user_id):
         )
 
     # Remove the job record synchronously so it disappears from listings right
-    # away and any running executor sees it as deleted (StopHandler). Run the
-    # slower storage + ancillary cleanup in a background thread so the request
-    # returns immediately and a burst of deletes cannot block the worker.
+    # away and any running executor sees it as deleted (StopHandler), then hand
+    # the heavy storage + collection cleanup to an executor via the queue so the
+    # request returns immediately and never blocks the (NFS-bound) web worker.
     collection.delete_many({"user_id": user_id, "job_id": job_id})
-    Thread(target=delete_job, args=[job_id]).start()
+    try:
+        redis.rpush("job_queue", json.dumps({"job_id": job_id, "delete": True}))
+    except Exception as e:
+        # if the queue is unreachable, fall back to an inline cleanup
+        print("Failed to enqueue delete task; cleaning up inline:", e)
+        delete_job(job_id)
 
     #
     return Response(response=json.dumps({"response": "OK"}), status=200)
