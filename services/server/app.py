@@ -1825,7 +1825,9 @@ def validate(user_id):
 def delete_job(job_id):
     print("Delete job:", job_id)
     try:
-        storage.remove_all_match(job_id)
+        # targeted per-job deletion; remove_all_match walked the whole storage
+        # tree on every call and made concurrent deletes hang the worker
+        storage.remove_job(job_id)
     except Exception as e:
         print(e)
 
