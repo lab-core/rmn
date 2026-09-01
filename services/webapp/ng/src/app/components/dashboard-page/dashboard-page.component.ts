@@ -229,8 +229,9 @@ export class DashboardPageComponent {
   }
 
   public computeQuestions(): void {
-    // if there is no question, stop right here
-    if (this.questionsDocList.length === 0) {
+    // if the task defines no question (correction disabled), stop right here;
+    // a task without any copy yet still displays its question rows
+    if (!this.task.n_max_points_per_question || this.task.n_max_points_per_question.length === 0) {
       this.questions = Array<Question>(0);
       return;
     }
