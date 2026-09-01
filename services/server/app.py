@@ -619,12 +619,18 @@ def bonus_job(user_id):
     job_id = str(request_form["job_id"])
     bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
     db = mongo["RMN"]
-    db["eval_jobs"].update_one(
-            {"job_id": job_id},
+    # scope to the requesting user so one user cannot mutate another's job
+    result = db["eval_jobs"].update_one(
+            {"job_id": job_id, "user_id": user_id},
             {
                 "$set": {"bonus_enabled_map": bonus_enabled_map},
             },
     )
+    if result.matched_count == 0:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
+        )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
@@ -650,12 +656,18 @@ def stats_job(user_id):
     job_id = str(request_form["job_id"])
     statistics_for_students = request_form["statistics_for_students"].lower() == "true"
     db = mongo["RMN"]
-    db["eval_jobs"].update_one(
-            {"job_id": job_id},
+    # scope to the requesting user so one user cannot mutate another's job
+    result = db["eval_jobs"].update_one(
+            {"job_id": job_id, "user_id": user_id},
             {
                 "$set": {"statistics_for_students": statistics_for_students},
             },
     )
+    if result.matched_count == 0:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
+        )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
@@ -677,6 +689,14 @@ def csv_job(user_id):
         return Response(
             response=json.dumps({"response": "Error: csv file not provided."}),
             status=400,
+        )
+
+    # scope to the requesting user (before any file work) so one user cannot
+    # overwrite another's job csv
+    if mongo["RMN"]["eval_jobs"].find_one({"job_id": job_id, "user_id": user_id}) is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
         )
 
     # save csv locally
@@ -734,12 +754,18 @@ def status_job(user_id):
         )
 
     db = mongo["RMN"]
-    db["eval_jobs"].update_one(
-            {"job_id": job_id},
+    # scope to the requesting user so one user cannot mutate another's job
+    result = db["eval_jobs"].update_one(
+            {"job_id": job_id, "user_id": user_id},
             {
                 "$set": {"job_status": status.value},
             },
     )
+    if result.matched_count == 0:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
+        )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
@@ -756,11 +782,18 @@ def ignore_job(user_id):
             status=400,
         )
 
-    # fetch current job
+    # fetch current job, scoped to the requesting user (returns None -> 404 for
+    # a missing or foreign job, which also avoids dereferencing None below)
     job_id = str(request_form["job_id"])
     db = mongo["RMN"]
     collection_eval_jobs = db["eval_jobs"]
-    job = collection_eval_jobs.find_one({"job_id": job_id})
+    job = collection_eval_jobs.find_one({"job_id": job_id, "user_id": user_id})
+
+    if job is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
+        )
 
     # set new status and remove job infos message
     query = {"$unset": {"copies_errors": "", "job_infos": ""}}
@@ -1785,8 +1818,16 @@ def validate(user_id):
     #
     job_id = str(request_form["job_id"])
 
-    # set all estimation to 0
+    # scope to the requesting user (before mutating documents/status) so one
+    # user cannot validate another's job
     db = mongo["RMN"]
+    if db["eval_jobs"].find_one({"job_id": job_id, "user_id": user_id}) is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
+        )
+
+    # set all estimation to 0
     db["job_documents"].update_many(
         {"job_id": job_id},
         {
