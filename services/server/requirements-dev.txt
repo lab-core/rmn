@@ -1,0 +1,5 @@
+# Test-only dependencies (install alongside requirements.txt to run pytest).
+-r requirements.txt
+pytest==8.3.2
+mongomock==4.1.2
+fakeredis==2.23.5
