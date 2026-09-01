@@ -809,11 +809,19 @@ def continue_job(user_id):
 
     random_id = uuid.uuid4()
     zip_path = storage.abs_path(os.path.join("zips", job_id, f"{random_id}.zip"))
-    with ZipFile(zip_path, 'w') as new_zip:
-        for f in request.files.values():
-            file_path = os.path.join("/tmp", f.filename)
-            f.save(file_path)
-            new_zip.write(file_path)
+    # Sanitize the client-supplied filename to prevent path traversal both on
+    # disk (f.save) and in the archive member name (new_zip.write): a name like
+    # "../../etc/cron.d/x" would otherwise escape the temp dir / the zip root.
+    tmp_dir = tempfile.mkdtemp()
+    try:
+        with ZipFile(zip_path, 'w') as new_zip:
+            for f in request.files.values():
+                safe_name = secure_filename(f.filename) or f"{uuid.uuid4()}.pdf"
+                file_path = os.path.join(tmp_dir, safe_name)
+                f.save(file_path)
+                new_zip.write(file_path, arcname=safe_name)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     # removing incorrect pdfs
     storage.remove_tree(os.path.join("incorrect_files", job_id))
