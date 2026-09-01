@@ -221,8 +221,11 @@ def process_folder(zip_folder, job_id, n_pages_per_question, TMP_DIR):
         ValueError: If no mapping of questions to page numbers is provided.
     """
     all_zips = []
+    extracted_files = []
     zip_path = Path(storage.abs_path(zip_folder))
     temp_path = str(TMP_DIR.joinpath('extracted'))
+    # an empty zip extracts nothing, so make sure the folder exists anyway
+    os.makedirs(temp_path, exist_ok=True)
     for zip_file in zip_path.glob('*.zip'):
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
             zip_ref.extractall(temp_path)

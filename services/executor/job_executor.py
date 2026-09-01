@@ -247,7 +247,9 @@ if __name__ == "__main__":
             corrected_copies = storage.abs_path(os.path.join('corrected_copies', job_id))
             os.makedirs(corrected_copies, exist_ok=True)
             print("Copying original files to corrected_copies ...")
-            shutil.copytree(input_folder, corrected_copies, dirs_exist_ok=True)
+            # the folder does not exist when the job was created without any copy
+            if os.path.exists(input_folder):
+                shutil.copytree(input_folder, corrected_copies, dirs_exist_ok=True)
         elif os.path.exists(storage.abs_path(os.path.join("documents", job_id))):
             # adding grades
             print("Adding grades...")

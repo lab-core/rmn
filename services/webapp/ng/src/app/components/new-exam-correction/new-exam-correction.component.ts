@@ -415,15 +415,12 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   }
 
   checkDisabled(): boolean {
-    const dropboxInput = this.getDropboxAttibute("files-dropbox-input");
-    const onedriveInput = this.getOneDriveAttibute("files-onedrive-input");
-
     const dropboxInputCSV = this.getDropboxAttibute("csv-dropbox-input");
     const onedriveInputCSV = this.getOneDriveAttibute("csv-onedrive-input");
 
-    if (this.copiesName === "" && dropboxInput === null && onedriveInput === null) {
-      return true;
-    } else if (this.csvName === "" && dropboxInputCSV === null && onedriveInputCSV === null) {
+    // The zip with the copies to correct is optional: when missing, an empty
+    // zip is sent instead (see createEmptyZipFile).
+    if (this.csvName === "" && dropboxInputCSV === null && onedriveInputCSV === null) {
       return true;
     } else if (this.taskName === "") {
       return true;
@@ -541,6 +538,18 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     }
   }
 
+  /**
+   * Builds a valid empty zip file (a bare end-of-central-directory record),
+   * used when the user creates a task without uploading any copies.
+   */
+  createEmptyZipFile(): File {
+    const emptyZipBytes = new Uint8Array([
+      0x50, 0x4b, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    ]);
+    return new File([emptyZipBytes], `${this.taskName || 'copies'}.zip`, { type: 'application/zip' });
+  }
+
   async createTask() {
     if (this.checkDisabled()) {
       this.notifyService.showError("Assurez-vous de complêter toutes les étapes!", "ERREUR");
@@ -548,6 +557,11 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       this.uploading = true;
       await this.convertDownloadableFile();
       await this.convertDownloadableCSV();
+      if (!this.copies) {
+        // No copies uploaded: send an empty zip so the task is created
+        // without any exam to correct.
+        this.copies = this.createEmptyZipFile();
+      }
       const front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
       const regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
       if (!this.correct) {
