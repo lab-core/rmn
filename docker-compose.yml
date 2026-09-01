@@ -6,9 +6,9 @@ services:
     ports:
       - "6379:6379"
   mongo:
-    # pinned major version: upgrading requires stepping featureCompatibilityVersion
-    # one major at a time (see MongoDB upgrade procedures), so never use :latest
-    image: mongo:8.0
+    # featureCompatibilityVersion of the data is 8.0; when :latest jumps to a
+    # new major that rejects it, bump FCV first (setFeatureCompatibilityVersion)
+    image: mongo:latest
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: adminuser
