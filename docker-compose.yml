@@ -6,7 +6,9 @@ services:
     ports:
       - "6379:6379"
   mongo:
-    image: mongo:latest
+    # pinned major version: upgrading requires stepping featureCompatibilityVersion
+    # one major at a time (see MongoDB upgrade procedures), so never use :latest
+    image: mongo:8.0
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: adminuser
@@ -40,8 +42,8 @@ services:
   socketio:
     build: ./services/socketIO
     restart: always
-    ports:
-      - '7000:7000'
+    # no host port: only reached inside the compose network (nginx proxies
+    # /socket.io/), and host port 7000 clashes with macOS AirPlay Receiver
     # network_mode: "host"
   webapp:
     # build: ./services/webapp
