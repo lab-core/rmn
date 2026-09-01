@@ -45,7 +45,7 @@ def test_delete_removes_record_and_enqueues_task(client, user_factory, job_facto
     assert os.path.exists(app_module_fixture.storage.abs_path(os.path.join("documents", "job1")))
 
 
-def test_delete_falls_back_to_inline_when_queue_unreachable(monkeypatch, client, user_factory, job_factory, login, app_module_fixture):
+def test_delete_falls_back_to_background_thread_when_queue_unreachable(monkeypatch, client, user_factory, job_factory, login, app_module_fixture):
     user_factory("alice")
     job_factory("job1", owner="alice")
     _seed_related(app_module_fixture, "job1")
@@ -57,9 +57,26 @@ def test_delete_falls_back_to_inline_when_queue_unreachable(monkeypatch, client,
 
     monkeypatch.setattr(app_module_fixture.redis, "rpush", _boom)
 
+    # capture the fallback thread and run its target synchronously
+    spawned = []
+
+    class _SyncThread:
+        def __init__(self, target=None, args=(), **_):
+            self._target, self._args = target, args
+
+        def start(self):
+            spawned.append((self._target, self._args))
+            if self._target:
+                self._target(*self._args)
+
+    monkeypatch.setattr(app_module_fixture, "Thread", _SyncThread)
+
     resp = client.post("/job/delete", data={"user_id": "alice", "token": token, "job_id": "job1"})
     assert resp.status_code == 200
-    # queue was unreachable -> cleanup ran inline
+    # queue was unreachable -> cleanup handed to a background thread (not inline,
+    # not left undone); the record is still removed synchronously
+    assert spawned and spawned[0][0] is app_module_fixture.delete_job
+    assert spawned[0][1] == ["job1"]
     db = app_module_fixture.mongo["RMN"]
     for coll in ("eval_jobs", "job_documents", "job_questions", "jobs_output", "versions"):
         assert db[coll].count_documents({"job_id": "job1"}) == 0
