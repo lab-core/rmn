@@ -73,15 +73,59 @@ class Storage:
     def remove_tree(self, s_dir):
         shutil.rmtree(self.abs_path(s_dir), ignore_errors=True)
 
+    # Per-job storage layout: directories named <prefix>/<job_id> and files
+    # named after the job. Kept here so remove_job stays in sync with writers.
+    _JOB_DIRS = (
+        "documents",
+        "cover_pages",
+        "corrected_copies",
+        "incorrect_files",
+        "zips",
+        "unverified_numbers",
+    )
+    _JOB_FILES = (
+        ("csv", "{job_id}.csv"),
+        ("output_csv", "{job_id}.csv"),
+        ("output_stats", "{job_id}.pdf"),
+        ("zips", "{job_id}.zip"),  # legacy single-zip layout
+    )
+    # files whose name starts with the job id (e.g. output_zip/<job_id>_all.zip)
+    _JOB_GLOBS = (
+        ("output_zip", "{job_id}_*.zip"),
+    )
+
+    def remove_job(self, job_id):
+        """Delete all storage belonging to a single job.
+
+        Only the known per-job paths are removed, so this is O(one job) rather
+        than walking the whole (NFS-backed) storage tree like remove_all_match
+        — the latter made every delete scan every job's files and blocked the
+        worker.
+        """
+        for prefix in self._JOB_DIRS:
+            shutil.rmtree(self.abs_path(os.path.join(prefix, job_id)), ignore_errors=True)
+
+        for prefix, name in self._JOB_FILES:
+            try:
+                os.remove(self.abs_path(os.path.join(prefix, name.format(job_id=job_id))))
+            except OSError:
+                pass
+
+        for prefix, pattern in self._JOB_GLOBS:
+            for f in glob.glob(self.abs_path(os.path.join(prefix, pattern.format(job_id=job_id)))):
+                try:
+                    os.remove(f)
+                except OSError:
+                    pass
+
     def remove_all_match(self, key):
+        # NOTE: walks the ENTIRE storage tree; prefer remove_job(job_id) for a
+        # single job. Kept for callers that match on an arbitrary key.
         files_to_delete = []
         dirs_to_delete = []
         for root, dirs, files in os.walk(str(self.path)):
             files_to_delete += [os.path.join(root, f) for f in files if key in f]
             dirs_to_delete += [os.path.join(root, d) for d in dirs if key in d]
-
-        print("Remove files:", files_to_delete)
-        print("Remove dirs:", dirs_to_delete)
 
         for f in files_to_delete:
             try:
