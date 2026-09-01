@@ -836,7 +836,16 @@ def continue_job(user_id):
     # replacing files in zip
     db = mongo["RMN"]
     collection_eval_jobs = db["eval_jobs"]
-    job = collection_eval_jobs.find_one({"job_id": job_id})
+    # scope the lookup to the requesting user so a user cannot add copies to
+    # another user's job (returns None -> 404 for a missing or foreign job_id,
+    # which also avoids dereferencing None below).
+    job = collection_eval_jobs.find_one({"job_id": job_id, "user_id": user_id})
+
+    if job is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
+        )
 
     avail_status = [Job_Status.RETRY.value, Job_Status.QUEUED.value, Job_Status.RUN.value, Job_Status.VALIDATION.value]
     if job["job_status"] not in avail_status:
@@ -847,11 +856,19 @@ def continue_job(user_id):
 
     random_id = uuid.uuid4()
     zip_path = storage.abs_path(os.path.join("zips", job_id, f"{random_id}.zip"))
-    with ZipFile(zip_path, 'w') as new_zip:
-        for f in request.files.values():
-            file_path = os.path.join("/tmp", f.filename)
-            f.save(file_path)
-            new_zip.write(file_path)
+    # Sanitize the client-supplied filename to prevent path traversal both on
+    # disk (f.save) and in the archive member name (new_zip.write): a name like
+    # "../../etc/cron.d/x" would otherwise escape the temp dir / the zip root.
+    tmp_dir = tempfile.mkdtemp()
+    try:
+        with ZipFile(zip_path, 'w') as new_zip:
+            for f in request.files.values():
+                safe_name = secure_filename(f.filename) or f"{uuid.uuid4()}.pdf"
+                file_path = os.path.join(tmp_dir, safe_name)
+                f.save(file_path)
+                new_zip.write(file_path, arcname=safe_name)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     # removing incorrect pdfs
     storage.remove_tree(os.path.join("incorrect_files", job_id))
