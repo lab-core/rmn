@@ -54,11 +54,43 @@ Do not use Keda 2.81, instead Keda 2.9.* as Kubernetes 1.20+ is only supported f
 kubectl apply -f https://github.com/kedacore/keda/releases/download/v2.9.3/keda-2.9.3.yaml
 ```
 
+#### Secrets
+All service credentials live in a single Kubernetes Secret named `rmn-secrets`
+(MongoDB user/password, the Redis password, the `/admin/*` `ADMIN_API_KEY`, and
+the Slack token). The manifests reference it with `secretKeyRef`; no credential
+is committed. Create it **before** deploying:
+```
+kubectl create secret generic rmn-secrets \
+  --from-literal=mongodb-user=adminuser \
+  --from-literal=mongodb-password="$(openssl rand -hex 24)" \
+  --from-literal=redis-password="$(openssl rand -hex 24)" \
+  --from-literal=admin-api-key="$(openssl rand -hex 32)" \
+  --from-literal=slack-token=""     # xoxb-... or empty to disable health-check pings
+```
+(Or copy `deployment/secrets.example.yml` to `deployment/secrets.yml`, fill it
+in, and `kubectl apply -f deployment/secrets.yml` — that file is gitignored.)
+The KEDA redis scaler authenticates via the `redis-trigger-auth`
+`TriggerAuthentication` in `deployment/executor.yml`, which reads the same
+`redis-password`. On an existing Mongo volume the root password is fixed at
+first init; to change it, rotate inside mongo (`db.changeUserPassword`) then
+update the Secret.
+
 #### Deploy all services
 Move to the deployment folder and run this command to start all services:
 ```
 kubectl apply -f .
 ```
+
+#### Rotating the Slack token
+The Slack token was committed to git history, so it must be regenerated in the
+Slack app settings (revoking the old one) — that is the actual fix. Then update
+the cluster Secret and roll the server with the helper:
+```
+scripts/rotate-slack-token.sh <new-xoxb-token>
+```
+It patches `rmn-secrets`, `kubectl rollout restart deployment/server`, and — if a
+local `.env` is present — updates `SLACK_TOKEN` there too. To purge the old token
+from history entirely, use `git filter-repo` (separate, history-rewriting step).
 
 #### Modify deployment
 Once a deployment yml file has been modified, you need to apply those modifications:
