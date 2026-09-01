@@ -59,5 +59,15 @@ spec:
               value: adminuser
             - name: MONGODB_PASSWORD
               value: example
+            # Shared secret guarding the /admin/* operator endpoints. Create with:
+            #   kubectl create secret generic admin-api-key --from-literal=key=$(openssl rand -hex 32)
+            # optional:true => if the secret is absent the key is unset and the
+            # admin endpoints are disabled (fail closed) rather than blocking startup.
+            - name: ADMIN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: admin-api-key
+                  key: key
+                  optional: true
           terminationMessagePolicy: FallbackToLogsOnError
       restartPolicy: Always

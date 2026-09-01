@@ -35,6 +35,10 @@ services:
     #   - "5000:5000"
     environment:
       FLASK_ENV: development
+      # Shared secret guarding the /admin/* operator endpoints. Sourced from
+      # the host env; when empty those endpoints are disabled (fail closed).
+      # Set it before `docker compose up`, e.g. export ADMIN_API_KEY=$(openssl rand -hex 32)
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
     volumes:
       - ./storage:/Server/storage
   socketio:

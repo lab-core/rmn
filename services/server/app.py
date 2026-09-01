@@ -19,6 +19,7 @@ import pandas as pd
 
 import uuid
 import os
+import hmac
 import json
 import shutil
 import tempfile
@@ -41,6 +42,14 @@ TEMP_FOLDER = ROOT_DIR.joinpath("temp")
 VALIDATE_TEMP_FOLDER = ROOT_DIR.joinpath("validate_temp_folder")
 FRONT_PAGE_TEMP_FOLDER = ROOT_DIR.joinpath("front_page_temp")
 LATEX_INPUT_FILE = ROOT_DIR.joinpath("data.tex")
+
+# Shared operator secret guarding the /admin/* endpoints. These are
+# server-side operator commands (create the first admin, reset a password,
+# delete a user/jobs, ...) that carry a *target* user in their form fields,
+# so they cannot be guarded by the per-user @verify_token. Requiring this
+# secret means that merely reaching Flask (e.g. bypassing the nginx deny
+# rule) is not enough to call them. Unset => admin endpoints are disabled.
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 
 
 def check_token(form, role=None):
@@ -81,6 +90,32 @@ def verify_token(role=None):
             return f(user_id)
         return __verify_token
     return _verify_token
+
+
+def verify_admin(f):
+    """Guard an /admin/* operator endpoint with the shared ADMIN_API_KEY.
+
+    The secret may be passed as ``admin_key`` in the POST form or the query
+    string (for GET endpoints). Fails closed: if ADMIN_API_KEY is not set the
+    endpoint is disabled rather than left open.
+    """
+    @wraps(f)
+    def __verify_admin(*args, **kwargs):
+        if not ADMIN_API_KEY:
+            print("Error: ADMIN_API_KEY is not configured; admin endpoints are disabled.")
+            return Response(
+                response=json.dumps({"response": "Error: admin endpoints are disabled."}),
+                status=403,
+            )
+        request_form = request.form if request.method == "POST" else request.args
+        provided = request_form.get("admin_key", "")
+        if not hmac.compare_digest(provided.encode("utf-8"), ADMIN_API_KEY.encode("utf-8")):
+            return Response(
+                response=json.dumps({"response": "Error: invalid admin key."}),
+                status=403,
+            )
+        return f(*args, **kwargs)
+    return __verify_admin
 
 
 def verify_share_token(question=True, matricule=True, return_validity=False):
@@ -1903,6 +1938,7 @@ def delete_old_jobs(n_days_old=0, user_id=None):
 
 @app.route("/admin/delete/jobs", methods=["POST"])
 @cross_origin()
+@verify_admin
 def admin_delete_jobs():
     request_form = request.form
 
@@ -1929,6 +1965,7 @@ def admin_delete_jobs():
 
 @app.route("/admin/signup", methods=["POST"])
 @cross_origin()
+@verify_admin
 def admin_signup():
     db = mongo["RMN"]
     return UserService.signup(request, db)
@@ -1936,6 +1973,7 @@ def admin_signup():
 
 @app.route("/admin/delete/tokens", methods=["POST"])
 @cross_origin()
+@verify_admin
 def admin_delete_tokens():
     request_form = request.form
     user_id = None
@@ -1954,6 +1992,7 @@ def admin_delete_tokens():
 
 @app.route("/admin/delete/user", methods=["POST"])
 @cross_origin()
+@verify_admin
 def admin_delete_user():
     request_form = request.form
 
@@ -1982,6 +2021,7 @@ def admin_delete_user():
 
 @app.route("/admin/users", methods=["POST"])
 @cross_origin()
+@verify_admin
 def admin_users():
     db = mongo["RMN"]
     all_users = UserService.users(db)
@@ -1990,18 +2030,21 @@ def admin_users():
 
 @app.route("/admin/change_password", methods=["POST"])
 @cross_origin()
+@verify_admin
 def admin_change_password():
     db = mongo["RMN"]
     return UserService.change_password(request, db, False)
 
 @app.route("/admin/template", methods=["POST"])
 @cross_origin()
+@verify_admin
 def create_default_template():
     db = mongo["RMN"]
     return TemplateService.add_default_templates(request.form.get('user_id'), db, storage)
 
 @app.route("/admin/executor", methods=["GET"])
 @cross_origin()
+@verify_admin
 def admin_executor():
     redis.rpush("job_queue", "{}")
     return Response(response=json.dumps({"response": "OK"}), status=200)
