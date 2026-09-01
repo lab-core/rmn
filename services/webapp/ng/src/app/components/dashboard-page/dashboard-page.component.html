@@ -23,8 +23,8 @@
             <th>Questions</th>
             <th>Copies corrigées</th>
             <th>Moyennes</th>
-            <th>Écart-type</th>
-            <th>Histogramme</th>
+            <th>Écart-types</th>
+            <th>Histogrammes</th>
             <th>Bonus</th>
             <th>Actions</th>
           </tr>
@@ -57,7 +57,7 @@
                 <input *ngIf="question.name != 'Total'" type="checkbox" [(ngModel)]="question.bonus" [disabled]="disableButtons" (change)="questionBonusChange(question)" [ngModelOptions]="{standalone: true}">
             </td>
             <td class="action-buttons">
-              <button class="correct-button" *ngIf="!disableButtons" mat-raised-button color="primary" (click)="correctQuestion(i)">Corriger</button>
+              <button class="correct-button" *ngIf="!disableButtons" mat-raised-button color="primary" [disabled]="question.count === 0" (click)="correctQuestion(i)">Corriger</button>
               <button class="correct-button" *ngIf="!shared() && !disableButtons" mat-raised-button color="primary" (click)="shareQuestion(i+1 < questions.length ? i : undefined)">Partager</button>
             </td>
           </tr>

@@ -6,6 +6,8 @@ services:
     ports:
       - "6379:6379"
   mongo:
+    # featureCompatibilityVersion of the data is 8.0; when :latest jumps to a
+    # new major that rejects it, bump FCV first (setFeatureCompatibilityVersion)
     image: mongo:latest
     restart: always
     environment:
@@ -40,8 +42,8 @@ services:
   socketio:
     build: ./services/socketIO
     restart: always
-    ports:
-      - '7000:7000'
+    # no host port: only reached inside the compose network (nginx proxies
+    # /socket.io/), and host port 7000 clashes with macOS AirPlay Receiver
     # network_mode: "host"
   webapp:
     # build: ./services/webapp
