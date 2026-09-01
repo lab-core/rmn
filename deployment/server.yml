@@ -55,19 +55,35 @@ spec:
           env:
             - name: STORAGE
               value: /mnt/storage
+            # all credentials come from the rmn-secrets Secret (see
+            # deployment/secrets.example.yml)
             - name: MONGODB_USER
-              value: adminuser
+              valueFrom:
+                secretKeyRef:
+                  name: rmn-secrets
+                  key: mongodb-user
             - name: MONGODB_PASSWORD
-              value: example
-            # Shared secret guarding the /admin/* operator endpoints. Create with:
-            #   kubectl create secret generic admin-api-key --from-literal=key=$(openssl rand -hex 32)
-            # optional:true => if the secret is absent the key is unset and the
-            # admin endpoints are disabled (fail closed) rather than blocking startup.
+              valueFrom:
+                secretKeyRef:
+                  name: rmn-secrets
+                  key: mongodb-password
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rmn-secrets
+                  key: redis-password
+            - name: SLACK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: rmn-secrets
+                  key: slack-token
+                  optional: true
+            # empty/absent => the /admin/* endpoints are disabled (fail closed)
             - name: ADMIN_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: admin-api-key
-                  key: key
+                  name: rmn-secrets
+                  key: admin-api-key
                   optional: true
           terminationMessagePolicy: FallbackToLogsOnError
       restartPolicy: Always

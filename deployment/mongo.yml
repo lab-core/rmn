@@ -27,10 +27,16 @@ spec:
     spec:
       containers:
         - env:
-            - name: MONGO_INITDB_ROOT_PASSWORD
-              value: example
             - name: MONGO_INITDB_ROOT_USERNAME
-              value: adminuser
+              valueFrom:
+                secretKeyRef:
+                  name: rmn-secrets
+                  key: mongodb-user
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rmn-secrets
+                  key: mongodb-password
           image: mongo:latest
           name: mongo
           ports:

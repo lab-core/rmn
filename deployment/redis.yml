@@ -28,6 +28,14 @@ spec:
         containers:
             - image: redis:alpine
               name: redis
+              # require a password from every client (sourced from the Secret)
+              command: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
+              env:
+                - name: REDIS_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: redis-password
               ports:
                 - name: redis-server
                   containerPort: 6379
