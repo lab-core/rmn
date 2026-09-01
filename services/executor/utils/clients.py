@@ -22,7 +22,8 @@ def mongo_client():
 
 
 def redis_client():
-    return redis.Redis(host=redis_host)
+    # password is optional so an unauthenticated Redis still works in dev
+    return redis.Redis(host=redis_host, password=os.getenv("REDIS_PASSWORD") or None)
 
 
 def socketio_client():

@@ -3,3 +3,7 @@ __pycache__/
 **front_page**
 .idea/**
 venv/
+
+# Local secrets — never commit
+.env
+services/server/slack_token
