@@ -103,7 +103,8 @@ export class DashboardPageComponent {
     });
     this.socketService.getSocket().on('job_status', async (params: any) => {
       const resp = JSON.parse(params);
-      if (this.task.job_status !== resp.status) {
+      const statusChanged = this.task.job_status !== resp.status;
+      if (statusChanged) {
         const message = 'Le status de la tâche a changé à: ' + resp.status + ' !';
         this.notificationService.showInfo(message, 'Alerte!');
       }
@@ -112,7 +113,9 @@ export class DashboardPageComponent {
       if (resp.job_infos) {
         const message = 'Voici les nouvelles infos de la tâche: ' + resp.job_infos;
         this.notificationService.showInfo(message, 'Infos');
-        this.loadTask();  // re render
+      }
+      if (statusChanged || resp.job_infos) {
+        this.loadTask();  // reload the counters (e.g. copies were added)
       }
     });
   }
