@@ -1,8 +1,11 @@
 name: Publish All Docker images
 
+# Publishing is manual (Actions tab -> "Run workflow") plus automatic on a
+# v* release tag. Pushes to main no longer publish. Pull requests still build
+# the images as a check but never push them (see docker-publish.yml).
 on:
+  workflow_dispatch:
   push:
-    branches: [ main ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
