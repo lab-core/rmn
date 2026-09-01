@@ -852,11 +852,33 @@ def download_incorrect_files(user_id):
 
     #
     job_id = str(request_form["job_id"])
-    target_file = str(request_form["file"])
-    file_path = os.path.join('incorrect_files', job_id, target_file)
-    file_send = send_file(storage.abs_path(file_path))
 
-    return file_send
+    # scope to the requesting user so one user cannot read another's files
+    if mongo["RMN"]["eval_jobs"].find_one({"job_id": job_id, "user_id": user_id}) is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
+        )
+
+    # sanitize the client-supplied name to prevent path traversal: without this
+    # "file=../../../../etc/passwd" would be served. Incorrect files are stored
+    # under flat secure_filename names (see executor utils/split.py), so this is
+    # idempotent for legitimate names.
+    target_file = secure_filename(str(request_form["file"]))
+    if not target_file:
+        return Response(
+            response=json.dumps({"response": "Error: invalid file name."}),
+            status=400,
+        )
+
+    file_path = storage.abs_path(os.path.join('incorrect_files', job_id, target_file))
+    if not os.path.isfile(file_path):
+        return Response(
+            response=json.dumps({"response": f"Error: file {target_file} not found."}),
+            status=404,
+        )
+
+    return send_file(file_path)
 
 
 @app.route("/file/share", methods=["POST"])
