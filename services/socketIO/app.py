@@ -14,6 +14,13 @@ eventlet.monkey_patch(select=False, thread=False)
 # Shared secret the backend (server/executor) presents so that ONLY it may push
 # notifications. Without it those emit handlers are treated as untrusted.
 SERVICE_TOKEN = os.getenv("SOCKETIO_SERVICE_TOKEN")
+if not SERVICE_TOKEN:
+    if os.getenv("ENVIRONMENT") == "production":
+        # Fail fast: without the token the backend can never authenticate, so
+        # every notification would be dropped and real-time silently stops.
+        raise RuntimeError("SOCKETIO_SERVICE_TOKEN is not set")
+    print("WARNING: SOCKETIO_SERVICE_TOKEN is not set; backend events will be "
+          "dropped", flush=True)
 
 # Restrict which origins may open a socket. Defaults to "*" so local dev keeps
 # working; set SOCKETIO_CORS_ORIGINS (comma-separated) in production.
@@ -44,19 +51,30 @@ connections = {}
 
 # --- authentication / authorization ------------------------------------------
 
+def _str(value):
+    """Return ``value`` if it is a non-empty string, else ``None``.
+
+    Everything the client sends (tokens, room names) ends up in Mongo queries,
+    so anything that is not a plain string (e.g. ``{"$ne": ""}``) is rejected
+    up front to rule out operator injection.
+    """
+    return value if isinstance(value, str) and value else None
+
+
 def identify(auth):
     """Map the handshake ``auth`` payload to a connection identity."""
-    auth = auth or {}
+    auth = auth if isinstance(auth, dict) else {}
     if SERVICE_TOKEN and auth.get("service_token") == SERVICE_TOKEN:
         return {"role": "service"}
 
-    token = auth.get("token")
+    token = _str(auth.get("token"))
     if token:
         record = mongo["RMN"]["tokens"].find_one({"token": token})
-        if record and (not auth.get("user_id") or auth.get("user_id") == record["username"]):
+        user_id = _str(auth.get("user_id"))
+        if record and (not user_id or user_id == record["username"]):
             return {"role": "user", "user_id": record["username"]}
 
-    share_token = auth.get("share_token")
+    share_token = _str(auth.get("share_token"))
     if share_token:
         return {"role": "share", "share_token": share_token}
 
@@ -66,6 +84,9 @@ def identify(auth):
 def can_join(identity, room):
     """Whether ``identity`` is allowed to join ``room`` (a user_id, job_id or
     template_id)."""
+    if not _str(room):
+        return False
+
     role = identity.get("role")
     if role == "service":
         return True
@@ -103,7 +124,12 @@ def is_service():
 
 @socketio.on("connect")
 def on_connection(auth):
-    identity = identify(auth)
+    try:
+        identity = identify(auth)
+    except Exception as exc:  # e.g. Mongo unreachable
+        # Reject cleanly rather than let the exception escape the handler.
+        print(f"Rejected connection: could not identify client ({exc})")
+        return False
     connections[request.sid] = identity
     print(f"Connected ({identity.get('role')})")
 
@@ -116,15 +142,22 @@ def on_disconnect():
 @socketio.on("join")
 def on_join(room):
     identity = connections.get(request.sid, {"role": "anonymous"})
-    if can_join(identity, room):
+    try:
+        allowed = can_join(identity, room)
+    except Exception as exc:  # e.g. Mongo unreachable
+        print(f"Denied join to room {room!r}: authorization failed ({exc})")
+        return
+    if allowed:
         join_room(room)
         print(f"Joined room {room}")
     else:
-        print(f"Denied join to room {room} for {identity.get('role')}")
+        print(f"Denied join to room {room!r} for {identity.get('role')}")
 
 
 @socketio.on("leave")
 def on_leave(room):
+    if not _str(room):
+        return
     leave_room(room)
     print(f"Left room {room}")
 

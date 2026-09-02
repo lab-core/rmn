@@ -26,11 +26,30 @@ def redis_client():
     return redis.Redis(host=redis_host, password=os.getenv("REDIS_PASSWORD") or None)
 
 
+def socketio_service_token():
+    """Return the shared secret that identifies us to the socketIO server.
+
+    Without it the socket server treats us as an untrusted client and silently
+    drops every event we emit, so a missing token in production is a
+    misconfiguration we refuse to run with; in dev we only warn.
+    """
+    token = os.getenv("SOCKETIO_SERVICE_TOKEN")
+    if not token:
+        if os.getenv("ENVIRONMENT") == "production":
+            raise RuntimeError(
+                "SOCKETIO_SERVICE_TOKEN is not set: real-time updates would be "
+                "silently dropped by the socketIO server"
+            )
+        print("WARNING: SOCKETIO_SERVICE_TOKEN is not set; socketIO events "
+              "will be dropped", flush=True)
+    return token
+
+
 def socketio_client():
     sio = socketio.Client()
     # authenticate as the trusted backend so the socket server relays our events
     sio.connect(f"http://{socketio_host}:7000",
-                auth={"service_token": os.getenv("SOCKETIO_SERVICE_TOKEN")})
+                auth={"service_token": socketio_service_token()})
     return sio
 
 

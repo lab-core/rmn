@@ -78,8 +78,7 @@ services:
     # depends_on:
     #   - webapp
     #   - server
-    #   - socketiocontinue
-
+    #   - socketio
     build: ./services/nginx
     restart: always
     ports:
