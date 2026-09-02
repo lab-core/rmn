@@ -2,6 +2,11 @@
     <div class="header-container">
         <h1>Téléversement des fichiers</h1>
     </div>
+    <div class="button-container">
+        <button mat-raised-button color="primary" [disabled]="disabled || uploading" (click)="retryJob()">Continuer</button>
+        <button mat-raised-button color="primary" (click)="ignoreAndContinue()" [disabled]="isFileNamesEmpty() || uploading">Ignorer et continuer</button>
+        <button mat-raised-button color="warn" (click)="cancel()" [disabled]="uploading">Annuler</button>
+    </div>
     <div class="content-container">
         <div class="error-messages-container">
             <div class="files-container error-message" *ngIf="!isFileNamesEmpty()">
@@ -44,15 +49,10 @@
             <li *ngFor="let file of uploadedFiles">{{ file }}</li>
         </ul>
     </div>
-    <div class="button-container">
-        <button mat-raised-button color="primary" [disabled]="disabled || uploading" (click)="retryJob()">Continuer</button>
-        <button mat-raised-button color="primary" (click)="ignoreAndContinue()" [disabled]="isFileNamesEmpty() || uploading">Ignorer et continuer</button>
-        <button mat-raised-button color="warn" (click)="cancel()" [disabled]="uploading">Annuler</button>
-    </div>
 </div>
 <div id="overlay" *ngIf="this.downloading"></div>
 <mat-spinner *ngIf="this.downloading" color="accent" [diameter]="150" mode="determinate" [value]="this.downloadProgress"></mat-spinner>
 <div class="files-uploading-steps" *ngIf="this.downloading">Téléversement du fichier...</div>
 <div id="overlay" *ngIf="this.uploading"></div>
-<mat-spinner *ngIf="this.uploading" color="accent" [diameter]="150" mode="determinate" [value]="this.uploadProgress"></mat-spinner>
+<mat-spinner *ngIf="this.uploading" color="accent" [diameter]="150" mode="indeterminate"></mat-spinner>
 <div class="files-uploading-steps" *ngIf="this.uploading">Téléversement des copies...</div>
