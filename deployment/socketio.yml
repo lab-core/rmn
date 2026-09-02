@@ -36,5 +36,10 @@ spec:
                 - containerPort: 7000
                   protocol: TCP
               resources: {}
+              env:
+                # restrict which origins may open a socket; set to your site
+                # origin(s), e.g. https://rmn.mgi.polymtl.ca (comma-separated)
+                - name: SOCKETIO_CORS_ORIGINS
+                  value: "*"
         restartPolicy: Always
 status: {}
