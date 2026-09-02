@@ -24,8 +24,10 @@ export class TaskRetryDialogComponent implements OnInit {
 
   @ViewChild('fileUpload', { static: false }) fileUpload: ElementRef;
   downloading: boolean = false;
+  uploading: boolean = false;
   disabled: boolean = true;
   downloadProgress = 0;
+  uploadProgress = 0;
   errorMessages: string[] = [];
   filenames: string[] = [];
   selectedFiles: File[] = [];
@@ -169,13 +171,18 @@ export class TaskRetryDialogComponent implements OnInit {
       formData.append(`file${index}`, file);
     });
 
+    // show the spinner while the copies upload, and disable the buttons
+    this.uploading = true;
+    this.uploadProgress = 0;
+
     const sub = this.http.post(`${SERVER_URL}job/continue`, formData, {
       reportProgress: true,
       observe: 'events'
     }).subscribe(event => {
       if (event.type === HttpEventType.UploadProgress) {
-        this.downloadProgress = Math.round(100 * event.loaded / (event.total ?? 1));
+        this.uploadProgress = Math.round(100 * event.loaded / (event.total ?? 1));
       } else if (event.type === HttpEventType.Response) {
+        this.uploading = false;
         this.notifyService.showSuccess('Fichier(s) téléversé(s) avec succès', 'SUCCÈS');
         this.dialogRef.close('CORRECTED');
         this.uploadedFiles.push(...this.selectedFiles.map(file => file.name));
@@ -183,6 +190,8 @@ export class TaskRetryDialogComponent implements OnInit {
         sub.unsubscribe();
       }
     }, error => {
+      // always clear the spinner so the dialog is never left stuck
+      this.uploading = false;
       this.notifyService.showError('Échec du téléversement du/des fichier(s)', 'ERREUR');
       sub.unsubscribe();
     });
