@@ -41,5 +41,22 @@ spec:
                 # origin(s), e.g. https://rmn.mgi.polymtl.ca (comma-separated)
                 - name: SOCKETIO_CORS_ORIGINS
                   value: "*"
+                # validate user tokens and authorize room joins against Mongo
+                - name: MONGODB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: mongodb-user
+                - name: MONGODB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: mongodb-password
+                # trusted-backend secret: only holders may push notifications
+                - name: SOCKETIO_SERVICE_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: socketio-service-token
         restartPolicy: Always
 status: {}

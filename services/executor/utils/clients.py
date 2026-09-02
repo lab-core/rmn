@@ -28,7 +28,9 @@ def redis_client():
 
 def socketio_client():
     sio = socketio.Client()
-    sio.connect(f"http://{socketio_host}:7000")
+    # authenticate as the trusted backend so the socket server relays our events
+    sio.connect(f"http://{socketio_host}:7000",
+                auth={"service_token": os.getenv("SOCKETIO_SERVICE_TOKEN")})
     return sio
 
 

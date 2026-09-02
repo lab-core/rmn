@@ -68,6 +68,11 @@ spec:
                   secretKeyRef:
                     name: rmn-secrets
                     key: redis-password
+              - name: SOCKETIO_SERVICE_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: rmn-secrets
+                    key: socketio-service-token
             terminationMessagePolicy: FallbackToLogsOnError
         restartPolicy: Never
     backoffLimit: 5
