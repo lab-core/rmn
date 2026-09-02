@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest, HttpResponse, HttpParams, HttpHeaders } from '@angular/common/http';
-import { EMPTY, Observable, of, throwError, timer } from 'rxjs';
+import { Observable, of, throwError, timer } from 'rxjs';
 import { catchError, tap, switchMap } from 'rxjs/operators';
 import { UserService } from './user.service';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -43,7 +43,12 @@ export class ErrorInterceptor implements HttpInterceptor {
             this.router.navigate(['/']);
           }
         }
-        return EMPTY;
+        // Re-throw so component error callbacks and awaited promises actually
+        // observe the failure. Returning EMPTY here used to swallow every
+        // error, which left `subscribe` error handlers dead and made
+        // `toPromise()`/awaited calls resolve `undefined` or hang forever
+        // (e.g. a failed upload never cleared its spinner).
+        return throwError(() => error);
       })
     );
   }
