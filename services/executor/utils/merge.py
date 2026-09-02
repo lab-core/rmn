@@ -82,7 +82,10 @@ def process_merge(job):
     job_id = job["job_id"]
     n_max_points_per_question = job["n_max_points_per_question"]
     question_indexes = [item[0] for item in n_max_points_per_question]
-    question_indexes.sort()
+    # numeric order ("Q2" before "Q10"); a plain sort is lexicographic and, since
+    # the merge maps folder position i to the file named _Q{i}, would look for
+    # "_Q2.pdf" inside the "Q10" folder and fail once there are >= 10 questions
+    question_indexes.sort(key=lambda q: int(re.sub(r"\D", "", str(q)) or 0))
 
     # folders where to fetch the different parts to merge
     folder_paths = [storage.abs_path(os.path.join('cover_pages', job_id))]

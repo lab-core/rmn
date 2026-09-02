@@ -6,6 +6,7 @@ import json
 import pandas as pd
 import uuid
 import time
+import threading
 import datetime as dt
 import numpy as np, cv2
 from pdf2image import convert_from_path
@@ -39,6 +40,58 @@ old_print = print
 def timestamped_print(*args, **kwargs):
   old_print(dt.datetime.now(), *args, **kwargs)
 print = timestamped_print
+
+
+def question_sort_key(item):
+    """Numeric sort key for a "Q<n>" key or a ("Q<n>", value) pair.
+
+    A plain sort of the keys is lexicographic ("Q10" < "Q2"), which mismaps
+    per-question data once a task has 10 or more questions.
+    """
+    key = item[0] if isinstance(item, (list, tuple)) else item
+    digits = re.sub(r"\D", "", str(key))
+    return int(digits) if digits else 0
+
+
+class Heartbeat:
+    """Refresh a job's ``alive_time`` from a background thread while it is being
+    processed.
+
+    Grading and finalization can run far longer than ``MAX_IDLE_TIME`` without
+    otherwise touching ``alive_time``; without a heartbeat the idle checker
+    treats the job as dead and requeues it, so a second executor processes it
+    concurrently and ``retry`` climbs until a healthy job is flipped to ERROR.
+    If the executor really dies, the thread dies with it and the job is
+    correctly requeued.
+    """
+
+    def __init__(self, db, job_id, interval=MAX_IDLE_TIME // 3):
+        self._db = db
+        self._job_id = job_id
+        self._interval = max(5, interval)
+        self._stop = threading.Event()
+        self._thread = None
+
+    def _beat(self):
+        while not self._stop.wait(self._interval):
+            try:
+                self._db.eval_jobs_collection().update_one(
+                    {"job_id": self._job_id},
+                    {"$set": {"alive_time": dt.datetime.now(dt.UTC)}},
+                )
+            except Exception as e:
+                print("Heartbeat failed:", e)
+
+    def __enter__(self):
+        self._thread = threading.Thread(target=self._beat, daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+        return False
 
 
 def save_number_images(storage, job_id, document_index, questions):
@@ -75,7 +128,10 @@ def check_for_idle_jobs_to_requeue(db, sleep):
                 # search idle jobs
                 max_alive = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=MAX_IDLE_TIME)
                 jobs = db.eval_jobs_collection().find({
-                    "job_status": Job_Status.RUN.value,
+                    # include FINALIZING so a job whose executor crashed mid-
+                    # finalization is requeued too (the requeue branch below
+                    # handled it but the query never selected it)
+                    "job_status": {"$in": [Job_Status.RUN.value, Job_Status.FINALIZING.value]},
                     "alive_time": {"$lt": max_alive}
                 })
 
@@ -328,8 +384,10 @@ if __name__ == "__main__":
         statistics_for_students = eval_job["statistics_for_students"]
         # print("statistics_for_students", statistics_for_students)
         n_questions = len(n_max_points_per_question)
-        n_max_points_per_question = [q[1] for q in sorted(n_max_points_per_question)]
-        question_bonus = [q[1] for q in sorted(eval_job["bonus_enabled_map"])]
+        # sort by the numeric question index ("Q2" before "Q10"); a plain sort
+        # is lexicographic and mismaps points/bonus once there are >= 10 questions
+        n_max_points_per_question = [q[1] for q in sorted(n_max_points_per_question, key=question_sort_key)]
+        question_bonus = [q[1] for q in sorted(eval_job["bonus_enabled_map"], key=question_sort_key)]
         question_totals = copy.copy(n_max_points_per_question)
         question_totals.append(sum(s for i, s in enumerate(n_max_points_per_question) if not question_bonus[i]))
 
@@ -754,21 +812,24 @@ if __name__ == "__main__":
 
         stopH = StopHandler(db.eval_jobs_collection(), job_id)
 
-        if job["job_status"] in [Job_Status.VALIDATED.value, Job_Status.FINALIZING.value]:
-            finalize_job(job, TMP_DIR, stopH)
+        # keep alive_time fresh for the whole (possibly long) operation so the
+        # idle checker does not wrongly requeue a job that is still working
+        with Heartbeat(db, job_id):
+            if job["job_status"] in [Job_Status.VALIDATED.value, Job_Status.FINALIZING.value]:
+                finalize_job(job, TMP_DIR, stopH)
 
-        elif (p_job.get("add_copies") and
-              job["job_status"] in [Job_Status.QUEUED.value, Job_Status.RUN.value, Job_Status.VALIDATION.value]):
-            add_copies_to_job(job, TMP_DIR)
+            elif (p_job.get("add_copies") and
+                  job["job_status"] in [Job_Status.QUEUED.value, Job_Status.RUN.value, Job_Status.VALIDATION.value]):
+                add_copies_to_job(job, TMP_DIR)
 
-        elif job["job_status"] in [Job_Status.QUEUED.value, Job_Status.IGNORED.value]:
-            process_job(job, TMP_DIR, stopH)
+            elif job["job_status"] in [Job_Status.QUEUED.value, Job_Status.IGNORED.value]:
+                process_job(job, TMP_DIR, stopH)
 
-        elif job["job_status"] in [Job_Status.SPLIT.value, Job_Status.CORRECTED.value]:
-            create_job(job, TMP_DIR)
+            elif job["job_status"] in [Job_Status.SPLIT.value, Job_Status.CORRECTED.value]:
+                create_job(job, TMP_DIR)
 
-        else:
-            print("Job status "+job["job_status"]+" not handled.")
+            else:
+                print("Job status "+job["job_status"]+" not handled.")
 
     try:
         # retrieve job
