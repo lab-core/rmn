@@ -1,13 +1,20 @@
 from flask import Flask
 from flask_socketio import SocketIO, send, emit, join_room, leave_room
 from utils.utils import Client_Type
+import os
 import json
 import eventlet
 eventlet.monkey_patch()
 
+# Restrict which origins may open a socket. Defaults to "*" (any origin) so
+# local dev keeps working; set SOCKETIO_CORS_ORIGINS to a comma-separated list
+# of allowed origins in production to stop arbitrary sites from connecting.
+_cors = os.getenv("SOCKETIO_CORS_ORIGINS", "*")
+cors_allowed_origins = "*" if _cors.strip() == "*" else [o.strip() for o in _cors.split(",") if o.strip()]
+
 async_mode = None
 app = Flask(__name__)
-socketio = SocketIO(app, logger=True, engineio_logger=True, policy_server=False, async_mode='eventlet', manage_session=False, cors_allowed_origins="*")
+socketio = SocketIO(app, logger=True, engineio_logger=True, policy_server=False, async_mode='eventlet', manage_session=False, cors_allowed_origins=cors_allowed_origins)
 
 
 @socketio.on("connect")
