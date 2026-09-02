@@ -555,27 +555,34 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       this.notifyService.showError("Assurez-vous de complêter toutes les étapes!", "ERREUR");
     } else {
       this.uploading = true;
-      await this.convertDownloadableFile();
-      await this.convertDownloadableCSV();
-      if (!this.copies) {
-        // No copies uploaded: send an empty zip so the task is created
-        // without any exam to correct.
-        this.copies = this.createEmptyZipFile();
+      try {
+        await this.convertDownloadableFile();
+        await this.convertDownloadableCSV();
+        if (!this.copies) {
+          // No copies uploaded: send an empty zip so the task is created
+          // without any exam to correct.
+          this.copies = this.createEmptyZipFile();
+        }
+        const front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
+        const regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
+        if (!this.correct) {
+          this.nPagesPerQuestion.clear();
+          this.nMaxPointsPerQuestion.clear();
+          this.bonusEnabledMap.clear();
+          this.statisticsForStudents = false;
+        }
+        await this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate,
+                                        this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName,
+                                        front_template_name, regular_template_name, this.statisticsForStudents, this.validateMatricule);
+        this.removeTask();
+        this.doNotSaveTask = true;
+        this.reroute();
+      } catch (error) {
+        // clear the spinner and inform the user instead of hanging behind the overlay
+        console.error(error);
+        this.uploading = false;
+        this.notifyService.showError("Échec de la création de la tâche.", "ERREUR");
       }
-      const front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
-      const regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
-      if (!this.correct) {
-        this.nPagesPerQuestion.clear();
-        this.nMaxPointsPerQuestion.clear();
-        this.bonusEnabledMap.clear();
-        this.statisticsForStudents = false;
-      }
-      await this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate,
-                                      this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName,
-                                      front_template_name, regular_template_name, this.statisticsForStudents, this.validateMatricule);
-      this.removeTask();
-      this.doNotSaveTask = true;
-      this.reroute();
     }
   }
 
