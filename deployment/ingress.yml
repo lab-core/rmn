@@ -33,3 +33,28 @@ spec:
                 name: socketio
                 port:
                   number: 7000
+---
+# Separate Ingress so the rate-limit annotations apply only to /api/login
+# (they are per-Ingress). This more specific path is matched before the
+# general /api/(.*) rule above, throttling login brute-force attempts.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rmn-login-ratelimit
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    # 10 login requests per minute per client IP; burst = rpm * multiplier
+    nginx.ingress.kubernetes.io/limit-rpm: "10"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "1"
+spec:
+  rules:
+    - host: rmn.mgi.polymtl.ca
+      http:
+        paths:
+          - path: /api/(login)
+            pathType: Prefix
+            backend:
+              service:
+                name: server
+                port:
+                  number: 5000
