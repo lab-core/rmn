@@ -119,6 +119,20 @@ export class DashboardPageComponent {
       }
     });
   }
+
+  public ngOnDestroy(): void {
+    // remove the socket listeners and leave the room so revisiting the
+    // dashboard does not stack duplicate handlers on the shared socket
+    const socket = this.socketService.getSocket();
+    if (socket) {
+      socket.off('doc_validated');
+      socket.off('job_status');
+      if (this.taskId) {
+        socket.emit('leave', this.taskId);
+      }
+    }
+  }
+
   private async loadTask(): Promise<void> {
     // fetch informations and documents
     await this.getTask();
