@@ -69,6 +69,16 @@ kubectl create secret generic rmn-secrets \
 ```
 (Or copy `deployment/secrets.example.yml` to `deployment/secrets.yml`, fill it
 in, and `kubectl apply -f deployment/secrets.yml` — that file is gitignored.)
+
+The same file can be generated instead of hand-edited:
+```
+scripts/generate-secrets.sh                  # fresh random values, slack-token empty
+scripts/generate-secrets.sh --from-env .env  # reuse the docker-compose credentials
+scripts/generate-secrets.sh --slack-token xoxb-...
+kubectl apply -f deployment/secrets.yml
+```
+It refuses to overwrite an existing `secrets.yml` without `--force` (the Mongo
+root password cannot be changed by rewriting the Secret alone).
 The KEDA redis scaler authenticates via the `redis-trigger-auth`
 `TriggerAuthentication` in `deployment/executor.yml`, which reads the same
 `redis-password`. On an existing Mongo volume the root password is fixed at
