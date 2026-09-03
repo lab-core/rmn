@@ -58,11 +58,26 @@ kubectl apply --server-side -f https://github.com/kedacore/keda/releases/downloa
 kubectl get pods -n keda        # operator, metrics-apiserver and admission-webhooks Running
 kubectl get scaledjob            # job-executor READY/ACTIVE True
 ```
-Upgrading in place from an older KEDA works the same way (add `--force-conflicts`
-if a field is still owned by an old client-side apply). Since the node pulls
-images slowly, pre-pull the three `ghcr.io/kedacore/*:2.12.1` images with
-`minikube ssh -- docker pull ...` first so the operator is not down for long:
-no executor Job is started while it restarts.
+Upgrading in place from KEDA 2.9 needs two extra steps, otherwise the apply
+stops half-way (admission webhook created, operator and metrics server left on
+the old version, `kubectl` printing `the server is currently unable to handle
+the request` for `external.metrics.k8s.io`):
+
+- the `keda-metrics-apiserver` Service renamed its ports (2.9: `metrics:9022`,
+  2.12: `metrics:8080`); a server-side apply merges both lists and fails with
+  `spec.ports[3].name: Duplicate value: "metrics"`. Delete the Service first,
+  the apply recreates it immediately;
+- the Deployments were created by a client-side apply and still own their
+  `resources`/`env` fields: add `--force-conflicts` (the two
+  `failed to migrate ... last-applied-configuration` warnings are harmless).
+```
+kubectl delete svc -n keda keda-metrics-apiserver
+kubectl apply --server-side --force-conflicts -f https://github.com/kedacore/keda/releases/download/v2.12.1/keda-2.12.1.yaml
+```
+Since the node pulls images slowly, pre-pull the three
+`ghcr.io/kedacore/*:2.12.1` images with `minikube ssh -- docker pull ...` first
+so the operator is not down for long: no executor Job is started while it
+restarts.
 
 Do not stay on KEDA <= 2.9 with a recent kubectl: its metrics server answers
 the discovery of `external.metrics.k8s.io/v1beta1` with an empty list when no
