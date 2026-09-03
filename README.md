@@ -252,6 +252,28 @@ kubectl exec rc/nfs -- chown -R 1000:1000 /mnt/nfs_share
 ```
 The same applies to files copied onto the share by hand.
 
+#### Hardening defaults
+- **Login tokens expire** after `TOKEN_TTL_DAYS` (default 30) days. The server
+  creates a Mongo TTL index on `tokens.creation_time` at start-up and, like the
+  socketIO server, also rejects any token older than the TTL (tokens without a
+  timestamp count as expired). Set the variable on both `server` and `socketio`
+  to change it; `0` disables expiry. `/admin/delete/tokens` still works for a
+  forced logout.
+- **Request bodies are capped** at `MAX_UPLOAD_GB` (default 5, matching the
+  Ingress `proxy-body-size`); larger uploads get a JSON 413.
+- **Security headers** come from the front nginx (`security_headers`, including
+  the nonce-based CSP); the webapp image and the Flask API add the safe subset
+  themselves so they hold without it.
+- **Services are `ClusterIP`**: `server`, `socketio` and `webapp` are only
+  reachable through the Ingress (they used to be `NodePort`, i.e. exposed on the
+  node's external interface, bypassing the login rate limit).
+- **Resource requests/limits** are set on every workload (memory limits only,
+  no CPU throttling). The executor's `MAX_RAM_GB` must stay below its memory
+  limit in `executor.yml`.
+- **Dependencies**: `.github/dependabot.yml` opens weekly update PRs (pip, npm,
+  Dockerfiles, docker-compose, actions); the `dependency-audit` workflow posts a
+  pip-audit / npm audit report on PRs touching a manifest and every Monday.
+
 #### Persistent volume: NFS server
 WARNING: you need to mount a persistent volume that correspond to the path given to the nfs server, otherwise you will have an error as docker is not able to mount other paths for a nsf server. Furthermore, if using minikube, the path of the persistent volume needs also to be persistent in minikube: you can use a default persistent path like "/data" or any other path that has been mounted in minikube to communicate with the host.
 
@@ -281,11 +303,10 @@ minikube mount --port=35475 ./k8s_storage:/mnt/k8s_storage
 ```
 
 #### Cron job
-The nfs connection may hang from time to time. To avoid this issue, we rollout the server pod every day with a cron job that will patch the server by modifying the date and trigger a rollout. To do so,, we create a service account 'cron' that we bind with the role edit to perform the patch operation. Then, the cron job daily rollout can de deploy and perform this action, as it uses the service account cron (see daily-rollout.yml). The minikube helper script can do those steps for you:
+The nfs connection may hang from time to time. To avoid this issue, we rollout the server pod every day with a cron job that will patch the server by modifying the date and trigger a rollout. `deployment/daily-rollout.yml` (part of `kubectl apply -k deployment/`) carries the CronJob, the `cron` ServiceAccount and a Role that only allows patching the `server` Deployment. Older clusters bound that ServiceAccount to the cluster-wide `edit` role by hand; drop that binding once the manifest is applied:
 ```
-kubectl create sa cron
-kubectl create clusterrolebinding cron --clusterrole edit --serviceaccount=default:cron
 kubectl apply -f deployment/daily-rollout.yml
+kubectl delete clusterrolebinding cron --ignore-not-found
 ```
 
 ### Admin commands

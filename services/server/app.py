@@ -6,7 +6,7 @@ from flask import Flask, request, Response, json, send_file
 from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from pathlib import Path
-from utils.utils import Job_Status, Output_File, Document_Status
+from utils.utils import Job_Status, Output_File, Document_Status, validate_questions
 from utils.storage import Storage
 from utils.clients import redis_client, socketio_client, mongo_client
 import datetime as dt
@@ -30,7 +30,20 @@ app = Flask(__name__)
 cors = CORS(app)
 app.config["CORS_HEADERS"] = "Content-Type"
 
+# Cap the request body. The ingress already limits it (proxy-body-size 5G);
+# this is the backstop when Flask is reached some other way. Copies zips are
+# large, hence the generous default; override with MAX_UPLOAD_GB.
+app.config["MAX_CONTENT_LENGTH"] = int(
+    float(os.getenv("MAX_UPLOAD_GB", "5")) * 1024**3
+)
+
 mongo = mongo_client()
+try:
+    # TTL index purging expired login tokens (see UserService.TOKEN_TTL_DAYS)
+    UserService.ensure_token_expiration(mongo["RMN"])
+except Exception as e:  # Mongo unreachable at start-up: verify_token still
+    print(f"WARNING: could not create the token TTL index: {e}", flush=True)
+    # enforces the TTL on every request, so this is not fatal
 redis = redis_client()
 sio = socketio_client()
 storage = Storage()
@@ -219,7 +232,20 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
 def intercept_response(response: Response):
     # force to close the connection to avoid to hang
     response.headers["Connection"] = "close"
+    # Defence in depth: the front nginx adds the full header set (see
+    # security_headers), these hold when the API is reached without it.
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
     return response
+
+
+@app.errorhandler(413)
+def request_too_large(_error):
+    return Response(
+        response=json.dumps({"response": "Error: request body too large."}),
+        status=413,
+    )
 
 
 @app.route(os.sep)
@@ -314,9 +340,23 @@ def evaluate(user_id):
     regular_template_name = str(request_form["regular_template_name"])
     job_name = str(request_form["job_name"])
     statistics_for_students = request_form["statistics_for_students"].lower() == "true"
-    n_pages_per_question = json.loads(request_form["n_pages_per_question"])
-    n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
-    bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
+    try:
+        n_pages_per_question = json.loads(request_form["n_pages_per_question"])
+        n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
+        bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
+    except ValueError:
+        return Response(
+            response=json.dumps({"response": "Error: format des questions invalide."}),
+            status=400,
+        )
+    # a question with 0 page and 0 point is ignored: the executor skips it but
+    # keeps its position so the grades match the boxes of the template
+    error = validate_questions(n_pages_per_question, n_max_points_per_question, bonus_enabled_map)
+    if error:
+        return Response(
+            response=json.dumps({"response": f"Error: {error}"}),
+            status=400,
+        )
 
     db = mongo["RMN"]
     collection = db["eval_jobs"]
