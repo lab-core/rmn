@@ -53,8 +53,20 @@ configMapGenerator:
       # your cluster; 192.168.49.0/24 is minikube's docker-driver network
       # (`kubectl get nodes -o wide` shows the node IPs).
       - node-cidr=192.168.49.0/24
-      # ClusterIP of the NFS Service, also the address server/executor mount.
-      # Must be inside the cluster's service CIDR (minikube: 10.96.0.0/12).
+      # ClusterIP of the NFS Service, also the address server/executor mount
+      # (the kubelet mounts NFS from the node without cluster DNS, so it has
+      # to be an IP, not the Service name). Pick it yourself:
+      #   - inside the cluster's service range:
+      #       kubectl get pod -n kube-system -l component=kube-apiserver \
+      #         -o jsonpath='{.items[0].spec.containers[0].command}' \
+      #         | tr , '\n' | grep service-cluster-ip-range
+      #     (minikube: 10.96.0.0/12)
+      #   - not used by another Service:
+      #       kubectl get svc -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,IP:.spec.clusterIP
+      #   - on an existing cluster KEEP the current one (a clusterIP is
+      #     immutable: changing it means recreating the Service and rolling
+      #     every pod that mounts it):
+      #       kubectl get svc nfs -o jsonpath='{.spec.clusterIP}'
       - nfs-ip=10.105.99.184
   # the sentinel script, mounted into the health-sentinel CronJob
   - name: k8s-health-script
