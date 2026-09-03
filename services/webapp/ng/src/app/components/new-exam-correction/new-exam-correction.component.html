@@ -113,6 +113,7 @@
                               <th>Nombre de pages</th>
                               <th>Nombre de points</th>
                               <th>Bonus</th>
+                              <th>Ignorer</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -121,19 +122,26 @@
                               <td>
                                 <input type="number" min="1" step="1"
                                        [(ngModel)]="nPagesPerQuestion[key]" [ngModelOptions]="{standalone: true}"
-                                       (change)="updatePageCount(key, $event)" required>
+                                       (change)="updatePageCount(key, $event)" [disabled]="isIgnored(key)" required>
                               </td>
                               <td>
-                                <input (change)="updateMaxPoints(key, $event)" type="number" [(ngModel)]="nMaxPointsPerQuestion[key]" [ngModelOptions]="{standalone: true}" required>
+                                <input (change)="updateMaxPoints(key, $event)" type="number" [(ngModel)]="nMaxPointsPerQuestion[key]"
+                                       [ngModelOptions]="{standalone: true}" [disabled]="isIgnored(key)" required>
                               </td>
                               <td>
-                                <input type="checkbox" [(ngModel)]="bonusEnabledMap[key]" [ngModelOptions]="{standalone: true}" (change)="toggleBonus(key)">
+                                <input type="checkbox" [(ngModel)]="bonusEnabledMap[key]" [ngModelOptions]="{standalone: true}"
+                                       (change)="toggleBonus(key)" [disabled]="isIgnored(key)">
+                              </td>
+                              <td>
+                                <input type="checkbox" [checked]="isIgnored(key)" (change)="toggleIgnored(key)"
+                                       title="Question absente de l'examen : 0 page, 0 point, sa case reste vide sur la page de garde">
                               </td>
                             </tr>
                             <tr>
                               <td>Total</td>
                               <td>{{ totalPages }}</td>
                               <td>{{ totalPoints }}</td>
+                              <td></td>
                               <td></td>
                             </tr>
                           </tbody>

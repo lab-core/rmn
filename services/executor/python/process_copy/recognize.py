@@ -898,6 +898,10 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
 
             thickness = 2
             number_text = str(numbers[i])
+            # an empty text leaves the box blank (ignored question or missing
+            # grade); it must not be used to compute the font scale either
+            if number_text == "":
+                continue
             size, _ = cv2.getTextSize(number_text, cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
             nw, nh = size
             if font_scale is None:

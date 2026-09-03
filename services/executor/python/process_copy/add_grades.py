@@ -6,9 +6,30 @@ import shutil
 from process_copy.database import Database
 from process_copy.recognize import add_grades
 from utils.storage import Storage
-from utils.utils import Document_Status
+from utils.utils import Document_Status, ignored_positions
 from process_copy.config import grade_box as def_grade_box
 storage = Storage()
+
+
+def grades_to_write(grades, n_questions, ignored):
+    """
+    Build the list of texts to write in the grade boxes of a cover page.
+
+    Args:
+        grades (list): The grades stored for the copy, one per question.
+        n_questions (int): The number of questions of the template (its number
+            of grade boxes minus the total box).
+        ignored (set): 0-based positions of the ignored questions.
+
+    Returns:
+        list: One text per grade box, the total last. An ignored question or a
+              missing grade gives an empty text so its box is left blank.
+    """
+    grades = list(grades)[:n_questions] + [None] * (n_questions - len(grades))
+    texts = ["" if i in ignored or g is None else str(g) for i, g in enumerate(grades)]
+    total = sum(g for i, g in enumerate(grades) if i not in ignored and g is not None)
+    texts.append(str(total))
+    return texts
 
 
 def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11) ):
@@ -31,6 +52,11 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11) ):
     box_grades_list, _, _ = db.get_templates_info(front_template_id, regular_template_id)
     if box_grades_list is not None:
         box_grades = box_grades_list
+    n_pages_per_question = job.get("n_pages_per_question")
+    if n_pages_per_question is None:
+        n_pages_per_question = db.eval_jobs_collection().find_one({"job_id": job_id})["n_pages_per_question"]
+    n_questions = len(n_pages_per_question)
+    ignored = ignored_positions(n_pages_per_question)
 
     n_docs = db.documents_collection().count_documents({"job_id": job_id})
     documents = db.documents_collection().find({"job_id": job_id})
@@ -47,8 +73,8 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11) ):
             # instead of falling through and summing None (which crashed finalize)
             continue
 
-        grades = doc["grades"]
-        grades.append(sum(g for g in grades if g is not None))
+        # an ignored question keeps its (blank) box so the other grades stay aligned
+        grades = grades_to_write(doc["grades"], n_questions, ignored)
 
         # copy a backup of the original cover page
         input_pdf_path_backup = input_pdf_path.replace(".pdf", "_nograde.pdf")

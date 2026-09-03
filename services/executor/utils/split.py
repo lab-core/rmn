@@ -7,7 +7,7 @@ from pathlib import Path
 from PyPDF2 import PdfReader, PdfWriter
 from python.process_copy.database import Database
 from utils.storage import Storage
-from utils.utils import Document_Status
+from utils.utils import Document_Status, active_question_keys
 from collections import OrderedDict
 from werkzeug.utils import secure_filename
 
@@ -44,10 +44,15 @@ def calculate_pages(pages_per_question):
         >>> pages_per_question = {'Q1': 3, 'Q2': 2, 'Q3': 4}
         >>> calculate_pages(pages_per_question)
         {'Q1': [0, 1, 2], 'Q2': [3, 4], 'Q3': [5, 6, 7, 8]}
+
+    An ignored question (0 page) is left out of the result: no folder and no
+    empty pdf are created for it.
     """
     current_start_page = CURRENT_START_PAGE
     results = {}
     for question, num_pages in pages_per_question.items():
+        if not num_pages:
+            continue
         end_page = current_start_page + num_pages - 1
         results[question] = list(range(current_start_page - 1, end_page))
         current_start_page = end_page + 1
@@ -140,7 +145,7 @@ def split_and_save(n_pages_per_question, input_pdfs, job_id):
     """
     input_pdfs, error_messages = verify_names_and_n_pages(n_pages_per_question, input_pdfs, job_id)
     total_expected_pages = calculate_total_expected_pages(n_pages_per_question)
-    generated_pdfs_per_question = {question: [] for question in n_pages_per_question.keys()}
+    generated_pdfs_per_question = {question: [] for question in active_question_keys(n_pages_per_question)}
 
     output_folder = os.path.join("documents", job_id)
     cover_page_folder = storage.abs_path(os.path.join("cover_pages", job_id))
@@ -148,6 +153,8 @@ def split_and_save(n_pages_per_question, input_pdfs, job_id):
 
     db = Database()
     document_index = db.documents_collection().count_documents({"job_id": job_id})
+    # one slot per question of the template, ignored ones included, so that the
+    # position of a grade always matches its box on the cover page
     def_grades = [None] * len(n_pages_per_question)
     for input_pdf in input_pdfs:
         with open(input_pdf, 'rb') as f:

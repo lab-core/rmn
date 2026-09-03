@@ -12,7 +12,7 @@ To use the webapp, you need one of the following versions at minimum for your br
 
 - Add a front page to your copy, if necessary, to grade them
 - Define a template to mark the zone where to search the grades and matricules (if necessary). If searching matricules, the app will also automatically search for the matricule on the top right corner of all pages except the front page.
-- Start a new correction. If a column matching the regex '(?i)(gr|groupe?s?)$' is found, the corresponding content will be used to separate the copies into sub directories. The csv file must include a 'matricule' column as well as a 'Nom complet' column. Using a moodle csv file works immediately (you should fix the maximum grade).
+- Start a new correction. A template can have more grade boxes than the exam has questions: check "Ignorer" for the unused questions (0 page, 0 point). They are skipped everywhere and their box is left blank on the front page. If a column matching the regex '(?i)(gr|groupe?s?)$' is found, the corresponding content will be used to separate the copies into sub directories. The csv file must include a 'matricule' column as well as a 'Nom complet' column. Using a moodle csv file works immediately (you should fix the maximum grade).
 - Then validate grades and matricules if necessary (it's not necessary if using directly moodle zip file or if each file contain it in its name).
 - Then finalize and download the resulting cvs file, all the copies renamed and split into groups (if provided), and the zip files to upload to moodle (as well as the csv file).
 
