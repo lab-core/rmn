@@ -22,7 +22,7 @@ else
   # to deployment/ (inside the repo, gitignored) and points at it relatively.
   overlay="$(mktemp -d "$repo_root/.deploy-overlay.XXXXXX")"
   trap 'rm -rf "$overlay"' EXIT
-  cp "$base/host-replacements.yaml" "$overlay/"
+  cp "$base/replacements.yaml" "$overlay/"
   cat > "$overlay/kustomization.yaml" <<YAML
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -36,7 +36,7 @@ configMapGenerator:
     literals:
       - host=$host
 replacements:
-  - path: host-replacements.yaml
+  - path: replacements.yaml
 YAML
   target="$overlay"
 fi

@@ -1,0 +1,149 @@
+# Cluster sentinel: runs deployment/k8s-health.sh every 15 minutes inside the
+# cluster and posts to Slack when the set of problems changes (and once more
+# when everything recovers). The script is mounted from the k8s-health-script
+# ConfigMap generated in kustomization.yaml; run it locally with
+# scripts/k8s-health.sh.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: health-sentinel
+---
+# Read-only view of what the script inspects. Cluster-scoped because nodes and
+# PersistentVolumes are not namespaced.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: health-sentinel-read
+rules:
+  - apiGroups: [""]
+    resources: [nodes, pods, events, persistentvolumeclaims, persistentvolumes, replicationcontrollers]
+    verbs: [get, list]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [get, list]
+  - apiGroups: [keda.sh]
+    resources: [scaledjobs]
+    verbs: [get, list]
+  - apiGroups: [apiregistration.k8s.io]
+    resources: [apiservices]
+    verbs: [get, list]
+  - nonResourceURLs: [/readyz]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: health-sentinel-read
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: health-sentinel-read
+subjects:
+  - kind: ServiceAccount
+    name: health-sentinel
+    namespace: default
+---
+# The only thing the sentinel may write: its own state ConfigMap, used to
+# de-duplicate Slack alerts. `create` cannot be restricted by resourceNames,
+# the other verbs are.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: health-sentinel-state
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [health-sentinel-state]
+    verbs: [get, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: health-sentinel-state
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: health-sentinel-state
+subjects:
+  - kind: ServiceAccount
+    name: health-sentinel
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: health-sentinel
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # a stuck run must not pile up: kill it well before the next tick
+      activeDeadlineSeconds: 600
+      backoffLimit: 0
+      template:
+        spec:
+          serviceAccountName: health-sentinel
+          restartPolicy: Never
+          automountServiceAccountToken: true
+          containers:
+            - name: sentinel
+              # bash + kubectl + jq + curl in one small image
+              image: alpine/k8s:1.31.4
+              command: [/bin/bash, /opt/sentinel/k8s-health.sh]
+              # `--quiet` keeps the job log empty when healthy; the exit code
+              # (0 ok / 1 warning / 2 critical) is still visible on the Job.
+              args: [--slack, --state-configmap, health-sentinel-state, --quiet]
+              env:
+                # root fs is read-only; kubectl wants a writable cache dir
+                - name: HOME
+                  value: /tmp
+                - name: NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: RMN_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: rmn-config
+                      key: host
+                - name: SLACK_CHANNEL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: rmn-config
+                      key: slack-channel
+                - name: SLACK_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: slack-token
+              resources:
+                requests: {cpu: 50m, memory: 64Mi}
+                limits: {cpu: 200m, memory: 128Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 65534
+                capabilities: {drop: [ALL]}
+              volumeMounts:
+                - name: script
+                  mountPath: /opt/sentinel
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: script
+              configMap:
+                name: k8s-health-script
+                defaultMode: 0555
+            - name: tmp
+              emptyDir: {}

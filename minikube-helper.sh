@@ -73,7 +73,7 @@ fi
 
 if [[ ! -z $APPLY ]]; then
   SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
-  kubectl apply -f ${SCRIPT_DIR}/deployment
+  kubectl apply -k ${SCRIPT_DIR}/deployment
   kubectl get pods
 fi
 

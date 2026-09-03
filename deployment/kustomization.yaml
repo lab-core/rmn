@@ -30,10 +30,14 @@ resources:
   - ingress.yml
   # maintenance
   - daily-rollout.yml
+  # cluster sentinel (k8s-health.sh every 15 min, Slack alerts)
+  - health-sentinel.yml
 
-# The public hostname is defined ONCE here. It is injected into every Ingress
-# rule below, and the socketIO Deployment reads it for its CORS allow-list.
-# Override it without editing this file via scripts/deploy.sh <host>.
+# Cluster-specific values are defined ONCE here: the public hostname (injected
+# into every Ingress rule, read by socketIO for CORS and by the sentinel for
+# its HTTP probes), the Slack channel, the node CIDR (NFS NetworkPolicy) and
+# the NFS service IP (Service clusterIP + the server/executor NFS mounts).
+# Override the host without editing this file via scripts/deploy.sh <host>.
 generatorOptions:
   # keep a stable name so the Deployments' configMapKeyRef can reference it
   disableNameSuffixHash: true
@@ -41,6 +45,33 @@ configMapGenerator:
   - name: rmn-config
     literals:
       - host=rmn.mgi.polymtl.ca
+      # Slack channel the health sentinel posts to (same channel as the
+      # server's dead-man's-switch in services/server/service/health_check.py)
+      - slack-channel=C094Y8KQ4HL
+      # Node network of the cluster: the ONLY source allowed to reach the NFS
+      # server (the kubelet mounts NFS from the node, see nfs.yml). MUST match
+      # your cluster; 192.168.49.0/24 is minikube's docker-driver network
+      # (`kubectl get nodes -o wide` shows the node IPs).
+      - node-cidr=192.168.49.0/24
+      # ClusterIP of the NFS Service, also the address server/executor mount
+      # (the kubelet mounts NFS from the node without cluster DNS, so it has
+      # to be an IP, not the Service name). Pick it yourself:
+      #   - inside the cluster's service range:
+      #       kubectl get pod -n kube-system -l component=kube-apiserver \
+      #         -o jsonpath='{.items[0].spec.containers[0].command}' \
+      #         | tr , '\n' | grep service-cluster-ip-range
+      #     (minikube: 10.96.0.0/12)
+      #   - not used by another Service:
+      #       kubectl get svc -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,IP:.spec.clusterIP
+      #   - on an existing cluster KEEP the current one (a clusterIP is
+      #     immutable: changing it means recreating the Service and rolling
+      #     every pod that mounts it):
+      #       kubectl get svc nfs -o jsonpath='{.spec.clusterIP}'
+      - nfs-ip=10.105.99.184
+  # the sentinel script, mounted into the health-sentinel CronJob
+  - name: k8s-health-script
+    files:
+      - k8s-health.sh
 
 replacements:
-  - path: host-replacements.yaml
+  - path: replacements.yaml

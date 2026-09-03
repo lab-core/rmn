@@ -1,17 +1,60 @@
+# In-cluster NFS server backing the shared storage of server + executor.
+#
+# It has to run privileged (it mounts/exports a host directory), so its blast
+# radius is limited in other ways:
+#   - image pinned by digest (no :latest drift, no silent image swap);
+#   - Service is ClusterIP only (it used to be a NodePort, i.e. NFS reachable
+#     on every node's external interface);
+#   - NetworkPolicy: only TCP/2049 from the node network may reach it, and it
+#     may not open any outbound connection. NOTE the kubelet performs the NFS
+#     mounts from the node's network namespace, so the source of legitimate
+#     traffic is a NODE address, not a pod: a podSelector on the server /
+#     executor pods would block the mounts. The node CIDR is set once in
+#     kustomization.yaml (rmn-config.node-cidr) and injected by replacements.yaml.
+#     The policy is only enforced by a CNI that supports NetworkPolicy (calico,
+#     cilium, ...); on the default minikube CNI it is accepted but a no-op.
+#   - scheduling: prefers nodes labelled rmn.polymtl.ca/nfs-node=true and
+#     refuses to share a node with any other pod labelled
+#     rmn.polymtl.ca/privileged=true (label your other privileged workloads).
+#     Make the node affinity `required...` and taint the node once you have a
+#     dedicated NFS node.
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: nfs
 spec:
-  clusterIP: 10.105.99.184
+  # fixed IP so server.yml / executor.yml can mount it by address (NFS volumes
+  # take an IP, not a Service name). Placeholder: kustomize replaces it with
+  # rmn-config.data.nfs-ip.
+  clusterIP: NFS_IP
   ports:
     - port: 2049
       targetPort: 2049-tcp
       protocol: TCP
-  type: NodePort
+  type: ClusterIP
   selector:
     app: nfs
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nfs-server
+spec:
+  podSelector:
+    matchLabels:
+      app: nfs
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        # placeholder: kustomize replaces it with rmn-config.data.node-cidr
+        - ipBlock:
+            cidr: NODE_CIDR
+      ports:
+        - protocol: TCP
+          port: 2049
+  # no egress rules => the NFS server cannot initiate any connection
+  egress: []
 ---
 apiVersion: v1
 kind: ReplicationController
@@ -27,11 +70,35 @@ spec:
     metadata:
       labels:
         app: nfs
+        rmn.polymtl.ca/privileged: "true"
     spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: rmn.polymtl.ca/nfs-node
+                    operator: In
+                    values: ["true"]
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              namespaceSelector: {}  # any namespace
+              labelSelector:
+                matchExpressions:
+                  - key: rmn.polymtl.ca/privileged
+                    operator: In
+                    values: ["true"]
+                  - key: app
+                    operator: NotIn
+                    values: [nfs]  # do not conflict with itself while being replaced
       containers:
-        - image: itsthenetwork/nfs-server-alpine
+        # itsthenetwork/nfs-server-alpine:12 (== :latest as of 2019-05-08),
+        # pinned by digest. Refresh deliberately, never implicitly.
+        - image: itsthenetwork/nfs-server-alpine:12@sha256:7fa99ae65c23c5af87dd4300e543a86b119ed15ba61422444207efc7abd0ba20
           name: nfs
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
           ports:
