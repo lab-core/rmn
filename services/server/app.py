@@ -35,7 +35,8 @@ redis = redis_client()
 sio = socketio_client()
 storage = Storage()
 
-start_health_check()
+# the Redis lock keeps a single gunicorn worker running the Slack dead-man's switch
+start_health_check(redis=redis)
 
 ROOT_DIR = Path(__file__).resolve().parent
 TEMP_FOLDER = ROOT_DIR.joinpath("temp")
