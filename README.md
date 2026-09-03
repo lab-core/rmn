@@ -306,7 +306,7 @@ export ADMIN_API_KEY=$(grep '^ADMIN_API_KEY=' .env | cut -d= -f2-)
 
 # kubernetes: the server reads rmn-secrets/admin-api-key (see "Secrets");
 # export the same value in the shell you run the commands from.
-export ADMIN_API_KEY=$(kubectl get secret rmn-secrets -o jsonpath='{.data.admin-api-key}' | base64 -d)
+export ADMIN_API_KEY=$(kubectl get secret rmn-secrets -o jsonpath="{.data['admin-api-key']}" | base64 -d)
 ```
 
 In the examples below, `$ADMIN_API_KEY` is the value exported above.
