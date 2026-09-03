@@ -85,5 +85,10 @@ spec:
                   name: rmn-secrets
                   key: admin-api-key
                   optional: true
+            - name: SOCKETIO_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: rmn-secrets
+                  key: socketio-service-token
           terminationMessagePolicy: FallbackToLogsOnError
       restartPolicy: Always

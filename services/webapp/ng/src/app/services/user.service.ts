@@ -63,6 +63,15 @@ export class UserService {
     queryParams['token'] = this.shareToken;
   }
 
+  // credentials sent on the socket handshake so the server can authenticate the
+  // connection and authorize room joins
+  getSocketAuth() {
+    if (this.shareToken) {
+      return { share_token: this.shareToken };
+    }
+    return { user_id: this.currentUsername, token: this.token };
+  }
+
   async login(username, password) {
     const formdata: FormData = new FormData();
     formdata.append('username', username);

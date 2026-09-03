@@ -9,4 +9,6 @@ COPY . .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
+ENV ENVIRONMENT=production
+
 CMD ["python", "app.py"]
