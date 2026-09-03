@@ -190,6 +190,24 @@ On an existing cluster keep the value the `nfs` Service already has
 is immutable, so changing it means deleting and recreating the Service, and
 every pod mounting the old address must be rolled.
 
+#### Non-root containers
+No application container runs as root. The `server`, `executor` and `socketio`
+images create a `rmn` user (UID/GID 1000) and switch to it; the webapp uses
+`nginxinc/nginx-unprivileged` (nginx user, port 8080 behind a Service on 80).
+The Deployments pin this with `runAsNonRoot`, `runAsUser: 1000`, no privilege
+escalation and all capabilities dropped. Only the NFS server (privileged by
+necessity, see above) is exempt.
+
+`server` and `executor` share UID 1000 because they read and write the same NFS
+share, and Kubernetes does not apply `fsGroup` to NFS volumes. **When upgrading a
+cluster whose share was written by the old root-running images, chown it once
+before rolling the new images**, otherwise they cannot overwrite or delete the
+existing files:
+```
+kubectl exec rc/nfs -- chown -R 1000:1000 /mnt/nfs_share
+```
+The same applies to files copied onto the share by hand.
+
 #### Persistent volume: NFS server
 WARNING: you need to mount a persistent volume that correspond to the path given to the nfs server, otherwise you will have an error as docker is not able to mount other paths for a nsf server. Furthermore, if using minikube, the path of the persistent volume needs also to be persistent in minikube: you can use a default persistent path like "/data" or any other path that has been mounted in minikube to communicate with the host.
 

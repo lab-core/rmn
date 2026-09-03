@@ -36,6 +36,13 @@ spec:
                 - containerPort: 7000
                   protocol: TCP
               resources: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+                capabilities: {drop: [ALL]}
               env:
                 # only the webapp origin may open a socket from a browser.
                 # A bare hostname allows both https:// and http://; the value

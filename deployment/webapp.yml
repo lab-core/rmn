@@ -8,7 +8,8 @@ spec:
     - name: 80-tcp
       port: 80
       protocol: TCP
-      targetPort: 80
+      # the unprivileged nginx image listens on 8080
+      targetPort: 8080
   selector:
     com.docker.project: webapp
   type: NodePort
@@ -34,5 +35,17 @@ spec:
               name: webapp
               imagePullPolicy: Always
               ports:
-                - containerPort: 80
+                - containerPort: 8080
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                capabilities: {drop: [ALL]}
+              volumeMounts:
+                # nginx-unprivileged keeps its pid file and cache under /tmp
+                - name: tmp
+                  mountPath: /tmp
+        volumes:
+          - name: tmp
+            emptyDir: {}
         restartPolicy: Always

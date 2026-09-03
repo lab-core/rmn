@@ -3,18 +3,27 @@
 FROM python:3.12
 
 RUN apt-get update \
- && apt-get install -y nfs-common poppler-utils \
- && pip install --upgrade pip
+ && apt-get install -y poppler-utils \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip install --no-cache-dir --upgrade pip
+
+# Same unprivileged user as the production image (see services/server/Dockerfile).
+RUN groupadd --gid 1000 rmn \
+ && useradd --uid 1000 --gid rmn --create-home --shell /usr/sbin/nologin rmn
 
 WORKDIR /Server
 
 COPY ./requirements.txt ./requirements.txt
 
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY --chown=rmn:rmn . .
+RUN chown rmn:rmn /Server
 
 ENV ENVIRONMENT=production
 ENV PYTHONUNBUFFERED=1
+ENV HOME=/home/rmn
+
+USER rmn
 
 CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"]
