@@ -35,7 +35,10 @@ redis = redis_client()
 sio = socketio_client()
 storage = Storage()
 
-start_health_check()
+# a Redis lock elects one gunicorn worker per tick of the Slack dead-man's
+# switch. Dedicated client with short timeouts: the lock must fail open fast
+# when Redis is down instead of hanging the tick (and the alert with it).
+start_health_check(redis=redis_client(socket_connect_timeout=2, socket_timeout=2))
 
 ROOT_DIR = Path(__file__).resolve().parent
 TEMP_FOLDER = ROOT_DIR.joinpath("temp")

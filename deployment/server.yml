@@ -87,6 +87,12 @@ spec:
                 secretKeyRef:
                   name: rmn-secrets
                   key: slack-token
+            # channel of the dead-man's switch alert, shared with the sentinel
+            - name: SLACK_CHANNEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rmn-config
+                  key: slack-channel
                   optional: true
             # empty/absent => the /admin/* endpoints are disabled (fail closed)
             - name: ADMIN_API_KEY

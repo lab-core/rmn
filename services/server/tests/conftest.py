@@ -32,7 +32,7 @@ import utils.clients as clients  # noqa: E402
 
 _MONGO = mongomock.MongoClient()
 clients.mongo_client = lambda: _MONGO
-clients.redis_client = lambda: fakeredis.FakeStrictRedis()
+clients.redis_client = lambda **_: fakeredis.FakeStrictRedis()
 clients.socketio_client = lambda: MagicMock()
 
 # the health-check background thread is irrelevant to the tests
@@ -72,13 +72,15 @@ def client():
 # ---------------------------------------------------------------- helpers ----
 def make_user(username="alice", password="pass123", role="Utilisateur"):
     """Insert a user directly (password hashed like the real signup)."""
-    app_module.mongo["RMN"]["users"].insert_one({
-        "username": username,
-        "password": generate_password_hash(password),
-        "role": role,
-        "saveVerifiedImages": False,
-        "moodleStructureInd": True,
-    })
+    app_module.mongo["RMN"]["users"].insert_one(
+        {
+            "username": username,
+            "password": generate_password_hash(password),
+            "role": role,
+            "saveVerifiedImages": False,
+            "moodleStructureInd": True,
+        }
+    )
 
 
 def make_job(job_id, owner, status="VALIDATION", **extra):
@@ -111,4 +113,5 @@ def login(client):
         resp = client.post("/login", data={"username": username, "password": password})
         assert resp.status_code == 200, resp.data
         return resp.get_json(force=True)["response"]["token"]
+
     return _login
