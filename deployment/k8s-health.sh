@@ -247,13 +247,24 @@ done < <(jqr --argjson now "$now_epoch" '
   |select((.status.lastSuccessfulTime == null) or (($now - (.status.lastSuccessfulTime|fromdateiso8601)) > 172800))
   |[.metadata.name, (.status.lastSuccessfulTime // "")]|row' <<<"$cronjobs")
 
+# KEDA: the Active condition reflects the *current* scaler check (Unknown =
+# the check is failing right now, e.g. cannot reach Redis). Ready is only
+# reliable on KEDA >= 2.10: 2.9 never resets it to True after a failure, so a
+# stale Ready=False with a healthy Active is reported as a warning only.
 scaledjobs="$(kget scaledjobs.keda.sh -n "$namespace")"
-while IFS=$'\x1f' read -r name msg; do
+while IFS=$'\x1f' read -r name active ready msg; do
   [ -z "$name" ] && continue
-  crit "KEDA scaledjob $name not Ready: ${msg:-see kubectl describe scaledjob $name}"
+  if [ "$active" = "Unknown" ] || [ -z "$active" ]; then
+    crit "KEDA scaledjob $name: scaler check failing (${msg:-see kubectl describe scaledjob $name})"
+  elif [ "$ready" = "False" ]; then
+    warn "KEDA scaledjob $name scales fine (Active=$active) but Ready is stale: $msg (KEDA < 2.10 never clears it; recreate the ScaledJob or upgrade KEDA)"
+  fi
 done < <(jqr '
-.items[]|select(any((.status.conditions // [])[]; .type=="Ready" and .status=="False"))
-                 |[.metadata.name, ((.status.conditions[]|select(.type=="Ready")).message // "")]|row' <<<"$scaledjobs")
+  .items[]
+  |((.status.conditions // [])|map(select(.type=="Active"))|.[0].status // "") as $active
+  |((.status.conditions // [])|map(select(.type=="Ready"))|.[0]) as $ready
+  |select($active=="" or $active=="Unknown" or ($ready.status // "")=="False")
+  |[.metadata.name, $active, ($ready.status // ""), ($ready.message // "")]|row' <<<"$scaledjobs")
 sj_total="$(jq '.items|length' <<<"$scaledjobs")"
 [ "$sj_total" -gt 0 ] && fine "KEDA scaledjobs $sj_total present"
 
