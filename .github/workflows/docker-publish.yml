@@ -43,11 +43,18 @@ jobs:
                 echo "status=changed" >> $GITHUB_OUTPUT
             elif ${{ github.event_name == 'pull_request' }}; then
                 # PR check: build if the PR touches this image's context
-                changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- ${{ inputs.context }} | xargs)
-                [ -z "${changed_files}" ] && echo "status=same" >> $GITHUB_OUTPUT || echo "status=changed" >> $GITHUB_OUTPUT
+                changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- "${{ inputs.context }}")
+                [ -z "${changed_files}" ] && echo "status=same" >> "$GITHUB_OUTPUT" || echo "status=changed" >> "$GITHUB_OUTPUT"
             else
-                changed_files=$(git diff --name-only ${{ steps.last-successful-commit.outputs.commit-hash }} ${{ github.event.after }} ${{ inputs.context }} | xargs)
-                [ -z "${changed_files}" ] && echo "status=same" >> $GITHUB_OUTPUT || echo "status=changed" >> $GITHUB_OUTPUT
+                last_commit="${{ steps.last-successful-commit.outputs.commit-hash }}"
+                if [ -z "${last_commit}" ]; then
+                    # No previous successful publish found (first run or API
+                    # error): build everything rather than silently skipping.
+                    echo "status=changed" >> "$GITHUB_OUTPUT"
+                else
+                    changed_files=$(git diff --name-only "${last_commit}" "${{ github.event.after }}" -- "${{ inputs.context }}")
+                    [ -z "${changed_files}" ] && echo "status=same" >> "$GITHUB_OUTPUT" || echo "status=changed" >> "$GITHUB_OUTPUT"
+                fi
             fi
 
   push_images_to_dockerhub:
