@@ -44,6 +44,15 @@ spec:
             resources:
               limits:
                 memory: 5G
+            # UID/GID 1000 == the rmn user baked into the image; the NFS share
+            # must be owned by it (README "Non-root containers"). No read-only
+            # root filesystem: the executor writes tmp_<job> under /Executor.
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 1000
+              runAsGroup: 1000
+              capabilities: {drop: [ALL]}
             volumeMounts:
               - mountPath: /mnt/storage
                 name: nfs-storage

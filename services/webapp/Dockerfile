@@ -13,8 +13,10 @@ RUN npm install
 COPY ng/ .
 RUN npm run build
 
-# Stage 2: per-platform nginx image serving the built files.
-FROM nginx:stable-alpine
+# Stage 2: per-platform nginx image serving the built files. The unprivileged
+# variant runs nginx as the nginx user (UID 101) and listens on 8080, so the
+# container never runs as root (the stock image needs root to bind port 80).
+FROM nginxinc/nginx-unprivileged:stable-alpine
 COPY --from=node /app/dist/rmn /usr/share/nginx/html
 COPY default.conf /etc/nginx/conf.d
 COPY assets/* /usr/share/nginx/html/assets/
