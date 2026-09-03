@@ -49,10 +49,27 @@ minikube addons enable ingress
 ```
 
 #### KEDA update
-Do not use Keda 2.81, instead Keda 2.9.* as Kubernetes 1.20+ is only supported from 2.9:
+Use the newest KEDA whose tested window includes the cluster's Kubernetes
+version (see the [compatibility matrix](https://keda.sh/docs/latest/operate/cluster/#kubernetes-compatibility)):
+KEDA 2.12 covers Kubernetes 1.26 - 1.28. `--server-side` is required because
+the ScaledJob CRD is too large for a client-side apply.
 ```
-kubectl apply -f https://github.com/kedacore/keda/releases/download/v2.9.3/keda-2.9.3.yaml
+kubectl apply --server-side -f https://github.com/kedacore/keda/releases/download/v2.12.1/keda-2.12.1.yaml
+kubectl get pods -n keda        # operator, metrics-apiserver and admission-webhooks Running
+kubectl get scaledjob            # job-executor READY/ACTIVE True
 ```
+Upgrading in place from an older KEDA works the same way (add `--force-conflicts`
+if a field is still owned by an old client-side apply). Since the node pulls
+images slowly, pre-pull the three `ghcr.io/kedacore/*:2.12.1` images with
+`minikube ssh -- docker pull ...` first so the operator is not down for long:
+no executor Job is started while it restarts.
+
+Do not stay on KEDA <= 2.9 with a recent kubectl: its metrics server answers
+the discovery of `external.metrics.k8s.io/v1beta1` with an empty list when no
+ScaledObject exists (a ScaledJob is not enough), and every kubectl command prints
+`couldn't get resource list for external.metrics.k8s.io/v1beta1: Got empty
+response`. Fixed upstream and shipped from KEDA 2.10.1. KEDA 2.9 also never
+resets a ScaledJob's `Ready` condition to True after a transient failure.
 
 #### Secrets
 All service credentials live in a single Kubernetes Secret named `rmn-secrets`
