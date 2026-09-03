@@ -8,7 +8,9 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-body-size: 5G
 spec:
   rules:
-    - host: rmn.mgi.polymtl.ca
+    # placeholder: kustomize replaces it with rmn-config.data.host (see
+    # kustomization.yaml). Apply via `kubectl apply -k`, not `-f`.
+    - host: RMN_HOST
       http:
         paths:
           # route any path to the web application
@@ -48,7 +50,9 @@ metadata:
     nginx.ingress.kubernetes.io/limit-burst-multiplier: "1"
 spec:
   rules:
-    - host: rmn.mgi.polymtl.ca
+    # placeholder: kustomize replaces it with rmn-config.data.host (see
+    # kustomization.yaml). Apply via `kubectl apply -k`, not `-f`.
+    - host: RMN_HOST
       http:
         paths:
           - path: /api/(login)

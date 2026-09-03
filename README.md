@@ -107,9 +107,11 @@ local `.env` is present — updates `SLACK_TOKEN` there too. To purge the old to
 from history entirely, use `git filter-repo` (separate, history-rewriting step).
 
 #### Modify deployment
-Once a deployment yml file has been modified, you need to apply those modifications:
+Once a deployment yml file has been modified, re-apply the kustomization (applying
+a single file with `-f` skips the host replacement, so `ingress.yml` would be
+deployed with its `RMN_HOST` placeholder):
 ```
-kubectl apply -f modified_deployment.yml
+kubectl apply -k deployment/
 ```
 Then, to ensure the new pods are created, rollout the service for a deployment:
 ```
