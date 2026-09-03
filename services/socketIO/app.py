@@ -23,9 +23,26 @@ if not SERVICE_TOKEN:
           "dropped", flush=True)
 
 # Restrict which origins may open a socket. Defaults to "*" so local dev keeps
-# working; set SOCKETIO_CORS_ORIGINS (comma-separated) in production.
+# working; set SOCKETIO_CORS_ORIGINS (comma-separated) in production. An entry
+# without a scheme (a bare hostname) allows both https:// and http://, so the
+# deployment can pass the public host as-is.
+
+
+def _origins(value):
+    """Expand a comma-separated SOCKETIO_CORS_ORIGINS value into a list."""
+    origins = []
+    for entry in (o.strip() for o in value.split(",")):
+        if not entry:
+            continue
+        if "://" in entry:
+            origins.append(entry)
+        else:
+            origins.extend([f"https://{entry}", f"http://{entry}"])
+    return origins
+
+
 _cors = os.getenv("SOCKETIO_CORS_ORIGINS", "*")
-cors_allowed_origins = "*" if _cors.strip() == "*" else [o.strip() for o in _cors.split(",") if o.strip()]
+cors_allowed_origins = "*" if _cors.strip() == "*" else _origins(_cors)
 
 # Mongo is used to validate user tokens and authorize room joins.
 mongodb_user = os.getenv("MONGODB_USER", "adminuser")

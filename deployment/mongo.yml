@@ -37,7 +37,7 @@ spec:
                 secretKeyRef:
                   name: rmn-secrets
                   key: mongodb-password
-          image: mongo:latest
+          image: mongo:8.2
           name: mongo
           ports:
             - name: mongo-server

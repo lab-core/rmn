@@ -52,7 +52,7 @@ spec:
               - name: MAX_RETRY
                 value: "5"
               - name: MAX_RAM_GB
-                value: "5"
+                value: "8"
               - name: MONGODB_USER
                 valueFrom:
                   secretKeyRef:
@@ -75,6 +75,7 @@ spec:
                     key: socketio-service-token
             terminationMessagePolicy: FallbackToLogsOnError
         restartPolicy: Never
+    activeDeadlineSeconds: 5400
     backoffLimit: 5
   pollingInterval: 1
   successfulJobsHistoryLimit: 5
