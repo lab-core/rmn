@@ -99,9 +99,13 @@ spec:
               # bash + kubectl + jq + curl in one small image
               image: alpine/k8s:1.31.4
               command: [/bin/bash, /opt/sentinel/k8s-health.sh]
-              # `--quiet` keeps the job log empty when healthy; the exit code
-              # (0 ok / 1 warning / 2 critical) is still visible on the Job.
-              args: [--slack, --state-configmap, health-sentinel-state, --quiet]
+              # `--quiet` keeps the job log empty when healthy, so a non-empty
+              # log means the run found something. `--exit-zero`: a finding is
+              # a report (Slack + log), not a failed Job; otherwise the failed
+              # sentinel Jobs would trip its own failed-jobs / cronjob checks
+              # and keep the warning alive. A Job still fails when the script
+              # itself cannot run (API unreachable, crash, 10 min deadline).
+              args: [--slack, --state-configmap, health-sentinel-state, --quiet, --exit-zero]
               env:
                 # root fs is read-only; kubectl wants a writable cache dir
                 - name: HOME

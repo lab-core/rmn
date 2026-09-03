@@ -19,11 +19,15 @@
 #                                issues changed since the last run, and post a
 #                                recovery message when they clear
 #     -q, --quiet                print nothing when healthy
+#     --exit-zero                exit 0 even when issues were found (for the
+#                                CronJob: a finding is a report, not a failed
+#                                run). Exit 3 (API unreachable) is kept.
 #   Environment fallbacks: NAMESPACE, RMN_HOST, SLACK_TOKEN, SLACK_CHANNEL,
 #   STATE_CONFIGMAP. Slack needs SLACK_TOKEN (bot token) and SLACK_CHANNEL.
 #
 # Exit status: 0 healthy, 1 warnings only, 2 at least one critical issue,
-#              3 the cluster API itself is unreachable.
+#              3 the cluster API itself is unreachable. With --exit-zero,
+#              1 and 2 become 0.
 #
 # Checks: API server readiness; aggregated APIServices; node Ready/pressure conditions; pods (Failed,
 # Unknown, Pending too long, CrashLoopBackOff / image pull errors, containers
@@ -46,6 +50,7 @@ slack=0
 slack_always=0
 state_configmap="${STATE_CONFIGMAP:-}"
 quiet=0
+exit_zero=0
 
 usage() { sed -n '3,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; }
 
@@ -61,6 +66,7 @@ while [ $# -gt 0 ]; do
     --slack-always) slack=1; slack_always=1; shift ;;
     --state-configmap) state_configmap="${2:?}"; shift 2 ;;
     -q|--quiet) quiet=1; shift ;;
+    --exit-zero) exit_zero=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -109,8 +115,10 @@ kget() {
 
 # --- 0. API server ------------------------------------------------------------
 
-if ! kubectl get --raw /readyz --request-timeout=15s >/dev/null 2>&1; then
-  echo "CRITICAL: Kubernetes API server unreachable or not ready ($(kubectl config current-context 2>/dev/null || echo 'no context'))"
+if ! err="$(kubectl get --raw /readyz --request-timeout=15s 2>&1 >/dev/null)"; then
+  # keep kubectl's own error: "unreachable" alone is not actionable (RBAC,
+  # TLS, timeout and DNS failures all end up here)
+  echo "CRITICAL: Kubernetes API server unreachable or not ready ($(kubectl config current-context 2>/dev/null || echo 'in-cluster')): ${err:-no details}"
   exit 3
 fi
 
@@ -389,4 +397,10 @@ if [ "$slack" -eq 1 ]; then
   fi
 fi
 
+# In a CronJob a non-zero exit marks the run as failed. The sentinel then
+# reports its own failed Jobs ("N job(s) failed", "cronjob has no successful
+# run") and the warning feeds itself long after the real issue is gone.
+# Only the "issues found" codes are mapped to 0; any other failure mode stays
+# visible on the Job.
+if [ "$exit_zero" -eq 1 ] && { [ "$status" -eq 1 ] || [ "$status" -eq 2 ]; }; then exit 0; fi
 exit $status

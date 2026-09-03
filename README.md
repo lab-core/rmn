@@ -156,6 +156,18 @@ account and posts to Slack (`rmn-config.slack-channel`, token from
 Check it with `kubectl get cronjob health-sentinel` and
 `kubectl logs job/<health-sentinel-...>`.
 
+The CronJob runs with `--exit-zero`: a run that finds issues still completes
+successfully (the findings go to Slack and the job log), so a sentinel pod in
+`Error` means the script itself could not run (API unreachable, crash, killed
+by the 10 min deadline). Without that flag the sentinel's own failed Jobs would
+trip its "jobs failed in the last 24h" and "cronjob without a recent success"
+checks and keep the warning alive after the real issue was fixed. When
+upgrading from a version without the flag, delete the old failed sentinel jobs
+so they stop showing up for 24 h:
+```
+kubectl get jobs -o name | grep health-sentinel | while read -r j; do kubectl delete "$j"; done
+```
+
 #### NFS server hardening
 The in-cluster NFS server must run privileged, so `deployment/nfs.yml` limits its
 blast radius: the image is pinned by digest, the Service is `ClusterIP` only (no
