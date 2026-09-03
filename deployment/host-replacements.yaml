@@ -1,0 +1,12 @@
+# Copies rmn-config.data.host into every Ingress rule so the public hostname
+# lives in a single place (kustomization.yaml). Kept in its own file so that
+# scripts/deploy.sh can re-apply it on top of an overridden ConfigMap.
+- source:
+    kind: ConfigMap
+    name: rmn-config
+    fieldPath: data.host
+  targets:
+    - select:
+        kind: Ingress
+      fieldPaths:
+        - spec.rules.*.host

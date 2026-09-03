@@ -1,0 +1,46 @@
+# Kustomize entry point for the whole RMN stack.
+#
+# Deploy everything with:
+#   kubectl apply -k deployment/
+# or, to target another host (e.g. a staging cluster / minikube):
+#   scripts/deploy.sh rmn.example.org
+#
+# secrets.example.yml is deliberately NOT listed: `kubectl apply -f .` would
+# otherwise install the placeholder credentials. Create the real `rmn-secrets`
+# Secret first (see README "Secrets"), or copy secrets.example.yml to
+# secrets.yml (gitignored) and add it to `resources` locally.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: default
+
+resources:
+  # storage
+  - nfs.yml
+  # data stores
+  - mongo.yml
+  - redis.yml
+  # application services
+  - server.yml
+  - socketio.yml
+  - webapp.yml
+  # KEDA-scaled job runner (needs KEDA installed, see README)
+  - executor.yml
+  # routing
+  - ingress.yml
+  # maintenance
+  - daily-rollout.yml
+
+# The public hostname is defined ONCE here. It is injected into every Ingress
+# rule below, and the socketIO Deployment reads it for its CORS allow-list.
+# Override it without editing this file via scripts/deploy.sh <host>.
+generatorOptions:
+  # keep a stable name so the Deployments' configMapKeyRef can reference it
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: rmn-config
+    literals:
+      - host=rmn.mgi.polymtl.ca
+
+replacements:
+  - path: host-replacements.yaml

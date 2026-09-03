@@ -8,3 +8,6 @@ venv/
 .env
 services/server/slack_token
 deployment/secrets.yml
+
+# throwaway kustomize overlay created by scripts/deploy.sh
+.deploy-overlay.*/

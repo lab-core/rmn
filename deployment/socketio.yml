@@ -37,10 +37,14 @@ spec:
                   protocol: TCP
               resources: {}
               env:
-                # only the webapp origin may open a socket from a browser
-                # (comma-separated list; must match the ingress host)
+                # only the webapp origin may open a socket from a browser.
+                # A bare hostname allows both https:// and http://; the value
+                # comes from the rmn-config ConfigMap (see kustomization.yaml)
                 - name: SOCKETIO_CORS_ORIGINS
-                  value: "https://rmn.mgi.polymtl.ca,http://rmn.mgi.polymtl.ca"
+                  valueFrom:
+                    configMapKeyRef:
+                      name: rmn-config
+                      key: host
                 # validate user tokens and authorize room joins against Mongo
                 - name: MONGODB_USER
                   valueFrom:
