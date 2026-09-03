@@ -69,12 +69,11 @@ class Slack:
         self.token = token or os.getenv("SLACK_TOKEN")
         self.channel = channel
         self.redis = redis
+        self.header = {"Content-Type": "application/json; charset=utf-8"}
         if self.token is None:
             print("WARNING: SLACK_TOKEN is not set in environment")
-        self.header = {
-            "Authorization": f"Bearer {self.token}",
-            "Content-Type": "application/json; charset=utf-8",
-        }
+        else:
+            self.header["Authorization"] = f"Bearer {self.token}"
 
     def health_check(self, interval: int = 900) -> None:
         """Run ticks forever, ``interval`` seconds apart."""
@@ -87,7 +86,12 @@ class Slack:
                 print(f"Run health check on {now}")
                 try:
                     ts = self.send_slack_message()
-                    self.cancel_old_slack_messages(ts)
+                    if ts is None:
+                        # the new alert is not armed: keep the previous ones,
+                        # otherwise a Slack hiccup would disarm the switch
+                        print("❌ keeping the previous Slack alerts armed")
+                    else:
+                        self.cancel_old_slack_messages(ts)
                 except Exception as e:  # keep the loop alive
                     print(e)
             time.sleep(interval)
@@ -113,11 +117,12 @@ class Slack:
             print(f"health check: Redis lock unavailable ({e}), running anyway")
             return True
 
-    def send_slack_message(self) -> int:
+    def send_slack_message(self) -> Optional[int]:
         """Schedule the alert ``SLACK_DELAY`` seconds from now.
 
         Returns:
-            The timestamp the message was scheduled at.
+            The timestamp the message was scheduled at, or ``None`` if Slack
+            did not accept it (the caller must then keep the older alerts).
         """
         now = datetime.now()
         now_ts = int(now.timestamp())
@@ -133,8 +138,10 @@ class Slack:
             if response.status_code != requests.codes.ok or not body.get("ok"):
                 print("❌ Slack message not sent:", response.status_code)
                 print("Slack response for message:", body)
+                return None
         except requests.exceptions.Timeout:
             print("❌ Timeout sending to Slack")
+            return None
         return now_ts
 
     def cancel_old_slack_messages(self, ts: int) -> bool:

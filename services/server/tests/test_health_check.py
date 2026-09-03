@@ -31,7 +31,7 @@ def slack_calls(monkeypatch):
 
 
 def test_already_gone_message_counts_as_cancelled(slack_calls, capsys):
-    calls, responses = slack_calls
+    _, responses = slack_calls
     responses["chat.scheduledMessages.list"] = {
         "ok": True,
         "scheduled_messages": [
@@ -47,7 +47,7 @@ def test_already_gone_message_counts_as_cancelled(slack_calls, capsys):
 
 
 def test_other_delete_errors_are_reported(slack_calls, capsys):
-    calls, responses = slack_calls
+    _, responses = slack_calls
     responses["chat.scheduledMessages.list"] = {
         "ok": True,
         "scheduled_messages": [
@@ -94,3 +94,24 @@ def test_lock_fails_open_when_redis_is_down():
 
 def test_no_lock_without_redis():
     assert hc.Slack(token="t", redis=None).acquire_lock(interval=900) is True
+
+
+def test_failed_schedule_returns_none(slack_calls, capsys):
+    _, responses = slack_calls
+    responses["chat.scheduleMessage"] = {"ok": False, "error": "not_authed"}
+    assert hc.Slack(token="t").send_slack_message() is None
+    assert "not sent" in capsys.readouterr().out
+
+
+def test_timeout_on_schedule_returns_none(monkeypatch):
+    def raise_timeout(*a, **k):
+        raise hc.requests.exceptions.Timeout()
+
+    monkeypatch.setattr(hc.requests, "post", raise_timeout)
+    assert hc.Slack(token="t").send_slack_message() is None
+
+
+def test_no_authorization_header_without_token(monkeypatch):
+    monkeypatch.delenv("SLACK_TOKEN", raising=False)
+    assert "Authorization" not in hc.Slack().header
+    assert "Authorization" in hc.Slack(token="t").header

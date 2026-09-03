@@ -35,7 +35,7 @@ redis = redis_client()
 sio = socketio_client()
 storage = Storage()
 
-# the Redis lock keeps a single gunicorn worker running the Slack dead-man's switch
+# a Redis lock elects one gunicorn worker per tick of the Slack dead-man's switch
 start_health_check(redis=redis)
 
 ROOT_DIR = Path(__file__).resolve().parent
