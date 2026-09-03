@@ -7,22 +7,36 @@ from pymongo import MongoClient
 mongodb_user = os.getenv("MONGODB_USER", "adminuser")
 mongodb_pass = os.getenv("MONGODB_PASSWORD", "example")
 mongodb_host = "mongo" if os.getenv("ENVIRONMENT") == "production" else "localhost"
-mongo_url = f"mongodb://{mongodb_user}:{mongodb_pass}@{mongodb_host}:27017/?retryWrites=true&w=majority"
+mongo_url = (
+    f"mongodb://{mongodb_user}:{mongodb_pass}@{mongodb_host}:27017/"
+    "?retryWrites=true&w=majority"
+)
 
 redis_host = "redis" if os.getenv("ENVIRONMENT") == "production" else "localhost"
-socketio_host = (
-    "socketio" if os.getenv("ENVIRONMENT") == "production" else "localhost"
-)
+socketio_host = "socketio" if os.getenv("ENVIRONMENT") == "production" else "localhost"
 
 
 def mongo_client():
     return MongoClient(mongo_url)
 
 
-def redis_client():
+def redis_client(**options):
+    """Return a Redis client for the job queue.
+
+    Args:
+        **options: Extra ``redis.Redis`` keyword arguments, e.g.
+            ``socket_connect_timeout`` / ``socket_timeout`` for callers that
+            must not block when Redis is down (redis-py has no default
+            timeouts).
+    """
     # password is optional so an unauthenticated Redis still works in dev
-    return redis.Redis(host=redis_host, port=6379, db=0,
-                       password=os.getenv("REDIS_PASSWORD") or None)
+    return redis.Redis(
+        host=redis_host,
+        port=6379,
+        db=0,
+        password=os.getenv("REDIS_PASSWORD") or None,
+        **options,
+    )
 
 
 def socketio_service_token():
@@ -39,14 +53,18 @@ def socketio_service_token():
                 "SOCKETIO_SERVICE_TOKEN is not set: real-time updates would be "
                 "silently dropped by the socketIO server"
             )
-        print("WARNING: SOCKETIO_SERVICE_TOKEN is not set; socketIO events "
-              "will be dropped", flush=True)
+        print(
+            "WARNING: SOCKETIO_SERVICE_TOKEN is not set; socketIO events "
+            "will be dropped",
+            flush=True,
+        )
     return token
 
 
 def socketio_client():
     sio = socketio.Client()
     # authenticate as the trusted backend so the socket server relays our events
-    sio.connect(f"http://{socketio_host}:7000",
-                auth={"service_token": socketio_service_token()})
+    sio.connect(
+        f"http://{socketio_host}:7000", auth={"service_token": socketio_service_token()}
+    )
     return sio

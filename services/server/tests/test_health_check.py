@@ -138,3 +138,9 @@ def test_lock_fails_open_when_redis_is_down():
 
 def test_no_lock_without_redis():
     assert hc.Slack(token="t", redis=None).acquire_lock(interval=900) is True
+
+
+def test_lock_fails_open_on_redis_timeout():
+    redis = MagicMock()
+    redis.set.side_effect = TimeoutError("socket timeout")
+    assert hc.Slack(token="t", redis=redis).acquire_lock(interval=900) is True

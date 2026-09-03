@@ -10,7 +10,9 @@ own loop: every tick would schedule one message per worker and each worker
 would try to delete the others' messages, the second delete failing with
 ``invalid_scheduled_message_id``. A short-lived Redis lock lets a single
 worker do the tick; if Redis is unreachable every worker proceeds (duplicate
-alerts are preferable to no alert).
+alerts are preferable to no alert). The caller must hand over a client with
+short socket timeouts, otherwise a down Redis blocks the tick instead of
+failing open.
 """
 
 import os
