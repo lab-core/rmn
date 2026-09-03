@@ -85,13 +85,13 @@ class Slack:
                 now = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
                 print(f"Run health check on {now}")
                 try:
-                    ts = self.send_slack_message()
-                    if ts is None:
+                    message_id = self.send_slack_message()
+                    if message_id is None:
                         # the new alert is not armed: keep the previous ones,
                         # otherwise a Slack hiccup would disarm the switch
                         print("❌ keeping the previous Slack alerts armed")
                     else:
-                        self.cancel_old_slack_messages(ts)
+                        self.cancel_old_slack_messages(message_id)
                 except Exception as e:  # keep the loop alive
                     print(e)
             time.sleep(interval)
@@ -99,8 +99,12 @@ class Slack:
     def acquire_lock(self, interval: int) -> bool:
         """Elect the worker that runs this tick.
 
-        The lock expires a minute before the next tick so the same worker can
-        take it again; a sibling only wins when the holder is gone.
+        The lock expires a minute before the next tick so that whichever
+        worker ticks first takes it, usually the same one. If a tick runs late
+        the lock may change hands and two alerts get scheduled in that
+        interval; both are cancelled at the next tick, so the switch stays
+        armed either way. The goal is roughly one tick per interval, not a
+        stable leader.
 
         Args:
             interval: Seconds between two ticks.
@@ -117,12 +121,12 @@ class Slack:
             print(f"health check: Redis lock unavailable ({e}), running anyway")
             return True
 
-    def send_slack_message(self) -> Optional[int]:
+    def send_slack_message(self) -> Optional[str]:
         """Schedule the alert ``SLACK_DELAY`` seconds from now.
 
         Returns:
-            The timestamp the message was scheduled at, or ``None`` if Slack
-            did not accept it (the caller must then keep the older alerts).
+            Slack's ``scheduled_message_id``, or ``None`` if Slack did not
+            accept it (the caller must then keep the older alerts).
         """
         now = datetime.now()
         now_ts = int(now.timestamp())
@@ -139,20 +143,24 @@ class Slack:
                 print("❌ Slack message not sent:", response.status_code)
                 print("Slack response for message:", body)
                 return None
+            return body.get("scheduled_message_id")
         except requests.exceptions.Timeout:
             print("❌ Timeout sending to Slack")
             return None
-        return now_ts
 
-    def cancel_old_slack_messages(self, ts: int) -> bool:
-        """Cancel every alert scheduled before ``ts``.
+    def cancel_old_slack_messages(self, keep_id: str) -> bool:
+        """Cancel every alert scheduled before the one this tick armed.
 
-        A message that is already gone (posted, or deleted by a sibling
-        worker) counts as cancelled; one that posts within the next minute
-        cannot be cancelled anymore and is reported.
+        "Before" is decided with Slack's own ``date_created`` of the kept
+        message, never with the local clock, so a skewed host cannot make us
+        delete the fresh alert. A message newer than ours belongs to a
+        sibling worker running the same tick and is left alone. A message
+        that is already gone (posted, or deleted by a sibling) counts as
+        cancelled; one that posts within the next minute cannot be cancelled
+        anymore and is reported.
 
         Args:
-            ts: Timestamp of the message scheduled by this tick.
+            keep_id: ``scheduled_message_id`` of the alert armed by this tick.
 
         Returns:
             True if every older message is cancelled or already gone.
@@ -165,10 +173,20 @@ class Slack:
                 print("Slack response for list:", body)
                 return False
 
+            pending = body.get("scheduled_messages", [])
+            mine = next((m for m in pending if m["id"] == keep_id), None)
+            if mine is None:
+                # cannot tell old from new without our reference: cancel
+                # nothing rather than risk disarming the switch
+                print("❌ freshly scheduled Slack alert", keep_id, "not listed")
+                return False
+
             ok = True
             now = int(time.time())
-            for message in body.get("scheduled_messages", []):
-                if message["date_created"] >= ts:
+            for message in pending:
+                if message["id"] == keep_id:
+                    continue
+                if message["date_created"] >= mine["date_created"]:
                     continue
                 if message["post_at"] - now < UNCANCELLABLE_WINDOW:
                     print(
