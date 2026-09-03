@@ -1,0 +1,22 @@
+# Values defined once in the rmn-config ConfigMap (kustomization.yaml) and
+# copied into the manifests that need them. Kept in its own file so that
+# scripts/deploy.sh can re-apply it on top of an overridden ConfigMap.
+- source:
+    kind: ConfigMap
+    name: rmn-config
+    fieldPath: data.host
+  targets:
+    - select:
+        kind: Ingress
+      fieldPaths:
+        - spec.rules.*.host
+- source:
+    kind: ConfigMap
+    name: rmn-config
+    fieldPath: data.node-cidr
+  targets:
+    - select:
+        kind: NetworkPolicy
+        name: nfs-server
+      fieldPaths:
+        - spec.ingress.0.from.0.ipBlock.cidr
