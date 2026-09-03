@@ -77,8 +77,9 @@ scripts/generate-secrets.sh --from-env .env  # reuse the docker-compose credenti
 scripts/generate-secrets.sh --slack-token xoxb-...
 kubectl apply -f deployment/secrets.yml
 ```
-It refuses to overwrite an existing `secrets.yml` without `--force` (the Mongo
-root password cannot be changed by rewriting the Secret alone).
+It never overwrites an existing `secrets.yml`: move the old file away first if
+you want a new one (the Mongo root password cannot be changed by rewriting the
+Secret alone).
 The KEDA redis scaler authenticates via the `redis-trigger-auth`
 `TriggerAuthentication` in `deployment/executor.yml`, which reads the same
 `redis-password`. On an existing Mongo volume the root password is fixed at

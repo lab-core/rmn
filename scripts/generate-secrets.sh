@@ -9,7 +9,10 @@
 #   scripts/generate-secrets.sh --from-env .env         # reuse values from a .env
 #   scripts/generate-secrets.sh --slack-token xoxb-...  # set the optional token
 #   scripts/generate-secrets.sh --mongodb-user admin --output /path/secrets.yml
-#   scripts/generate-secrets.sh --force                 # overwrite an existing file
+#
+# The script NEVER overwrites: if the output file already exists it stops
+# without touching it. To regenerate, move the old file away yourself first
+# (and remember the Mongo root password is fixed on an existing volume).
 #
 # --from-env reads MONGODB_USER, MONGODB_PASSWORD, REDIS_PASSWORD, ADMIN_API_KEY,
 # SLACK_TOKEN and SOCKETIO_SERVICE_TOKEN; values that are empty or "change-me"
@@ -32,7 +35,6 @@ redis_password=""
 admin_api_key=""
 slack_token=""
 socketio_service_token=""
-force=0
 
 usage() { sed -n '3,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; }
 
@@ -56,7 +58,6 @@ while [ $# -gt 0 ]; do
     --mongodb-user) mongodb_user="${2:?--mongodb-user needs a value}"; shift 2 ;;
     --slack-token) slack_token="${2:?--slack-token needs a value}"; shift 2 ;;
     --output) output="${2:?--output needs a path}"; shift 2 ;;
-    --force) force=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -65,11 +66,15 @@ done
 [ -f "$template" ] || { echo "Template not found: $template" >&2; exit 1; }
 command -v openssl >/dev/null || { echo "openssl is required" >&2; exit 1; }
 
-if [ -e "$output" ] && [ "$force" -ne 1 ]; then
-  echo "Refusing to overwrite $output (use --force)." >&2
-  echo "NOTE: on an existing Mongo volume the root password is fixed at first init;" >&2
-  echo "      regenerating it here will NOT change it in Mongo." >&2
+refuse_overwrite() {
+  echo "Refusing to overwrite existing $output; this script never replaces a secrets file." >&2
+  echo "Move it away first if you really want a new one. NOTE: on an existing Mongo" >&2
+  echo "volume the root password is fixed at first init; a new Secret will NOT change it." >&2
   exit 1
+}
+# -e also catches a symlink/dir at that path; -L a dangling symlink
+if [ -e "$output" ] || [ -L "$output" ]; then
+  refuse_overwrite
 fi
 
 # treat the .env placeholders as "not set"
@@ -128,7 +133,12 @@ if grep -q "CHANGE_ME" "$tmp"; then
   echo "Internal error: a CHANGE_ME placeholder was left in the output." >&2
   exit 1
 fi
-mv "$tmp" "$output"
+# ln(1) fails if the target exists, so the publish step is atomic AND cannot
+# clobber a file created between the check above and now (mv would).
+if ! ln "$tmp" "$output" 2>/dev/null; then
+  refuse_overwrite
+fi
+rm -f "$tmp"
 trap - EXIT
 chmod 600 "$output"
 
