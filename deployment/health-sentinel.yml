@@ -94,6 +94,15 @@ spec:
           serviceAccountName: health-sentinel
           restartPolicy: Never
           automountServiceAccountToken: true
+          # Pod-level identity. fsGroup matters: without it the projected
+          # service account token is written root-only, a non-root kubectl
+          # cannot read it, silently falls back to localhost:8080 and every run
+          # ends with "API server unreachable" (exit 3).
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            fsGroup: 65534
           containers:
             - name: sentinel
               # bash + kubectl + jq + curl in one small image
@@ -135,8 +144,6 @@ spec:
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
-                runAsNonRoot: true
-                runAsUser: 65534
                 capabilities: {drop: [ALL]}
               volumeMounts:
                 - name: script
