@@ -83,8 +83,14 @@ if [[ ! -z $ROLLOUT ]]; then
     kubectl rollout restart deployment/socketio
     kubectl rollout restart deployment/webapp
     # kubectl rollout restart ingress-nginx/ingress-nginx-controller
-    # create an executor pod
-    curl http://localhost/api/admin/executor
+    # create an executor pod: /admin/* needs the shared key, read from the
+    # rmn-secrets Secret unless ADMIN_API_KEY is already exported
+    ADMIN_API_KEY="${ADMIN_API_KEY:-$(kubectl get secret rmn-secrets -o jsonpath='{.data.admin-api-key}' 2>/dev/null | base64 -d)}"
+    if [[ -z $ADMIN_API_KEY ]]; then
+      echo "ADMIN_API_KEY not set and rmn-secrets/admin-api-key not found: skipping executor pod creation" >&2
+    else
+      curl -sS -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost/api/admin/executor; echo
+    fi
   else
     kubectl rollout restart deployment/$DEPLOYMENT
   fi

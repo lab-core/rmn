@@ -250,14 +250,19 @@ fallback, but prefer the header: query-string and form secrets tend to be
 captured in access logs, browser history and Referer headers.)
 
 ```
-# docker compose (host env, sourced by docker-compose.yml):
-export ADMIN_API_KEY=$(openssl rand -hex 32)
+# docker compose: ADMIN_API_KEY comes from the gitignored .env next to
+# docker-compose.yml (see "Secrets"); export it in your shell from there.
+export ADMIN_API_KEY=$(grep '^ADMIN_API_KEY=' .env | cut -d= -f2-)
 
-# kubernetes (referenced by deployment/server.yml):
-kubectl create secret generic admin-api-key --from-literal=key=$(openssl rand -hex 32)
+# kubernetes: the server reads rmn-secrets/admin-api-key (see "Secrets");
+# export the same value in the shell you run the commands from.
+export ADMIN_API_KEY=$(kubectl get secret rmn-secrets -o jsonpath='{.data.admin-api-key}' | base64 -d)
 ```
 
-In the examples below, `$ADMIN_API_KEY` is the value you configured above.
+In the examples below, `$ADMIN_API_KEY` is the value exported above.
+`./minikube-helper.sh -r` does this itself before creating an executor pod.
+(A standalone `admin-api-key` Secret from older versions is no longer read by
+anything and can be deleted: `kubectl delete secret admin-api-key`.)
 
 ##### Create a user
 Role can be either "Utilisateur" or "Administrateur":
