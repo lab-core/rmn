@@ -3,8 +3,16 @@ name: Publish All Docker images
 # Publishing is manual (Actions tab -> "Run workflow") plus automatic on a
 # v* release tag. Pushes to main no longer publish. Pull requests still build
 # the images as a check but never push them (see docker-publish.yml).
+#
+# To check that every image builds on a branch without publishing anything,
+# run the workflow manually on that branch with "Push images" unchecked.
 on:
   workflow_dispatch:
+    inputs:
+      push:
+        description: Push images to Docker Hub (uncheck to only build)
+        type: boolean
+        default: true
   push:
     tags: [ 'v*' ]
   pull_request:
@@ -20,6 +28,7 @@ jobs:
     with:
       image: rmni/executor
       context: ./services/executor
+      push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
     secrets: inherit
 
   push_server_to_dockerhub:
@@ -27,6 +36,7 @@ jobs:
     with:
       image: rmni/server
       context: ./services/server
+      push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
     secrets: inherit
 
   push_webapp_to_dockerhub:
@@ -34,6 +44,7 @@ jobs:
     with:
       image: rmni/webapp
       context: ./services/webapp
+      push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
     secrets: inherit
 
   push_socketio_to_dockerhub:
@@ -41,4 +52,5 @@ jobs:
     with:
       image: rmni/socketio
       context: ./services/socketIO
+      push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
     secrets: inherit
