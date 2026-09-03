@@ -28,6 +28,9 @@ rules:
   - apiGroups: [keda.sh]
     resources: [scaledjobs]
     verbs: [get, list]
+  - apiGroups: [apiregistration.k8s.io]
+    resources: [apiservices]
+    verbs: [get, list]
   - nonResourceURLs: [/readyz]
     verbs: [get]
 ---

@@ -25,7 +25,7 @@
 # Exit status: 0 healthy, 1 warnings only, 2 at least one critical issue,
 #              3 the cluster API itself is unreachable.
 #
-# Checks: API server readiness; node Ready/pressure conditions; pods (Failed,
+# Checks: API server readiness; aggregated APIServices; node Ready/pressure conditions; pods (Failed,
 # Unknown, Pending too long, CrashLoopBackOff / image pull errors, containers
 # not ready, restart count, OOMKilled); Deployments and ReplicationControllers
 # with missing replicas; failed Jobs (KEDA executor runs); CronJobs without a
@@ -88,17 +88,22 @@ jqr() { local prog="${*: -1}"; jq -r "${@:1:$#-1}" '
 def row: map(tostring)|join("\u001f"); '"$prog"; }
 
 # kubectl wrapper: fails the whole run if the API cannot be reached, but treats
-# a missing resource kind (e.g. KEDA not installed) as an empty list.
+# a missing resource kind (e.g. KEDA not installed) as an empty list. stderr is
+# kept apart from the JSON: kubectl prints warnings there (e.g. a broken
+# aggregated API such as external.metrics.k8s.io) on otherwise successful calls.
 kget() {
-  local out
-  if ! out="$(kubectl get "$@" -o json 2>&1)"; then
-    if grep -qi "the server doesn't have a resource type\|no matches for kind" <<<"$out"; then
+  local out err errf
+  errf="$(mktemp)"
+  if ! out="$(kubectl get "$@" -o json 2>"$errf")"; then
+    err="$(cat "$errf")"; rm -f "$errf"
+    if grep -qi "the server doesn't have a resource type\|no matches for kind" <<<"$err"; then
       echo '{"items":[]}'
       return 0
     fi
-    echo "kubectl get $*: $out" >&2
+    echo "kubectl get $*: $err" >&2
     return 1
   fi
+  rm -f "$errf"
   printf '%s' "$out"
 }
 
@@ -108,6 +113,14 @@ if ! kubectl get --raw /readyz --request-timeout=15s >/dev/null 2>&1; then
   echo "CRITICAL: Kubernetes API server unreachable or not ready ($(kubectl config current-context 2>/dev/null || echo 'no context'))"
   exit 3
 fi
+
+# Aggregated APIs (metrics-server, KEDA external metrics, ...) that are not
+# Available make every kubectl call print warnings and can break autoscaling.
+apiservices="$(kget apiservices)"
+while IFS=$'\x1f' read -r name msg; do
+  [ -n "$name" ] && warn "apiservice $name unavailable: ${msg:-no details}"
+done < <(jqr '.items[]|select(any((.status.conditions // [])[]; .type=="Available" and .status!="True"))
+              |[.metadata.name, ((.status.conditions[]|select(.type=="Available")).message // "")]|row' <<<"$apiservices")
 
 # --- 1. nodes -----------------------------------------------------------------
 
