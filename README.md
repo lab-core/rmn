@@ -165,7 +165,7 @@ checks and keep the warning alive after the real issue was fixed. When
 upgrading from a version without the flag, delete the old failed sentinel jobs
 so they stop showing up for 24 h:
 ```
-kubectl get jobs -o name | grep health-sentinel | xargs -r kubectl delete
+kubectl get jobs -o name | grep health-sentinel | while read -r j; do kubectl delete "$j"; done
 ```
 
 #### NFS server hardening

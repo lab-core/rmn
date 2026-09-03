@@ -115,8 +115,10 @@ kget() {
 
 # --- 0. API server ------------------------------------------------------------
 
-if ! kubectl get --raw /readyz --request-timeout=15s >/dev/null 2>&1; then
-  echo "CRITICAL: Kubernetes API server unreachable or not ready ($(kubectl config current-context 2>/dev/null || echo 'no context'))"
+if ! err="$(kubectl get --raw /readyz --request-timeout=15s 2>&1 >/dev/null)"; then
+  # keep kubectl's own error: "unreachable" alone is not actionable (RBAC,
+  # TLS, timeout and DNS failures all end up here)
+  echo "CRITICAL: Kubernetes API server unreachable or not ready ($(kubectl config current-context 2>/dev/null || echo 'in-cluster')): ${err:-no details}"
   exit 3
 fi
 
@@ -398,5 +400,7 @@ fi
 # In a CronJob a non-zero exit marks the run as failed. The sentinel then
 # reports its own failed Jobs ("N job(s) failed", "cronjob has no successful
 # run") and the warning feeds itself long after the real issue is gone.
-[ "$exit_zero" -eq 1 ] && exit 0
+# Only the "issues found" codes are mapped to 0; any other failure mode stays
+# visible on the Job.
+if [ "$exit_zero" -eq 1 ] && { [ "$status" -eq 1 ] || [ "$status" -eq 2 ]; }; then exit 0; fi
 exit $status
