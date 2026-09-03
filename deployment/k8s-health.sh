@@ -115,7 +115,13 @@ kget() {
 
 # --- 0. API server ------------------------------------------------------------
 
-if ! err="$(kubectl get --raw /readyz --request-timeout=15s 2>&1 >/dev/null)"; then
+# NOT --request-timeout: any client-config flag stops kubectl from falling back
+# to the in-cluster service account config, so inside the CronJob it silently
+# targets localhost:8080 (kubernetes/kubernetes#93474). Bound the call with
+# coreutils timeout instead (present in alpine/k8s; optional locally).
+readyz() { kubectl get --raw /readyz; }
+command -v timeout >/dev/null && readyz() { timeout 15 kubectl get --raw /readyz; }
+if ! err="$(readyz 2>&1 >/dev/null)"; then
   # keep kubectl's own error: "unreachable" alone is not actionable (RBAC,
   # TLS, timeout and DNS failures all end up here)
   echo "CRITICAL: Kubernetes API server unreachable or not ready ($(kubectl config current-context 2>/dev/null || echo 'in-cluster')): ${err:-no details}"
