@@ -20,3 +20,23 @@
         name: nfs-server
       fieldPaths:
         - spec.ingress.0.from.0.ipBlock.cidr
+- source:
+    kind: ConfigMap
+    name: rmn-config
+    fieldPath: data.nfs-ip
+  targets:
+    - select:
+        kind: Service
+        name: nfs
+      fieldPaths:
+        - spec.clusterIP
+    - select:
+        kind: Deployment
+        name: server
+      fieldPaths:
+        - spec.template.spec.volumes.[name=nfs-storage].nfs.server
+    - select:
+        kind: ScaledJob
+        name: job-executor
+      fieldPaths:
+        - spec.jobTargetRef.template.spec.volumes.[name=nfs-storage].nfs.server

@@ -173,6 +173,23 @@ way). Two things to set up per cluster:
   prefers it. Turn the preference into a requirement (and taint the node) once
   you have such a node.
 
+##### The NFS service IP (`nfs-ip`)
+The kubelet mounts NFS volumes from the node and does not use cluster DNS, so
+`server.yml` / `executor.yml` must give the NFS server as an **IP**, not as the
+`nfs` Service name. `deployment/kustomization.yaml` therefore pins the Service's
+`clusterIP` and injects the same value into both mounts (`nfs-ip`, default
+`10.105.99.184`). It is an arbitrary address you choose, with two constraints:
+
+- inside the cluster's service range: `kubectl get pod -n kube-system -l
+  component=kube-apiserver -o jsonpath='{.items[0].spec.containers[0].command}'
+  | tr , '\n' | grep service-cluster-ip-range` (minikube: `10.96.0.0/12`);
+- not already taken: `kubectl get svc -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,IP:.spec.clusterIP`.
+
+On an existing cluster keep the value the `nfs` Service already has
+(`kubectl get svc nfs -o jsonpath='{.spec.clusterIP}'`): a Service's clusterIP
+is immutable, so changing it means deleting and recreating the Service, and
+every pod mounting the old address must be rolled.
+
 #### Persistent volume: NFS server
 WARNING: you need to mount a persistent volume that correspond to the path given to the nfs server, otherwise you will have an error as docker is not able to mount other paths for a nsf server. Furthermore, if using minikube, the path of the persistent volume needs also to be persistent in minikube: you can use a default persistent path like "/data" or any other path that has been mounted in minikube to communicate with the host.
 

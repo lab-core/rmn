@@ -35,7 +35,8 @@ resources:
 
 # Cluster-specific values are defined ONCE here: the public hostname (injected
 # into every Ingress rule, read by socketIO for CORS and by the sentinel for
-# its HTTP probes), the Slack channel and the node CIDR (NFS NetworkPolicy).
+# its HTTP probes), the Slack channel, the node CIDR (NFS NetworkPolicy) and
+# the NFS service IP (Service clusterIP + the server/executor NFS mounts).
 # Override the host without editing this file via scripts/deploy.sh <host>.
 generatorOptions:
   # keep a stable name so the Deployments' configMapKeyRef can reference it
@@ -52,6 +53,9 @@ configMapGenerator:
       # your cluster; 192.168.49.0/24 is minikube's docker-driver network
       # (`kubectl get nodes -o wide` shows the node IPs).
       - node-cidr=192.168.49.0/24
+      # ClusterIP of the NFS Service, also the address server/executor mount.
+      # Must be inside the cluster's service CIDR (minikube: 10.96.0.0/12).
+      - nfs-ip=10.105.99.184
   # the sentinel script, mounted into the health-sentinel CronJob
   - name: k8s-health-script
     files:

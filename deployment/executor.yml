@@ -30,7 +30,8 @@ spec:
         volumes:
           - name: nfs-storage
             nfs:
-              server: 10.105.99.184  # ip of the nfs service
+              # placeholder: kustomize replaces it with rmn-config.data.nfs-ip
+              server: NFS_IP
               path: /
               readOnly: false
         containers:
