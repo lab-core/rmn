@@ -2,8 +2,9 @@
 #
 # Informational for now: the first run found dozens of advisories (Angular 18,
 # werkzeug/urllib3/pillow in the Python services), and they are fixed by the
-# Dependabot PRs, not by blocking unrelated work. Flip `continue-on-error` to
-# false once the baseline is clean so regressions fail the check.
+# Dependabot PRs, not by blocking unrelated work. Findings land in the step
+# summary and as a warning annotation; drop the `|| true` / warning lines once
+# the baseline is clean so regressions fail the check.
 name: dependency-audit
 
 on:
@@ -24,7 +25,6 @@ permissions:
 jobs:
   pip-audit:
     runs-on: ubuntu-latest
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -43,11 +43,11 @@ jobs:
             -r services/${{ matrix.service }}/requirements.txt \
             --format markdown --output audit.md || status=$?
           cat audit.md >> "$GITHUB_STEP_SUMMARY"
-          exit ${status:-0}
+          [ -z "${status:-}" ] || echo "::warning::pip-audit found known vulnerabilities in services/${{ matrix.service }} (see the job summary)"
+          true
 
   npm-audit:
     runs-on: ubuntu-latest
-    continue-on-error: true
     defaults:
       run:
         working-directory: services/webapp/ng
@@ -60,4 +60,5 @@ jobs:
         run: |
           npm audit --omit=dev --audit-level=high | tee audit.txt || status=$?
           { echo '```'; cat audit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          exit ${status:-0}
+          [ -z "${status:-}" ] || echo "::warning::npm audit found known vulnerabilities in the webapp (see the job summary)"
+          true

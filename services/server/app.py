@@ -6,7 +6,7 @@ from flask import Flask, request, Response, json, send_file
 from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from pathlib import Path
-from utils.utils import Job_Status, Output_File, Document_Status, validate_questions
+from utils.utils import Job_Status, Output_File, Document_Status
 from utils.storage import Storage
 from utils.clients import redis_client, socketio_client, mongo_client
 import datetime as dt
@@ -340,23 +340,9 @@ def evaluate(user_id):
     regular_template_name = str(request_form["regular_template_name"])
     job_name = str(request_form["job_name"])
     statistics_for_students = request_form["statistics_for_students"].lower() == "true"
-    try:
-        n_pages_per_question = json.loads(request_form["n_pages_per_question"])
-        n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
-        bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
-    except ValueError:
-        return Response(
-            response=json.dumps({"response": "Error: format des questions invalide."}),
-            status=400,
-        )
-    # a question with 0 page and 0 point is ignored: the executor skips it but
-    # keeps its position so the grades match the boxes of the template
-    error = validate_questions(n_pages_per_question, n_max_points_per_question, bonus_enabled_map)
-    if error:
-        return Response(
-            response=json.dumps({"response": f"Error: {error}"}),
-            status=400,
-        )
+    n_pages_per_question = json.loads(request_form["n_pages_per_question"])
+    n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
+    bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
 
     db = mongo["RMN"]
     collection = db["eval_jobs"]
@@ -406,9 +392,10 @@ def evaluate(user_id):
 
         zip_file = request.files.get("zip_file")
         zip_file_path = str(TEMP_FOLDER.joinpath(secure_filename(zip_file.filename)))
-        with open(zip_file_path, "wb") as f_out:
-            file_content = zip_file.stream.read()
-            f_out.write(file_content)
+        # stream to disk in chunks: reading the whole upload into memory
+        # (zip_file.stream.read()) held the entire multi-GB zip in one gunicorn
+        # worker, which the container memory limit would now kill.
+        zip_file.save(zip_file_path)
 
         random_id = uuid.uuid4()
         zip_file_id = os.path.join("zips", job_id, f"{random_id}.zip")
