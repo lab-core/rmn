@@ -147,7 +147,7 @@ class Slack:
                 return None
             return body.get("scheduled_message_id")
         except requests.exceptions.Timeout:
-            print("❌ Timeout sending to Slack")
+            print("❌ Timeout scheduling the Slack alert")
             return None
 
     def cancel_old_slack_messages(self, keep_id: str) -> bool:
@@ -201,7 +201,7 @@ class Slack:
                 ok = self.delete_scheduled_message(message["id"]) and ok
             return ok
         except requests.exceptions.Timeout:
-            print("❌ Timeout sending to Slack")
+            print("❌ Timeout listing or cancelling Slack scheduled messages")
             return False
 
     def delete_scheduled_message(self, message_id: str) -> bool:
