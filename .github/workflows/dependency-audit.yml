@@ -42,14 +42,17 @@ jobs:
           pip-audit --progress-spinner off --no-deps --disable-pip \
             -r services/${{ matrix.service }}/requirements.txt \
             --format markdown --output audit.md || status=$?
+          # A report with a non-zero exit is a finding; no report is a tool error.
           if [ -f audit.md ]; then
             cat audit.md >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "${status:-}" ]; then
+              echo "::error::pip-audit found known vulnerabilities in services/${{ matrix.service }} (see the job summary)"
+              exit "$status"
+            fi
           else
             echo "pip-audit produced no report (tool error, exit ${status:-0})" >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ -n "${status:-}" ]; then
-            echo "::error::pip-audit found known vulnerabilities in services/${{ matrix.service }} (see the job summary)"
-            exit "$status"
+            echo "::error::pip-audit did not produce a report for services/${{ matrix.service }} (tool error, exit ${status:-0})"
+            exit "${status:-1}"
           fi
 
   npm-audit:
