@@ -1,10 +1,10 @@
-# Known-vulnerability report for every dependency manifest.
+# Known-vulnerability check for every dependency manifest.
 #
-# Informational for now: the first run found dozens of advisories (Angular 18,
-# werkzeug/urllib3/pillow in the Python services), and they are fixed by the
-# Dependabot PRs, not by blocking unrelated work. Findings land in the step
-# summary and as a warning annotation; drop the `|| true` / warning lines once
-# the baseline is clean so regressions fail the check.
+# Blocking: the baseline is clean since the Dependabot consolidation (#94) and
+# the follow-up that moved PyPDF2 to pypdf, so any new advisory fails the
+# check. The report still lands in the job summary. To accept a finding that
+# cannot be fixed yet, add `--ignore-vuln <ID>` (pip-audit) with a comment
+# rather than turning the step back into a warning.
 name: dependency-audit
 
 on:
@@ -42,13 +42,22 @@ jobs:
           pip-audit --progress-spinner off --no-deps --disable-pip \
             -r services/${{ matrix.service }}/requirements.txt \
             --format markdown --output audit.md || status=$?
+          # pip-audit only writes the report when it has findings: exit 0 and no
+          # file is a clean run, exit != 0 with a file is a finding, exit != 0
+          # without a file is a tool error.
           if [ -f audit.md ]; then
             cat audit.md >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "pip-audit produced no report (tool error, exit ${status:-0})" >> "$GITHUB_STEP_SUMMARY"
+            echo "pip-audit: no known vulnerabilities in services/${{ matrix.service }} (exit ${status:-0})" >> "$GITHUB_STEP_SUMMARY"
           fi
-          [ -z "${status:-}" ] || echo "::warning::pip-audit found known vulnerabilities in services/${{ matrix.service }} (see the job summary)"
-          true
+          if [ -n "${status:-}" ]; then
+            if [ -f audit.md ]; then
+              echo "::error::pip-audit found known vulnerabilities in services/${{ matrix.service }} (see the job summary)"
+            else
+              echo "::error::pip-audit failed for services/${{ matrix.service }} without producing a report (tool error, exit $status)"
+            fi
+            exit "$status"
+          fi
 
   npm-audit:
     runs-on: ubuntu-latest
@@ -62,7 +71,10 @@ jobs:
           node-version: 20
       - name: npm audit (production dependencies)
         run: |
+          set -o pipefail
           npm audit --omit=dev --audit-level=high | tee audit.txt || status=$?
           { echo '```'; cat audit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          [ -z "${status:-}" ] || echo "::warning::npm audit found known vulnerabilities in the webapp (see the job summary)"
-          true
+          if [ -n "${status:-}" ]; then
+            echo "::error::npm audit found known vulnerabilities in the webapp (see the job summary)"
+            exit "$status"
+          fi
