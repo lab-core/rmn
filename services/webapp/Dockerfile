@@ -4,7 +4,7 @@
 # static files, so build once on the native platform of the CI runner instead
 # of once per target platform. Running npm under QEMU (arm64 on an amd64
 # runner) was 5x slower and flaky: node died with exit code 146.
-FROM --platform=$BUILDPLATFORM node:22 AS node
+FROM --platform=$BUILDPLATFORM node:26 AS node
 WORKDIR /app
 
 # Lock file included so this layer only changes with the dependencies; the
