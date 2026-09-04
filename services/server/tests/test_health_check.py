@@ -1,6 +1,8 @@
 """Slack dead-man's switch: single leader per tick, tolerant deletes."""
 
+from datetime import datetime
 from unittest.mock import MagicMock
+from zoneinfo import ZoneInfo
 
 import fakeredis
 import pytest
@@ -99,6 +101,32 @@ def test_schedule_returns_the_message_id(slack_calls):
     _, responses = slack_calls
     responses["chat.scheduleMessage"] = {"ok": True, "scheduled_message_id": "Q1"}
     assert hc.Slack(token="t").send_slack_message() == "Q1"
+
+
+def test_alert_shows_local_and_utc_time(slack_calls, monkeypatch):
+    calls, responses = slack_calls
+    responses["chat.scheduleMessage"] = {"ok": True, "scheduled_message_id": "Q1"}
+    monkeypatch.setattr(hc, "TIMEZONE", "America/Montreal")
+    tz = ZoneInfo("America/Montreal")
+    before = datetime.now(tz)
+    hc.Slack(token="t").send_slack_message()
+    after = datetime.now(tz)
+    text = calls[-1][1]["text"]
+    assert text.endswith((hc.format_time(before), hc.format_time(after)))
+
+
+def test_format_time_pairs_the_zones():
+    when = datetime(2026, 9, 4, 13, 27, tzinfo=ZoneInfo("America/Montreal"))
+    assert (
+        hc.format_time(when)
+        == "Friday, September 04, 2026 at 01:27 PM EDT (2026-09-04 17:27 UTC)"
+    )
+
+
+def test_unknown_time_zone_falls_back_to_system_time(monkeypatch, capsys):
+    monkeypatch.setattr(hc, "TIMEZONE", "Mars/Olympus_Mons")
+    assert hc.local_now().utcoffset() is not None
+    assert "unknown TZ" in capsys.readouterr().out
 
 
 def test_failed_schedule_returns_none(slack_calls, capsys):

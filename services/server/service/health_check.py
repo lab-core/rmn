@@ -17,21 +17,56 @@ failing open.
 
 import os
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from threading import Thread
 from typing import Any, Dict, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 
 SLACK_CHANNEL = os.getenv("SLACK_CHANNEL") or "C094Y8KQ4HL"
 SLACK_DELAY = 1800
 MESSAGE = "🚨 RMN service is not responding, but was alive on {}"
+# The alert is read by people in Montreal: format its time in their zone, not
+# in the container's (UTC). ``TZ`` is the same variable the images get from
+# rmn-config (deployment/kustomization.yaml) or docker-compose.
+TIMEZONE = os.getenv("TZ") or "America/Montreal"
+TIME_FORMAT = "%A, %B %d, %Y at %I:%M %p %Z"
+UTC_FORMAT = "%Y-%m-%d %H:%M UTC"
 REQUEST_TIMEOUT = 15
 LOCK_KEY = "health_check:leader"
 # Slack refuses to cancel a message that posts within 60 s of the request.
 UNCANCELLABLE_WINDOW = 60
 # Slack's answer when a scheduled message is already posted or deleted.
 ALREADY_GONE = "invalid_scheduled_message_id"
+
+
+def local_now() -> datetime:
+    """Current time in ``TIMEZONE`` (system local time if it is unknown).
+
+    Returns:
+        An aware ``datetime``.
+    """
+    try:
+        return datetime.now(ZoneInfo(TIMEZONE))
+    except ZoneInfoNotFoundError:
+        print(f"WARNING: unknown TZ {TIMEZONE!r}, using the system time zone")
+        return datetime.now().astimezone()
+
+
+def format_time(now: datetime) -> str:
+    """Render ``now`` in the local zone with the UTC time in parentheses.
+
+    Both are shown because the cluster logs are in UTC and the readers are
+    not: e.g. ``Friday, September 04, 2026 at 01:27 PM EDT (2026-09-04 17:27 UTC)``.
+
+    Args:
+        now: An aware ``datetime``.
+
+    Returns:
+        The formatted string.
+    """
+    return f"{now.strftime(TIME_FORMAT)} ({now.astimezone(UTC).strftime(UTC_FORMAT)})"
 
 
 def start_health_check(interval: int = 900, redis: Any = None) -> Thread:
@@ -84,8 +119,7 @@ class Slack:
             return
         while True:
             if self.acquire_lock(interval):
-                now = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
-                print(f"Run health check on {now}")
+                print(f"Run health check on {format_time(local_now())}")
                 try:
                     message_id = self.send_slack_message()
                     if message_id is None:
@@ -130,9 +164,9 @@ class Slack:
             Slack's ``scheduled_message_id``, or ``None`` if Slack did not
             accept it (the caller must then keep the older alerts).
         """
-        now = datetime.now()
+        now = local_now()
         now_ts = int(now.timestamp())
-        formatted = now.strftime("%A, %B %d, %Y at %I:%M %p")
+        formatted = format_time(now)
         data = {
             "channel": self.channel,
             "text": MESSAGE.format(formatted),
@@ -246,7 +280,7 @@ class Slack:
         """Print the pending scheduled messages (manual inspection)."""
         body = self.get_scheduled_messages().json()
         print(body)
-        now_ts = int(datetime.now().timestamp())
+        now_ts = int(local_now().timestamp())
         for message in body.get("scheduled_messages", []):
             print(
                 "Message to be posted in",

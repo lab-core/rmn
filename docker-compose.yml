@@ -31,6 +31,7 @@ services:
    #   - "5001:5001"
    environment:
      STORAGE: /Executor/storage
+     TZ: ${TZ:-America/Montreal}
      REDIS_POP: block
      MONGODB_USER: ${MONGODB_USER}
      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
@@ -49,6 +50,7 @@ services:
     #   - "5000:5000"
     environment:
       FLASK_ENV: development
+      TZ: ${TZ:-America/Montreal}
       MONGODB_USER: ${MONGODB_USER}
       MONGODB_PASSWORD: ${MONGODB_PASSWORD}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
