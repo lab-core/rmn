@@ -71,6 +71,13 @@ spec:
           env:
             - name: STORAGE
               value: /mnt/storage
+            # time zone of the logs and of the Slack alert (rmn-config)
+            - name: TZ
+              valueFrom:
+                configMapKeyRef:
+                  name: rmn-config
+                  key: timezone
+                  optional: true
             # all credentials come from the rmn-secrets Secret (see
             # deployment/secrets.example.yml)
             - name: MONGODB_USER

@@ -59,6 +59,13 @@ spec:
             env:
               - name: STORAGE
                 value: /mnt/storage
+              # time zone of the logs and of the dates printed in reports
+              - name: TZ
+                valueFrom:
+                  configMapKeyRef:
+                    name: rmn-config
+                    key: timezone
+                    optional: true
               - name: MAX_RETRY
                 value: "5"
               - name: MAX_RAM_GB

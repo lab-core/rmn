@@ -48,6 +48,9 @@ configMapGenerator:
       # Slack channel the health sentinel posts to (same channel as the
       # server's dead-man's-switch in services/server/service/health_check.py)
       - slack-channel=C094Y8KQ4HL
+      # TZ of the server and executor containers: log timestamps and the
+      # Slack dead-man's-switch alert are written in this zone (an IANA name)
+      - timezone=America/Montreal
       # Node network of the cluster: the ONLY source allowed to reach the NFS
       # server (the kubelet mounts NFS from the node, see nfs.yml). MUST match
       # your cluster; 192.168.49.0/24 is minikube's docker-driver network

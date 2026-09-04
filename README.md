@@ -153,6 +153,13 @@ scripts/deploy.sh rmn.example.org            # apply
 scripts/deploy.sh rmn.example.org --dry-run  # only print the manifests
 ```
 
+#### Time zone
+Containers run in UTC. `rmn-config.timezone` (default `America/Montreal`) is
+passed as `TZ` to the server and executor pods, so their logs and the dates
+they print are local; the Slack dead-man's-switch alert shows both, e.g.
+`alive on Friday, September 04, 2026 at 01:27 PM EDT (2026-09-04 17:27 UTC)`.
+docker-compose sets the same `TZ` (override it in `.env`).
+
 #### Rotating the Slack token
 The Slack token was committed to git history, so it must be regenerated in the
 Slack app settings (revoking the old one) — that is the actual fix. Then update
