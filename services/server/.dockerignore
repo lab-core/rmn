@@ -1,2 +1,10 @@
 __pycache__/
+.pytest_cache/
 venv/
+tests/
+temp/
+storage/
+slack_token
+pytest.ini
+requirements-dev.txt
+requirements.old.txt

@@ -20,7 +20,11 @@ services:
     volumes:
       - ./storage/mongo:/data/db
   executor:
-   build: ./services/executor
+   build:
+     context: ./services/executor
+     # reuse the dependency layers published by CI (see docker-publish.yml)
+     cache_from:
+       - type=registry,ref=rmni/executor:buildcache
 #   command: bash -c "while true; do echo hello; sleep 2; done"
    restart: always
    # ports:
@@ -38,6 +42,8 @@ services:
     build:
       context: ./services/server
       dockerfile: Dockerfile-dev
+      cache_from:
+        - type=registry,ref=rmni/server:buildcache
     restart: always
     # ports:
     #   - "5000:5000"
@@ -54,7 +60,10 @@ services:
     volumes:
       - ./storage:/Server/storage
   socketio:
-    build: ./services/socketIO
+    build:
+      context: ./services/socketIO
+      cache_from:
+        - type=registry,ref=rmni/socketio:buildcache
     restart: always
     # no host port: only reached inside the compose network (nginx proxies
     # /socket.io/), and host port 7000 clashes with macOS AirPlay Receiver
@@ -69,6 +78,9 @@ services:
     build:
       context: ./services/webapp
       dockerfile: Dockerfile-dev
+      # the npm install layer is shared with the published image
+      cache_from:
+        - type=registry,ref=rmni/webapp:buildcache
     restart: always
     volumes:
       - ./services/webapp/ng/src:/app/src:rw
