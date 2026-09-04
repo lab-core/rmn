@@ -1,10 +1,13 @@
 <div class="main-container">
-  <app-main-menu *ngIf="loggued()"></app-main-menu>
+  @if (loggued()) {
+<app-main-menu></app-main-menu>
+}
   <div class="task-container">
     <div class="task-header">
       <h1>{{ taskName }}</h1>
     </div>
-    <div class="select-index-container" *ngIf="!disableButtons">
+    @if (!disableButtons) {
+<div class="select-index-container">
         <p>Recherche index: </p>
         <div class="index-input-div">
             <ng-select id="copy" [items]="copiesList" bindLabel="identifiant"
@@ -14,10 +17,14 @@
             </ng-select>
         </div>
         <p>{{ this.copySelection ? (this.copySelection.copy + 1 || "N/A") : "" }}</p>
-        <button class="select-index-button" *ngIf="this.copySelection" mat-raised-button color="primary" (click)="selectCopy()">Sélectionner</button>
+        @if (this.copySelection) {
+<button class="select-index-button" mat-raised-button color="primary" (click)="selectCopy()">Sélectionner</button>
+}
     </div>
+}
     <div class="task-content">
-      <table *ngIf="task">
+      @if (task) {
+<table>
         <thead>
           <tr>
             <th>Questions</th>
@@ -30,7 +37,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let question of questions; let i = index">
+          @for (question of questions; track question; let i = $index) {
+<tr>
             <td> {{ question.name }}
               <!-- <div *ngIf="question.bonus">
                 {{ question.name }} (Bonus)
@@ -44,23 +52,34 @@
             <td>{{ question.stdDev | number:'1.2-2' }}</td>
             <td>
               <div class="histogram-container">
-                <div class="histogram-bar" *ngFor="let bin of question.histogram">
+                @for (bin of question.histogram; track bin) {
+<div class="histogram-bar">
                   <div class="histogram-bar-inner" [style.height.%]="bin.count > 0 ? 10 + (bin.count / this.getMaxCount(question)) * 90 : 2"
                        [title]="'Count: ' + bin.count">
-                    <span *ngIf="bin.count > 0">{{ bin.count }}</span>
+                    @if (bin.count > 0) {
+<span>{{ bin.count }}</span>
+}
                   </div>
                   <span class="histogram-label">{{ bin.value }}</span>
                 </div>
+}
               </div>
             </td>
             <td>
-                <input *ngIf="question.name != 'Total'" type="checkbox" [(ngModel)]="question.bonus" [disabled]="disableButtons" (change)="questionBonusChange(question)" [ngModelOptions]="{standalone: true}">
+                @if (question.name != 'Total') {
+<input type="checkbox" [(ngModel)]="question.bonus" [disabled]="disableButtons" (change)="questionBonusChange(question)" [ngModelOptions]="{standalone: true}">
+}
             </td>
             <td class="action-buttons">
-              <button class="correct-button" *ngIf="!disableButtons" mat-raised-button color="primary" [disabled]="question.count === 0" (click)="correctQuestion(question)">Corriger</button>
-              <button class="correct-button" *ngIf="!shared() && !disableButtons" mat-raised-button color="primary" (click)="shareQuestion(question.name !== 'Total' ? question.index : undefined)">Partager</button>
+              @if (!disableButtons) {
+<button class="correct-button" mat-raised-button color="primary" [disabled]="question.count === 0" (click)="correctQuestion(question)">Corriger</button>
+}
+              @if (!shared() && !disableButtons) {
+<button class="correct-button" mat-raised-button color="primary" (click)="shareQuestion(question.name !== 'Total' ? question.index : undefined)">Partager</button>
+}
             </td>
           </tr>
+}
           <tr>
             <td>Matricules</td>
             <td>{{ totalVerifiedMatricules }} / {{ examsCount }}</td>
@@ -69,31 +88,48 @@
             <td></td>
             <td></td>
             <td class="action-buttons">
-              <button class="correct-button" *ngIf="!disableButtons" mat-raised-button color="primary" (click)="verifyMatricules()">Verifier</button>
-              <button class="correct-button" *ngIf="!shared() && !disableButtons" mat-raised-button color="primary" (click)="shareMatricule()">Partager</button>
+              @if (!disableButtons) {
+<button class="correct-button" mat-raised-button color="primary" (click)="verifyMatricules()">Verifier</button>
+}
+              @if (!shared() && !disableButtons) {
+<button class="correct-button" mat-raised-button color="primary" (click)="shareMatricule()">Partager</button>
+}
             </td>
           </tr>
         </tbody>
       </table>
-      <div class="validate-job-container" *ngIf="loggued() && !shared() && !disableButtons">
+}
+      @if (loggued() && !shared() && !disableButtons) {
+<div class="validate-job-container">
         <div class="checkbox-container">
           <button class="copies-job-button" mat-raised-button color="primary" (click)="addCopies()">Copies additionnelles</button>
           <button class="csv-job-button" mat-raised-button color="primary" (click)="updateCsv()">Mettre à jour csv</button>
-          <label *ngIf="questions.length >0">
+          @if (questions.length >0) {
+<label>
               <input type="checkbox" [(ngModel)]="taskStats" (change)="taskStatsChange()" [ngModelOptions]="{standalone: true}">
               Statistiques pour les élèves
           </label>
+}
           <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()" [disabled]="ongoingTask">Finaliser</button>
         </div>
       </div>
-      <div class="validate-job-container" *ngIf="disableButtons && task.job_status === 'ARCHIVED'">
-        <div class="checkbox-container" *ngIf="loggued() && !shared()">
+}
+      @if (disableButtons && task.job_status === 'ARCHIVED') {
+<div class="validate-job-container">
+        @if (loggued() && !shared()) {
+<div class="checkbox-container">
           <button class="validate-job-button" mat-raised-button color="warn" (click)="restore()">Restaurer</button>
           <button class="validate-job-button" mat-raised-button color="primary" (click)="openTaskFilesDialog()">Télécharger copies</button>
         </div>
-        <button class="validate-job-button" *ngIf="!loggued() || shared()" mat-raised-button color="primary" (click)="openTaskFilesDialog()">Télécharger copies</button>
+}
+        @if (!loggued() || shared()) {
+<button class="validate-job-button" mat-raised-button color="primary" (click)="openTaskFilesDialog()">Télécharger copies</button>
+}
       </div>
+}
     </div>
   </div>
-  <button mat-button *ngIf="loggued()" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+  @if (loggued()) {
+<button mat-button (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+}
 </div>

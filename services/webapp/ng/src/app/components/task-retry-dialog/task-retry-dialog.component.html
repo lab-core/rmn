@@ -1,58 +1,82 @@
 <div class="dialog-container">
-    <div class="header-container">
-        <h1>Téléversement des fichiers</h1>
-    </div>
-    <div class="button-container">
-        <button mat-raised-button color="primary" [disabled]="disabled || uploading" (click)="retryJob()">Continuer</button>
-        <button mat-raised-button color="primary" (click)="ignoreAndContinue()" [disabled]="isFileNamesEmpty() || uploading">Ignorer et continuer</button>
-        <button mat-raised-button color="warn" (click)="cancel()" [disabled]="uploading">Annuler</button>
-    </div>
-    <div class="content-container">
-        <div class="error-messages-container">
-            <div class="files-container error-message" *ngIf="!isFileNamesEmpty()">
-                <ul>
-                  <li *ngFor="let filename of filenames; let i = index" class="filename-div">
-                    <span class="filename-text">{{ filename }}</span>
-                    <button mat-icon-button color="primary" (click)="downloadFile(filename)">
-                        <mat-icon>download</mat-icon>
-                    </button>
-<!--                  <span class="file-error">{{ errorMessages[i] }}</span>-->
-                  </li>
-                </ul>
-            </div>
-            <button mat-raised-button color="primary" (click)="downloadAllAsZip()" class="download-zip-button" [disabled]="isFileNamesEmpty()">Télécharger tous les fichiers en ZIP</button>
+  <div class="header-container">
+    <h1>Téléversement des fichiers</h1>
+  </div>
+  <div class="button-container">
+    <button mat-raised-button color="primary" [disabled]="disabled || uploading" (click)="retryJob()">Continuer</button>
+    <button mat-raised-button color="primary" (click)="ignoreAndContinue()" [disabled]="isFileNamesEmpty() || uploading">Ignorer et continuer</button>
+    <button mat-raised-button color="warn" (click)="cancel()" [disabled]="uploading">Annuler</button>
+  </div>
+  <div class="content-container">
+    <div class="error-messages-container">
+      @if (!isFileNamesEmpty()) {
+        <div class="files-container error-message">
+          <ul>
+            @for (filename of filenames; track filename; let i = $index) {
+              <li class="filename-div">
+                <span class="filename-text">{{ filename }}</span>
+                <button mat-icon-button color="primary" (click)="downloadFile(filename)">
+                  <mat-icon>download</mat-icon>
+                </button>
+                <!--                  <span class="file-error">{{ errorMessages[i] }}</span>-->
+              </li>
+            }
+          </ul>
         </div>
-        <div class="upload-container"
-            (drop)="onDrop($event)"
-            (dragover)="onDragOver($event)">
-            <div class="upload-drop-zone" (click)="onUploadClick()">
-                Glissez-déposez les fichiers ici ou cliquez pour téléverser
-            </div>
-            <input #fileUpload type="file" id="file-upload" (change)="onFileSelected($event)" multiple>
+      }
+      <button mat-raised-button color="primary" (click)="downloadAllAsZip()" class="download-zip-button" [disabled]="isFileNamesEmpty()">Télécharger tous les fichiers en ZIP</button>
+    </div>
+    <div class="upload-container"
+      (drop)="onDrop($event)"
+      (dragover)="onDragOver($event)">
+      <div class="upload-drop-zone" (click)="onUploadClick()">
+        Glissez-déposez les fichiers ici ou cliquez pour téléverser
+      </div>
+      <input #fileUpload type="file" id="file-upload" (change)="onFileSelected($event)" multiple>
 
-            <div class="files-container selected-files-container" *ngIf="selectedFiles.length > 0">
-                <h3>Fichiers sélectionnés:</h3>
-                <ul>
-                    <li *ngFor="let file of selectedFiles; let i = index">
-                        <span>{{ file.name }}</span>
-                        <button mat-icon-button color="warn" (click)="deleteFile(i)">
-                            <mat-icon>delete</mat-icon>
-                        </button>
-                    </li>
-                </ul>
-            </div>
+      @if (selectedFiles.length > 0) {
+        <div class="files-container selected-files-container">
+          <h3>Fichiers sélectionnés:</h3>
+          <ul>
+            @for (file of selectedFiles; track file; let i = $index) {
+              <li>
+                <span>{{ file.name }}</span>
+                <button mat-icon-button color="warn" (click)="deleteFile(i)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </li>
+            }
+          </ul>
         </div>
+      }
     </div>
-    <div class="uploaded-files-container" *ngIf="uploadedFiles.length > 0">
-        <h3>Fichiers téléversés:</h3>
-        <ul>
-            <li *ngFor="let file of uploadedFiles">{{ file }}</li>
-        </ul>
+  </div>
+  @if (uploadedFiles.length > 0) {
+    <div class="uploaded-files-container">
+      <h3>Fichiers téléversés:</h3>
+      <ul>
+        @for (file of uploadedFiles; track file) {
+          <li>{{ file }}</li>
+        }
+      </ul>
     </div>
+  }
 </div>
-<div id="overlay" *ngIf="this.downloading"></div>
-<mat-spinner *ngIf="this.downloading" color="accent" [diameter]="150" mode="determinate" [value]="this.downloadProgress"></mat-spinner>
-<div class="files-uploading-steps" *ngIf="this.downloading">Téléversement du fichier...</div>
-<div id="overlay" *ngIf="this.uploading"></div>
-<mat-spinner *ngIf="this.uploading" color="accent" [diameter]="150" mode="indeterminate"></mat-spinner>
-<div class="files-uploading-steps" *ngIf="this.uploading">Téléversement des copies...</div>
+@if (this.downloading) {
+  <div id="overlay"></div>
+}
+@if (this.downloading) {
+  <mat-spinner color="accent" [diameter]="150" mode="determinate" [value]="this.downloadProgress"></mat-spinner>
+}
+@if (this.downloading) {
+  <div class="files-uploading-steps">Téléversement du fichier...</div>
+}
+@if (this.uploading) {
+  <div id="overlay"></div>
+}
+@if (this.uploading) {
+  <mat-spinner color="accent" [diameter]="150" mode="indeterminate"></mat-spinner>
+}
+@if (this.uploading) {
+  <div class="files-uploading-steps">Téléversement des copies...</div>
+}

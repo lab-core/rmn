@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.12
+FROM python:3.13
 
 ENV DEBIAN_FRONTEND=noninteractive
 

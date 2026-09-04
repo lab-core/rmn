@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MatDialogRef } from '@angular/material/dialog';
@@ -9,9 +9,11 @@ import { first } from 'rxjs/operators';
 
 
 @Component({
-  selector: 'app-new-template-dialog',
-  templateUrl: './new-template-dialog.component.html',
-  styleUrls: ['./new-template-dialog.component.css']
+    selector: 'app-new-template-dialog',
+    templateUrl: './new-template-dialog.component.html',
+    styleUrls: ['./new-template-dialog.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class NewTemplateDialogComponent implements OnInit {
   constructor(

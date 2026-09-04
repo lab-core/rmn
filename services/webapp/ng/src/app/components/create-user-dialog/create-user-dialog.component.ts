@@ -1,13 +1,15 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { first } from 'rxjs/operators';
 
 @Component({
-  selector: 'app-create-user-dialog',
-  templateUrl: './create-user-dialog.component.html',
-  styleUrls: ['./create-user-dialog.component.css']
+    selector: 'app-create-user-dialog',
+    templateUrl: './create-user-dialog.component.html',
+    styleUrls: ['./create-user-dialog.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class CreateUserDialogComponent implements OnInit {
   username: string = '';

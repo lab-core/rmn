@@ -1,11 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 
 @Component({
-  selector: 'app-user-guide',
-  templateUrl: './user-guide.component.html',
-  styleUrls: ['./user-guide.component.css']
+    selector: 'app-user-guide',
+    templateUrl: './user-guide.component.html',
+    styleUrls: ['./user-guide.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class UserGuideComponent implements OnInit {
 

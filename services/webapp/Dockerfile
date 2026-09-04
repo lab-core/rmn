@@ -4,13 +4,13 @@
 # static files, so build once on the native platform of the CI runner instead
 # of once per target platform. Running npm under QEMU (arm64 on an amd64
 # runner) was 5x slower and flaky: node died with exit code 146.
-FROM --platform=$BUILDPLATFORM node:22 AS node
+FROM --platform=$BUILDPLATFORM node:26 AS node
 WORKDIR /app
 
-# Lock file included so this layer only changes with the dependencies; the
-# npm download cache is a BuildKit cache mount kept across builds.
-COPY ng/package.json ng/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm install
+# lockfile + .npmrc (legacy-peer-deps) so the image installs exactly what was
+# tested; npm download cache is a BuildKit cache mount kept across builds.
+COPY ng/package.json ng/package-lock.json ng/.npmrc ./
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY ng/ .
 RUN npm run build

@@ -18,3 +18,6 @@ node_modules/
 .angular/
 services/executor/tmp_*/
 services/server/temp/
+
+# Angular build output
+services/webapp/ng/dist/

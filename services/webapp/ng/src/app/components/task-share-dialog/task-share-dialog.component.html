@@ -1,20 +1,26 @@
 <div class="dialog-container">
-    <div class="text-container">
-        <div class="text-container-2" *ngIf="this.groupsList.length <= 1">
-          <p>Le lien pour partager la tâche {{this.data.taskName}}:</p>
-        </div>
-        <div class="text-container-2" *ngIf="this.groupsList.length > 1">
-          <label>Le lien pour partager la tâche {{this.data.taskName}} pour le groupe:</label>
-          <select (change)="this.getUrl()" [(ngModel)]="this.group">
-            <option *ngFor="let g of this.groupsList">{{g}}</option>
-          </select>
-        </div>
-        <div class="value-input-div">
-          <input type="text" [readonly]="true" [(ngModel)]="this.url" [disabled]="true">
-        </div>
+  <div class="text-container">
+    @if (this.groupsList.length <= 1) {
+      <div class="text-container-2">
+        <p>Le lien pour partager la tâche {{this.data.taskName}}:</p>
+      </div>
+    }
+    @if (this.groupsList.length > 1) {
+      <div class="text-container-2">
+        <label>Le lien pour partager la tâche {{this.data.taskName}} pour le groupe:</label>
+        <select (change)="this.getUrl()" [(ngModel)]="this.group">
+          @for (g of this.groupsList; track g) {
+            <option>{{g}}</option>
+          }
+        </select>
+      </div>
+    }
+    <div class="value-input-div">
+      <input type="text" [readonly]="true" [(ngModel)]="this.url" [disabled]="true">
     </div>
-    <div class="warning-buttons-container">
-        <button class="confirm-button" mat-flat-button (click)="share()">Copier lien</button>
-        <button class="cancel-button" mat-flat-button (click)="unshare()">Annuler</button>
-    </div>
+  </div>
+  <div class="warning-buttons-container">
+    <button class="confirm-button" mat-flat-button (click)="share()">Copier lien</button>
+    <button class="cancel-button" mat-flat-button (click)="unshare()">Annuler</button>
+  </div>
 </div>

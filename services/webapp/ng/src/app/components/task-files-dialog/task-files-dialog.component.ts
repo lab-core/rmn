@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { TasksService } from 'src/app/services/tasks.service';
@@ -17,9 +17,11 @@ export interface DialogData {
 }
 
 @Component({
-  selector: 'app-task-files-dialog',
-  templateUrl: './task-files-dialog.component.html',
-  styleUrls: ['./task-files-dialog.component.css']
+    selector: 'app-task-files-dialog',
+    templateUrl: './task-files-dialog.component.html',
+    styleUrls: ['./task-files-dialog.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class TaskFilesDialogComponent implements OnInit {
 

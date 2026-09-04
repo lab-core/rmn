@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, OnChanges, SimpleChanges, OnDestroy, Renderer2 } from '@angular/core';
+import { Component, HostListener, OnInit, OnChanges, SimpleChanges, OnDestroy, Renderer2, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from 'src/app/services/user.service';
@@ -20,9 +20,11 @@ declare function onedrivePicker(): void;
 declare function onedrivePickerCSV(): void;
 
 @Component({
-  selector: 'app-new-exam-correction',
-  templateUrl: './new-exam-correction.component.html',
-  styleUrls: ['./new-exam-correction.component.css']
+    selector: 'app-new-exam-correction',
+    templateUrl: './new-exam-correction.component.html',
+    styleUrls: ['./new-exam-correction.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy {
   copies: File;

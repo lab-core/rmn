@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, HostListener, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { PdfManagementDialogComponent } from '../pdf-management/pdf-management-dialog.component'
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
@@ -17,10 +17,12 @@ import { db, OfflineCopy } from './offline-db';
 
 
 @Component({
-  providers: [PDFViewerComponent],
-  selector: 'app-task-verification',
-  templateUrl: './task-verification.component.html',
-  styleUrls: ['./task-verification.component.css']
+    providers: [PDFViewerComponent],
+    selector: 'app-task-verification',
+    templateUrl: './task-verification.component.html',
+    styleUrls: ['./task-verification.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class TaskVerificationComponent implements OnInit, OnDestroy {
 

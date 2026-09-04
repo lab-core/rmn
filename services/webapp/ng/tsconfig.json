@@ -2,19 +2,18 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
+    /* TypeScript 6 defaults to strict; the app predates strict mode */
+    "strict": false,
+    /* baseUrl is deprecated in TypeScript 6 (removed in 7); the app imports from "src/..." */
+    "ignoreDeprecations": "6.0",
     "baseUrl": "./",
     "outDir": "./dist/out-tsc",
     "sourceMap": true,
     "declaration": false,
-    "downlevelIteration": true,
     "experimentalDecorators": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "importHelpers": true,
     "target": "es2022",
-    "module": "es2022",
-    "lib": [
-      "es2022",
-      "dom"
-    ]
+    "module": "es2022"
   }
 }
