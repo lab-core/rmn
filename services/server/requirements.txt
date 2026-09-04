@@ -30,7 +30,7 @@ PyPDF2==3.0.1
 python-dateutil==2.9.0.post0
 python-engineio==4.9.1
 python-socketio==5.11.3
-pytz==2024.1
+pytz==2026.3.post1
 redis==5.0.8
 requests==2.32.3
 scipy==1.14.0
