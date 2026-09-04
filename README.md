@@ -240,8 +240,9 @@ accepts the object and silently ignores it. To check yours:
 ```
 kubectl get pods -n kube-system -o name | grep -iE 'calico|cilium|kindnet|flannel|weave'
 ```
-No match means no policy engine. **This is the case of the production minikube**
-(docker driver, only `kube-proxy` in `kube-system`, checked 2026-09-04): the
+No match means none of the usual policy engines is installed (if you run
+another one, check its own docs). **The production minikube has none of them**
+(docker driver, no CNI DaemonSet in `kube-system`, checked 2026-09-04): the
 `nfs-server` policy is a no-op there, so any pod can still reach the NFS server
 on any port and the NFS pod can open outbound connections. The other NFS
 measures (ClusterIP only, digest-pinned image, node isolation) do apply, so this
@@ -250,9 +251,13 @@ is an accepted residual risk, not a broken deployment.
 Do not switch the CNI on a running single-node minikube: it is disruptive and
 easy to get wrong. Fix it when the cluster is recreated, ideally together with
 the Kubernetes upgrade (1.26 is out of support): `minikube start --cni=calico`
-then `kubectl apply -k deployment/`, and verify enforcement once with
-`kubectl exec deploy/server -- sh -c 'timeout 3 nc -zv <nfs-ip> 111 || echo blocked'`
-(port 111 must be blocked, 2049 from the node still works).
+then `kubectl apply -k deployment/`, and verify enforcement once from a pod
+(the server image has no `nc`, Python is enough). Pods are not in the node
+CIDR, so the connection must be refused while the kubelet's mounts still work:
+```
+kubectl exec deploy/server -- python3 -c "import socket; s = socket.socket(); s.settimeout(3); \
+  print('blocked: policy enforced' if s.connect_ex(('$(kubectl get svc nfs -o jsonpath='{.spec.clusterIP}')', 2049)) else 'OPEN: policy NOT enforced')"
+```
 
 ##### The NFS service IP (`nfs-ip`)
 The kubelet mounts NFS volumes from the node and does not use cluster DNS, so
