@@ -1,6 +1,6 @@
 """Slack dead-man's switch: single leader per tick, tolerant deletes."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
@@ -115,12 +115,13 @@ def test_alert_shows_local_and_utc_time(slack_calls, monkeypatch):
     assert text.endswith((hc.format_time(before), hc.format_time(after)))
 
 
-def test_format_time_pairs_the_zones():
-    when = datetime(2026, 9, 4, 13, 27, tzinfo=ZoneInfo("America/Montreal"))
-    assert (
-        hc.format_time(when)
-        == "Friday, September 04, 2026 at 01:27 PM EDT (2026-09-04 17:27 UTC)"
-    )
+def test_format_time_pairs_the_zones(monkeypatch):
+    monkeypatch.setattr(hc, "TIMEZONE", "America/Montreal")
+    expected = "Friday, September 04, 2026 at 01:27 PM EDT (2026-09-04 17:27 UTC)"
+    local = datetime(2026, 9, 4, 13, 27, tzinfo=ZoneInfo("America/Montreal"))
+    assert hc.format_time(local) == expected
+    # any zone in, TIMEZONE out (a UTC datetime is not printed as-is)
+    assert hc.format_time(local.astimezone(UTC)) == expected
 
 
 def test_unknown_time_zone_falls_back_to_system_time(monkeypatch, capsys):

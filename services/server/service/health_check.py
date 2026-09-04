@@ -41,32 +41,40 @@ UNCANCELLABLE_WINDOW = 60
 ALREADY_GONE = "invalid_scheduled_message_id"
 
 
+def local_zone() -> Optional[ZoneInfo]:
+    """The zone named by ``TIMEZONE``, or ``None`` (system local) if unknown."""
+    try:
+        return ZoneInfo(TIMEZONE)
+    except ZoneInfoNotFoundError:
+        print(f"WARNING: unknown TZ {TIMEZONE!r}, using the system time zone")
+        return None
+
+
 def local_now() -> datetime:
     """Current time in ``TIMEZONE`` (system local time if it is unknown).
 
     Returns:
         An aware ``datetime``.
     """
-    try:
-        return datetime.now(ZoneInfo(TIMEZONE))
-    except ZoneInfoNotFoundError:
-        print(f"WARNING: unknown TZ {TIMEZONE!r}, using the system time zone")
-        return datetime.now().astimezone()
+    return datetime.now(local_zone()).astimezone()
 
 
-def format_time(now: datetime) -> str:
-    """Render ``now`` in the local zone with the UTC time in parentheses.
+def format_time(when: datetime) -> str:
+    """Render ``when`` in ``TIMEZONE`` with the UTC time in parentheses.
 
     Both are shown because the cluster logs are in UTC and the readers are
     not: e.g. ``Friday, September 04, 2026 at 01:27 PM EDT (2026-09-04 17:27 UTC)``.
 
     Args:
-        now: An aware ``datetime``.
+        when: An aware ``datetime`` in any zone; it is converted here.
 
     Returns:
         The formatted string.
     """
-    return f"{now.strftime(TIME_FORMAT)} ({now.astimezone(UTC).strftime(UTC_FORMAT)})"
+    local = when.astimezone(local_zone())
+    return (
+        f"{local.strftime(TIME_FORMAT)} ({when.astimezone(UTC).strftime(UTC_FORMAT)})"
+    )
 
 
 def start_health_check(interval: int = 900, redis: Any = None) -> Thread:
