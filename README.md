@@ -27,6 +27,20 @@ Mongo is run within the kubernetes cluster now.
 ##### Firebase
 Firebase has been removed and a NFS (run inside the cluster) is instead used to synchronize and share files between containers, as well as persistent storage.
 
+## Docker builds
+
+The Dockerfiles copy and install the dependencies before the source, so a code
+change only rebuilds the last `COPY` layer, and the pip/npm download caches are
+kept between builds (`RUN --mount=type=cache`, BuildKit). CI publishes a layer
+cache next to each image (`rmni/<service>:buildcache`) and `docker-compose.yml`
+points `cache_from` at it, so a local build downloads the apt/pip/npm layers
+instead of rebuilding them:
+```
+docker compose build   # pulls the cached layers, builds only your code
+```
+To run the published images without building, replace `build:` with
+`image: rmni/<service>:main` for that service.
+
 ## Minikube
 You can use the ```minikube-helper.sh``` script. Otherwise, you have more details below.
 

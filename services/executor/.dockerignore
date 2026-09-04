@@ -1,6 +1,12 @@
 __pycache__/
+.pytest_cache/
 venv/
 venv-exec/
 venv-test/
 tmp_*/
 .git/
+tests/
+images/
+test.py
+requirements.old.txt
+README.md

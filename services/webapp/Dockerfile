@@ -7,8 +7,10 @@
 FROM --platform=$BUILDPLATFORM node:22 AS node
 WORKDIR /app
 
-COPY ng/package.json ./
-RUN npm install
+# Lock file included so this layer only changes with the dependencies; the
+# npm download cache is a BuildKit cache mount kept across builds.
+COPY ng/package.json ng/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm install
 
 COPY ng/ .
 RUN npm run build
