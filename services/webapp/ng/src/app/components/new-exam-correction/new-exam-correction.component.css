@@ -359,6 +359,19 @@ input[type=number] {
     margin-bottom: 1%;
 }
 
+/* "Nombre de questions" is read-only (fixed by the cover-page template):
+   the browser still draws the up/down arrows, which do nothing. Hide them. */
+input[type=number][readonly] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+input[type=number][readonly]::-webkit-outer-spin-button,
+input[type=number][readonly]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 #csv-input-button{
     background-color: rgb(0, 155, 83);
     color: rgb(255, 255, 255);
