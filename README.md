@@ -226,11 +226,33 @@ way). Two things to set up per cluster:
 - `node-cidr` in `deployment/kustomization.yaml` **must** be your node network
   (`kubectl get nodes -o wide`); the kubelet mounts NFS from the node, so this is
   the only legitimate source. The default is minikube's `192.168.49.0/24`.
-- The policy is enforced only by a CNI with NetworkPolicy support; on minikube
-  start with `--cni=calico` (the default CNI accepts the object but ignores it).
+- The policy is enforced only by a CNI with NetworkPolicy support (see
+  "NetworkPolicy needs a CNI that enforces it" below).
 - Optional: label a dedicated node `rmn.polymtl.ca/nfs-node=true`; the pod
   prefers it. Turn the preference into a requirement (and taint the node) once
   you have such a node.
+
+##### NetworkPolicy needs a CNI that enforces it
+The CNI (Container Network Interface) plugin is what gives pods their network.
+Kubernetes only *stores* `NetworkPolicy` objects; enforcing them is the CNI's
+job, and only some plugins do it (calico, cilium, ...). A cluster without one
+accepts the object and silently ignores it. To check yours:
+```
+kubectl get pods -n kube-system -o name | grep -iE 'calico|cilium|kindnet|flannel|weave'
+```
+No match means no policy engine. **This is the case of the production minikube**
+(docker driver, only `kube-proxy` in `kube-system`, checked 2026-09-04): the
+`nfs-server` policy is a no-op there, so any pod can still reach the NFS server
+on any port and the NFS pod can open outbound connections. The other NFS
+measures (ClusterIP only, digest-pinned image, node isolation) do apply, so this
+is an accepted residual risk, not a broken deployment.
+
+Do not switch the CNI on a running single-node minikube: it is disruptive and
+easy to get wrong. Fix it when the cluster is recreated, ideally together with
+the Kubernetes upgrade (1.26 is out of support): `minikube start --cni=calico`
+then `kubectl apply -k deployment/`, and verify enforcement once with
+`kubectl exec deploy/server -- sh -c 'timeout 3 nc -zv <nfs-ip> 111 || echo blocked'`
+(port 111 must be blocked, 2049 from the node still works).
 
 ##### The NFS service IP (`nfs-ip`)
 The kubelet mounts NFS volumes from the node and does not use cluster DNS, so
