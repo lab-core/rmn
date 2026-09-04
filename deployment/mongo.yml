@@ -39,6 +39,10 @@ spec:
                   key: mongodb-password
           image: mongo:8.2
           name: mongo
+          # mongod sizes its WiredTiger cache from the cgroup limit
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 2Gi}
           ports:
             - name: mongo-server
               containerPort: 27017

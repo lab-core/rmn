@@ -1,22 +1,73 @@
+# Daily rollout of the server Deployment (works around NFS mounts that hang).
+#
+# The `cron` ServiceAccount used to be bound to the cluster-wide `edit` role by
+# hand (README "Cron job"); it now gets exactly one permission: patch the
+# `server` Deployment in this namespace. Migration: `kubectl delete
+# clusterrolebinding cron` after applying.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cron
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cron-rollout
+rules:
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [server]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cron-rollout
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cron-rollout
+subjects:
+  - kind: ServiceAccount
+    name: cron
+---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: daily-rollout
 spec:
   schedule: "0 6 * * *"  # Run at MM HH every day at 6:00 UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
+      activeDeadlineSeconds: 300
       template:
         spec:
+          serviceAccountName: cron
+          automountServiceAccountToken: true
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
           containers:
           - name: rollout-pod
-            image: bitnami/kubectl:latest
+            # same pinned kubectl image as the health sentinel (bitnami/kubectl
+            # :latest is no longer maintained on Docker Hub)
+            image: alpine/k8s:1.31.4
             command:
             - /bin/sh
             - -c
             - |
               kubectl patch deployment server \
               -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"$(date +'%s')\"}}}}}"
-              exit 0
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: [ALL]}
+            resources:
+              requests: {cpu: 50m, memory: 64Mi}
+              limits: {cpu: 200m, memory: 128Mi}
           restartPolicy: OnFailure
-          serviceAccount: cron

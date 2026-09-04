@@ -1,6 +1,7 @@
 from flask import Flask, request
 from flask_socketio import SocketIO, send, emit, join_room, leave_room
 from pymongo import MongoClient
+import datetime
 import os
 import json
 import eventlet
@@ -50,6 +51,24 @@ mongodb_pass = os.getenv("MONGODB_PASSWORD", "example")
 mongodb_host = "mongo" if os.getenv("ENVIRONMENT") == "production" else "localhost"
 mongo = MongoClient(f"mongodb://{mongodb_user}:{mongodb_pass}@{mongodb_host}:27017/?retryWrites=true&w=majority")
 
+# Login tokens expire after this many days (same setting as the server, which
+# owns the TTL index on the tokens collection); 0 disables the check.
+TOKEN_TTL_DAYS = int(os.getenv("TOKEN_TTL_DAYS", "30"))
+
+
+def token_expired(record):
+    """True if a token record is older than TOKEN_TTL_DAYS (0 => never)."""
+    if TOKEN_TTL_DAYS <= 0:
+        return False
+    created = record.get("creation_time")
+    if created is None:
+        return True  # legacy token without a timestamp
+    if created.tzinfo is None:  # pymongo returns naive UTC datetimes
+        created = created.replace(tzinfo=datetime.UTC)
+    return datetime.datetime.now(datetime.UTC) - created >= datetime.timedelta(
+        days=TOKEN_TTL_DAYS
+    )
+
 
 app = Flask(__name__)
 # logger/engineio_logger off: they dump raw handshake packets, which would leak
@@ -88,6 +107,8 @@ def identify(auth):
     if token:
         record = mongo["RMN"]["tokens"].find_one({"token": token})
         user_id = _str(auth.get("user_id"))
+        if record and token_expired(record):
+            record = None
         if record and (not user_id or user_id == record["username"]):
             return {"role": "user", "user_id": record["username"]}
 

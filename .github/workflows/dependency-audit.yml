@@ -1,0 +1,68 @@
+# Known-vulnerability report for every dependency manifest.
+#
+# Informational for now: the first run found dozens of advisories (Angular 18,
+# werkzeug/urllib3/pillow in the Python services), and they are fixed by the
+# Dependabot PRs, not by blocking unrelated work. Findings land in the step
+# summary and as a warning annotation; drop the `|| true` / warning lines once
+# the baseline is clean so regressions fail the check.
+name: dependency-audit
+
+on:
+  pull_request:
+    paths:
+      - "services/*/requirements*.txt"
+      - "services/webapp/ng/package*.json"
+      - ".github/workflows/dependency-audit.yml"
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 7 * * 1"  # Mondays 07:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [server, executor, socketIO]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      # --no-deps/--disable-pip: audit the pinned versions as written, without
+      # resolving or building anything (tensorflow, numpy, ...)
+      - name: pip-audit services/${{ matrix.service }}
+        run: |
+          pip-audit --progress-spinner off --no-deps --disable-pip \
+            -r services/${{ matrix.service }}/requirements.txt \
+            --format markdown --output audit.md || status=$?
+          if [ -f audit.md ]; then
+            cat audit.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "pip-audit produced no report (tool error, exit ${status:-0})" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          [ -z "${status:-}" ] || echo "::warning::pip-audit found known vulnerabilities in services/${{ matrix.service }} (see the job summary)"
+          true
+
+  npm-audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/webapp/ng
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: npm audit (production dependencies)
+        run: |
+          npm audit --omit=dev --audit-level=high | tee audit.txt || status=$?
+          { echo '```'; cat audit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          [ -z "${status:-}" ] || echo "::warning::npm audit found known vulnerabilities in the webapp (see the job summary)"
+          true
