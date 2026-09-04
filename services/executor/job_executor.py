@@ -12,7 +12,6 @@ import numpy as np, cv2
 from pdf2image import convert_from_path
 from PIL import Image
 from pathlib import Path
-import copy
 
 from python.process_copy.parser import parse_run_args, grade_box, matricule_box
 from python.process_copy.recognize import get_date, write_box_contours, imwrite_png
@@ -22,7 +21,7 @@ from python.process_copy.database import Database
 from python.process_copy.add_grades import process_writing
 from utils.stats import create_all_boxplots, create_stats_latex, remove_non_pdfs
 from utils.merge import process_merge
-from utils.utils import Job_Status, Document_Status
+from utils.utils import Job_Status, Document_Status, question_sort_key, ignored_positions
 from utils.storage import Storage
 from utils.stop_handler import StopHandler
 from utils.clients import redis_client, socketio_client, update_status
@@ -40,17 +39,6 @@ old_print = print
 def timestamped_print(*args, **kwargs):
   old_print(dt.datetime.now(), *args, **kwargs)
 print = timestamped_print
-
-
-def question_sort_key(item):
-    """Numeric sort key for a "Q<n>" key or a ("Q<n>", value) pair.
-
-    A plain sort of the keys is lexicographic ("Q10" < "Q2"), which mismaps
-    per-question data once a task has 10 or more questions.
-    """
-    key = item[0] if isinstance(item, (list, tuple)) else item
-    digits = re.sub(r"\D", "", str(key))
-    return int(digits) if digits else 0
 
 
 class Heartbeat:
@@ -383,13 +371,25 @@ if __name__ == "__main__":
         n_max_points_per_question = eval_job["n_max_points_per_question"]
         statistics_for_students = eval_job["statistics_for_students"]
         # print("statistics_for_students", statistics_for_students)
-        n_questions = len(n_max_points_per_question)
+        # the template defines n_template_questions boxes; the ignored ones
+        # (0 page) are skipped everywhere below except in the positions of the
+        # grades, which always match the boxes
+        n_template_questions = len(n_max_points_per_question)
+        ignored = ignored_positions(eval_job["n_pages_per_question"])
+        active = [i for i in range(n_template_questions) if i not in ignored]
+        question_names = [f"Q{i + 1}" for i in active]
+        n_questions = len(active)
         # sort by the numeric question index ("Q2" before "Q10"); a plain sort
         # is lexicographic and mismaps points/bonus once there are >= 10 questions
         n_max_points_per_question = [q[1] for q in sorted(n_max_points_per_question, key=question_sort_key)]
         question_bonus = [q[1] for q in sorted(eval_job["bonus_enabled_map"], key=question_sort_key)]
-        question_totals = copy.copy(n_max_points_per_question)
-        question_totals.append(sum(s for i, s in enumerate(n_max_points_per_question) if not question_bonus[i]))
+        question_totals = [n_max_points_per_question[i] for i in active]
+        question_totals.append(sum(n_max_points_per_question[i] for i in active if not question_bonus[i]))
+
+        def active_grades(grades):
+            """Grades of the non-ignored questions, in order, a missing one as 0."""
+            grades = list(grades) + [None] * (n_template_questions - len(grades))
+            return [grades[i] if grades[i] is not None else 0 for i in active]
 
         # store grades
         docs = db.documents_collection().find({"job_id": job_id})
@@ -402,9 +402,10 @@ if __name__ == "__main__":
             if mat in df.index.values:
                 grades = doc["grades"]
                 if grades:
+                    grades = active_grades(grades)
                     grades_dict[doc["filename"]] = grades
-                    for i, g in enumerate(grades):
-                        df.loc[mat, f"Q{i + 1}"] = g
+                    for name, g in zip(question_names, grades):
+                        df.loc[mat, name] = g
                     total_score = sum(grades)
                     # print("TOTAL SCORE FOR ", doc["filename"], ":", total_score)
                     df.loc[mat, MF.grade] = total_score
@@ -433,7 +434,7 @@ if __name__ == "__main__":
                 for i in range(n_questions):
                     all_grades[i].append(grades[i])
             all_grades = np.array(all_grades)
-            f_boxplots = create_all_boxplots(all_grades, str(TMP_DIR))
+            f_boxplots = create_all_boxplots(all_grades, str(TMP_DIR), question_names=question_names)
             TEX_FOLDER.mkdir(exist_ok=True)
         else:
             all_grades = [[]]
@@ -512,7 +513,8 @@ if __name__ == "__main__":
                             try:
                                 file_index = filenames.index(filename)
                                 fpdf = create_stats_latex(nom_complet, file_index, n_questions,
-                                                          all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER)
+                                                          all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER,
+                                                          question_names=question_names)
                                 # print("Stats for", nom_complet, "created:", fpdf)
                                 shutil.move(fpdf, m_folder.joinpath(f"{nom}_{prenom}_{matricule}_notes.pdf"))
                             except ValueError:
@@ -562,7 +564,7 @@ if __name__ == "__main__":
 
         # adding stats for professors
         fpdf = create_stats_latex('Statistiques', None, n_questions, all_grades, question_totals,
-                                  f_boxplots, TMP_DIR=TEX_FOLDER)
+                                  f_boxplots, TMP_DIR=TEX_FOLDER, question_names=question_names)
         print("General stats created:", fpdf)
         stats_file_id = os.path.normpath(f"output_stats{os.sep}{job_id}.pdf")
         storage.move_to(fpdf, stats_file_id)

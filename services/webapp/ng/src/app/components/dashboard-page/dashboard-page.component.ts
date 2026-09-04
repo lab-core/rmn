@@ -253,9 +253,11 @@ export class DashboardPageComponent {
       return;
     }
 
-    // initialize stats
-    const questionsStats = new Map<string, Question>();
+    // initialize stats; an ignored question (0 page) has no copy to correct
+    // and is not displayed, but keeps its index for the bonus map
+    const questionsStats: Record<string, Question> = {};
     this.task.n_max_points_per_question.forEach((element) => {
+      if (this.isQuestionIgnored(element[0])) { return; }
       const question_index: number = parseInt(element[0].slice(1));
       questionsStats[element[0]] = {
         name: element[0],
@@ -273,12 +275,13 @@ export class DashboardPageComponent {
       };
     });
     this.task.bonus_enabled_map.forEach((element) => {
-      questionsStats[element[0]].bonus = element[1];
+      if (questionsStats[element[0]]) { questionsStats[element[0]].bonus = element[1]; }
     });
 
     // populate stats
     this.questionsDocList.forEach((doc) => {
       const stats = questionsStats[doc.question];
+      if (!stats) { return; }
       stats.count++;
       if (doc.status === 'VALIDATED') {
         stats.validatedCount++;
@@ -288,11 +291,10 @@ export class DashboardPageComponent {
       }
     });
 
-    // put the questions in an array
-    this.questions = Array<Question>(Object.keys(questionsStats).length);
-    Object.values(questionsStats).forEach((question) => {
-      this.questions[question.index] = question;
-    });
+    // put the questions in an array, in numeric order (compacted: the array
+    // position is not the question number once a question is ignored)
+    this.questions = Object.values(questionsStats);
+    this.questions.sort((a, b) => a.index - b.index);
 
     // compute the total
     if (this.questions.length > 1) {
@@ -401,6 +403,12 @@ export class DashboardPageComponent {
     return this.questions[this.questions.length - 1];
   }
 
+  public isQuestionIgnored(questionName): boolean {
+    const pages = this.task.n_pages_per_question || [];
+    const entry = pages.find((element) => element[0] === questionName);
+    return entry !== undefined && !entry[1];
+  }
+
   public isQuestionBonus(questionName) {
     let bonus = false;
     this.task.bonus_enabled_map.every((element) => {
@@ -456,21 +464,24 @@ export class DashboardPageComponent {
     this.task.job_status = 'VALIDATION';
   }
 
-  public correctQuestion(index) {
+  public correctQuestion(question: Question) {
     this.tasksService.setvalidatingTaskId(this.task.job_id);
+    // the question number comes from its index, not from its position in the
+    // table: an ignored question leaves a hole in the numbering
+    const isTotal = question.name === 'Total';
     if (this.shared()) {
       const queryParams = {
         job_id: this.task.job_id,
         all: true,
       };
-      if (index < this.questions.length - 1) {  // if not last question i.e. total
-        queryParams['questionIndex'] = index + 1;
+      if (!isTotal) {
+        queryParams['questionIndex'] = question.index + 1;
       }
       this.userService.addShareToken(queryParams);
       this.router.navigate([`/task-validation`], { queryParams });
     } else {
-      if (index < this.questions.length - 1) {  // if not last question i.e. total
-        this.router.navigate([`/task-validation`, this.taskId, index + 1]);
+      if (!isTotal) {
+        this.router.navigate([`/task-validation`, this.taskId, question.index + 1]);
       } else {
         this.router.navigate([`/task-validation`, this.taskId]);
       }
