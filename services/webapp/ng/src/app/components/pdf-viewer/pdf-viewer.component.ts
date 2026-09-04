@@ -153,10 +153,11 @@ class BezierAnnotation {
 }
 
 @Component({
-  selector: 'app-pdf-viewer',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './pdf-viewer.component.html',
-  styleUrls: ['./pdf-viewer.component.css']
+    selector: 'app-pdf-viewer',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    templateUrl: './pdf-viewer.component.html',
+    styleUrls: ['./pdf-viewer.component.css'],
+    standalone: false
 })
 export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
 

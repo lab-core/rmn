@@ -1,140 +1,188 @@
 <div class="main-container">
-    <div class="background">
-        <div class="files-container" [ngClass]="{'hidden': isSidebarHidden}">
-            <div class="filter-job-container" *ngIf="showFilter()">
-              <label>Filtrer par groupe: </label>
-              <select (change)="loadSubExamsList()" [(ngModel)]="group">
-                <option *ngFor="let g of groupsList">{{g}}</option>
-              </select>
-            </div>
-            <div class="filter-job-container" *ngIf="!disabledDropDown">
-                <mat-form-field appearance="fill">
-                    <mat-label>Numéro de la question</mat-label>
-                    <mat-select (selectionChange)="onQuestionIndexChange($event)" [(value)]="index">
-                        <mat-option *ngFor="let i of questionIndexes" [value]="i">
-                            {{i}}
-                        </mat-option>
-                    </mat-select>
-                </mat-form-field>
-            </div>
-            <div class="files-list-container" [ngStyle]="{'height': filesListHeight()}" id="files-list-container">
-                <div class="file-container" *ngFor="let exam of subExamsList; let i = index"
-                    (click)="changeCurrentDocumentIndex(exam.document_index, exam.status, false)">
-                    <div class="disabled-copy" *ngIf="exam.status == 'NOT_READY'">
-                        <strong>{{formattedIndexes[i]}}</strong>
-                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
-                    </div>
-                    <div [ngClass]="getExamClass(exam)" *ngIf="exam.status != 'NOT_READY'">
-                        <strong>{{formattedIndexes[i]}}</strong>
-                        <mat-icon class="bottom-right-icon" *ngIf="exam.offline">file_copy</mat-icon>
-                    </div>
-                </div>
-            </div>
-            <!-- <button class="offline-button" mat-raised-button color="primary" *ngIf="!offline" (click)="correctOffline()">Corriger hors ligne</button>
-            <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(false)" [disabled]="downloadingOffline">Sauvegarder en ligne</button>
-            <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(true)" [disabled]="downloadingOffline">Finaliser</button>
-            <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="cancelOffline()">Annuler</button> -->
-            <button class="pdf-management-button" mat-flat-button color="primary" (click)="managePdfs()" [disabled]="downloadingOffline">Gérer mes copies offline</button>
+  <div class="background">
+    <div class="files-container" [ngClass]="{'hidden': isSidebarHidden}">
+      @if (showFilter()) {
+        <div class="filter-job-container">
+          <label>Filtrer par groupe: </label>
+          <select (change)="loadSubExamsList()" [(ngModel)]="group">
+            @for (g of groupsList; track g) {
+              <option>{{g}}</option>
+            }
+          </select>
         </div>
-        <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
-          <div class="validation-check-container" *ngIf="currentCopy >= 0" [ngClass]="{'expanded': isSidebarHidden}">
-            <div class="validation-block container-block">
-              <div *ngIf="isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
-                  <mat-icon>visibility</mat-icon>
+      }
+      @if (!disabledDropDown) {
+        <div class="filter-job-container">
+          <mat-form-field appearance="fill">
+            <mat-label>Numéro de la question</mat-label>
+            <mat-select (selectionChange)="onQuestionIndexChange($event)" [(value)]="index">
+              @for (i of questionIndexes; track i) {
+                <mat-option [value]="i">
+                  {{i}}
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+      }
+      <div class="files-list-container" [ngStyle]="{'height': filesListHeight()}" id="files-list-container">
+        @for (exam of subExamsList; track exam; let i = $index) {
+          <div class="file-container"
+            (click)="changeCurrentDocumentIndex(exam.document_index, exam.status, false)">
+            @if (exam.status == 'NOT_READY') {
+              <div class="disabled-copy">
+                <strong>{{formattedIndexes[i]}}</strong>
+                @if (exam.offline) {
+                  <mat-icon class="bottom-right-icon">file_copy</mat-icon>
+                }
               </div>
-              <div *ngIf="!isSidebarHidden" class="sidebar-toggle-button" (click)="toggleSidebar()">
-                  <mat-icon>visibility_off</mat-icon>
+            }
+            @if (exam.status != 'NOT_READY') {
+              <div [ngClass]="getExamClass(exam)">
+                <strong>{{formattedIndexes[i]}}</strong>
+                @if (exam.offline) {
+                  <mat-icon class="bottom-right-icon">file_copy</mat-icon>
+                }
               </div>
-                <div class="check-list-container">
-                    <div class="sub-check-container">
-                        <div class="h3-container">
-                          <h3>{{currentExam().question}} (/{{nMaxPointsPerQuestion.get(currentQuestionIndex)}})</h3>
-                        </div>
-                        <div class="value-input-div">
-                          <input id="score" type="number" [(ngModel)]="currentGrade" placeholder="Note" class="note-input"/>
-                        </div>
-                    </div>
-                    <div class="sub-check-container"
-                        *ngFor="let grade of currentGrades | keyvalue : sortNull; trackBy: trackByIndex;">
-                        <div class="h3-container">
-                          <h3>{{grade.key}} (/{{nMaxPointsPerQuestion.get(grade.key)}}) </h3>
-                        </div>
-                        <div class="value-input-div">
-                            <input (click)="selectText($event)" type="number" [attr.id]="setQuestionId(grade.key)"
-                                id="text-box" [(ngModel)]="grade.value"
-                                (input)="updateTotal(grade.key, grade.value)" step=any
-                                [disabled]="pdfLoading">
-                        </div>
-                    </div>
-                </div>
-                <div class="validate-container">
-                    <button [ngClass]="'validate-button ' + colorChosen"
-                            (click)="validateCurrentCopy()" [disabled]="pdfLoading">
-                        <mat-icon>done_outline</mat-icon>
-                    </button>
-                </div>
-              </div>
-              <div class="skip-block container-block">
-                <div class="filter-tag-container" *ngIf="isSidebarHidden">
-                    <mat-form-field>
-                        <mat-label>Filtrer</mat-label>
-                        <mat-select (selectionChange)="onTagChange($event)" [(value)]="tagFilter">
-                          <mat-option [value]="''"></mat-option>
-                          <mat-option [value]="'0'"><div class="round red"></div></mat-option>
-                          <mat-option *ngFor="let tag of availableTags" [value]="tag"><div class="round tag-color-{{tag}}"></div></mat-option>
-                          <mat-option [value]="'VALIDATED'"><div class="round green"></div></mat-option>
-                        </mat-select>
-                    </mat-form-field>
-                </div>
-                <div class="h3-container">
-                  <h3>Skip</h3>
-                </div>
-                <div class="skip-button-container">
-                  <button type="button" [ngClass]="'skip-button round tag-color-'+tag" *ngFor="let tag of availableTags;"
-                          (click)="skipCurrentCopy(tag)"></button>
-                </div>
-              </div>
-              <div class="version-block container-block" [ngClass]="{'expanded': isSidebarHidden}">
-                <div class="version-container">
-                  <div class="h3-container">
-                    <h3>Version ({{currentVersion != undefined ? currentVersion : 'N/A'}})</h3>
-                  </div>
-                  <!-- <input type="number"
-                      class="version-number" id="text-box" [(ngModel)]="currentVersion"
-                      (input)="setNewVersion($event)" step=any
-                      [disabled]="pdfLoading"> -->
-                  <div class="version-buttons">
-                   <button type="button" class="nav-button" [disabled]="disablePrevious" (click)="loadPdf(currentVersion != undefined ? currentVersion-1 : currentPdfSrc.lastVersion)">
-                     <mat-icon>arrow_back_ios</mat-icon>
-                   </button>
-                   <button type="button" class="nav-button" [disabled]="disableNext" (click)="loadPdf(currentVersion != undefined ? currentVersion+1 : currentPdfSrc.lastVersion)">
-                     <mat-icon>arrow_forward_ios</mat-icon>
-                   </button>
-                 </div>
-                 <div class="reload-button">
-                   <button type="button" class="pdf-button" [ngClass]="{ 'highlight': isRestoreHiglighted > 0 }" (click)="restoreLatestPdf()">
-                     <mat-icon>restore_page</mat-icon>
-                   </button>
-                 </div>
-                </div>
-              </div>
+            }
           </div>
-            <div class="picture-container" [ngClass]="{'expanded': isSidebarHidden}">
-                <app-pdf-viewer
-                  [pdfUrl]="pdfUrl"
-                  (onAnnotationsLoaded)="checkNavigationArrows($event)">
-                </app-pdf-viewer>
-                <button mat-button *ngIf="!isSidebarHidden" (click)="previousCopy()" class="back-button2" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_back_ios</mat-icon></button>
-                <button mat-button *ngIf="!isSidebarHidden" (click)="nextCopy()" class="back-button3" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_forward_ios</mat-icon></button>
-                <div id="overlay-cross" *ngIf="currentExam()?.status == 'DELETED'"></div>
-                <span class="cross" *ngIf="currentExam()?.status == 'DELETED'">&times;</span>
+        }
+      </div>
+      <!-- <button class="offline-button" mat-raised-button color="primary" *ngIf="!offline" (click)="correctOffline()">Corriger hors ligne</button>
+      <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(false)" [disabled]="downloadingOffline">Sauvegarder en ligne</button>
+      <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(true)" [disabled]="downloadingOffline">Finaliser</button>
+      <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="cancelOffline()">Annuler</button> -->
+      <button class="pdf-management-button" mat-flat-button color="primary" (click)="managePdfs()" [disabled]="downloadingOffline">Gérer mes copies offline</button>
+    </div>
+    <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
+      @if (currentCopy >= 0) {
+        <div class="validation-check-container" [ngClass]="{'expanded': isSidebarHidden}">
+          <div class="validation-block container-block">
+            @if (isSidebarHidden) {
+              <div class="sidebar-toggle-button" (click)="toggleSidebar()">
+                <mat-icon>visibility</mat-icon>
+              </div>
+            }
+            @if (!isSidebarHidden) {
+              <div class="sidebar-toggle-button" (click)="toggleSidebar()">
+                <mat-icon>visibility_off</mat-icon>
+              </div>
+            }
+            <div class="check-list-container">
+              <div class="sub-check-container">
+                <div class="h3-container">
+                  <h3>{{currentExam().question}} (/{{nMaxPointsPerQuestion.get(currentQuestionIndex)}})</h3>
+                </div>
+                <div class="value-input-div">
+                  <input id="score" type="number" [(ngModel)]="currentGrade" placeholder="Note" class="note-input"/>
+                </div>
+              </div>
+              @for (grade of currentGrades | keyvalue : sortNull; track trackByIndex($index, grade)) {
+                <div class="sub-check-container"
+                  >
+                  <div class="h3-container">
+                    <h3>{{grade.key}} (/{{nMaxPointsPerQuestion.get(grade.key)}}) </h3>
+                  </div>
+                  <div class="value-input-div">
+                    <input (click)="selectText($event)" type="number" [attr.id]="setQuestionId(grade.key)"
+                      id="text-box" [(ngModel)]="grade.value"
+                      (input)="updateTotal(grade.key, grade.value)" step=any
+                      [disabled]="pdfLoading">
+                  </div>
+                </div>
+              }
             </div>
+            <div class="validate-container">
+              <button [ngClass]="'validate-button ' + colorChosen"
+                (click)="validateCurrentCopy()" [disabled]="pdfLoading">
+                <mat-icon>done_outline</mat-icon>
+              </button>
+            </div>
+          </div>
+          <div class="skip-block container-block">
+            @if (isSidebarHidden) {
+              <div class="filter-tag-container">
+                <mat-form-field>
+                  <mat-label>Filtrer</mat-label>
+                  <mat-select (selectionChange)="onTagChange($event)" [(value)]="tagFilter">
+                    <mat-option [value]="''"></mat-option>
+                    <mat-option [value]="'0'"><div class="round red"></div></mat-option>
+                    @for (tag of availableTags; track tag) {
+                      <mat-option [value]="tag"><div class="round tag-color-{{tag}}"></div></mat-option>
+                    }
+                    <mat-option [value]="'VALIDATED'"><div class="round green"></div></mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+            }
+            <div class="h3-container">
+              <h3>Skip</h3>
+            </div>
+            <div class="skip-button-container">
+              @for (tag of availableTags; track tag) {
+                <button type="button" [ngClass]="'skip-button round tag-color-'+tag"
+                (click)="skipCurrentCopy(tag)"></button>
+              }
+            </div>
+          </div>
+          <div class="version-block container-block" [ngClass]="{'expanded': isSidebarHidden}">
+            <div class="version-container">
+              <div class="h3-container">
+                <h3>Version ({{currentVersion != undefined ? currentVersion : 'N/A'}})</h3>
+              </div>
+              <!-- <input type="number"
+              class="version-number" id="text-box" [(ngModel)]="currentVersion"
+              (input)="setNewVersion($event)" step=any
+              [disabled]="pdfLoading"> -->
+              <div class="version-buttons">
+                <button type="button" class="nav-button" [disabled]="disablePrevious" (click)="loadPdf(currentVersion != undefined ? currentVersion-1 : currentPdfSrc.lastVersion)">
+                  <mat-icon>arrow_back_ios</mat-icon>
+                </button>
+                <button type="button" class="nav-button" [disabled]="disableNext" (click)="loadPdf(currentVersion != undefined ? currentVersion+1 : currentPdfSrc.lastVersion)">
+                  <mat-icon>arrow_forward_ios</mat-icon>
+                </button>
+              </div>
+              <div class="reload-button">
+                <button type="button" class="pdf-button" [ngClass]="{ 'highlight': isRestoreHiglighted > 0 }" (click)="restoreLatestPdf()">
+                  <mat-icon>restore_page</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+      }
+      <div class="picture-container" [ngClass]="{'expanded': isSidebarHidden}">
+        <app-pdf-viewer
+          [pdfUrl]="pdfUrl"
+          (onAnnotationsLoaded)="checkNavigationArrows($event)">
+        </app-pdf-viewer>
+        @if (!isSidebarHidden) {
+          <button mat-button (click)="previousCopy()" class="back-button2" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_back_ios</mat-icon></button>
+        }
+        @if (!isSidebarHidden) {
+          <button mat-button (click)="nextCopy()" class="back-button3" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_forward_ios</mat-icon></button>
+        }
+        @if (currentExam()?.status == 'DELETED') {
+          <div id="overlay-cross"></div>
+        }
+        @if (currentExam()?.status == 'DELETED') {
+          <span class="cross">&times;</span>
+        }
+      </div>
     </div>
-    <div *ngIf="isSidebarHidden && currentCopy >= 0" [ngClass]="isSidebarHidden ? 'page-count' : 'page-count margin-left'">
-        {{ (subExamsList.length > 0 ?  currentSubCopy() + 1 : 0) }} / {{subExamsList.length}}
+  </div>
+  @if (isSidebarHidden && currentCopy >= 0) {
+    <div [ngClass]="isSidebarHidden ? 'page-count' : 'page-count margin-left'">
+      {{ (subExamsList.length > 0 ?  currentSubCopy() + 1 : 0) }} / {{subExamsList.length}}
     </div>
+  }
 </div>
-<button mat-button *ngIf="(loggued() || shareAll) && !isSidebarHidden && !offline" (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
-<div id="overlay" *ngIf="pdfLoading"></div>
-<mat-spinner class="overlay-spinner" *ngIf="pdfLoading" color="accent" [diameter]="150"></mat-spinner>
+@if ((loggued() || shareAll) && !isSidebarHidden && !offline) {
+  <button mat-button (click)="reroute()" class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+}
+@if (pdfLoading) {
+  <div id="overlay"></div>
+}
+@if (pdfLoading) {
+  <mat-spinner class="overlay-spinner" color="accent" [diameter]="150"></mat-spinner>
+}

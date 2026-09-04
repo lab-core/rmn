@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Location } from '@angular/common';
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { TasksService } from 'src/app/services/tasks.service';
 import { TaskFilesDialogComponent } from '../task-files-dialog/task-files-dialog.component';
@@ -21,9 +21,11 @@ import { filter, first } from 'rxjs/operators';
 
 
 @Component({
-  selector: 'app-tasks-history',
-  templateUrl: './tasks-history.component.html',
-  styleUrls: ['./tasks-history.component.css']
+    selector: 'app-tasks-history',
+    templateUrl: './tasks-history.component.html',
+    styleUrls: ['./tasks-history.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class TasksHistoryComponent implements OnInit {
 

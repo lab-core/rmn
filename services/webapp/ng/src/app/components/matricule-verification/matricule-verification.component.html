@@ -1,132 +1,180 @@
 <div class="main-container">
   <div class="task-verification-container">
-      <div class="background">
-          <div class="files-container">
-              <div class="filter-job-container" *ngIf="this.showFilter()">
-                <label>Filtrer par groupe: </label>
-                <select (change)="this.loadSubExamsList()" [(ngModel)]="this.group">
-                  <option *ngFor="let g of this.groupsList">{{g}}</option>
-                </select>
-              </div>
-              <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}" id="files-list-container">
-                  <div class="file-container" *ngFor="let exam of this.subExamsList; let i = index"
-                      (click)="changeCurrentCopy(exam.document_index, exam.status, false)">
-                      <div class="disabled-copy" *ngIf="exam.status == 'NOT_READY'">
-                          <strong>{{i + 1}}</strong>
-                      </div>
-                      <div [ngClass]="exam.document_index == this.currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
-                          *ngIf="exam.status == 'VALIDATED'">
-                          <strong>{{i + 1}}</strong>
-                      </div>
-                      <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
-                          *ngIf="exam.status == 'TO VALIDATE'">
-                          <strong>{{i + 1}}</strong>
-                      </div>
-                      <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
-                          *ngIf="exam.status == 'HIGH ACCURACY'">
-                          <strong>{{i + 1}}</strong>
-                      </div>
-                      <div [ngClass]="exam.document_index == this.currentCopy ? 'deleted-copy chosen-copy' : 'deleted-copy'"
-                          *ngIf="exam.status == 'DELETED'">
-                          <strong>{{i + 1}}</strong>
-                      </div>
-                  </div>
-              </div>
+    <div class="background">
+      <div class="files-container">
+        @if (this.showFilter()) {
+          <div class="filter-job-container">
+            <label>Filtrer par groupe: </label>
+            <select (change)="this.loadSubExamsList()" [(ngModel)]="this.group">
+              @for (g of this.groupsList; track g) {
+                <option>{{g}}</option>
+              }
+            </select>
           </div>
-          <div [ngClass]="horizontalValidation ? 'validation-container col-container' : 'validation-container row-container'">
-              <div class="validation-check-container horizontal-validation-check" *ngIf="!disabledValidationcontainer && horizontalValidation">
-                  <div class="check-list-container">
-                      <div class="sub-check-container row-container">
-                          <h3>Matricule</h3>
-                          <div class="value-input-div">
-                              <ng-select id="matricule" [items]="matriculeList" bindLabel="identifiant"
-                                  [multiple]="false" [searchable]="true" [clearable]="false" [closeOnSelect]="true"
-                                  [virtualScroll]="false" appendTo="app-matricule-verification"
-                                  [(ngModel)]="currentMatriculeSelection"
-                                  (change)="changeMatricule(currentMatriculeSelection)"
-                                  [disabled]="disabledValidationButton">
-                              </ng-select>
-                          </div>
-                          <div *ngIf="currentMatriculeWarning && !pdfDeleted" class="alert">
-                            Utilisé par plusieurs copies: {{this.currentMatriculeWarning}}.
-                          </div>
-                      </div>
-                      <div class="sub-check-container"
-                          *ngFor="let grade of this.currentGrades | keyvalue : sortNull; trackBy: trackByIndex;">
-                          <h3>{{grade.key}}</h3>
-                          <div class="value-input-div">
-                              <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
-                                  id="text-box" [(ngModel)]="grade.value"
-                                  (input)="this.updateTotal(grade.key, grade.value)" step=any
-                                  [disabled]="disabledValidationButton">
-                          </div>
-                      </div>
-                  </div>
-                  <div class="validate-container">
-                      <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                              (click)="updateMatricule()" [disabled]="disabledValidationButton">
-                          <mat-icon>done_outline</mat-icon>
-                      </button>
-                      <button *ngIf="!pdfDeleted" (click)="deletePdf()" class="delete-button">
-                          <mat-icon>delete</mat-icon>
-                      </button>
-                      <button *ngIf="pdfDeleted" (click)="restorePdf()" class="delete-button">
-                          <mat-icon>restore</mat-icon>
-                      </button>
-                  </div>
-              </div>
-              <div [ngClass]="horizontalValidation ? 'picture-container horizontal-picture' : 'picture-container vertical-picture'" *ngIf="!this.disabledValidationcontainer">
-                <button mat-button (click)="previousCopy()"class="back-button2"><mat-icon>arrow_back_ios</mat-icon></button>
-                <app-pdf-viewer [pdfUrl]="pdfUrl" [hideToolbar]="true"></app-pdf-viewer>
-                <button mat-button (click)="nextCopy()"class="back-button3"><mat-icon>arrow_forward_ios</mat-icon></button>
-                <div id="overlay-cross" *ngIf="pdfDeleted"></div>
-                <span class="cross" *ngIf="pdfDeleted">&times;</span>
-              </div>
-              <div class="validation-check-container vertical-validation-check" *ngIf="!disabledValidationcontainer && !horizontalValidation">
-                  <div class="check-list-container">
-                      <div class="sub-check-container col-container">
-                          <h3>Matricule</h3>
-                          <div class="value-input-div">
-                              <ng-select id="matricule" [items]="matriculeList" bindLabel="identifiant"
-                                  [multiple]="false" [searchable]="true" [clearable]="false" [closeOnSelect]="true"
-                                  [virtualScroll]="false" appendTo="app-matricule-verification"
-                                  [(ngModel)]="currentMatriculeSelection"
-                                  (change)="changeMatricule(currentMatriculeSelection)"
-                                  [disabled]="disabledValidationButton">
-                              </ng-select>
-                          </div>
-                          <div *ngIf="this.currentMatriculeWarning" class="alert">
-                            Utilisé par plusieurs copies: {{this.currentMatriculeWarning}}.
-                          </div>
-                      </div>
-                      <div class="sub-check-container"
-                          *ngFor="let grade of this.currentGrades | keyvalue : sortNull; trackBy: trackByIndex;">
-                          <h3>{{grade.key}}</h3>
-                          <div class="value-input-div">
-                              <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
-                                  id="text-box" [(ngModel)]="grade.value"
-                                  (input)="this.updateTotal(grade.key, grade.value)" step=any
-                                  [disabled]="disabledValidationButton">
-                          </div>
-                      </div>
-                  </div>
-                  <div class="validate-container">
-                      <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                              (click)="updateMatricule()" [disabled]="disabledValidationButton">
-                          <mat-icon>done_outline</mat-icon>
-                      </button>
-                  </div>
-              </div>
-              <div *ngIf="pdfLoading && disabledValidationcontainer">
-                <p> Aucune copie n'est disponible. </p>
-              </div>
-          </div>
+        }
+        <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}" id="files-list-container">
+          @for (exam of this.subExamsList; track exam; let i = $index) {
+            <div class="file-container"
+              (click)="changeCurrentCopy(exam.document_index, exam.status, false)">
+              @if (exam.status == 'NOT_READY') {
+                <div class="disabled-copy">
+                  <strong>{{i + 1}}</strong>
+                </div>
+              }
+              @if (exam.status == 'VALIDATED') {
+                <div [ngClass]="exam.document_index == this.currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
+                  >
+                  <strong>{{i + 1}}</strong>
+                </div>
+              }
+              @if (exam.status == 'TO VALIDATE') {
+                <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
+                  >
+                  <strong>{{i + 1}}</strong>
+                </div>
+              }
+              @if (exam.status == 'HIGH ACCURACY') {
+                <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
+                  >
+                  <strong>{{i + 1}}</strong>
+                </div>
+              }
+              @if (exam.status == 'DELETED') {
+                <div [ngClass]="exam.document_index == this.currentCopy ? 'deleted-copy chosen-copy' : 'deleted-copy'"
+                  >
+                  <strong>{{i + 1}}</strong>
+                </div>
+              }
+            </div>
+          }
+        </div>
       </div>
+      <div [ngClass]="horizontalValidation ? 'validation-container col-container' : 'validation-container row-container'">
+        @if (!disabledValidationcontainer && horizontalValidation) {
+          <div class="validation-check-container horizontal-validation-check">
+            <div class="check-list-container">
+              <div class="sub-check-container row-container">
+                <h3>Matricule</h3>
+                <div class="value-input-div">
+                  <ng-select id="matricule" [items]="matriculeList" bindLabel="identifiant"
+                    [multiple]="false" [searchable]="true" [clearable]="false" [closeOnSelect]="true"
+                    [virtualScroll]="false" appendTo="app-matricule-verification"
+                    [(ngModel)]="currentMatriculeSelection"
+                    (change)="changeMatricule(currentMatriculeSelection)"
+                    [disabled]="disabledValidationButton">
+                  </ng-select>
+                </div>
+                @if (currentMatriculeWarning && !pdfDeleted) {
+                  <div class="alert">
+                    Utilisé par plusieurs copies: {{this.currentMatriculeWarning}}.
+                  </div>
+                }
+              </div>
+              @for (grade of this.currentGrades | keyvalue : sortNull; track trackByIndex($index, grade)) {
+                <div class="sub-check-container"
+                  >
+                  <h3>{{grade.key}}</h3>
+                  <div class="value-input-div">
+                    <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
+                      id="text-box" [(ngModel)]="grade.value"
+                      (input)="this.updateTotal(grade.key, grade.value)" step=any
+                      [disabled]="disabledValidationButton">
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="validate-container">
+              <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
+                (click)="updateMatricule()" [disabled]="disabledValidationButton">
+                <mat-icon>done_outline</mat-icon>
+              </button>
+              @if (!pdfDeleted) {
+                <button (click)="deletePdf()" class="delete-button">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              }
+              @if (pdfDeleted) {
+                <button (click)="restorePdf()" class="delete-button">
+                  <mat-icon>restore</mat-icon>
+                </button>
+              }
+            </div>
+          </div>
+        }
+        @if (!this.disabledValidationcontainer) {
+          <div [ngClass]="horizontalValidation ? 'picture-container horizontal-picture' : 'picture-container vertical-picture'">
+            <button mat-button (click)="previousCopy()"class="back-button2"><mat-icon>arrow_back_ios</mat-icon></button>
+            <app-pdf-viewer [pdfUrl]="pdfUrl" [hideToolbar]="true"></app-pdf-viewer>
+            <button mat-button (click)="nextCopy()"class="back-button3"><mat-icon>arrow_forward_ios</mat-icon></button>
+            @if (pdfDeleted) {
+              <div id="overlay-cross"></div>
+            }
+            @if (pdfDeleted) {
+              <span class="cross">&times;</span>
+            }
+          </div>
+        }
+        @if (!disabledValidationcontainer && !horizontalValidation) {
+          <div class="validation-check-container vertical-validation-check">
+            <div class="check-list-container">
+              <div class="sub-check-container col-container">
+                <h3>Matricule</h3>
+                <div class="value-input-div">
+                  <ng-select id="matricule" [items]="matriculeList" bindLabel="identifiant"
+                    [multiple]="false" [searchable]="true" [clearable]="false" [closeOnSelect]="true"
+                    [virtualScroll]="false" appendTo="app-matricule-verification"
+                    [(ngModel)]="currentMatriculeSelection"
+                    (change)="changeMatricule(currentMatriculeSelection)"
+                    [disabled]="disabledValidationButton">
+                  </ng-select>
+                </div>
+                @if (this.currentMatriculeWarning) {
+                  <div class="alert">
+                    Utilisé par plusieurs copies: {{this.currentMatriculeWarning}}.
+                  </div>
+                }
+              </div>
+              @for (grade of this.currentGrades | keyvalue : sortNull; track trackByIndex($index, grade)) {
+                <div class="sub-check-container"
+                  >
+                  <h3>{{grade.key}}</h3>
+                  <div class="value-input-div">
+                    <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
+                      id="text-box" [(ngModel)]="grade.value"
+                      (input)="this.updateTotal(grade.key, grade.value)" step=any
+                      [disabled]="disabledValidationButton">
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="validate-container">
+              <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
+                (click)="updateMatricule()" [disabled]="disabledValidationButton">
+                <mat-icon>done_outline</mat-icon>
+              </button>
+            </div>
+          </div>
+        }
+        @if (pdfLoading && disabledValidationcontainer) {
+          <div>
+            <p> Aucune copie n'est disponible. </p>
+          </div>
+        }
+      </div>
+    </div>
   </div>
-  <div class="page-count" *ngIf="!this.disabledValidationcontainer">
+  @if (!this.disabledValidationcontainer) {
+    <div class="page-count">
       {{this.currentExam().filename}} ({{this.currentIndex() + (this.subExamsList.length > 0 ? 1 : 0)}} / {{this.subExamsList.length}})
-  </div>
+    </div>
+  }
 </div>
-<button mat-button *ngIf="this.loggued() || shareAll" (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
-<div id="overlay" *ngIf="pdfLoading && !disabledValidationcontainer"></div>
-<mat-spinner class="overlay-spinner" *ngIf="pdfLoading && !disabledValidationcontainer" color="accent" [diameter]="150"></mat-spinner>
+@if (this.loggued() || shareAll) {
+  <button mat-button (click)="reroute()"class="back-button"><mat-icon>arrow_back_ios</mat-icon></button>
+}
+@if (pdfLoading && !disabledValidationcontainer) {
+  <div id="overlay"></div>
+}
+@if (pdfLoading && !disabledValidationcontainer) {
+  <mat-spinner class="overlay-spinner" color="accent" [diameter]="150"></mat-spinner>
+}

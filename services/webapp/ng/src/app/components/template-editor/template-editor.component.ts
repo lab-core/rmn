@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { AfterViewInit, Component, OnInit } from '@angular/core';
+import { AfterViewInit, Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { SocketService } from 'src/app/services/socket.service';
 import { TemplateService } from 'src/app/services/template.service';
@@ -12,9 +12,11 @@ import { SERVER_URL } from 'src/app/utils';
 import { first } from 'rxjs/operators';
 
 @Component({
-  selector: 'app-template-editor',
-  templateUrl: './template-editor.component.html',
-  styleUrls: ['./template-editor.component.css']
+    selector: 'app-template-editor',
+    templateUrl: './template-editor.component.html',
+    styleUrls: ['./template-editor.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class TemplateEditorComponent implements OnInit, AfterViewInit {
 

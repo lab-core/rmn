@@ -1,5 +1,5 @@
 // modules
-import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptors, withInterceptorsFromDi } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptors, withInterceptorsFromDi, withXhr } from '@angular/common/http';
 import { CSP_NONCE, NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ReactiveFormsModule } from '@angular/forms';
@@ -110,7 +110,7 @@ import { CacheInterceptor, ErrorInterceptor, FreshHttpInterceptor } from './serv
         //   provide: CSP_NONCE,
         //   useValue: 'random_nonce_value'
         // },
-        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClient(withXhr(), withInterceptorsFromDi()),
         { provide: HTTP_INTERCEPTORS, useClass: CacheInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: FreshHttpInterceptor, multi: true },  // should be applied before ErrorInterceptor (in reverse for multi=true)

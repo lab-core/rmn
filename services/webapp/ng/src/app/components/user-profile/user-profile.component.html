@@ -1,76 +1,78 @@
 <div class="user-profile-container">
-    <app-main-menu></app-main-menu>
-    <div class="background">
-        <!-- <img src="assets/account.png" alt="Avatar" id="logo" width="150" height="140"/> -->
-        <mat-card>
+  <app-main-menu></app-main-menu>
+  <div class="background">
+    <!-- <img src="assets/account.png" alt="Avatar" id="logo" width="150" height="140"/> -->
+    <mat-card>
 
-            <mat-card-title>
-                PROFIL UTILISATEUR
-            </mat-card-title>
+      <mat-card-title>
+        PROFIL UTILISATEUR
+      </mat-card-title>
 
-            <mat-card-content>
-                <div class="info-container">
-                    <div class="text-box-definition"> Nom d'utilisateur:</div>
-                    <div class="text-box" >{{this.userService.currentUsername}}</div>
+      <mat-card-content>
+        <div class="info-container">
+          <div class="text-box-definition"> Nom d'utilisateur:</div>
+          <div class="text-box" >{{this.userService.currentUsername}}</div>
+        </div>
+
+        <div class="bar">
+          <hr>
+          </div>
+
+          <div class="info-container">
+            <div class="text-box-definition"> Mot de passe:</div>
+            <div class="text-box">*********</div>
+          </div>
+
+          <div class="bar">
+            <hr>
+            </div>
+
+            <div class="info-container">
+              <div class="text-box-definition"> Type de compte:</div>
+              <div class="text-box">{{this.userService.role}}</div>
+            </div>
+
+            <div class="bar">
+              <hr>
+              </div>
+
+              <!-- <div class="info-container">
+              <div class="text-box-definition">Sauvegarder image des chiffres:</div>
+              <div class="text-box-check">
+                <section>
+                  <mat-checkbox class="check-box" [checked]="this.userService.saveVerifiedImages" (change)="updateSaveVerifiedImagesValue($event.checked)"></mat-checkbox>
+                </section>
+              </div>
+            </div>
+
+            <div class="bar">
+              <hr>
+              </div>
+
+              <div class="info-container">
+                <div class="text-box-definition">Sauvegarder avec la structure moodle:</div>
+                <div class="text-box-check">
+                  <section>
+                    <mat-checkbox class="check-box" [checked]="this.userService.moodleStructureInd" (change)="updateSaveInMoodleStructure($event.checked)"></mat-checkbox>
+                  </section>
                 </div>
+              </div> -->
 
-                <div class="bar">
-                    <hr>
-                </div>
-
-                <div class="info-container">
-                    <div class="text-box-definition"> Mot de passe:</div>
-                    <div class="text-box">*********</div>
-                </div>
-
-                <div class="bar">
-                    <hr>
-                </div>
-
-                <div class="info-container">
-                    <div class="text-box-definition"> Type de compte:</div>
-                    <div class="text-box">{{this.userService.role}}</div>
-                </div>
-
-                <div class="bar">
-                    <hr>
-                </div>
-
-                <!-- <div class="info-container">
-                    <div class="text-box-definition">Sauvegarder image des chiffres:</div>
-                    <div class="text-box-check">
-                        <section>
-                            <mat-checkbox class="check-box" [checked]="this.userService.saveVerifiedImages" (change)="updateSaveVerifiedImagesValue($event.checked)"></mat-checkbox>
-                        </section>
-                    </div>
-                </div>
-
-                <div class="bar">
-                    <hr>
-                </div>
-
-                <div class="info-container">
-                    <div class="text-box-definition">Sauvegarder avec la structure moodle:</div>
-                    <div class="text-box-check">
-                        <section>
-                            <mat-checkbox class="check-box" [checked]="this.userService.moodleStructureInd" (change)="updateSaveInMoodleStructure($event.checked)"></mat-checkbox>
-                        </section>
-                    </div>
-                </div> -->
-
-                <div class="bar">
-                    <hr>
+              <div class="bar">
+                <hr>
                 </div>
 
 
                 <div class="buttons-container">
-                    <button class="change-password" mat-raised-button color="primary" (click)="openChangePasswordDialog()">Changer le mot de passe</button>
-                    <button class="profile-button" mat-raised-button color="accent" *ngIf="this.userService.role == 'Administrateur'" (click)="openCreateUserDialog()">Créer un compte</button>
+                  <button class="change-password" mat-raised-button color="primary" (click)="openChangePasswordDialog()">Changer le mot de passe</button>
+                  @if (this.userService.role == 'Administrateur') {
+                    <button class="profile-button" mat-raised-button color="accent" (click)="openCreateUserDialog()">Créer un compte</button>
+                  }
                 </div>
 
-            </mat-card-content>
-        </mat-card>
+              </mat-card-content>
+            </mat-card>
 
 
-    </div>
-</div>
+          </div>
+        </div>

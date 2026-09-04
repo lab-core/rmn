@@ -1,13 +1,15 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { TasksService } from 'src/app/services/tasks.service';
 import { UserService } from 'src/app/services/user.service';
 import { NotificationService } from 'src/app/services/notification.service';
 
 @Component({
-  selector: 'app-main-menu',
-  templateUrl: './main-menu.component.html',
-  styleUrls: ['./main-menu.component.css']
+    selector: 'app-main-menu',
+    templateUrl: './main-menu.component.html',
+    styleUrls: ['./main-menu.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class MainMenuComponent implements OnInit {
 

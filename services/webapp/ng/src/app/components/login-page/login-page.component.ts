@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, OnDestroy } from '@angular/core';
+import { Component, HostListener, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { Location } from '@angular/common';
 import { Router, NavigationStart } from '@angular/router';
 import { filter, first } from 'rxjs/operators';
@@ -6,9 +6,11 @@ import { UserService } from 'src/app/services/user.service';
 import { NotificationService } from 'src/app/services/notification.service';
 
 @Component({
-  selector: 'app-login-page',
-  templateUrl: './login-page.component.html',
-  styleUrls: ['./login-page.component.css']
+    selector: 'app-login-page',
+    templateUrl: './login-page.component.html',
+    styleUrls: ['./login-page.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class LoginPageComponent implements OnInit, OnDestroy {
 

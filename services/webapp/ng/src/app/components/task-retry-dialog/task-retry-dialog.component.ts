@@ -1,11 +1,11 @@
-import { Component, OnInit, Inject, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, Inject, ElementRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { HttpClient, HttpEventType } from '@angular/common/http';
 import { SERVER_URL } from 'src/app/utils';
 import { saveAs } from 'file-saver';
-import * as JSZip from 'jszip';
+import JSZip from 'jszip';
 import { first } from 'rxjs/operators';
 
 
@@ -16,9 +16,11 @@ export interface DialogData {
 }
 
 @Component({
-  selector: 'app-task-retry-dialog',
-  templateUrl: './task-retry-dialog.component.html',
-  styleUrls: ['./task-retry-dialog.component.css']
+    selector: 'app-task-retry-dialog',
+    templateUrl: './task-retry-dialog.component.html',
+    styleUrls: ['./task-retry-dialog.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class TaskRetryDialogComponent implements OnInit {
 

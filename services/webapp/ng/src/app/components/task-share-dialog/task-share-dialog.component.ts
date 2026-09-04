@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from '../../services/notification.service';
 import { UserService } from '../../services/user.service';
@@ -20,9 +20,11 @@ export interface DialogData {
 }
 
 @Component({
-  selector: 'app-task-share-dialog',
-  templateUrl: './task-share-dialog.component.html',
-  styleUrls: ['./task-share-dialog.component.css']
+    selector: 'app-task-share-dialog',
+    templateUrl: './task-share-dialog.component.html',
+    styleUrls: ['./task-share-dialog.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class TaskShareDialogComponent implements OnInit {
 

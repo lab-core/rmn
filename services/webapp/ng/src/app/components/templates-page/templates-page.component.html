@@ -1,35 +1,41 @@
 <div class="templates-page-container">
-    <app-main-menu></app-main-menu>
-    <div class="background">
-        <div class="templates-container">
-            <div class="templates-search-create">
-                <mat-form-field class="filter-field" appearance="outline">
-                    <mat-label>Filtrer</mat-label>
-                    <input matInput [(ngModel)]="this.filterSearch" (keyup)="updateAvailableTemplates($event)">
-                    <mat-icon matSuffix>search</mat-icon>
-                </mat-form-field>
-                <button class="create-new-button" (click)="openNewTemplateDialog()"> Créer un nouveau template </button>
-            </div>
-            <div class="templates-header">
-                <div class="templates-header-title">
-                    Titre
-                </div>
-                <div class="templates-header-actions">
-                    Actions
-                </div>
-            </div>
-            <div class="templates-list">
-                <div class="template-container" *ngFor="let template of this.templatesList">
-                    <div class="template-title">
-                        {{template.template_name}}
-                    </div>
-                    <div class="template-actions">
-                        <mat-icon class="edit-icon" (click)="editTemplate(template)">edit</mat-icon>
-                        <mat-icon class="download-icon" (click)="downloadSource(template)" *ngIf="template.src_name">download</mat-icon>
-                        <mat-icon class="delete-icon" (click)="openDeleteDialog(template)" *ngIf="!template.locked">delete</mat-icon>
-                    </div>
-                </div>
-            </div>
+  <app-main-menu></app-main-menu>
+  <div class="background">
+    <div class="templates-container">
+      <div class="templates-search-create">
+        <mat-form-field class="filter-field" appearance="outline">
+          <mat-label>Filtrer</mat-label>
+          <input matInput [(ngModel)]="this.filterSearch" (keyup)="updateAvailableTemplates($event)">
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+        <button class="create-new-button" (click)="openNewTemplateDialog()"> Créer un nouveau template </button>
+      </div>
+      <div class="templates-header">
+        <div class="templates-header-title">
+          Titre
         </div>
+        <div class="templates-header-actions">
+          Actions
+        </div>
+      </div>
+      <div class="templates-list">
+        @for (template of this.templatesList; track template) {
+          <div class="template-container">
+            <div class="template-title">
+              {{template.template_name}}
+            </div>
+            <div class="template-actions">
+              <mat-icon class="edit-icon" (click)="editTemplate(template)">edit</mat-icon>
+              @if (template.src_name) {
+                <mat-icon class="download-icon" (click)="downloadSource(template)">download</mat-icon>
+              }
+              @if (!template.locked) {
+                <mat-icon class="delete-icon" (click)="openDeleteDialog(template)">delete</mat-icon>
+              }
+            </div>
+          </div>
+        }
+      </div>
     </div>
+  </div>
 </div>

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { NavigationStart, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
@@ -13,9 +13,11 @@ import { saveAs } from 'file-saver';
 
 
 @Component({
-  selector: 'app-templates-page',
-  templateUrl: './templates-page.component.html',
-  styleUrls: ['./templates-page.component.css']
+    selector: 'app-templates-page',
+    templateUrl: './templates-page.component.html',
+    styleUrls: ['./templates-page.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class TemplatesPageComponent implements OnInit, OnDestroy {
   constructor(

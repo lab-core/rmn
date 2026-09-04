@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { saveAs } from 'file-saver';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -9,9 +9,11 @@ import { SERVER_URL } from 'src/app/utils';
 import { first } from 'rxjs/operators';
 
 @Component({
-  selector: 'app-presentation-page',
-  templateUrl: './presentation-page.component.html',
-  styleUrls: ['./presentation-page.component.css']
+    selector: 'app-presentation-page',
+    templateUrl: './presentation-page.component.html',
+    styleUrls: ['./presentation-page.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class PresentationPageComponent implements OnInit {
   copies: File;

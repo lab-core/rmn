@@ -3,15 +3,15 @@
     <h3> Gestion des PDFs </h3>
 
     <div class="max-copies-container form-group">
-        <label for="maxCopies">Nombre max de copies par pdf</label>
-        <input class="form-control" id="maxCopies" type="number" (change)="setmaxCopies($event)" placeholder="Nombre max de copies par pdf">
+      <label for="maxCopies">Nombre max de copies par pdf</label>
+      <input class="form-control" id="maxCopies" type="number" (change)="setmaxCopies($event)" placeholder="Nombre max de copies par pdf">
     </div>
     <div class="csv-container form-group">
-        <label for="cvsSep">Séparateur pour le csv</label>
-        <select class="form-select" id="cvsSep" (change)="setCsvSeparator($event)" placeholder="Séparateur pour le csv">
-          <option value="," selected> , </option>
-          <option value=";"> ; </option>
-        </select>
+      <label for="cvsSep">Séparateur pour le csv</label>
+      <select class="form-select" id="cvsSep" (change)="setCsvSeparator($event)" placeholder="Séparateur pour le csv">
+        <option value="," selected> , </option>
+        <option value=";"> ; </option>
+      </select>
     </div>
     <button class="download-zip-button" mat-flat-button (click)="downloadAllFilesAsZip()">Tout télécharger</button>
 
@@ -26,8 +26,16 @@
     </div>
   </div>
 </div>
-<div id="overlay" *ngIf="processing"></div>
-<mat-spinner *ngIf="processing" color="accent" [diameter]="150" mode="determinate"
-    [value]="percentageDone"></mat-spinner>
-<div id="overlay" *ngIf="processing"></div>
-<div class="files-uploading-steps" *ngIf="processing">{{ info }}</div>
+@if (processing) {
+  <div id="overlay"></div>
+}
+@if (processing) {
+  <mat-spinner color="accent" [diameter]="150" mode="determinate"
+  [value]="percentageDone"></mat-spinner>
+}
+@if (processing) {
+  <div id="overlay"></div>
+}
+@if (processing) {
+  <div class="files-uploading-steps">{{ info }}</div>
+}

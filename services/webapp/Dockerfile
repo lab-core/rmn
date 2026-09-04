@@ -7,8 +7,9 @@
 FROM --platform=$BUILDPLATFORM node:26 AS node
 WORKDIR /app
 
-COPY ng/package.json ./
-RUN npm install
+# lockfile + .npmrc (legacy-peer-deps) so the image installs exactly what was tested
+COPY ng/package.json ng/package-lock.json ng/.npmrc ./
+RUN npm ci
 
 COPY ng/ .
 RUN npm run build

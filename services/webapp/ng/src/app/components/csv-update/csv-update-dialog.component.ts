@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -11,9 +11,11 @@ export interface DialogData {
 }
 
 @Component({
-  selector: 'csv-update-dialog',
-  templateUrl: './csv-update-dialog.component.html',
-  styleUrls: ['./csv-update-dialog.component.css']
+    selector: 'csv-update-dialog',
+    templateUrl: './csv-update-dialog.component.html',
+    styleUrls: ['./csv-update-dialog.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class CsvUpdateDialogComponent implements OnInit {
 

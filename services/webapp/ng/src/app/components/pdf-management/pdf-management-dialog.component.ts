@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -8,7 +8,7 @@ import { SERVER_URL } from 'src/app/utils';
 import { OfflineCopy } from '../task-verification/offline-db';
 import { PDFDocument, PDFArray, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import { saveAs } from 'file-saver';
-import * as JSZip from 'jszip';
+import JSZip from 'jszip';
 
 
 export interface DialogData {
@@ -23,9 +23,11 @@ export interface DialogData {
 }
 
 @Component({
-  selector: 'pdf-management-dialog',
-  templateUrl: './pdf-management-dialog.component.html',
-  styleUrls: ['./pdf-management-dialog.component.css']
+    selector: 'pdf-management-dialog',
+    templateUrl: './pdf-management-dialog.component.html',
+    styleUrls: ['./pdf-management-dialog.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class PdfManagementDialogComponent implements OnInit {
 
@@ -121,7 +123,7 @@ export class PdfManagementDialogComponent implements OnInit {
           const pdfFileName = `${question}${i > 0 ? `_${i}` : ''}.pdf`;
           doc.setSubject(pdfFileName);
           const mergedPdfBytes = await doc.save();
-          const blob = new Blob([mergedPdfBytes], {type: 'application/pdf'});
+          const blob = new Blob([mergedPdfBytes as Uint8Array<ArrayBuffer>], {type: 'application/pdf'});
           zip.file(`${question}/${pdfFileName}`, blob);
         }
       }
@@ -496,7 +498,7 @@ export class PdfManagementDialogComponent implements OnInit {
             });
 
             const pdfBytes = await singlePagePdf.save();
-            const blob = new Blob([pdfBytes], {type: 'application/pdf'});
+            const blob = new Blob([pdfBytes as Uint8Array<ArrayBuffer>], {type: 'application/pdf'});
             const fileName = originalDoc.filename + '.pdf';
             zip.file(fileName, blob);
 

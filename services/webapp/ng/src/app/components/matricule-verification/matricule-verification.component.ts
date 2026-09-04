@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, OnInit, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, OnInit, Output, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';
@@ -16,9 +16,11 @@ import { first } from 'rxjs/operators';
 
 
 @Component({
-  selector: 'app-matricule-verification',
-  templateUrl: './matricule-verification.component.html',
-  styleUrls: ['./matricule-verification.component.css']
+    selector: 'app-matricule-verification',
+    templateUrl: './matricule-verification.component.html',
+    styleUrls: ['./matricule-verification.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    standalone: false
 })
 export class MatriculeVerificationComponent implements OnInit {
 
