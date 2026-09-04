@@ -7,9 +7,10 @@
 FROM --platform=$BUILDPLATFORM node:26 AS node
 WORKDIR /app
 
-# lockfile + .npmrc (legacy-peer-deps) so the image installs exactly what was tested
+# lockfile + .npmrc (legacy-peer-deps) so the image installs exactly what was
+# tested; npm download cache is a BuildKit cache mount kept across builds.
 COPY ng/package.json ng/package-lock.json ng/.npmrc ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY ng/ .
 RUN npm run build

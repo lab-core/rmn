@@ -56,6 +56,10 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   nPagesPerQuestion = new Map<string, number>();
   nMaxPointsPerQuestion = new Map<string, number>();
   bonusEnabledMap = new Map<string, boolean>();
+  // A question of the template that the exam does not use: 0 page, 0 point,
+  // skipped everywhere except on the cover page where its box is left blank.
+  // UI-only state; the server derives it from the 0 pages.
+  ignoredQuestions = new Map<string, boolean>();
   questionKeys: string[] = [];
   taskName: string = "Tâche";
 
@@ -173,14 +177,49 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     this.nPagesPerQuestion.clear();
     this.nMaxPointsPerQuestion.clear();
     this.bonusEnabledMap.clear();
+    this.ignoredQuestions.clear();
     this.questionKeys = [];
     for (let i = 1; i <= this.nQuestions; i++) {
       const key = `Q${i}`;
       this.nPagesPerQuestion.set(key, this.nPagesPerQuestion[key] || 0);
       this.nMaxPointsPerQuestion.set(key, this.nMaxPointsPerQuestion[key] || 0);
       this.bonusEnabledMap.set(key, this.bonusEnabledMap[key] || false);
+      this.ignoredQuestions.set(key, this.ignoredQuestions[key] || false);
       this.questionKeys.push(key);
     }
+  }
+
+  isIgnored(key: string): boolean {
+    return this.ignoredQuestions.get(key) || false;
+  }
+
+  toggleIgnored(key: string) {
+    const ignored = !this.isIgnored(key);
+    this.ignoredQuestions.set(key, ignored);
+    this.ignoredQuestions[key] = ignored;
+    if (ignored) {
+      // the inputs are bound to the property form (nPagesPerQuestion[key]) while
+      // the task is sent from the Map entries: keep both in sync
+      this.nPagesPerQuestion.set(key, 0);
+      this.nPagesPerQuestion[key] = 0;
+      this.nMaxPointsPerQuestion.set(key, 0);
+      this.nMaxPointsPerQuestion[key] = 0;
+      this.bonusEnabledMap.set(key, false);
+      this.bonusEnabledMap[key] = false;
+    } else {
+      this.nPagesPerQuestion.delete(key);
+      delete this.nPagesPerQuestion[key];
+      this.nMaxPointsPerQuestion.delete(key);
+      delete this.nMaxPointsPerQuestion[key];
+    }
+    this.updateTotals();
+    this.saveTask();
+  }
+
+  /** Questions that are corrected but miss their number of pages or points. */
+  incompleteQuestions(): string[] {
+    return this.questionKeys.filter(key => !this.isIgnored(key) &&
+      (!(this.nPagesPerQuestion.get(key) > 0) || !(this.nMaxPointsPerQuestion.get(key) > 0)));
   }
 
   updatePageCount(key: string, event: Event) {
@@ -555,6 +594,10 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   async createTask() {
     if (this.checkDisabled()) {
       this.notifyService.showError("Assurez-vous de complêter toutes les étapes!", "ERREUR");
+    } else if (this.correct && this.incompleteQuestions().length > 0) {
+      this.notifyService.showError(
+        `Veuillez indiquer le nombre de pages et de points de ${this.incompleteQuestions().join(", ")}, ou ignorer la question.`,
+        "ERREUR");
     } else {
       this.uploading = true;
       try {
@@ -610,6 +653,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       nPages: this.nPagesPerQuestion,
       maxPoints: this.nMaxPointsPerQuestion,
       bonus: this.bonusEnabledMap,
+      ignored: this.ignoredQuestions,
       stats: this.statisticsForStudents,
       csvName: this.csvName
     }
@@ -640,6 +684,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       for (const key in task.nPages) this.nPagesPerQuestion[key] = task.nPages[key];
       for (const key in task.maxPoints) this.nMaxPointsPerQuestion[key] = task.maxPoints[key];
       for (const key in task.bonus) this.bonusEnabledMap[key] = task.bonus[key];
+      for (const key in task.ignored) this.ignoredQuestions[key] = task.ignored[key];
       this.statisticsForStudents = task.stats;
 
       if (task.csv) {

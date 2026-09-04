@@ -319,7 +319,13 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     // compute sub exams list if any selected group
     this.getSubExamsList();
     // check then question
-    this.questionIndexes = ["Tout sélectionner", ...Array.from({ length: this.nMaxPointsPerQuestion.size }, (_, i) => (i + 1).toString())];
+    // only the questions that are corrected: an ignored question (0 page) has no copy
+    const activeQuestions = (this.job.n_pages_per_question || [])
+      .filter((element) => element[1] > 0)
+      .map((element) => parseInt(element[0].slice(1), 10))
+      .sort((a, b) => a - b)
+      .map((n) => n.toString());
+    this.questionIndexes = ["Tout sélectionner", ...activeQuestions];
     // if question index is provided in query params
     const questionIndex = this.route.snapshot.queryParams['question_index'];
     if (questionIndex) {

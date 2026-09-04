@@ -121,3 +121,10 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Layer cache stored in the registry next to the image. mode=max
+          # exports every intermediate layer (apt, pip, npm), so this job and a
+          # local `docker compose build` (cache_from in docker-compose.yml)
+          # download the dependency layers instead of rebuilding them. The
+          # cache is only written when the image itself is pushed.
+          cache-from: type=registry,ref=${{ inputs.image }}:buildcache
+          cache-to: ${{ (inputs.push && steps.login.outcome == 'success' && github.event_name != 'pull_request') && format('type=registry,ref={0}:buildcache,mode=max', inputs.image) || '' }}

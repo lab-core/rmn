@@ -6,7 +6,7 @@ from flask import Flask, request, Response, json, send_file
 from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from pathlib import Path
-from utils.utils import Job_Status, Output_File, Document_Status
+from utils.utils import Job_Status, Output_File, Document_Status, validate_questions
 from utils.storage import Storage
 from utils.clients import redis_client, socketio_client, mongo_client
 import datetime as dt
@@ -341,9 +341,23 @@ def evaluate(user_id):
     regular_template_name = str(request_form["regular_template_name"])
     job_name = str(request_form["job_name"])
     statistics_for_students = request_form["statistics_for_students"].lower() == "true"
-    n_pages_per_question = json.loads(request_form["n_pages_per_question"])
-    n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
-    bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
+    try:
+        n_pages_per_question = json.loads(request_form["n_pages_per_question"])
+        n_max_points_per_question = json.loads(request_form["n_max_points_per_question"])
+        bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
+    except ValueError:
+        return Response(
+            response=json.dumps({"response": "Error: format des questions invalide."}),
+            status=400,
+        )
+    # a question with 0 page and 0 point is ignored: the executor skips it but
+    # keeps its position so the grades match the boxes of the template
+    error = validate_questions(n_pages_per_question, n_max_points_per_question, bonus_enabled_map)
+    if error:
+        return Response(
+            response=json.dumps({"response": f"Error: {error}"}),
+            status=400,
+        )
 
     db = mongo["RMN"]
     collection = db["eval_jobs"]
@@ -1054,7 +1068,10 @@ def share_archive():
     else:
         token = job["share_token"]
 
-    protocol = "http" if host == "0.0.0.0" or host == "localhost" else "https"
+    # a local host (possibly with a port, e.g. "localhost:8085") is served over
+    # http; anything else sits behind the TLS reverse proxy
+    hostname = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    protocol = "http" if hostname in ("0.0.0.0", "localhost", "127.0.0.1") else "https"
     share_url = f"{protocol}://{host}/api/file/download?job_id={job_id}&token={token}&file={target_file}"
     if zip_index:
         share_url += f"&zip_index={zip_index}"
@@ -1332,7 +1349,10 @@ def share_matricule_verification(user_id):
     else:
         token = job["share_token"]["mat"]
 
-    protocol = "http" if host == "0.0.0.0" or host == "localhost" else "https"
+    # a local host (possibly with a port, e.g. "localhost:8085") is served over
+    # http; anything else sits behind the TLS reverse proxy
+    hostname = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    protocol = "http" if hostname in ("0.0.0.0", "localhost", "127.0.0.1") else "https"
     share_url = f"{protocol}://{host}/matricule-validation/?job_id={job_id}&token={token}"
 
     resp = {

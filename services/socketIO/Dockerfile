@@ -4,10 +4,12 @@ FROM python:3.14
 
 WORKDIR /SocketIO
 
-COPY . .
+# Dependencies before the source: a code change only rebuilds the COPY layer.
+COPY ./requirements.txt ./requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip \
+    && pip install -r requirements.txt
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+COPY . .
 
 # Unprivileged runtime user. socketIO writes nothing to disk, so the app
 # directory can stay root-owned and read-only.

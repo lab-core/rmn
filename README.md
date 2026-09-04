@@ -12,7 +12,7 @@ To use the webapp, you need one of the following versions at minimum for your br
 
 - Add a front page to your copy, if necessary, to grade them
 - Define a template to mark the zone where to search the grades and matricules (if necessary). If searching matricules, the app will also automatically search for the matricule on the top right corner of all pages except the front page.
-- Start a new correction. If a column matching the regex '(?i)(gr|groupe?s?)$' is found, the corresponding content will be used to separate the copies into sub directories. The csv file must include a 'matricule' column as well as a 'Nom complet' column. Using a moodle csv file works immediately (you should fix the maximum grade).
+- Start a new correction. A template can have more grade boxes than the exam has questions: check "Ignorer" for the unused questions (0 page, 0 point). They are skipped everywhere and their box is left blank on the front page. If a column matching the regex '(?i)(gr|groupe?s?)$' is found, the corresponding content will be used to separate the copies into sub directories. The csv file must include a 'matricule' column as well as a 'Nom complet' column. Using a moodle csv file works immediately (you should fix the maximum grade).
 - Then validate grades and matricules if necessary (it's not necessary if using directly moodle zip file or if each file contain it in its name).
 - Then finalize and download the resulting cvs file, all the copies renamed and split into groups (if provided), and the zip files to upload to moodle (as well as the csv file).
 
@@ -26,6 +26,20 @@ Mongo is run within the kubernetes cluster now.
 
 ##### Firebase
 Firebase has been removed and a NFS (run inside the cluster) is instead used to synchronize and share files between containers, as well as persistent storage.
+
+## Docker builds
+
+The Dockerfiles copy and install the dependencies before the source, so a code
+change only rebuilds the last `COPY` layer, and the pip/npm download caches are
+kept between builds (`RUN --mount=type=cache`, BuildKit). CI publishes a layer
+cache next to each image (`rmni/<service>:buildcache`) and `docker-compose.yml`
+points `cache_from` at it, so a local build downloads the apt/pip/npm layers
+instead of rebuilding them:
+```
+docker compose build   # pulls the cached layers, builds only your code
+```
+To run the published images without building, replace `build:` with
+`image: rmni/<service>:main` for that service.
 
 ## Minikube
 You can use the ```minikube-helper.sh``` script. Otherwise, you have more details below.

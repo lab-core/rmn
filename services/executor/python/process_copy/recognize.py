@@ -856,6 +856,20 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
     return is_matricule_valid, m
 
 
+def format_grade_text(number):
+    """Text written in a grade box: 5.0 -> "5", 4.5 -> "4.5", None or "" -> "".
+
+    The server stores validated grades as floats, so str() would print "5.0".
+    """
+    if number is None or number == "":
+        return ""
+    try:
+        value = float(number)
+    except (TypeError, ValueError):
+        return str(number)
+    return str(int(value)) if value.is_integer() else str(value)
+
+
 def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'intermediate_image.jpg',
                trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11),
                jpg_quality: int = 5, grade_ratio: float = 0.5):
@@ -897,7 +911,11 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
                 return False, cropped, number_images, boxes
 
             thickness = 2
-            number_text = str(numbers[i])
+            number_text = format_grade_text(numbers[i])
+            # an empty text leaves the box blank (ignored question or missing
+            # grade); it must not be used to compute the font scale (size 0)
+            if number_text == "":
+                continue
             size, _ = cv2.getTextSize(number_text, cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
             nw, nh = size
             if font_scale is None:
