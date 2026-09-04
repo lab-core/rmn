@@ -46,7 +46,7 @@
     "angular-eslint": "18.2.0",
     "codelyzer": "^6.0.2",
     "eslint": "^9.8.0",
-    "globals": "^15.9.0",
+    "globals": "^17.11.0",
     "karma": "~6.3.0",
     "karma-chrome-launcher": "^3.1.0",
     "karma-coverage": "^2.0.3",
