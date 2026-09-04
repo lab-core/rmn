@@ -4,7 +4,7 @@ import shutil
 import zipfile
 import glob
 from pathlib import Path
-from PyPDF2 import PdfReader, PdfWriter
+from pypdf import PdfReader, PdfWriter
 from python.process_copy.database import Database
 from utils.storage import Storage
 from utils.utils import Document_Status, active_question_keys

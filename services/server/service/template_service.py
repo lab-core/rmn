@@ -1,7 +1,7 @@
 from flask import Response, json, send_file
 from pathlib import Path
 from io import FileIO
-from PyPDF2 import PdfWriter, PdfReader
+from pypdf import PdfWriter, PdfReader
 from pdf2image import convert_from_path
 from werkzeug.utils import secure_filename
 import uuid
@@ -63,7 +63,7 @@ class TemplateService():
 
         try:
             # keep only the page needed
-            infile = PdfReader(template_file_name, 'rb')
+            infile = PdfReader(template_file_name)
             output = PdfWriter()
             page = int(request_form.get("template_page", '0'))
             output.add_page(infile.pages[page])
