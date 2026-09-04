@@ -25,6 +25,10 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn==23.0.0
 ENV ENVIRONMENT=production
 ENV PYTHONUNBUFFERED=1
 ENV HOME=/home/rmn
+# gunicorn's default 30 s worker timeout kills a worker still receiving or
+# copying a multi-GB copies zip (5 GB uploads are allowed). The value is the
+# same as the ingress proxy-read-timeout; override with the same variable.
+ENV GUNICORN_CMD_ARGS="--timeout 1800"
 
 USER rmn
 

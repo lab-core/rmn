@@ -260,7 +260,11 @@ The same applies to files copied onto the share by hand.
   to change it; `0` disables expiry. `/admin/delete/tokens` still works for a
   forced logout.
 - **Request bodies are capped** at `MAX_UPLOAD_GB` (default 5, matching the
-  Ingress `proxy-body-size`); larger uploads get a JSON 413.
+  Ingress `proxy-body-size`); larger uploads get a JSON 413. Uploads stream to
+  the share in one copy, and the gunicorn worker timeout (`GUNICORN_CMD_ARGS`,
+  1800 s) and the Ingress `proxy-read-timeout` are sized for a 5 GB upload.
+  Note the node needs about twice the upload size free on disk while a request
+  is in flight (ingress buffer + the multipart spool file).
 - **Security headers** come from the front nginx (`security_headers`, including
   the nonce-based CSP); the webapp image and the Flask API add the safe subset
   themselves so they hold without it.

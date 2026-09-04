@@ -391,15 +391,16 @@ def evaluate(user_id):
         save_csv(str(notes_csv_file_name), notes_file_id)
 
         zip_file = request.files.get("zip_file")
-        zip_file_path = str(TEMP_FOLDER.joinpath(secure_filename(zip_file.filename)))
-        # stream to disk in chunks: reading the whole upload into memory
-        # (zip_file.stream.read()) held the entire multi-GB zip in one gunicorn
-        # worker, which the container memory limit would now kill.
-        zip_file.save(zip_file_path)
-
         random_id = uuid.uuid4()
         zip_file_id = os.path.join("zips", job_id, f"{random_id}.zip")
-        storage.move_to(zip_file_path, zip_file_id)
+        # Stream straight into the storage share, in chunks. The previous code
+        # read the whole upload into memory (a multi-GB zip in one gunicorn
+        # worker, fatal under the container memory limit) and then copied it a
+        # second time from the temp folder to the share, which for 5 GB took
+        # longer than the gunicorn worker timeout.
+        zip_abs_path = storage.abs_path(zip_file_id)
+        os.makedirs(os.path.dirname(zip_abs_path), exist_ok=True)
+        zip_file.save(zip_abs_path)
     except Exception as e:
         print(e)
         return Response(response="Error: Failed to download files.", status=500)
@@ -919,19 +920,18 @@ def continue_job(user_id):
 
     random_id = uuid.uuid4()
     zip_path = storage.abs_path(os.path.join("zips", job_id, f"{random_id}.zip"))
-    # Sanitize the client-supplied filename to prevent path traversal both on
-    # disk (f.save) and in the archive member name (new_zip.write): a name like
-    # "../../etc/cron.d/x" would otherwise escape the temp dir / the zip root.
-    tmp_dir = tempfile.mkdtemp()
-    try:
-        with ZipFile(zip_path, 'w') as new_zip:
-            for f in request.files.values():
-                safe_name = secure_filename(f.filename) or f"{uuid.uuid4()}.pdf"
-                file_path = os.path.join(tmp_dir, safe_name)
-                f.save(file_path)
-                new_zip.write(file_path, arcname=safe_name)
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+    # zips/<job_id>/ normally exists since /evaluate created it; do not depend on it
+    os.makedirs(os.path.dirname(zip_path), exist_ok=True)
+    # Sanitize the client-supplied filename: it becomes the archive member name,
+    # and "../../etc/cron.d/x" must not escape the zip root when extracted.
+    # Each upload is copied once, straight from the request into the archive
+    # (no temp file), so a multi-GB copies zip is not written twice.
+    # force_zip64: the member size is unknown up front and may exceed 2 GiB.
+    with ZipFile(zip_path, 'w') as new_zip:
+        for f in request.files.values():
+            safe_name = secure_filename(f.filename) or f"{uuid.uuid4()}.pdf"
+            with new_zip.open(safe_name, 'w', force_zip64=True) as member:
+                shutil.copyfileobj(f.stream, member, 8 * 1024 * 1024)
 
     # removing incorrect pdfs
     storage.remove_tree(os.path.join("incorrect_files", job_id))
