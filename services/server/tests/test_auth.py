@@ -171,4 +171,5 @@ def test_request_body_cap_returns_413(client, app_module_fixture, monkeypatch):
     monkeypatch.setitem(app.config, "MAX_CONTENT_LENGTH", 1024)
     resp = client.post("/login", data={"username": "a", "password": "x" * 4096})
     assert resp.status_code == 413
-    assert resp.get_json(force=True)["response"].startswith("Error")
+    assert resp.mimetype == "application/json"
+    assert resp.get_json()["response"].startswith("Error")

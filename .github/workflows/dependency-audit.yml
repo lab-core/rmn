@@ -42,7 +42,11 @@ jobs:
           pip-audit --progress-spinner off --no-deps --disable-pip \
             -r services/${{ matrix.service }}/requirements.txt \
             --format markdown --output audit.md || status=$?
-          cat audit.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -f audit.md ]; then
+            cat audit.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "pip-audit produced no report (tool error, exit ${status:-0})" >> "$GITHUB_STEP_SUMMARY"
+          fi
           [ -z "${status:-}" ] || echo "::warning::pip-audit found known vulnerabilities in services/${{ matrix.service }} (see the job summary)"
           true
 

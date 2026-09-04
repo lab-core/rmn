@@ -245,6 +245,7 @@ def request_too_large(_error):
     return Response(
         response=json.dumps({"response": "Error: request body too large."}),
         status=413,
+        mimetype="application/json",
     )
 
 
