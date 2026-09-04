@@ -6,6 +6,11 @@ metadata:
     nginx.ingress.kubernetes.io/enable-rewrite-log: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/proxy-body-size: 5G
+    # a 5 GB task creation is copied to the NFS share after the body arrived;
+    # the default 60 s upstream timeout returns a 504 before that finishes.
+    # Keep in sync with GUNICORN_CMD_ARGS --timeout in the server image.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
 spec:
   rules:
     # placeholder: kustomize replaces it with rmn-config.data.host (see

@@ -2,7 +2,7 @@ __pycache__/
 .DS_Store
 **front_page**
 .idea/**
-venv/
+venv*/
 
 # Local secrets — never commit
 .env
@@ -11,3 +11,10 @@ deployment/secrets.yml
 
 # throwaway kustomize overlay created by scripts/deploy.sh
 .deploy-overlay.*/
+
+# local runtime data and build output
+storage/
+node_modules/
+.angular/
+services/executor/tmp_*/
+services/server/temp/

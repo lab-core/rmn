@@ -26,8 +26,13 @@ spec:
             app: redis
     spec:
         containers:
-            - image: redis:alpine
+            # pinned minor: Dependabot cannot bump k8s manifests, so review
+            # this tag with the docker-compose one when it moves
+            - image: redis:8.2-alpine
               name: redis
+              resources:
+                requests: {cpu: 50m, memory: 64Mi}
+                limits: {memory: 512Mi}
               # require a password from every client (sourced from the Secret)
               command: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
               env:

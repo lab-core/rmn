@@ -11,20 +11,27 @@ RUN apt-get update \
 # Unprivileged runtime user. UID/GID 1000 is shared with the executor image
 # because both write to the same NFS share (see README "Non-root containers").
 RUN groupadd --gid 1000 rmn \
- && useradd --uid 1000 --gid rmn --create-home --shell /usr/sbin/nologin rmn
+ && useradd --uid 1000 --gid rmn --create-home --shell /usr/sbin/nologin rmn \
+ && mkdir -p /Server && chown rmn:rmn /Server
 
 WORKDIR /Server
 
-# The server creates its temp folders next to its code, so the app directory
-# has to belong to the runtime user.
-COPY --chown=rmn:rmn . /Server
-RUN chown rmn:rmn /Server
+# Dependencies before the source: a code change only rebuilds the COPY layer.
+# The pip download cache is a BuildKit cache mount kept across builds.
+COPY ./requirements.txt ./requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt gunicorn==23.0.0
 
-RUN pip install --no-cache-dir -r requirements.txt gunicorn==23.0.0
+# The server creates its temp folders next to its code, so the app directory
+# belongs to the runtime user (created above, with the user).
+COPY --chown=rmn:rmn . /Server
 
 ENV ENVIRONMENT=production
 ENV PYTHONUNBUFFERED=1
 ENV HOME=/home/rmn
+# gunicorn's default 30 s worker timeout kills a worker still receiving or
+# copying a multi-GB copies zip (5 GB uploads are allowed). The value is the
+# same as the ingress proxy-read-timeout; override with the same variable.
+ENV GUNICORN_CMD_ARGS="--timeout 1800"
 
 USER rmn
 

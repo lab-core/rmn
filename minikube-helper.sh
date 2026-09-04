@@ -98,8 +98,9 @@ if [[ ! -z $ROLLOUT ]]; then
 fi
 
 if [[ ! -z $CRON ]]; then
-  kubectl create sa cron
-  kubectl create clusterrolebinding cron --clusterrole edit --serviceaccount=default:cron
+  # ServiceAccount + scoped Role/RoleBinding live in deployment/daily-rollout.yml
+  kubectl apply -f deployment/daily-rollout.yml
+  kubectl delete clusterrolebinding cron --ignore-not-found
 fi
 
 exit 0

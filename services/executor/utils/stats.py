@@ -13,12 +13,21 @@ n_latex_line = latex_line
 latex_line += " \\\\ \\hline"
 
 
-def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, latex_dir="tex", width_plot_ratio=0.5, TMP_DIR="tmp"):
+def default_question_names(n_questions):
+    return ["Q%d" % (i + 1) for i in range(n_questions)]
+
+
+def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, latex_dir="tex", width_plot_ratio=0.5,
+                       TMP_DIR="tmp", question_names=None):
     """
     width_plot_ratio = percentage of the width of the page to be used by the boxplot
+    question_names = label of each question (default Q1..Qn); when some questions of
+                     the template are ignored, the remaining ones keep their number
     """
     if isinstance(TMP_DIR, str):
         TMP_DIR = makedir_path(TMP_DIR)
+    if question_names is None:
+        question_names = default_question_names(n_questions)
 
     with open(TMP_DIR.joinpath("data.tex"), "w") as f:
         # remove ascents
@@ -29,7 +38,8 @@ def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, lat
     averages = np.average(all_notes, axis=1)
     with open(TMP_DIR.joinpath("stats.tex"), "w") as f:
         for i in range(n_questions):
-            f.write(latex_line.format("%d (/ %d)" % (i+1, totals[i]), all_notes[i][index] if index is not None else "",
+            f.write(latex_line.format("%s (/ %d)" % (question_names[i][1:], totals[i]),
+                                      all_notes[i][index] if index is not None else "",
                                       averages[i], boxplots[i])+"\n")
         if n_questions > 0:
             averages = np.average(all_notes, axis=1)
@@ -81,12 +91,15 @@ def create_boxplot(notes, title, tmp_dir="tmp"):
     return f_boxplot
 
 
-def create_all_boxplots(all_notes, tmp_dir="tmp"):
+def create_all_boxplots(all_notes, tmp_dir="tmp", question_names=None):
     """
     all_notes: it's a 2D numpy array that contains an array with all the notes for each question
+    question_names: title of each boxplot (default Q1..Qn)
     """
+    if question_names is None:
+        question_names = default_question_names(len(all_notes))
     # Iterate through each question and create its associated boxplot
-    f_boxplots = [create_boxplot(notes, "Q%d" % (q+1), tmp_dir) for q, notes in enumerate(all_notes)]
+    f_boxplots = [create_boxplot(notes, question_names[q], tmp_dir) for q, notes in enumerate(all_notes)]
 
     # create the final boxplot for the total
     f_boxplots.append(create_boxplot(sum(all_notes), "Total", tmp_dir))

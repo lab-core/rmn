@@ -11,7 +11,9 @@ spec:
       targetPort: 5000
   selector:
     com.docker.project: server
-  type: NodePort
+  # ClusterIP: only reached through the Ingress. As NodePort these were open
+  # on every node's external interface, bypassing the ingress rate limit/TLS.
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -43,7 +45,11 @@ spec:
           ports:
             - containerPort: 5000
               protocol: TCP
-          resources: {}
+          # gunicorn -w 2 + pandas/PDF handling; no CPU limit (throttling only
+          # slows requests down), memory limit so a leak cannot take the node.
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 4Gi}
           livenessProbe:
             httpGet:
               path: /

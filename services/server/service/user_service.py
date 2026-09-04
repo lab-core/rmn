@@ -1,9 +1,40 @@
 from flask import Flask, request, Response, json, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 import datetime as dt
+import os
 import uuid
 from enum import Enum
 import re
+
+# Login tokens expire after this many days. Enforced twice: a Mongo TTL index
+# purges expired tokens in the background (Mongo runs it about once a minute),
+# and verify_token() rejects any token older than the TTL in case the index is
+# missing (e.g. a database created before it existed). 0 disables expiry.
+TOKEN_TTL_DAYS = int(os.getenv("TOKEN_TTL_DAYS", "30"))
+
+
+def _utc(value):
+    """Return a timezone-aware UTC datetime for a value read from Mongo.
+
+    pymongo returns naive datetimes (UTC) unless the client is tz_aware, while
+    the tokens are stored with an aware ``now(dt.UTC)``; comparing the two
+    raises TypeError, so normalise here.
+    """
+    if value.tzinfo is None:
+        return value.replace(tzinfo=dt.UTC)
+    return value
+
+
+def token_expired(record, now=None):
+    """True if a token record is older than TOKEN_TTL_DAYS (0 => never)."""
+    if TOKEN_TTL_DAYS <= 0:
+        return False
+    created = record.get("creation_time")
+    if created is None:
+        # legacy token without a timestamp: cannot prove it is fresh
+        return True
+    now = now or dt.datetime.now(dt.UTC)
+    return now - _utc(created) >= dt.timedelta(days=TOKEN_TTL_DAYS)
 
 pass_characters = "a-zA-ZÀ-ÿ0-9.@!#%$?_-"
 pattern = re.compile("^[{}]+$".format(pass_characters))
@@ -18,15 +49,26 @@ class Role(Enum):
 
 
 class UserService:
-    # def addAutoExpiration(database, expire_after_days=7):
-    #     try:
-    #         database["tokens"].createIndex(
-    #             {"creation_time": 1},
-    #             {'expireAfterSeconds': expire_after_days*24*60*60}
-    #         )
-    #     except Exception as e:
-    #         print(e)
-    #         pass
+    def ensure_token_expiration(database):
+        """Create (or update) the TTL index that purges expired login tokens.
+
+        Idempotent; called once at server start-up. Mongo refuses to change
+        ``expireAfterSeconds`` on an existing index, so the index is dropped
+        and recreated when TOKEN_TTL_DAYS changed (or expiry was disabled).
+        """
+        collection = database["tokens"]
+        name = "creation_time_ttl"
+        existing = collection.index_information().get(name)
+        if TOKEN_TTL_DAYS <= 0:
+            if existing:
+                collection.drop_index(name)
+            return
+        seconds = TOKEN_TTL_DAYS * 24 * 60 * 60
+        if existing and existing.get("expireAfterSeconds") != seconds:
+            collection.drop_index(name)
+        collection.create_index(
+            [("creation_time", 1)], name=name, expireAfterSeconds=seconds
+        )
 
     def create_token(username, role, database):
         token = str(uuid.uuid4())
@@ -44,6 +86,11 @@ class UserService:
         tokenDB = collection.find_one({"token": token})
         if tokenDB is None:
             return False, ""
+        if token_expired(tokenDB):
+            # the TTL index removes it eventually; do it now so it cannot be
+            # retried in the meantime
+            collection.delete_one({"_id": tokenDB["_id"]})
+            return False, ""
         if role is None:
             return True, tokenDB["username"]
         return tokenDB["role"] == role.value, tokenDB["username"]
@@ -59,7 +106,7 @@ class UserService:
            now = dt.datetime.now(dt.UTC)
            delete_tokens = []
            for t in tokens:
-               delta = now - t["creation_time"]
+               delta = now - _utc(t["creation_time"])
                if delta.days >= n_days_old:
                    delete_tokens.append(t['token'])
            r["token"] = {"$in": delete_tokens}

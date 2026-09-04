@@ -1,9 +1,8 @@
 import os
-import re
 from PyPDF2 import PdfReader, PdfWriter
 from python.process_copy.database import Database
 from utils.storage import Storage
-from utils.utils import Document_Status
+from utils.utils import Document_Status, active_question_keys
 
 
 storage = Storage()
@@ -29,13 +28,33 @@ def find_files_with_base_name(base_name, folder_paths, suffix):
     return pdf_paths
 
 
-def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
+def merge_parts(job_id, n_pages_per_question):
+    """
+    Build the ordered list of parts to concatenate for each copy.
+
+    Args:
+        job_id (str): The ID of the job.
+        n_pages_per_question: The pages per question (dict or [[key, pages], ...]).
+
+    Returns:
+        list: (folder, filename suffix) couples: the cover page first, then one
+              entry per question that is not ignored, in numeric order.
+    """
+    parts = [(storage.abs_path(os.path.join('cover_pages', job_id)), "_cover.pdf")]
+    for question in active_question_keys(n_pages_per_question):
+        folder = storage.abs_path(os.path.join('documents', job_id, question))
+        parts.append((folder, f"_{question}.pdf"))
+    return parts
+
+
+def merge_pdfs_by_base_name(base_names, parts, output_folder):
     """
     Merge PDF files based on their base names.
 
     Args:
         base_names (list): A list of base names of the PDF files to be merged.
-        folder_paths (list): A list of folder paths where the PDF files are located.
+        parts (list): (folder, suffix) couples, see merge_parts; the file merged
+                      for a copy is folder/<base_name><suffix>.
         output_folder (str): The folder path where the merged PDF files will be saved.
 
     Returns:
@@ -50,16 +69,8 @@ def merge_pdfs_by_base_name(base_names, folder_paths, output_folder):
         writer = PdfWriter()
         output_path = os.path.join(output_folder, f"{base_name}.pdf")
 
-        for i, path in enumerate(folder_paths):
-            filename = base_name
-            # if cover
-            if i == 0:
-                filename += "_cover.pdf"
-            # otherwise, it's a question
-            else:
-                filename += f"_Q{i}.pdf"
-
-            reader = PdfReader(os.path.join(path, filename))
+        for folder, suffix in parts:
+            reader = PdfReader(os.path.join(folder, base_name + suffix))
             for page in reader.pages:
                 writer.add_page(page)
 
@@ -80,18 +91,9 @@ def process_merge(job):
         output_folder (str): path to the directory with all corrected copies
     """
     job_id = job["job_id"]
-    n_max_points_per_question = job["n_max_points_per_question"]
-    question_indexes = [item[0] for item in n_max_points_per_question]
-    # numeric order ("Q2" before "Q10"); a plain sort is lexicographic and, since
-    # the merge maps folder position i to the file named _Q{i}, would look for
-    # "_Q2.pdf" inside the "Q10" folder and fail once there are >= 10 questions
-    question_indexes.sort(key=lambda q: int(re.sub(r"\D", "", str(q)) or 0))
-
-    # folders where to fetch the different parts to merge
-    folder_paths = [storage.abs_path(os.path.join('cover_pages', job_id))]
-    for question_index in question_indexes:
-        question_index_path = storage.abs_path(os.path.join('documents', job_id, str(question_index)))
-        folder_paths.append(question_index_path)
+    # the question keys (not their position) name the folders and files, and an
+    # ignored question (0 page) has neither
+    parts = merge_parts(job_id, job["n_pages_per_question"])
 
     # files to merge
     db = Database()
@@ -101,6 +103,6 @@ def process_merge(job):
     # output for the merged files
     output_folder = storage.abs_path(os.path.join('corrected_copies', job_id))
 
-    merge_pdfs_by_base_name(base_names, folder_paths, output_folder)
+    merge_pdfs_by_base_name(base_names, parts, output_folder)
 
     return output_folder

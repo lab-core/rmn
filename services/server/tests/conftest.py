@@ -90,6 +90,8 @@ def make_job(job_id, owner, status="VALIDATION", **extra):
         "job_name": "test job",
         "job_status": status,
         "bonus_enabled_map": [],
+        "n_pages_per_question": [],
+        "n_max_points_per_question": [],
         "students_list": [],
     }
     doc.update(extra)
