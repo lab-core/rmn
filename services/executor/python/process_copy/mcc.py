@@ -28,7 +28,7 @@ import zipfile
 import re
 import pandas as pd
 import unidecode
-import fitz
+import pymupdf
 from colorama import Fore, Style
 import traceback
 
@@ -93,15 +93,15 @@ def copy_file_with_front_page(file, dfile, name=None, mat=None, latex_front_page
         f_page = None
         try:
             f_page = create_front_page(latex_front_page, name, mat)
-            doc = fitz.Document(f_page)
-            copy = fitz.Document(file)
+            doc = pymupdf.Document(f_page)
+            copy = pymupdf.Document(file)
             try:
                 doc.insert_pdf(copy)
             except Exception:
                 # clean the pdf, and retry
                 copy.save("tmp/" + f, garbage=4, deflate=True)
-                doc = fitz.Document(f_page)
-                copy = fitz.Document("tmp/" + f)
+                doc = pymupdf.Document(f_page)
+                copy = pymupdf.Document("tmp/" + f)
                 doc.insert_pdf(copy)
             doc.save(dfile, garbage=4, deflate=True)
             print("Imported file %s for %s" % (f, name))
