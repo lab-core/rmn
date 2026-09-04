@@ -51,8 +51,9 @@ minikube addons enable ingress
 #### KEDA update
 Use the newest KEDA whose tested window includes the cluster's Kubernetes
 version (see the [compatibility matrix](https://keda.sh/docs/latest/operate/cluster/#kubernetes-compatibility)):
-KEDA 2.12 covers Kubernetes 1.26 - 1.28. `--server-side` is required because
-the ScaledJob CRD is too large for a client-side apply.
+KEDA 2.12 (latest patch: 2.12.1, used below) covers Kubernetes 1.26 - 1.28.
+`--server-side` is required because the ScaledJob CRD is too large for a
+client-side apply.
 ```
 kubectl apply --server-side -f https://github.com/kedacore/keda/releases/download/v2.12.1/keda-2.12.1.yaml
 kubectl get pods -n keda        # operator, metrics-apiserver and admission-webhooks Running
@@ -79,11 +80,11 @@ Since the node pulls images slowly, pre-pull the three
 so the operator is not down for long: no executor Job is started while it
 restarts.
 
-Do not stay on KEDA <= 2.9 with a recent kubectl: its metrics server answers
+Do not stay on KEDA < 2.10.1 with a recent kubectl: its metrics server answers
 the discovery of `external.metrics.k8s.io/v1beta1` with an empty list when no
 ScaledObject exists (a ScaledJob is not enough), and every kubectl command prints
 `couldn't get resource list for external.metrics.k8s.io/v1beta1: Got empty
-response`. Fixed upstream and shipped from KEDA 2.10.1. KEDA 2.9 also never
+response`. Fixed upstream and shipped from KEDA 2.10.1. KEDA < 2.10 also never
 resets a ScaledJob's `Ready` condition to True after a transient failure.
 
 #### Secrets
@@ -252,6 +253,32 @@ kubectl exec rc/nfs -- chown -R 1000:1000 /mnt/nfs_share
 ```
 The same applies to files copied onto the share by hand.
 
+#### Hardening defaults
+- **Login tokens expire** after `TOKEN_TTL_DAYS` (default 30) days. The server
+  creates a Mongo TTL index on `tokens.creation_time` at start-up and, like the
+  socketIO server, also rejects any token older than the TTL (tokens without a
+  timestamp count as expired). Set the variable on both `server` and `socketio`
+  to change it; `0` disables expiry. `/admin/delete/tokens` still works for a
+  forced logout.
+- **Request bodies are capped** at `MAX_UPLOAD_GB` (default 5, matching the
+  Ingress `proxy-body-size`); larger uploads get a JSON 413. Uploads stream to
+  the share in one copy, and the gunicorn worker timeout (`GUNICORN_CMD_ARGS`,
+  1800 s) and the Ingress `proxy-read-timeout` are sized for a 5 GB upload.
+  Note the node needs about twice the upload size free on disk while a request
+  is in flight (ingress buffer + the multipart spool file).
+- **Security headers** come from the front nginx (`security_headers`, including
+  the nonce-based CSP); the webapp image and the Flask API add the safe subset
+  themselves so they hold without it.
+- **Services are `ClusterIP`**: `server`, `socketio` and `webapp` are only
+  reachable through the Ingress (they used to be `NodePort`, i.e. exposed on the
+  node's external interface, bypassing the login rate limit).
+- **Resource requests/limits** are set on every workload (memory limits only,
+  no CPU throttling). The executor's `MAX_RAM_GB` must stay below its memory
+  limit in `executor.yml`.
+- **Dependencies**: `.github/dependabot.yml` opens weekly update PRs (pip, npm,
+  Dockerfiles, docker-compose, actions); the `dependency-audit` workflow posts a
+  pip-audit / npm audit report on PRs touching a manifest and every Monday.
+
 #### Persistent volume: NFS server
 WARNING: you need to mount a persistent volume that correspond to the path given to the nfs server, otherwise you will have an error as docker is not able to mount other paths for a nsf server. Furthermore, if using minikube, the path of the persistent volume needs also to be persistent in minikube: you can use a default persistent path like "/data" or any other path that has been mounted in minikube to communicate with the host.
 
@@ -281,11 +308,10 @@ minikube mount --port=35475 ./k8s_storage:/mnt/k8s_storage
 ```
 
 #### Cron job
-The nfs connection may hang from time to time. To avoid this issue, we rollout the server pod every day with a cron job that will patch the server by modifying the date and trigger a rollout. To do so,, we create a service account 'cron' that we bind with the role edit to perform the patch operation. Then, the cron job daily rollout can de deploy and perform this action, as it uses the service account cron (see daily-rollout.yml). The minikube helper script can do those steps for you:
+The nfs connection may hang from time to time. To avoid this issue, we rollout the server pod every day with a cron job that will patch the server by modifying the date and trigger a rollout. `deployment/daily-rollout.yml` (part of `kubectl apply -k deployment/`) carries the CronJob, the `cron` ServiceAccount and a Role that only allows patching the `server` Deployment. Older clusters bound that ServiceAccount to the cluster-wide `edit` role by hand; drop that binding once the manifest is applied:
 ```
-kubectl create sa cron
-kubectl create clusterrolebinding cron --clusterrole edit --serviceaccount=default:cron
 kubectl apply -f deployment/daily-rollout.yml
+kubectl delete clusterrolebinding cron --ignore-not-found
 ```
 
 ### Admin commands
@@ -306,7 +332,7 @@ export ADMIN_API_KEY=$(grep '^ADMIN_API_KEY=' .env | cut -d= -f2-)
 
 # kubernetes: the server reads rmn-secrets/admin-api-key (see "Secrets");
 # export the same value in the shell you run the commands from.
-export ADMIN_API_KEY=$(kubectl get secret rmn-secrets -o jsonpath='{.data.admin-api-key}' | base64 -d)
+export ADMIN_API_KEY=$(kubectl get secret rmn-secrets -o jsonpath="{.data['admin-api-key']}" | base64 -d)
 ```
 
 In the examples below, `$ADMIN_API_KEY` is the value exported above.

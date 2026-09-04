@@ -1,0 +1,40 @@
+# Dependabot: version updates grouped weekly, security updates as they come.
+# The dependency-audit workflow reports the current state on every PR; this is
+# what actually moves the pins.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /services/server
+    schedule: {interval: weekly}
+    groups:
+      python-minor-patch: {update-types: [minor, patch]}
+  - package-ecosystem: pip
+    directory: /services/executor
+    schedule: {interval: weekly}
+    groups:
+      python-minor-patch: {update-types: [minor, patch]}
+  - package-ecosystem: pip
+    directory: /services/socketIO
+    schedule: {interval: weekly}
+    groups:
+      python-minor-patch: {update-types: [minor, patch]}
+  - package-ecosystem: npm
+    directory: /services/webapp/ng
+    schedule: {interval: weekly}
+    groups:
+      angular: {patterns: ["@angular/*", "@angular-devkit/*", "@angular-eslint/*"]}
+      npm-minor-patch: {update-types: [minor, patch]}
+  - package-ecosystem: docker
+    directories:
+      - /services/server
+      - /services/executor
+      - /services/socketIO
+      - /services/webapp
+      - /services/nginx
+    schedule: {interval: weekly}
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule: {interval: weekly}
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: {interval: weekly}
