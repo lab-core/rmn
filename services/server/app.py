@@ -1068,7 +1068,10 @@ def share_archive():
     else:
         token = job["share_token"]
 
-    protocol = "http" if host == "0.0.0.0" or host == "localhost" else "https"
+    # a local host (possibly with a port, e.g. "localhost:8085") is served over
+    # http; anything else sits behind the TLS reverse proxy
+    hostname = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    protocol = "http" if hostname in ("0.0.0.0", "localhost", "127.0.0.1") else "https"
     share_url = f"{protocol}://{host}/api/file/download?job_id={job_id}&token={token}&file={target_file}"
     if zip_index:
         share_url += f"&zip_index={zip_index}"
@@ -1346,7 +1349,10 @@ def share_matricule_verification(user_id):
     else:
         token = job["share_token"]["mat"]
 
-    protocol = "http" if host == "0.0.0.0" or host == "localhost" else "https"
+    # a local host (possibly with a port, e.g. "localhost:8085") is served over
+    # http; anything else sits behind the TLS reverse proxy
+    hostname = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    protocol = "http" if hostname in ("0.0.0.0", "localhost", "127.0.0.1") else "https"
     share_url = f"{protocol}://{host}/matricule-validation/?job_id={job_id}&token={token}"
 
     resp = {

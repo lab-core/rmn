@@ -462,6 +462,9 @@ export class DashboardPageComponent {
   async restore() {
     await this.tasksService.updateTaskStatus(this.task.job_id, 'VALIDATION');
     this.task.job_status = 'VALIDATION';
+    // /job/update/status emits no socket event, so refresh the view here:
+    // re-enable the buttons and drop the "(Archivée)" suffix of the title
+    this.updateViewOnStatus();
   }
 
   public correctQuestion(question: Question) {
