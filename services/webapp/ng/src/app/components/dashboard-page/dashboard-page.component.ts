@@ -255,7 +255,7 @@ export class DashboardPageComponent {
 
     // initialize stats; an ignored question (0 page) has no copy to correct
     // and is not displayed, but keeps its index for the bonus map
-    const questionsStats = new Map<string, Question>();
+    const questionsStats: Record<string, Question> = {};
     this.task.n_max_points_per_question.forEach((element) => {
       if (this.isQuestionIgnored(element[0])) { return; }
       const question_index: number = parseInt(element[0].slice(1));
@@ -293,7 +293,7 @@ export class DashboardPageComponent {
 
     // put the questions in an array, in numeric order (compacted: the array
     // position is not the question number once a question is ignored)
-    this.questions = Object.values(questionsStats) as Question[];
+    this.questions = Object.values(questionsStats);
     this.questions.sort((a, b) => a.index - b.index);
 
     // compute the total

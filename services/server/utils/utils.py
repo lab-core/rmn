@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 
 
@@ -40,6 +41,9 @@ class User_Role(Enum):
     ADMIN = "Administrateur"
 
 
+QUESTION_KEY = re.compile(r"Q[1-9][0-9]*")
+
+
 def validate_questions(
     n_pages_per_question, n_max_points_per_question, bonus_enabled_map
 ):
@@ -59,6 +63,11 @@ def validate_questions(
     keys = [e[0] for e in n_pages_per_question]
     if len(set(keys)) != len(keys):
         return "question en double."
+    # the keys name folders and files on the executor side: only "Q<n>" is allowed
+    if any(not isinstance(k, str) or QUESTION_KEY.fullmatch(k) is None for k in keys):
+        return "les questions doivent être nommées Q1, Q2, ..."
+    if any(not isinstance(e[1], bool) for e in bonus_enabled_map):
+        return "le bonus d'une question doit être vrai ou faux."
     for entries in lists[1:]:
         if sorted(e[0] for e in entries) != sorted(keys):
             return "les questions des pages, des points et des bonus diffèrent."

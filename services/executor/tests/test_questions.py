@@ -30,6 +30,15 @@ def test_calculate_pages_skips_ignored_question():
     assert calculate_total_expected_pages(PAGES) == 7
 
 
+def test_calculate_pages_follows_numeric_order_not_input_order():
+    pages = {"Q10": 1, "Q2": 2, "Q1": 1}
+    assert list(calculate_pages(pages).items()) == [
+        ("Q1", [1]),
+        ("Q2", [2, 3]),
+        ("Q10", [4]),
+    ]
+
+
 def test_merge_parts_use_question_keys():
     parts = merge_parts("job", PAGES_AS_PAIRS)
     assert [suffix for _, suffix in parts] == [

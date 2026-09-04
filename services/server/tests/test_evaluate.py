@@ -72,6 +72,17 @@ def test_invalid_questions_are_rejected(client, user_factory, login, pages, poin
     assert resp.get_json(force=True)["response"].startswith("Error:")
 
 
+@pytest.mark.parametrize("key", ["q1", "Q0", "Q", "1", "Q1/..", "Q 1", "Q01"])
+def test_question_keys_must_be_Qn(key):
+    assert validate_questions([[key, 1]], [[key, 1]], [[key, False]]) is not None
+
+
+def test_bonus_must_be_boolean():
+    assert validate_questions([["Q1", 1]], [["Q1", 1]], [["Q1", "true"]]) is not None
+    assert validate_questions([["Q1", 1]], [["Q1", 1]], [["Q1", 1]]) is not None
+    assert validate_questions([["Q1", 1]], [["Q1", 1]], [["Q1", True]]) is None
+
+
 def test_no_question_is_valid():
     assert validate_questions([], [], []) is None
 

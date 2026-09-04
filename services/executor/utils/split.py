@@ -46,13 +46,13 @@ def calculate_pages(pages_per_question):
         {'Q1': [0, 1, 2], 'Q2': [3, 4], 'Q3': [5, 6, 7, 8]}
 
     An ignored question (0 page) is left out of the result: no folder and no
-    empty pdf are created for it.
+    empty pdf are created for it. The questions are taken in numeric order
+    ("Q2" before "Q10"), whatever the order of the input.
     """
     current_start_page = CURRENT_START_PAGE
     results = {}
-    for question, num_pages in pages_per_question.items():
-        if not num_pages:
-            continue
+    for question in active_question_keys(pages_per_question):
+        num_pages = pages_per_question[question]
         end_page = current_start_page + num_pages - 1
         results[question] = list(range(current_start_page - 1, end_page))
         current_start_page = end_page + 1
