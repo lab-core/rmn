@@ -20,7 +20,7 @@
     "@angular/material": "^18.1.4",
     "@angular/platform-browser": "^18.1.4",
     "@angular/platform-browser-dynamic": "^18.1.4",
-    "@angular/router": "^18.1.4",
+    "@angular/router": "^22.1.4",
     "@ng-select/ng-select": "^13.7.0",
     "dexie": "^4.0.8",
     "file-saver": "^2.0.5",
