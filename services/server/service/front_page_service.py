@@ -1,4 +1,4 @@
-import fitz
+import pymupdf
 import traceback
 import unidecode
 import os
@@ -95,8 +95,8 @@ class FrontPageHandler:
             f_page = self.create_front_page(
                 latex_front_page, latex_input_file, name, mat, work_directory
             )
-            doc = fitz.Document(f_page)
-            copy = fitz.Document(file)
+            doc = pymupdf.Document(f_page)
+            copy = pymupdf.Document(file)
             doc.insert_pdf(copy)
             doc.save(file, garbage=4, deflate=True)
             shutil.move(file, output_filename)
