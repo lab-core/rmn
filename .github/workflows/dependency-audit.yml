@@ -30,7 +30,7 @@ jobs:
       matrix:
         service: [server, executor, socketIO]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -65,7 +65,7 @@ jobs:
       run:
         working-directory: services/webapp/ng
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 20
