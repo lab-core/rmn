@@ -1,7 +1,7 @@
 bidict==0.24.1
 blinker==1.9.0
 cachelib==0.17.0
-certifi==2024.7.4
+certifi==2026.7.22
 charset-normalizer==3.5.1
 click==8.5.0
 colorama==0.4.6
@@ -16,13 +16,13 @@ httplib2==0.32.0
 idna==3.19
 itsdangerous==2.2.0
 Jinja2==3.1.6
-MarkupSafe==2.1.5
+MarkupSafe==3.0.3
 msgspec==0.21.1
 numpy==2.5.2
 pandas==3.0.5
 pdf2image==1.17.0
 pillow==12.3.0
-pymongo==4.17.0
+pymongo==4.18.0
 PyMuPDF==1.28.2
 PyMuPDFb==1.24.10
 pyparsing==3.3.2
