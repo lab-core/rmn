@@ -1,8 +1,9 @@
 name: Publish All Docker images
 
 # Publishing is manual (Actions tab -> "Run workflow") plus automatic on a
-# v* release tag. Pushes to main no longer publish. Pull requests still build
-# the images as a check but never push them (see docker-publish.yml).
+# v* release tag. Nothing else builds an image: pushes to main and pull
+# requests used to build all four images (multi-arch, QEMU) as a check, which
+# was most of the Actions minutes spent on this repo, so that trigger is gone.
 #
 # To check that every image builds on a branch without publishing anything,
 # run the workflow manually on that branch with "Push images" unchecked.
@@ -15,11 +16,9 @@ on:
         default: true
   push:
     tags: [ 'v*' ]
-  pull_request:
-    branches: [ main ]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
