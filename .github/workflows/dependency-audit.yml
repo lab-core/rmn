@@ -5,6 +5,9 @@
 # check. The report still lands in the job summary. To accept a finding that
 # cannot be fixed yet, add `--ignore-vuln <ID>` (pip-audit) with a comment
 # rather than turning the step back into a warning.
+#
+# Runs on PRs that touch a manifest and every Monday (new advisories against
+# unchanged pins). Not on pushes to main: a merged PR was audited as a PR.
 name: dependency-audit
 
 on:
@@ -13,8 +16,6 @@ on:
       - "services/*/requirements*.txt"
       - "services/webapp/ng/package*.json"
       - ".github/workflows/dependency-audit.yml"
-  push:
-    branches: [main]
   schedule:
     - cron: "0 7 * * 1"  # Mondays 07:00 UTC
   workflow_dispatch:
@@ -22,54 +23,56 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  pip-audit:
+  # One job for the four manifests. Actions bills every job rounded up to the
+  # minute, so the former 3-way pip-audit matrix plus a separate npm job cost
+  # four runner start-ups for a few seconds of auditing each.
+  audit:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: [server, executor, socketIO]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - run: pip install pip-audit
-      # --no-deps/--disable-pip: audit the pinned versions as written, without
-      # resolving or building anything (tensorflow, numpy, ...)
-      - name: pip-audit services/${{ matrix.service }}
-        run: |
-          pip-audit --progress-spinner off --no-deps --disable-pip \
-            -r services/${{ matrix.service }}/requirements.txt \
-            --format markdown --output audit.md || status=$?
-          # pip-audit only writes the report when it has findings: exit 0 and no
-          # file is a clean run, exit != 0 with a file is a finding, exit != 0
-          # without a file is a tool error.
-          if [ -f audit.md ]; then
-            cat audit.md >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "pip-audit: no known vulnerabilities in services/${{ matrix.service }} (exit ${status:-0})" >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ -n "${status:-}" ]; then
-            if [ -f audit.md ]; then
-              echo "::error::pip-audit found known vulnerabilities in services/${{ matrix.service }} (see the job summary)"
-            else
-              echo "::error::pip-audit failed for services/${{ matrix.service }} without producing a report (tool error, exit $status)"
-            fi
-            exit "$status"
-          fi
-
-  npm-audit:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/webapp/ng
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
         with:
           node-version: 20
+      - run: pip install pip-audit
+
+      # --no-deps/--disable-pip: audit the pinned versions as written, without
+      # resolving or building anything (tensorflow, numpy, ...)
+      - name: pip-audit services/{server,executor,socketIO}
+        run: |
+          failed=0
+          for service in server executor socketIO; do
+            status=0
+            pip-audit --progress-spinner off --no-deps --disable-pip \
+              -r "services/$service/requirements.txt" \
+              --format markdown --output audit.md || status=$?
+            # pip-audit only writes the report when it has findings: exit 0 and
+            # no file is a clean run, exit != 0 with a file is a finding,
+            # exit != 0 without a file is a tool error.
+            if [ -f audit.md ]; then
+              { echo "### pip-audit services/$service"; cat audit.md; echo; } >> "$GITHUB_STEP_SUMMARY"
+              [ "$status" -ne 0 ] && echo "::error::pip-audit found known vulnerabilities in services/$service (see the job summary)"
+              rm -f audit.md
+            else
+              echo "pip-audit: no known vulnerabilities in services/$service (exit $status)" >> "$GITHUB_STEP_SUMMARY"
+              [ "$status" -ne 0 ] && echo "::error::pip-audit failed for services/$service without producing a report (tool error, exit $status)"
+            fi
+            [ "$status" -ne 0 ] && failed=1
+          done
+          exit "$failed"
+
       - name: npm audit (production dependencies)
+        # still report the webapp when a pip manifest failed above
+        if: success() || failure()
+        working-directory: services/webapp/ng
         run: |
           set -o pipefail
           npm audit --omit=dev --audit-level=high | tee audit.txt || status=$?

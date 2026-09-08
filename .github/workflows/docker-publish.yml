@@ -19,6 +19,7 @@ jobs:
   check_diff:
     name: Check if any file has changed
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       status: ${{ steps.changed-files.outputs.status }}
     steps:
@@ -61,6 +62,8 @@ jobs:
   push_images_to_dockerhub:
     name: Publish docker image
     runs-on: ubuntu-latest
+    # a hung QEMU build would otherwise run to the 6 h default and be billed
+    timeout-minutes: 120
     needs: check_diff
     if: needs.check_diff.outputs.status == 'changed' || startsWith(github.ref, 'refs/tags/')
     steps:
