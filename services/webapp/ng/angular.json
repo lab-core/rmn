@@ -113,10 +113,7 @@
           "builder": "@angular-eslint/builder:lint",
           "options": {
             "eslintConfig": "eslint.config.mjs",
-            "lintFilePatterns": ["**/*.spec.ts", "**/*.ts"],
-            "exclude": [
-              "**/node_modules/**"
-            ]
+            "lintFilePatterns": ["**/*.spec.ts", "**/*.ts"]
           }
         },
         "e2e": {
