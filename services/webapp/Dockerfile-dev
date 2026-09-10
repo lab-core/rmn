@@ -1,3 +1,9 @@
+# syntax=docker/dockerfile:1
+
+# Dev image: ng serve with the sources mounted from the host (docker-compose.yml).
+FROM node:26
+WORKDIR /app
+
 # lockfile + .npmrc (legacy-peer-deps) so the image installs exactly what was
 # tested; npm download cache is a BuildKit cache mount kept across builds.
 COPY ng/package.json ng/package-lock.json ng/.npmrc ./
