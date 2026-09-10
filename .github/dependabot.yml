@@ -41,16 +41,30 @@ updates:
       # 7 (#107) broke `ng build`. Lift when the Angular group moves.
       - dependency-name: typescript
         versions: [">=6.1"]
+      # 21.3.8 is pdf.js 4.5, matched to the custom viewer assets in assets/
+      # and to the ink-annotation format stored with the exams; v30 (pdf.js 6)
+      # changes both (see .npmrc). Lift together with a viewer/assets migration.
+      - dependency-name: ngx-extended-pdf-viewer
+        versions: [">=22"]
   - package-ecosystem: docker
     directories:
       - /services/server
-      - /services/executor
       - /services/socketIO
       - /services/webapp
       - /services/nginx
     schedule: {interval: monthly}
     groups:
       docker: {patterns: ["*"]}
+  - package-ecosystem: docker
+    directory: /services/executor
+    schedule: {interval: monthly}
+    groups:
+      docker: {patterns: ["*"]}
+    ignore:
+      # tensorflow 2.21.0 ships wheels up to cp313 only (#122). Lift when a
+      # tensorflow release has cp314 wheels.
+      - dependency-name: python
+        versions: [">=3.14"]
   - package-ecosystem: docker-compose
     directory: /
     schedule: {interval: monthly}
