@@ -32,9 +32,12 @@ Firebase has been removed and a NFS (run inside the cluster) is instead used to 
 Every service has a unit test suite that needs no running MongoDB, Redis,
 Socket.IO server or browser session: the Python suites use in-memory doubles
 (`mongomock`, `fakeredis`, the Flask and Flask-SocketIO test clients) and the
-webapp uses Angular's `HttpTestingController` in a headless Chrome. CI runs each
-suite only when its service changes (`.github/workflows/test-*.yml`); nothing
-builds a Docker image.
+webapp uses Angular's `HttpTestingController` in a headless Chrome. CI
+(`.github/workflows/tests.yml`) detects which services a change touches and runs
+only their suites; the others are reported as skipped, which satisfies the
+required checks of `main`. Nothing builds a Docker image. Every job has a
+timeout, every Python test fails after 60 s (`pytest-timeout`) and every Jasmine
+spec after 10 s.
 
 | Service  | From `services/<service>` |
 |----------|---------------------------|

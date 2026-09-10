@@ -66,8 +66,9 @@ jobs:
   push_images_to_dockerhub:
     name: Publish docker image
     runs-on: ubuntu-latest
-    # a hung QEMU build would otherwise run to the 6 h default and be billed
-    timeout-minutes: 120
+    # a hung QEMU build would otherwise run to the 6 h default and be billed;
+    # the executor (the slowest image, multi-arch under QEMU) takes about 15 min
+    timeout-minutes: 45
     needs: check_diff
     if: needs.check_diff.outputs.status == 'changed' || startsWith(github.ref, 'refs/tags/')
     steps:

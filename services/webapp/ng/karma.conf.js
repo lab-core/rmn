@@ -18,10 +18,17 @@ module.exports = function (config) {
     client: {
       jasmine: {
         // https://jasmine.github.io/api/edge/Configuration.html
-        random: true
+        random: true,
+        timeoutInterval: 10000 // a single spec may not run longer than 10 s
       },
       clearContext: false // leave Jasmine Spec Runner output visible in browser
     },
+    // a browser that stops reporting or never starts ends the run instead of
+    // stalling the CI job until its timeout
+    captureTimeout: 60000,
+    browserNoActivityTimeout: 60000,
+    browserDisconnectTimeout: 10000,
+    browserDisconnectTolerance: 1,
     jasmineHtmlReporter: {
       suppressAll: true // removes the duplicated traces
     },
