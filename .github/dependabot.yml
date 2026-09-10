@@ -1,29 +1,36 @@
-# Dependabot: version updates grouped weekly, security updates as they come.
-# The dependency-audit workflow reports the current state on every PR; this is
-# what actually moves the pins.
+# Dependabot: version updates grouped monthly, one PR per manifest (majors
+# included), security updates as they come. The dependency-audit workflow
+# reports the current state on every PR; this is what actually moves the pins.
+#
+# Every PR costs a tests + audit run, so the schedule is monthly and each
+# manifest gets a single grouped PR rather than one PR per package per week
+# (the September 2026 batch was 19 PRs in one week). A major that cannot be
+# taken (peer range, upstream pin) goes in `ignore` with the reason, so it does
+# not fail the whole group every month.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /services/server
-    schedule: {interval: weekly}
+    schedule: {interval: monthly}
     groups:
-      python-minor-patch: {update-types: [minor, patch]}
+      python: {patterns: ["*"]}
   - package-ecosystem: pip
     directory: /services/executor
-    schedule: {interval: weekly}
+    schedule: {interval: monthly}
     groups:
-      python-minor-patch: {update-types: [minor, patch]}
+      python: {patterns: ["*"]}
   - package-ecosystem: pip
     directory: /services/socketIO
-    schedule: {interval: weekly}
+    schedule: {interval: monthly}
     groups:
-      python-minor-patch: {update-types: [minor, patch]}
+      python: {patterns: ["*"]}
   - package-ecosystem: npm
     directory: /services/webapp/ng
-    schedule: {interval: weekly}
+    schedule: {interval: monthly}
     groups:
-      angular: {patterns: ["@angular/*", "@angular-devkit/*", "@angular-eslint/*"]}
-      npm-minor-patch: {update-types: [minor, patch]}
+      # Angular and its tooling move together (first matching group wins)
+      angular: {patterns: ["@angular/*", "@angular-devkit/*", "@angular-eslint/*", "angular-eslint"]}
+      npm: {patterns: ["*"]}
   - package-ecosystem: docker
     directories:
       - /services/server
@@ -31,10 +38,16 @@ updates:
       - /services/socketIO
       - /services/webapp
       - /services/nginx
-    schedule: {interval: weekly}
+    schedule: {interval: monthly}
+    groups:
+      docker: {patterns: ["*"]}
   - package-ecosystem: docker-compose
     directory: /
-    schedule: {interval: weekly}
+    schedule: {interval: monthly}
+    groups:
+      docker-compose: {patterns: ["*"]}
   - package-ecosystem: github-actions
     directory: /
-    schedule: {interval: weekly}
+    schedule: {interval: monthly}
+    groups:
+      actions: {patterns: ["*"]}

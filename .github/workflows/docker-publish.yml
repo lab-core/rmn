@@ -10,7 +10,7 @@ on:
         required: true
         type: string
       push:
-        description: Push the built image. Set to false to only check the build.
+        description: Push the built image. Set to false to only check that it builds.
         required: false
         type: boolean
         default: true
@@ -19,13 +19,14 @@ jobs:
   check_diff:
     name: Check if any file has changed
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       status: ${{ steps.changed-files.outputs.status }}
     steps:
       - uses: actions/checkout@v4
         with:
-            # Full history: the diff below needs the PR base branch and, on
-            # push, the last successfully published commit.
+            # Full history: the diff below needs the PR base branch or the
+            # last successfully published commit.
             fetch-depth: 0
 
       - name: Get last successful commit
@@ -44,10 +45,10 @@ jobs:
             # used to make this silently report "same" and skip the build.
             set -euo pipefail
             if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-                # manual publish: build/push every image regardless of diff
-                echo "status=changed" >> $GITHUB_OUTPUT
-            elif ${{ github.event_name == 'pull_request' }}; then
-                # PR check: build if the PR touches this image's context
+                # manual run: build/push every image regardless of diff
+                echo "status=changed" >> "$GITHUB_OUTPUT"
+            elif [ "${{ github.event_name }}" = "pull_request" ]; then
+                # `build-images` label: build only if the PR touches this image's context
                 changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- "${{ inputs.context }}")
                 [ -z "${changed_files}" ] && echo "status=same" >> "$GITHUB_OUTPUT" || echo "status=changed" >> "$GITHUB_OUTPUT"
             else
@@ -65,6 +66,8 @@ jobs:
   push_images_to_dockerhub:
     name: Publish docker image
     runs-on: ubuntu-latest
+    # a hung QEMU build would otherwise run to the 6 h default and be billed
+    timeout-minutes: 120
     needs: check_diff
     if: needs.check_diff.outputs.status == 'changed' || startsWith(github.ref, 'refs/tags/')
     steps:
@@ -85,7 +88,7 @@ jobs:
 
       - name: Log in to Docker Hub
         id: login
-        if: inputs.push && github.event_name != 'pull_request'
+        if: inputs.push
         uses: docker/login-action@v3
         continue-on-error: true
         with:
@@ -115,9 +118,9 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.context }}
-          # Push only when asked to, the login succeeded and this is not a PR
-          # check. A skipped login never pushes.
-          push: ${{ inputs.push && steps.login.outcome == 'success' && github.event_name != 'pull_request' }}
+          # Push only when asked to and the login succeeded. A skipped login
+          # never pushes.
+          push: ${{ inputs.push && steps.login.outcome == 'success' }}
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -127,4 +130,4 @@ jobs:
           # download the dependency layers instead of rebuilding them. The
           # cache is only written when the image itself is pushed.
           cache-from: type=registry,ref=${{ inputs.image }}:buildcache
-          cache-to: ${{ (inputs.push && steps.login.outcome == 'success' && github.event_name != 'pull_request') && format('type=registry,ref={0}:buildcache,mode=max', inputs.image) || '' }}
+          cache-to: ${{ (inputs.push && steps.login.outcome == 'success') && format('type=registry,ref={0}:buildcache,mode=max', inputs.image) || '' }}
