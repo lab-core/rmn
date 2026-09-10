@@ -107,6 +107,7 @@ describe('TemplatesPageComponent', () => {
     spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of(false) } as any);
     component.openDeleteDialog(TEMPLATES[1] as any);
     http.expectNone('/api/template/delete');
+    expect(component.templatesList.length).toBe(3);
   });
 
   it('editing loads the boxes, the template file and opens the editor', async () => {
