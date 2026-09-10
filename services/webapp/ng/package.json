@@ -43,7 +43,7 @@
     "@types/file-saver": "^2.0.5",
     "@types/jasmine": "~6.0.0",
     "@types/node": "^26.4.1",
-    "angular-eslint": "22.2.0",
+    "angular-eslint": "22.3.0",
     "codelyzer": "^6.0.2",
     "eslint": "^10.10.0",
     "globals": "^17.12.0",
