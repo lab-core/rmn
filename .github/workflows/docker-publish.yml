@@ -25,8 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-            # Full history: the diff below needs the last successfully
-            # published commit.
+            # Full history: the diff below needs the PR base branch or the
+            # last successfully published commit.
             fetch-depth: 0
 
       - name: Get last successful commit
@@ -47,6 +47,10 @@ jobs:
             if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
                 # manual run: build/push every image regardless of diff
                 echo "status=changed" >> "$GITHUB_OUTPUT"
+            elif [ "${{ github.event_name }}" = "pull_request" ]; then
+                # `build-images` label: build only if the PR touches this image's context
+                changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- "${{ inputs.context }}")
+                [ -z "${changed_files}" ] && echo "status=same" >> "$GITHUB_OUTPUT" || echo "status=changed" >> "$GITHUB_OUTPUT"
             else
                 last_commit="${{ steps.last-successful-commit.outputs.commit-hash }}"
                 if [ -z "${last_commit}" ]; then
@@ -78,6 +82,7 @@ jobs:
           images: ${{ inputs.image }}
           tags: |
             type=ref,event=branch
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 

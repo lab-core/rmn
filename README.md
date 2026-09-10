@@ -323,9 +323,15 @@ The same applies to files copied onto the share by hand.
 - **Resource requests/limits** are set on every workload (memory limits only,
   no CPU throttling). The executor's `MAX_RAM_GB` must stay below its memory
   limit in `executor.yml`.
-- **Dependencies**: `.github/dependabot.yml` opens weekly update PRs (pip, npm,
-  Dockerfiles, docker-compose, actions); the `dependency-audit` workflow posts a
-  pip-audit / npm audit report on PRs touching a manifest and every Monday.
+- **Dependencies**: `.github/dependabot.yml` opens monthly grouped update PRs
+  (pip, npm, Dockerfiles, docker-compose, actions); the `dependency-audit`
+  workflow posts a pip-audit / npm audit report on PRs touching a manifest and
+  every Monday.
+- **Images** are built only on demand (Actions minutes): manually from the
+  Actions tab ("Publish All Docker images", uncheck "Push images" to only
+  build), on a `v*` tag (published), or on a pull request by adding the
+  `build-images` label, which builds the images the PR touches without
+  publishing. Remove and re-add the label to rebuild after new commits.
 
 #### Persistent volume: NFS server
 WARNING: you need to mount a persistent volume that correspond to the path given to the nfs server, otherwise you will have an error as docker is not able to mount other paths for a nsf server. Furthermore, if using minikube, the path of the persistent volume needs also to be persistent in minikube: you can use a default persistent path like "/data" or any other path that has been mounted in minikube to communicate with the host.
