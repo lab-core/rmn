@@ -21,3 +21,7 @@ services/server/temp/
 
 # Angular build output
 services/webapp/ng/dist/
+
+# test artefacts
+coverage/
+services/*/tests/_storage/

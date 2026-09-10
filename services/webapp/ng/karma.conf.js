@@ -1,5 +1,8 @@
 // Karma configuration file, see link for more information
 // https://karma-runner.github.io/1.0/config/configuration-file.html
+//
+// Local: `npm test` opens Chrome and re-runs on change.
+// CI:    `npx ng test --watch=false --browsers=ChromeHeadlessCI`
 
 module.exports = function (config) {
   config.set({
@@ -14,10 +17,8 @@ module.exports = function (config) {
     ],
     client: {
       jasmine: {
-        // you can add configuration options for Jasmine here
-        // the possible options are listed at https://jasmine.github.io/api/edge/Configuration.html
-        // for example, you can disable the random execution with `random: false`
-        // or set a specific seed with `seed: 4321`
+        // https://jasmine.github.io/api/edge/Configuration.html
+        random: true
       },
       clearContext: false // leave Jasmine Spec Runner output visible in browser
     },
@@ -25,7 +26,7 @@ module.exports = function (config) {
       suppressAll: true // removes the duplicated traces
     },
     coverageReporter: {
-      dir: require('path').join(__dirname, './coverage/cadriciel'),
+      dir: require('path').join(__dirname, './coverage/rmn'),
       subdir: '.',
       reporters: [
         { type: 'html' },
@@ -38,6 +39,14 @@ module.exports = function (config) {
     logLevel: config.LOG_INFO,
     autoWatch: true,
     browsers: ['Chrome'],
+    customLaunchers: {
+      // --no-sandbox: Chrome refuses to start its sandbox under the CI runner's
+      // container user; the tests are our own code, not untrusted pages.
+      ChromeHeadlessCI: {
+        base: 'ChromeHeadless',
+        flags: ['--no-sandbox', '--disable-gpu']
+      }
+    },
     singleRun: false,
     restartOnFileChange: true
   });

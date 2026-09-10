@@ -27,6 +27,27 @@ Mongo is run within the kubernetes cluster now.
 ##### Firebase
 Firebase has been removed and a NFS (run inside the cluster) is instead used to synchronize and share files between containers, as well as persistent storage.
 
+## Tests
+
+Every service has a unit test suite that needs no running MongoDB, Redis,
+Socket.IO server or browser session: the Python suites use in-memory doubles
+(`mongomock`, `fakeredis`, the Flask and Flask-SocketIO test clients) and the
+webapp uses Angular's `HttpTestingController` in a headless Chrome. CI runs each
+suite only when its service changes (`.github/workflows/test-*.yml`); nothing
+builds a Docker image.
+
+| Service  | From `services/<service>` |
+|----------|---------------------------|
+| server   | `pip install -r requirements-dev.txt && python -m pytest` |
+| executor | `pip install -r requirements-dev.txt && python -m pytest` (Python 3.13; the tested modules import the image's stack, tensorflow included, about 1.8 GB) |
+| socketIO | `pip install -r requirements-dev.txt && python -m pytest` |
+| webapp   | `cd ng && npm ci && npx ng test --watch=false --browsers=ChromeHeadlessCI` (`npm test` opens Chrome and re-runs on change) |
+| nginx    | `docker build -t rmn-nginx . && docker run --rm --add-host server:127.0.0.1 --add-host socketio:127.0.0.1 --add-host webapp:127.0.0.1 rmn-nginx nginx -t` |
+
+Use one virtualenv per Python service (their pins differ). The executor tests
+skip nothing: the Keras model is only loaded by the recognition functions,
+which are not unit-tested.
+
 ## Docker builds
 
 The Dockerfiles copy and install the dependencies before the source, so a code
