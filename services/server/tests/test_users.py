@@ -1,0 +1,127 @@
+"""User management: signup rules, profile flags, password change and token helpers."""
+
+import datetime as dt
+
+import service.user_service as user_service
+from service.user_service import Role, UserService, _utc, token_expired
+from werkzeug.security import check_password_hash
+
+ADMIN = "Administrateur"
+USER = "Utilisateur"
+
+
+def test_role_available():
+    assert Role.available(USER) is True
+    assert Role.available(ADMIN) is True
+    assert Role.available("root") is False
+
+
+def test_utc_normalises_naive_datetimes():
+    naive = dt.datetime(2026, 1, 1, 12)
+    aware = dt.datetime(2026, 1, 1, 12, tzinfo=dt.UTC)
+    assert _utc(naive) == aware
+    assert _utc(aware) is aware
+
+
+def test_token_expiry_rules(monkeypatch):
+    now = dt.datetime.now(dt.UTC)
+    assert token_expired({}) is True
+    assert token_expired({"creation_time": now}) is False
+    assert token_expired({"creation_time": now - dt.timedelta(days=31)}) is True
+    assert token_expired({"creation_time": (now - dt.timedelta(days=31)).replace(tzinfo=None)}) is True
+    monkeypatch.setattr(user_service, "TOKEN_TTL_DAYS", 0)
+    assert token_expired({}) is False
+
+
+def test_signup_requires_an_admin_token(client, user_factory, login):
+    user_factory("alice")
+    token = login("alice")
+    resp = client.post(
+        "/signup",
+        data={"user_id": "alice", "token": token, "username": "bob", "password": "pw", "role": USER},
+    )
+    assert resp.status_code == 401
+
+
+def test_admin_signup_validates_and_hashes(client, user_factory, login, app_module_fixture):
+    user_factory("root", role=ADMIN)
+    token = login("root")
+    base = {"user_id": "root", "token": token, "role": USER}
+
+    assert client.post("/signup", data={**base, "username": "bob", "password": "bad space"}).status_code == 400
+    assert client.post("/signup", data={**base, "username": "bob", "password": "pw", "role": "Boss"}).status_code == 400
+    assert client.post("/signup", data={**base, "username": "bob"}).status_code == 400
+
+    resp = client.post("/signup", data={**base, "username": "bob", "password": "S3cret!"})
+    assert resp.status_code == 200
+    bob = app_module_fixture.mongo["RMN"]["users"].find_one({"username": "bob"})
+    assert bob["role"] == USER
+    assert bob["password"] != "S3cret!" and check_password_hash(bob["password"], "S3cret!")
+    assert bob["saveVerifiedImages"] is False and bob["moodleStructureInd"] is True
+
+    # the name is taken now
+    assert client.post("/signup", data={**base, "username": "bob", "password": "Other1"}).status_code == 404
+
+
+def test_profile_flags(client, user_factory, login, app_module_fixture):
+    user_factory("alice")
+    token = login("alice")
+    users = app_module_fixture.mongo["RMN"]["users"]
+
+    resp = client.put(
+        "/updateSaveVerifiedImages", data={"username": "alice", "token": token, "saveVerifiedImages": "1"}
+    )
+    assert resp.status_code == 200
+    assert users.find_one({"username": "alice"})["saveVerifiedImages"] is True
+
+    resp = client.put(
+        "/updateMoodleStructureInd", data={"username": "alice", "token": token, "moodleStructureInd": "0"}
+    )
+    assert resp.status_code == 200
+    assert users.find_one({"username": "alice"})["moodleStructureInd"] is False
+
+    assert client.put("/updateSaveVerifiedImages", data={"username": "alice", "token": token}).status_code == 400
+
+
+def test_change_password_checks_the_old_one(client, user_factory, login):
+    user_factory("alice", password="pass123")
+    token = login("alice", "pass123")
+    base = {"username": "alice", "token": token}
+
+    assert client.post("/password", data={**base, "old_password": "nope", "new_password": "New1"}).status_code == 500
+    assert client.post("/password", data={**base, "old_password": "pass123", "new_password": "bad space"}).status_code == 400
+    assert client.post("/password", data={**base, "old_password": "pass123"}).status_code == 400
+
+    assert client.post("/password", data={**base, "old_password": "pass123", "new_password": "New1"}).status_code == 200
+    assert client.post("/login", data={"username": "alice", "password": "pass123"}).status_code == 404
+    login("alice", "New1")
+
+
+def test_delete_tokens_by_owner_and_age(app_module_fixture):
+    db = app_module_fixture.mongo["RMN"]
+    now = dt.datetime.now(dt.UTC)
+    db["tokens"].insert_many(
+        [
+            {"token": "a-fresh", "username": "alice", "creation_time": now},
+            {"token": "a-old", "username": "alice", "creation_time": now - dt.timedelta(days=10)},
+            {"token": "b-old", "username": "bob", "creation_time": now - dt.timedelta(days=10)},
+        ]
+    )
+
+    UserService.delete_tokens("alice", 5, db)
+    assert sorted(t["token"] for t in db["tokens"].find()) == ["a-fresh", "b-old"]
+
+    UserService.delete_tokens(None, 0, db)
+    assert db["tokens"].count_documents({}) == 0
+
+
+def test_users_and_delete(app_module_fixture, user_factory):
+    db = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    user_factory("bob")
+    UserService.create_token("alice", USER, db)
+
+    assert sorted(UserService.users(db)) == ["alice", "bob"]
+    UserService.delete("alice", db)
+    assert UserService.users(db) == ["bob"]
+    assert db["tokens"].count_documents({"username": "alice"}) == 0
