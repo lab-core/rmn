@@ -366,26 +366,36 @@ if [ "$slack" -eq 1 ]; then
     echo "Slack requested but SLACK_TOKEN / SLACK_CHANNEL not set; skipping." >&2
   else
     # Fingerprint of the *issues* only (events are transient noise): alerts are
-    # re-sent only when a problem appears or disappears.
+    # re-sent only when a problem appears or disappears. The `:-` placeholders
+    # of empty arrays and the events summary line are both dropped before
+    # hashing, so an events-only report hashes like a healthy one. (Hashing the
+    # raw arrays made every lone Warning event post an alert and, one run
+    # later, a "recovered" message.)
     if command -v sha256sum >/dev/null; then sha() { sha256sum; }; else sha() { shasum -a 256; }; fi  # busybox vs macOS
-    fingerprint="$(printf '%s\n' "${critical[@]:-}" "${warning[@]:-}" | grep -v "Warning event" | sort | sha | cut -c1-16)"
+    issues="$(printf '%s\n' "${critical[@]:-}" "${warning[@]:-}" | { grep -v -e "Warning event" -e '^$' || true; })"
+    fingerprint="$(sort <<<"$issues" | sha | cut -c1-16)"
     previous=""
     if [ -n "$state_configmap" ]; then
       previous="$(kubectl get configmap "$state_configmap" -n "$namespace" -o jsonpath='{.data.fingerprint}' 2>/dev/null || true)"
     fi
     post=0
     if [ "$slack_always" -eq 1 ]; then post=1
-    elif [ -z "$state_configmap" ]; then [ "$status" -ne 0 ] && post=1
+    elif [ -z "$state_configmap" ]; then [ -n "$issues" ] && post=1  # never for events alone
     elif [ "$fingerprint" != "$previous" ]; then
       # changed: post issues, or a recovery notice if we went back to healthy
       if [ "$status" -ne 0 ] || [ -n "$previous" ]; then post=1; fi
     fi
     if [ "$post" -eq 1 ]; then
-      case $status in
-        0) icon="✅"; headline="RMN cluster recovered: all checks healthy" ;;
-        1) icon="⚠️"; headline="RMN cluster warning" ;;
-        *) icon="🚨"; headline="RMN cluster CRITICAL" ;;
-      esac
+      if [ -z "$issues" ] && [ "$status" -ne 0 ]; then
+        # only the Warning-events line is left: the last issue cleared
+        icon="✅"; headline="RMN cluster recovered: no open issues (recent Warning events only)"
+      else
+        case $status in
+          0) icon="✅"; headline="RMN cluster recovered: all checks healthy" ;;
+          1) icon="⚠️"; headline="RMN cluster warning" ;;
+          *) icon="🚨"; headline="RMN cluster CRITICAL" ;;
+        esac
+      fi
       text="$icon $headline"$'\n''```'$'\n'"$report"'```'
       resp="$(jq -n --arg ch "$SLACK_CHANNEL" --arg t "$text" '{channel:$ch,text:$t}' \
         | curl -sS --max-time 15 -X POST https://slack.com/api/chat.postMessage \
