@@ -4,7 +4,7 @@ import { NotificationService } from 'src/app/services/notification.service';
 import { PDFSource } from 'src/app/services/documents.service';
 
 
-class AnnotationsChange {
+export class AnnotationsChange {
   path: any = undefined;
   annotation: InkEditorAnnotation = undefined;
   eraser: EraserChange = undefined;
@@ -17,7 +17,7 @@ class AnnotationsChange {
   }
 }
 
-class EraserChange {
+export class EraserChange {
   used: boolean = false;
   annotationsSnapshot: InkEditorAnnotation[] = undefined;
   newAnnotations: BezierAnnotation[] = undefined;
@@ -43,7 +43,7 @@ class EraserChange {
   }
 }
 
-class BezierPath {
+export class BezierPath {
   points: number[][] = [];
   bezier: number[][] = [];
 
@@ -100,7 +100,7 @@ class BezierPath {
 
 const PADDING = [2, 2, 1, 1];
 
-class BezierAnnotation {
+export class BezierAnnotation {
   paths: BezierPath[];
   rect: number[];
   inkAnnotation: InkEditorAnnotation;
