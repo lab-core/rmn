@@ -41,7 +41,7 @@ updates:
       # 7 (#107) broke `ng build`. Lift when the Angular group moves.
       - dependency-name: typescript
         versions: [">=6.1"]
-      # 21.3.8 is pdf.js 4.5, matched to the custom viewer assets in assets/
+      # 21.x is pdf.js 4.x, matched to the patched viewer assets in services/webapp/assets/
       # and to the ink-annotation format stored with the exams; v30 (pdf.js 6)
       # changes both (see .npmrc). Lift together with a viewer/assets migration.
       - dependency-name: ngx-extended-pdf-viewer
