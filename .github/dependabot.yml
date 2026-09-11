@@ -1,37 +1,50 @@
-# Dependabot: version updates grouped monthly, one PR per manifest (majors
+# Dependabot: version updates grouped monthly, one PR per ecosystem (majors
 # included), security updates as they come. The dependency-audit workflow
 # reports the current state on every PR; this is what actually moves the pins.
 #
 # Every PR costs a tests + audit run, so the schedule is monthly and each
-# manifest gets a single grouped PR rather than one PR per package per week
-# (the September 2026 batch was 19 PRs in one week). A major that cannot be
-# taken (peer range, upstream pin) goes in `ignore` with the reason, so it does
-# not fail the whole group every month.
+# ecosystem gets a single grouped PR spanning all its manifests rather than one
+# PR per package per week (the September 2026 batch was 19 PRs in one week). A
+# major that cannot be taken (peer range, upstream pin) goes in `ignore` with
+# the reason, so it does not fail the whole group every month.
+#
+# How to handle the PRs (learned the hard way in September 2026):
+#
+# * Merge Dependabot's PR itself once CI is green. Do not re-create the same
+#   bumps in a hand-written PR: Dependabot re-checks every manifest right after
+#   a push to main that changes a manifest or this file, and anything still
+#   newer than the pins comes straight back (#128/#129 two minutes after #121
+#   merged, #133-#136 two minutes after #131). Merging its own PR leaves
+#   nothing for that re-check to find.
+# * Closing a grouped PR suppresses nothing (Dependabot says so when it is
+#   closed). To drop one package from a group, add an `ignore` entry here with
+#   the reason, merge that, and comment `@dependabot recreate` on the PR.
+# * `@dependabot rebase` refreshes a PR against main; `@dependabot recreate`
+#   rebuilds it from scratch after a config change.
+# * The 14-day cooldown (default 3) keeps a release from turning into a PR the
+#   day it comes out; the monthly run picks it up once it has aged.
 version: 2
 updates:
   - package-ecosystem: pip
-    directory: /services/server
+    directories:
+      - /services/server
+      - /services/executor
+      - /services/socketIO
     schedule: {interval: monthly}
+    cooldown: {default-days: 14}
     groups:
-      python: {patterns: ["*"]}
-  - package-ecosystem: pip
-    directory: /services/executor
-    schedule: {interval: monthly}
-    groups:
+      # one PR for the three services; pypdf, pymongo, redis, ... are pinned in
+      # more than one of them and used to arrive as separate PRs (#135/#136)
       python: {patterns: ["*"]}
     ignore:
       # tensorflow 2.21.0 requires h5py<3.15 (the h5py 3.16 bump in #114
-      # made the image unbuildable)
+      # made the executor image unbuildable); h5py is only in the executor
       - dependency-name: h5py
         versions: [">=3.15"]
-  - package-ecosystem: pip
-    directory: /services/socketIO
-    schedule: {interval: monthly}
-    groups:
-      python: {patterns: ["*"]}
   - package-ecosystem: npm
     directory: /services/webapp/ng
     schedule: {interval: monthly}
+    cooldown: {default-days: 14}
     groups:
       # Angular and its tooling move together (first matching group wins)
       angular: {patterns: ["@angular/*", "@angular-devkit/*", "@angular-eslint/*", "angular-eslint"]}
@@ -46,6 +59,12 @@ updates:
       # changes both (see .npmrc). Lift together with a viewer/assets migration.
       - dependency-name: ngx-extended-pdf-viewer
         versions: [">=22"]
+      # zone.js/testing (0.16) patches describe/it on the jasmine Env; jasmine
+      # 7 blocks monkey patching ("Cannot assign to read only property
+      # 'describe'", #134) and Angular has not moved to 7 (angular/angular
+      # #70230). Lift when zone.js supports jasmine 7 or the tests go zoneless.
+      - dependency-name: jasmine-core
+        versions: [">=7"]
   - package-ecosystem: docker
     directories:
       - /services/server
@@ -53,11 +72,13 @@ updates:
       - /services/webapp
       - /services/nginx
     schedule: {interval: monthly}
+    cooldown: {default-days: 14}
     groups:
       docker: {patterns: ["*"]}
   - package-ecosystem: docker
     directory: /services/executor
     schedule: {interval: monthly}
+    cooldown: {default-days: 14}
     groups:
       docker: {patterns: ["*"]}
     ignore:
@@ -68,10 +89,12 @@ updates:
   - package-ecosystem: docker-compose
     directory: /
     schedule: {interval: monthly}
+    cooldown: {default-days: 14}
     groups:
       docker-compose: {patterns: ["*"]}
   - package-ecosystem: github-actions
     directory: /
     schedule: {interval: monthly}
+    cooldown: {default-days: 14}
     groups:
       actions: {patterns: ["*"]}

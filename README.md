@@ -347,10 +347,16 @@ The same applies to files copied onto the share by hand.
 - **Resource requests/limits** are set on every workload (memory limits only,
   no CPU throttling). The executor's `MAX_RAM_GB` must stay below its memory
   limit in `executor.yml`.
-- **Dependencies**: `.github/dependabot.yml` opens monthly grouped update PRs
-  (pip, npm, Dockerfiles, docker-compose, actions); the `dependency-audit`
-  workflow posts a pip-audit / npm audit report on PRs touching a manifest and
-  every Monday.
+- **Dependencies**: `.github/dependabot.yml` opens one grouped update PR per
+  ecosystem each month (pip across the three Python services, npm, Dockerfiles,
+  docker-compose, actions); the `dependency-audit` workflow posts a pip-audit /
+  npm audit report on PRs touching a manifest and every Monday. Merge
+  Dependabot's PR itself once CI is green rather than re-creating the bumps by
+  hand: Dependabot re-scans every manifest right after a push to `main` that
+  touches one, and any version still newer than the pins comes back as a new
+  PR. To leave a package out of a group, add an `ignore` rule with the reason
+  and comment `@dependabot recreate` on the PR; closing a grouped PR suppresses
+  nothing.
 - **Images** are built only on demand (Actions minutes): manually from the
   Actions tab ("Publish All Docker images", uncheck "Push images" to only
   build), on a `v*` tag (published), or on a pull request by adding the
