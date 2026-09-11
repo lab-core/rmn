@@ -47,6 +47,13 @@ def test_protected_route_rejects_invalid_token(client, user_factory):
     assert resp.status_code == 401
 
 
+def test_invalid_token_response_is_flagged_for_the_client(client, user_factory):
+    user_factory("alice")
+    resp = client.post("/jobs", data={"user_id": "alice", "token": "nope"})
+    assert resp.status_code == 401
+    assert resp.get_json(force=True)["code"] == "token_invalid"
+
+
 def test_token_must_match_claimed_user(client, user_factory, login):
     user_factory("alice")
     user_factory("bob")

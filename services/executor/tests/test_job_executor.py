@@ -117,6 +117,25 @@ def test_idle_jobs_are_requeued_and_the_lock_released(mongo_db, monkeypatch):
     assert mongo_db["check"].find_one()["locked"] is False
 
 
+def test_a_job_out_of_retries_fails_instead_of_being_requeued(mongo_db, monkeypatch):
+    redis, sio = _fake_backends(monkeypatch)
+    stale = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=job_executor.MAX_IDLE_TIME + 60)
+    mongo_db["eval_jobs"].insert_one(
+        {"job_id": "stuck", "user_id": "alice", "job_status": "RUN", "alive_time": stale,
+         "retry": job_executor.MAX_RETRY}
+    )
+
+    check_for_idle_jobs_to_requeue(Database(), sleep=False)
+
+    job = mongo_db["eval_jobs"].find_one({"job_id": "stuck"})
+    assert job["job_status"] == "ERROR"
+    assert str(job_executor.MAX_RETRY) in job["job_infos"]
+    assert redis.llen("job_queue") == 0
+    event, payload = sio.emit.call_args.args
+    assert event == "job_status" and json.loads(payload)["status"] == "ERROR"
+    assert mongo_db["check"].find_one()["locked"] is False
+
+
 def test_ignored_job_goes_back_to_validation(mongo_db, monkeypatch):
     redis, sio = _fake_backends(monkeypatch)
     mongo_db["eval_jobs"].insert_one({"job_id": "ign", "user_id": "alice", "job_status": "IGNORED"})

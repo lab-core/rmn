@@ -120,7 +120,7 @@ class TemplateService():
         }
         return temp, 200
 
-    def delete_template(request, db, storage):
+    def delete_template(user_id, request, db, storage):
         request_form = request.form
 
         if "template_id" not in request_form:
@@ -131,14 +131,16 @@ class TemplateService():
 
         template_id = str(request_form["template_id"])
         collection = db["template"]
-        template = collection.find_one({"template_id": template_id})
+        # scoped to the owner: a template id is not a secret (it comes back
+        # from /template/info), and the locked default templates are shared
+        template = collection.find_one({"template_id": template_id, "user_id": user_id, "locked": {"$ne": True}})
         if template is None:
-            return Response(response=json.dumps({"error": f"Cannot delete template {template_id}"}), status=400)
+            return Response(response=json.dumps({"error": f"Cannot delete template {template_id}"}), status=404)
 
         storage.remove(template["template_file_id"])
         if "template_rendered_file_id" in template:
             storage.remove(template["template_rendered_file_id"])
-        collection.delete_one({"template_id": template_id})
+        collection.delete_one({"template_id": template_id, "user_id": user_id})
 
         return Response(response=json.dumps({"response": "OK"}), status=200)
 

@@ -130,5 +130,28 @@ def test_delete_removes_the_files_and_the_record(client, alice, app_module_fixtu
     assert os.path.exists(storage.abs_path("templates/t2.pdf"))
     os.remove(storage.abs_path("templates/t2.pdf"))
 
-    assert client.post("/template/delete", data=_auth(alice, template_id="t1")).status_code == 400
+    assert client.post("/template/delete", data=_auth(alice, template_id="t1")).status_code == 404
     assert client.post("/template/delete", data=_auth(alice)).status_code == 400
+
+
+def test_delete_cannot_touch_another_users_template(client, alice, app_module_fixture):
+    mongo = app_module_fixture.mongo
+    storage = app_module_fixture.storage
+    _template(mongo, "t2", "bob", "Bobs")
+    path = storage.abs_path("templates/t2.pdf")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w").close()
+
+    resp = client.post("/template/delete", data=_auth(alice, template_id="t2"))
+
+    assert resp.status_code == 404
+    assert mongo["RMN"]["template"].find_one({"template_id": "t2"})["template_name"] == "Bobs"
+    assert os.path.exists(path)
+    os.remove(path)
+
+
+def test_delete_cannot_remove_a_default_template(client, alice, app_module_fixture):
+    mongo = app_module_fixture.mongo
+    _template(mongo, "d1", "alice", "Example: Exam", locked=True)
+    assert client.post("/template/delete", data=_auth(alice, template_id="d1")).status_code == 404
+    assert mongo["RMN"]["template"].find_one({"template_id": "d1"}) is not None
