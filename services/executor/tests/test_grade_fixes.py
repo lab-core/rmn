@@ -27,3 +27,14 @@ def test_out_of_range_grades_are_scaled_down():
     fixed, predictions = try_fix_questions(10, [85, 3])
     assert fixed is True
     assert predictions == [8.5, 3]
+
+
+def test_decimals_snap_to_the_nearest_quarter_including_three_quarters():
+    from process_copy.recognize import correct_decimals
+
+    assert correct_decimals(7.7) == 7.75  # used to come back as 7.5
+    assert correct_decimals(7.9) == 7.75
+    assert correct_decimals(7.6) == 7.5
+    assert correct_decimals(7.3) == 7.25
+    assert correct_decimals(7.1) == 7.0
+    assert correct_decimals(8.0) == 8.0

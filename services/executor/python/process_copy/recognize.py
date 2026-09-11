@@ -341,7 +341,26 @@ def process_all(
             g_args = (*g_args, q_results)
             p = Process(target=process_func, args=g_args)
             p.start()
-            doc_index, matricules_data = q_results.get()
+            # wait for the result but notice a worker that died without
+            # reporting (OOM kill, segfault): q_results.get() alone blocked
+            # forever while the heartbeat kept the job looking alive
+            result = None
+            while result is None:
+                p.join(timeout=1)
+                if not q_results.empty():
+                    result = q_results.get()
+                elif p.exitcode is not None:
+                    break
+            if result is None:
+                print(
+                    Fore.RED
+                    + f"Recognition worker died (exit code {p.exitcode}) at document {batch_start}."
+                    + Style.RESET_ALL
+                )
+                stalled_at = batch_start
+                break
+            doc_index, matricules_data = result
+            p.join()
         else:
             doc_index = process_func(*g_args)
 
@@ -515,7 +534,12 @@ def grade_files(
                     print("Group:", group)
 
             # fill moodle csv file
-            if numbers and len(numbers) > 1:
+            if i < 0:
+                # grades_dfs[-1] would silently append a row for the misread
+                # matricule to the last csv; keep the grades in the database
+                # only, the copy is flagged TO VALIDATE below
+                print(Fore.RED + "%s: grades not written to the csv (matricule unknown)" % filename + Style.RESET_ALL)
+            elif numbers and len(numbers) > 1:
                 print("Found numbers:", numbers)
 
                 # db.save_unverified_number_images(
@@ -1281,7 +1305,10 @@ def correct_decimals(p):
             # closer to close d
             decimals = close_d if decimals - close_d < d - decimals else d
             break
-    if j == len(allowed_decimals_part) - 1:
+    else:
+        # past the last allowed value (e.g. .9): snap down to it. This used to
+        # run whenever the loop ended on the last value, break or not, and
+        # turned a recognised .75 into .5
         decimals = close_d
     n = p // 1 + decimals
     print("Correct decimals:", p, "->", n)

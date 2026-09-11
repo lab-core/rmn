@@ -241,14 +241,39 @@ describe('MatriculeVerificationComponent', () => {
     expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('finalisation'), 'Alerte!');
   });
 
-  it('finalising goes straight through when every copy is validated', async () => {
+  it('a matricule-only task is finalised once every copy is validated', async () => {
     await create();
     component.examsList.forEach(e => { if (e.status === 'TO VALIDATE') { e.status = 'VALIDATED'; } });
     spyOn(dialog, 'open');
     await component.validateMatricules();
     expect(dialog.open).not.toHaveBeenCalled();
+    expect(validation.validateJob).toHaveBeenCalledWith('job', false);
+    expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);
+    expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('finalisation'), 'Alerte!');
+  });
+
+  it('a graded task goes on to the correction without finalising', async () => {
+    await create({ ...JOB, n_max_points_per_question: [['Q1', 10]] });
+    component.examsList.forEach(e => { if (e.status === 'TO VALIDATE') { e.status = 'VALIDATED'; } });
+    spyOn(dialog, 'open');
+    await component.validateMatricules();
+    expect(dialog.open).not.toHaveBeenCalled();
+    expect(validation.validateJob).not.toHaveBeenCalled();
     expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);
     expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('validés'), 'Alerte!');
+  });
+
+  it('re-flags the other copies carrying the matricule even when it is given as a number', async () => {
+    await create();
+    component.examsList[3].matricule = '2345678';  // same as copy 1, which is already TO VALIDATE
+    const pending = component.updateStatusOfAllDuplicatedMatricules(2345678 as any);
+    await settle();
+    const req = http.expectOne('/api/matricule/status/update');
+    expect((req.request.body as FormData).get('document_index')).toBe('3');
+    expect((req.request.body as FormData).get('status')).toBe('TO VALIDATE');
+    req.flush({ response: 'OK' });
+    await pending;
+    expect(component.examsList[3].status).toBe('TO VALIDATE');
   });
 
   it('the arrow keys move between copies', async () => {
@@ -259,6 +284,23 @@ describe('MatriculeVerificationComponent', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
     expect(component.nextCopy).toHaveBeenCalled();
     expect(component.previousCopy).toHaveBeenCalled();
+  });
+
+  it('the arrow keys are left to a focused text field', async () => {
+    await create();
+    spyOn(component, 'nextCopy');
+    spyOn(component, 'changeCurrentExam');
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+    try {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      expect(component.nextCopy).not.toHaveBeenCalled();
+      expect(component.changeCurrentExam).not.toHaveBeenCalled();
+    } finally {
+      input.remove();
+    }
   });
 
   it('the back arrow returns to the dashboard, with the share token for visitors', async () => {

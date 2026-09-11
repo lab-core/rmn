@@ -927,7 +927,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (!this.disabledDropDown) {
       this.disabledValidationButton = disabledValidationButton;
     } else if (questionIndex) {
-      const subExams = this.examsList.filter((exam) => exam.filename.includes(`Q${questionIndex}`));
+      // exact question, not a substring of the filename (Q1 matched Q10..Q19)
+      const subExams = this.examsList.filter((exam) => exam.question === `Q${questionIndex}`);
       this.disabledValidationButton = subExams.some((exam) => exam.status !== 'VALIDATED');
     }
   }

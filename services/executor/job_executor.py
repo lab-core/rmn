@@ -532,7 +532,10 @@ if __name__ == "__main__":
                             except ValueError:
                                 # file not found
                                 print(f"File {filename} does not correspond to a valid document.")
-                                pass
+                            except Exception as e:
+                                # the copy ships without its stats page rather
+                                # than failing the whole job
+                                print(f"Stats page for {filename} skipped: {e}")
 
                 # store copy in all copies folder
                 copies_path = all_copies_folder_path
@@ -831,7 +834,14 @@ if __name__ == "__main__":
         # idle checker does not wrongly requeue a job that is still working
         with Heartbeat(db, job_id):
             if job["job_status"] in [Job_Status.VALIDATED.value, Job_Status.FINALIZING.value]:
-                finalize_job(job, TMP_DIR, stopH)
+                try:
+                    finalize_job(job, TMP_DIR, stopH)
+                except Exception as e:
+                    # left in FINALIZING, the job was sent back to VALIDATION
+                    # by the idle sweep with no message, on every attempt
+                    print("Error while finalizing job", job_id, ":", e)
+                    update_status(db, sio, job["user_id"], job_id, Job_Status.ERROR,
+                                  infos={"job_infos": f"Échec de la finalisation : {e}"})
 
             elif (p_job.get("add_copies") and
                   job["job_status"] in [Job_Status.QUEUED.value, Job_Status.RUN.value, Job_Status.VALIDATION.value]):
