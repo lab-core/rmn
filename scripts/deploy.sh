@@ -4,6 +4,7 @@
 #   scripts/deploy.sh                  # host from deployment/kustomization.yaml
 #   scripts/deploy.sh rmn.example.org  # override the host for this deploy
 #   scripts/deploy.sh rmn.example.org --dry-run   # print manifests, apply nothing
+#   scripts/deploy.sh --dry-run        # same, with the configured host
 #
 # Kustomize has no notion of arguments, so a host override is done by building
 # a throwaway overlay on top of deployment/ that merges the new value into the
@@ -12,8 +13,15 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 base="$repo_root/deployment"
-host="${1:-}"
-dry_run="${2:-}"
+host=""
+dry_run=""
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) dry_run="--dry-run" ;;
+    --*) echo "unknown option: $arg" >&2; exit 2 ;;
+    *) host="$arg" ;;
+  esac
+done
 
 if [[ -z "$host" ]]; then
   target="$base"

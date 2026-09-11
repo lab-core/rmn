@@ -33,6 +33,9 @@ spec:
     spec:
         containers:
             - image: rmni/socketio:main
+              # :main is a moving tag: without Always a rollout restart reuses
+              # the cached image and a republished fix never reaches the cluster
+              imagePullPolicy: Always
               name: socketio
               ports:
                 - containerPort: 7000
