@@ -136,6 +136,14 @@ def check_for_idle_jobs_to_requeue(db, sleep):
                 old_idle_jobs = False
                 for j in jobs:
                     def requeue(c_status, n_status):
+                        # MAX_RETRY was only enforced when the executor raised;
+                        # a job that returned without progress came back here
+                        # with retry + 1 on every sweep, forever
+                        if j.get("retry", 0) >= MAX_RETRY:
+                            print("Give up on job", j["job_id"], "after", MAX_RETRY, "attempts")
+                            update_status(db, sio, j["user_id"], j["job_id"], Job_Status.ERROR,
+                                          infos={"job_infos": f"Abandon après {MAX_RETRY} tentatives sans progrès."})
+                            return
                         print("Resubmit job", j["job_id"])
                         # change status to ensure that a job is not resubmitted several times
                         res = db.eval_jobs_collection().update_one(

@@ -324,6 +324,7 @@ def process_all(
     doc_index = 0
     batch = 1
     matricules_data = {}
+    stalled_at = None
     last_index = len(g_files) - 1
     while doc_index <= last_index:
         batch_start = doc_index
@@ -359,6 +360,7 @@ def process_all(
                 + f"No progress at document {batch_start}; stopping this job to avoid an infinite loop."
                 + Style.RESET_ALL
             )
+            stalled_at = batch_start
             break
     db.close()
 
@@ -396,6 +398,14 @@ def process_all(
             sdf.to_csv(f)
         except:
             df.to_csv(f)
+
+    if stalled_at is not None:
+        # a plain return left the job in RUN; the idle sweep requeued it and
+        # the same file was retried forever. Raising routes it through the
+        # MAX_RETRY handling of process_job instead.
+        raise RuntimeError(
+            f"No progress at document {stalled_at}: the recognition worker stopped on that file."
+        )
 
 
 def grade_files(
@@ -615,7 +625,7 @@ def grade_files(
 
             if max_nb_questions is None and len(n_questions) > min_documents_for_max_questions:
                 print("--n_questions:", n_questions)
-                max_nb_questions = median(len(v) for v in n_questions.values())
+                max_nb_questions = int(round(median(len(v) for v in n_questions.values())))
                 db.set_job_max_questions(job_id, max_nb_questions)
 
                 # fix previous documents that were not with the right number of questions
@@ -1215,7 +1225,11 @@ def write_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False
 
 
 def try_fix_n_questions(max_nb_questions, predictions):
-    if max_nb_questions is None or len(predictions) == max_nb_questions:
+    if max_nb_questions is None:
+        return predictions
+    # jobs graded before the median was rounded stored a float (3.0) in Mongo
+    max_nb_questions = int(max_nb_questions)
+    if len(predictions) == max_nb_questions:
         return predictions
     # add zero at the beginning
     print("Try fixing the number of questions for:", predictions)
@@ -1237,6 +1251,9 @@ def try_fix_n_questions(max_nb_questions, predictions):
 
 
 def try_fix_questions(max_question, predictions):
+    # no "Note maximale" column in the csv: nothing to compare against
+    if max_question is None:
+        return False, copy(predictions)
     fixed = False
     new_predictions = copy(predictions)
     for i, p in enumerate(new_predictions):
@@ -1317,7 +1334,7 @@ def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=Non
             for j, p in enumerate(numbers):
                 # try to move the dot (as it can be often misplaced)
                 max_g = max_question if i < len(all_numbers) - 1 else max_grade
-                if p[1] > max_g:
+                if max_g is not None and p[1] > max_g:
                     g = p[1]
                     while g > max_g:
                         g = g / 10

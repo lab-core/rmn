@@ -30,17 +30,27 @@ export class ErrorInterceptor implements HttpInterceptor {
           warningMsg = "The http request has been intercepted as the response had a status 404 (not found).";
         }
         if (warningMsg) {
-          if (error.error instanceof Blob) {
-            error.error.text().then(data => {
-              const errorMsg = JSON.parse(data).Error;
-              this.notificationService.showError(errorMsg, "Erreur !");
-            });
-          } else {
-            this.notificationService.showError(error.error.response, "Erreur !");
-          }
           console.warn(warningMsg);
-          if (this.userService.loggued()) {
-            this.router.navigate(['/']);
+          const handle = (body: any) => {
+            this.notificationService.showError(body?.Error ?? body?.response, "Erreur !");
+            if (!this.userService.loggued()) {
+              return;
+            }
+            if (error.status === 401 && body?.code === 'token_invalid') {
+              // The session is gone (expired or revoked token). Drop it and go
+              // to the login page: sending the user to '/' kept the stale
+              // token, so the next request 401'd again and the redirect
+              // looped forever.
+              this.userService.logout();
+              this.router.navigate(['/login']);
+            } else {
+              this.router.navigate(['/']);
+            }
+          };
+          if (error.error instanceof Blob) {
+            error.error.text().then(data => handle(JSON.parse(data)));
+          } else {
+            handle(error.error);
           }
         }
         // Re-throw so component error callbacks and awaited promises actually
@@ -89,7 +99,33 @@ export class FreshHttpInterceptor implements HttpInterceptor {
   maxRetries = 2;
   delayMs = 300;
 
+  // This API reads through POST too (the token travels in the form body), so
+  // a method check alone would retry nothing. Only requests that cannot
+  // change state are retried: a mutation re-sent after a network error may
+  // already have been applied (a task created twice, a grade written twice,
+  // a 5 GiB upload sent three times).
+  static readonly READ_ONLY_POSTS = new Set([
+    'job', 'jobs', 'job/batch/info',
+    'documents', 'document/download', 'document/annotations', 'document/last_version',
+    'user/template', 'template/info', 'template/download', 'template/download/src',
+    'file/download', 'incorrect/download',
+  ]);
+
+  static isRetryable(req: HttpRequest<any>): boolean {
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      return true;
+    }
+    if (req.method !== 'POST') {
+      return false;
+    }
+    const path = req.url.split('?')[0].replace(/\/+/g, '/').replace(/^\/?api\//, '').replace(/^\/|\/$/g, '');
+    return FreshHttpInterceptor.READ_ONLY_POSTS.has(path);
+  }
+
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+    if (!FreshHttpInterceptor.isRetryable(req)) {
+      return next.handle(req);
+    }
     return this.handle(req, next, 0);
   }
 

@@ -79,16 +79,18 @@ def check_token(form, role=None):
     db = mongo["RMN"]
     token = form['token']
     valid, username = UserService.verify_token(token, db, role)
+    # "code" lets the webapp tell a dead session (log out, back to the login
+    # page) apart from the other 401s (a job or question this user cannot see)
     if not valid:
         return Response(
-            response=json.dumps({"response": "Error: token not valid. Please login."}),
+            response=json.dumps({"response": "Error: token not valid. Please login.", "code": "token_invalid"}),
             status=401,
         ), None
     if ("user_id" in form and form["user_id"] != username) or \
             ("username" in form and form["username"] != username and "user_id" not in form):
         print(f"Error: token belongs to username {username}.")
         return Response(
-            response=json.dumps({"response": "Error: token belongs to another username."}),
+            response=json.dumps({"response": "Error: token belongs to another username.", "code": "token_invalid"}),
             status=401,
         ), None
 
@@ -135,6 +137,25 @@ def verify_admin(f):
             )
         return f(*args, **kwargs)
     return __verify_admin
+
+
+def question_allowed(validity, question_index):
+    """Whether a share-token scope covers a question.
+
+    ``validity`` is None for the job owner, "questions"/"all" for job-wide
+    links and, for a single-question link, the share_token key the client
+    asked for ("2", or "Q2" in older links). ``question_index`` is the 1-based
+    question number of the document, None when the document has no question.
+    Anything else ("mat", garbage) is refused instead of raising.
+    """
+    if validity is None or validity in ("questions", "all"):
+        return True
+    if question_index is None:
+        return False
+    try:
+        return int(str(validity).lstrip("Qq")) == int(question_index)
+    except (TypeError, ValueError):
+        return False
 
 
 def verify_share_token(question=True, matricule=True, return_validity=False):
@@ -465,7 +486,7 @@ def get_all_template_info(user_id):
 @verify_token()
 def delete_template(user_id):
     db = mongo["RMN"]
-    return TemplateService.delete_template(request, db, storage)
+    return TemplateService.delete_template(user_id, request, db, storage)
 
 
 @app.route("/template/info", methods=["POST"])
@@ -1510,7 +1531,7 @@ def replace_document(validity):
         )
 
     job_id = str(request_form["job_id"])
-    grades = json.loads(request_form["grades"]) if "grades" in request_form else []
+    grades = json.loads(request_form["grades"]) if "grades" in request_form else {}
 
     file = request_files["file"]
     temp_file = tempfile.NamedTemporaryFile(delete_on_close=False)
@@ -1529,22 +1550,24 @@ def replace_thread(validity, job_id, grades, temp_file):
 
     for doc_index, grade in grades.items():
         doc_index = int(doc_index)
-        q_doc = db["job_questions"].find_one_and_update(
+        q_doc = db["job_questions"].find_one({"job_id": job_id, "document_index": doc_index})
+        if q_doc is None:
+            print('Invalid document_index:', job_id, doc_index)
+            continue
+
+        # scope before the write: the status and grade used to be updated
+        # first and only the job_documents mirror skipped
+        if not question_allowed(validity, q_doc["question_index"]):
+            print("You don't have access to question", q_doc["question_index"])
+            continue
+
+        db["job_questions"].update_one(
             {"job_id": job_id, "document_index": doc_index},
             {"$set": {
                 "status": Document_Status.VALIDATED.value,
                 "grade": grade
             }}
         )
-        if q_doc is None:
-            print('Invalid document_index:', job_id, doc_index)
-            continue
-
-        # validity = None => logged user
-        if (validity is not None and validity != "questions" and
-                validity != "all" and int(validity) != q_doc["question_index"]):
-            print("You don't have access to question", q_doc["question_index"])
-            continue
 
         q_index = int(q_doc["question_index"]) - 1
         r = db["job_documents"].update_one(
@@ -1567,8 +1590,7 @@ def replace_thread(validity, job_id, grades, temp_file):
             if question_number:
                 question_folder = question_number.group(0)
                 # validity = None => logged user
-                if (validity is not None and validity != "questions" and
-                        validity != "all" and int(validity) != int(question_folder[1:])):
+                if not question_allowed(validity, question_folder[1:]):
                     print("You don't have access to question", question_folder)
                     continue
 
@@ -1669,6 +1691,15 @@ def update_document(validity):
 
     # update the database
     db = mongo["RMN"]
+
+    # Share-token scope comes first, before any write. It used to be checked
+    # only inside the grades branch, after the question had been updated, so
+    # a file upload named after another question went through on a
+    # single-question link.
+    q_doc = db["job_questions"].find_one({"job_id": job_id, "document_index": document_index})
+    if not question_allowed(validity, q_doc["question_index"] if q_doc else None):
+        return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=401)
+
     # first update question and job if any
     if "grades" in request_form or "tag" in request_form:
         if "question_index" in request_form:
@@ -1688,11 +1719,6 @@ def update_document(validity):
             if q_doc is None:
                 return Response(response=json.dumps({"response": f"Error: question {document_index} not found."}),
                                 status=404)
-
-            # validity = None => logged user
-            if (validity is not None and validity != "questions" and
-                    validity != "all" and int(validity) != q_doc["question_index"]):
-                return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=401)
 
             if grade is not None:
                 q_index = int(request_form["question_index"]) - 1
@@ -1725,6 +1751,12 @@ def update_document(validity):
         last_underscore_index = file_name.rfind('_')
         extension_index = file_name.rfind('.pdf')
         question = file_name[last_underscore_index + 1:extension_index]
+        # the folder comes from the client filename: keep it to the layout the
+        # executor creates (Q<n> or all) and to the question this link covers
+        if not re.fullmatch(r"Q\d+|all", question):
+            return Response(response=json.dumps({"response": "Error: unexpected filename."}), status=400)
+        if not question_allowed(validity, question[1:] if question != "all" else None):
+            return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=401)
 
         # get default name
         rel_filepath = os.path.join('documents', job_id, question, file_name)
@@ -1910,8 +1942,7 @@ def document_annotations(validity):
         )
 
     # validity = None => logged user
-    if (validity is not None and validity != "questions" and
-            validity != "all" and int(validity) != doc["question_index"]):
+    if not question_allowed(validity, doc["question_index"]):
         return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=404)
 
     rel_filepath = doc["rel_filepath"]
