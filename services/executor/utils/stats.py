@@ -9,6 +9,28 @@ import numpy as np
 
 
 latex_line = "{} & {} & {:.2f} & \\includegraphics[width=\\widthratio \\textwidth]{{{}}}"
+
+# pdflatex is fed strings from the uploaded csv (student names). Escaped, they
+# are typeset literally; unescaped, "\\input{...}" in a cell is executed.
+TEX_SPECIALS = {
+    "\\": "\\textbackslash{}",
+    "&": "\\&",
+    "%": "\\%",
+    "$": "\\$",
+    "#": "\\#",
+    "_": "\\_",
+    "{": "\\{",
+    "}": "\\}",
+    "~": "\\textasciitilde{}",
+    "^": "\\textasciicircum{}",
+}
+# no shell escape, no prompt on error (a compile error hung until the timeout)
+LATEX_FLAGS = ["-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error"]
+
+
+def tex_escape(text):
+    """Escape ``text`` so LaTeX typesets it literally."""
+    return "".join(TEX_SPECIALS.get(c, c) for c in str(text))
 n_latex_line = latex_line
 latex_line += " \\\\ \\hline"
 
@@ -30,8 +52,8 @@ def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, lat
         question_names = default_question_names(n_questions)
 
     with open(TMP_DIR.joinpath("data.tex"), "w") as f:
-        # remove ascents
-        u_nom = unidecode.unidecode(nom)
+        # remove accents, then escape: the name comes from the uploaded csv
+        u_nom = tex_escape(unidecode.unidecode(nom))
         f.write("\\renewcommand{\\nom}{%s}\n" % u_nom)
         f.write("\\renewcommand{\\widthratio}{%.2f}\n" % width_plot_ratio)
 
@@ -52,19 +74,25 @@ def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, lat
     return TMP_DIR.joinpath(fpdf)
 
 
-def create_tex_pdf(latex_file, tmp_dir, latex_cmd="pdflatex"):
-    # compile latex file
-    current = os.getcwd()
-    os.chdir(tmp_dir)
-    flog = "stdout.log"
+def create_tex_pdf(latex_file, tmp_dir, latex_cmd="pdflatex", timeout=5):
+    """Compile ``latex_file`` inside ``tmp_dir`` and return the pdf file name.
+
+    The compiler runs with ``cwd=tmp_dir`` rather than ``os.chdir``: a failure
+    used to leave the whole process in a directory that was deleted right
+    after, breaking every later relative path. Shell escape is off.
+    """
+    tmp_dir = Path(tmp_dir)
+    flog = tmp_dir.joinpath("stdout.log")
     with open(flog, "w") as fstdout:
         try:
-            subprocess.check_call([latex_cmd, latex_file], stdout=fstdout, timeout=5)
+            subprocess.run([latex_cmd, *LATEX_FLAGS, str(latex_file)], stdout=fstdout, stderr=subprocess.STDOUT,
+                           cwd=str(tmp_dir), timeout=timeout, check=True)
         except subprocess.TimeoutExpired:
-            with open(flog) as f:
-                print(f.read())
-            raise ChildProcessError("Subprocess latex time out after 5 seconds.")
-    os.chdir(current)
+            print(flog.read_text())
+            raise ChildProcessError(f"Subprocess latex time out after {timeout} seconds.")
+        except subprocess.CalledProcessError as e:
+            print(flog.read_text())
+            raise ChildProcessError(f"{latex_cmd} failed with exit code {e.returncode} (log above).")
 
     # return path to pdf
     fname = os.path.basename(latex_file)

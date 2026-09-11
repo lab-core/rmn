@@ -265,6 +265,20 @@ describe('DashboardPageComponent', () => {
     expect(component.totalVerifiedMatricules).toBe(2);
   });
 
+  it('a socket update lands on the row with that document index, wherever it sits', async () => {
+    await create();
+    // positions no longer equal document indices (the stub shares this array,
+    // so look the fixture row up by index rather than by position)
+    component.examsList.reverse();
+    docs.exams.find((e: any) => e.document_index === 1).status = 'VALIDATED';
+    await socket.socket.fire('doc_validated', JSON.stringify({ matricule: true, questions: false, document_index: 1 }));
+    await settle();
+    expect(component.examsList.length).toBe(2);
+    expect(component.examsList.find(e => e.document_index === 1).status).toBe('VALIDATED');
+    expect(component.examsList.find(e => e.document_index === 0).filename).toBe('a');
+    expect(component.totalVerifiedMatricules).toBe(2);
+  });
+
   it('a status change pushed over the socket notifies and reloads the task', async () => {
     await create();
     await socket.socket.fire('job_status', JSON.stringify({ job_id: 'job', status: 'RUN', job_infos: '2 copies ajoutées' }));

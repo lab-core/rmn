@@ -496,8 +496,11 @@ export class MatriculeVerificationComponent implements OnInit {
 
   changeMatricule(selection): void {
     this.currentMatricule = Number(selection.matricule);
-    const exam = this.examsList[this.currentCopy];
-    exam.matricule = String(this.currentMatricule);
+    // currentCopy is a document index; the list position is currentIndex()
+    const exam = this.currentExam();
+    if (exam) {
+      exam.matricule = String(this.currentMatricule);
+    }
     this.getDuplicatedMatricules();
   }
 
