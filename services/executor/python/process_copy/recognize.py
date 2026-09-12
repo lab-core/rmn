@@ -47,12 +47,12 @@ import random
 from process_copy.config import re_mat, len_mat, known_mistmatch, known_mistmatch_matricule
 from process_copy.config import min_documents_for_max_questions
 from process_copy.config import allowed_decimals, digit_margins
-from process_copy.config import MoodleFields as MF
+from rmn_common.moodle import MoodleFields as MF
 from process_copy.mcc import get_name, load_csv, group_label
 from process_copy.preview import PreviewHandler
 from process_copy.database import Database
 from utils.storage import Storage
-from utils.utils import Document_Status, Job_Status
+from rmn_common.status import Document_Status, Job_Status
 from utils.clients import socketio_client
 
 

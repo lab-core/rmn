@@ -6,7 +6,7 @@ import zipfile
 import pandas as pd
 
 from process_copy import mcc
-from process_copy.config import MoodleFields as MF
+from rmn_common.moodle import MoodleFields as MF
 
 
 def _write_csv(path, rows):

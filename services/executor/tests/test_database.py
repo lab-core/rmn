@@ -3,7 +3,7 @@
 import datetime as dt
 
 from process_copy.database import Database
-from utils.utils import Document_Status, Job_Status
+from rmn_common.status import Document_Status, Job_Status
 
 
 def test_insert_question_derives_the_index_from_the_key(mongo_db):

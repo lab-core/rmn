@@ -18,12 +18,19 @@ WORKDIR /Server
 
 # Dependencies before the source: a code change only rebuilds the COPY layer.
 # The pip download cache is a BuildKit cache mount kept across builds.
-COPY ./requirements.txt ./requirements.txt
+# Build context is services/ (see docker-compose.yml and docker-publish-all.yml)
+# so the shared package next to this service can be copied in.
+COPY server/requirements.txt ./requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt gunicorn==23.0.0
+
+# Contracts shared with the executor; its own layer so a change there does
+# not reinstall the dependencies above.
+COPY common /opt/rmn-common
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps /opt/rmn-common
 
 # The server creates its temp folders next to its code, so the app directory
 # belongs to the runtime user (created above, with the user).
-COPY --chown=rmn:rmn . /Server
+COPY --chown=rmn:rmn server/ /Server
 
 ENV ENVIRONMENT=production
 ENV PYTHONUNBUFFERED=1

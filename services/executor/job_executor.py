@@ -15,14 +15,15 @@ from pathlib import Path
 
 from python.process_copy.parser import parse_run_args, grade_box, matricule_box
 from python.process_copy.recognize import get_date, write_box_contours, imwrite_png
-from python.process_copy.config import MoodleFields as MF
+from rmn_common.moodle import MoodleFields as MF
 from python.process_copy.mcc import group_label, zipdirbatch
 from python.process_copy.database import Database
 from python.process_copy.add_grades import process_writing
 from utils.stats import create_all_boxplots, create_stats_latex, remove_non_pdfs
 from utils.merge import process_merge
-from utils.utils import Job_Status, Document_Status, question_sort_key, ignored_positions, \
-    safe_path_component, ensure_within
+from rmn_common.status import Job_Status, Document_Status
+from rmn_common.questions import question_sort_key, ignored_positions
+from rmn_common.paths import safe_path_component, ensure_within
 from utils.storage import Storage
 from utils.stop_handler import StopHandler
 from utils.clients import redis_client, socketio_client, update_status

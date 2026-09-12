@@ -34,7 +34,7 @@ from colorama import Fore, Style
 import traceback
 
 from process_copy.config import re_mat, Latex
-from process_copy.config import MoodleFields as MF
+from rmn_common.moodle import MoodleFields as MF
 
 
 MB = 2**20

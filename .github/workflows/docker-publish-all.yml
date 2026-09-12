@@ -33,7 +33,9 @@ jobs:
     uses: ./.github/workflows/docker-publish.yml
     with:
       image: rmni/executor
-      context: ./services/executor
+      context: ./services
+      dockerfile: executor/Dockerfile
+      watch: services/executor services/common
       push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.push) }}
     secrets: inherit
 
@@ -42,7 +44,9 @@ jobs:
     uses: ./.github/workflows/docker-publish.yml
     with:
       image: rmni/server
-      context: ./services/server
+      context: ./services
+      dockerfile: server/Dockerfile
+      watch: services/server services/common
       push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.push) }}
     secrets: inherit
 

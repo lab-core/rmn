@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 from process_copy.database import Database
 from utils.clients import emit_job, update_status
-from utils.utils import Job_Status
+from rmn_common.status import Job_Status
 
 
 def _payload(sio):

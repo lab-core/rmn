@@ -5,7 +5,7 @@ import os
 from process_copy.add_grades import grades_to_write
 from utils.merge import merge_parts
 from utils.split import calculate_pages, calculate_total_expected_pages
-from utils.utils import active_question_keys, ignored_positions, question_position
+from rmn_common.questions import active_question_keys, ignored_positions, question_position
 
 PAGES = {"Q1": 2, "Q2": 1, "Q3": 0, "Q4": 3}
 PAGES_AS_PAIRS = [["Q1", 2], ["Q2", 1], ["Q3", 0], ["Q4", 3]]

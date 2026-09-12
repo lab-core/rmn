@@ -6,7 +6,9 @@ from flask import Flask, request, Response, json, send_file
 from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from pathlib import Path
-from utils.utils import Job_Status, Output_File, Document_Status, validate_questions
+from rmn_common.status import Job_Status, Output_File, Document_Status
+from rmn_common.questions import validate_questions
+from rmn_common.moodle import MoodleFields as MF
 from utils.storage import Storage
 from utils.clients import redis_client, socketio_client, mongo_client
 import datetime as dt
@@ -818,8 +820,8 @@ def csv_job(user_id):
 
     # update students list
     grades_df = pd.read_csv(grades_csv_file)
-    names_mat_df = grades_df.reset_index()[["Matricule", "Nom complet"]]
-    names_mat_df = names_mat_df.rename(columns={"Matricule": "matricule"})
+    names_mat_df = grades_df.reset_index()[[MF.mat, MF.name]]
+    names_mat_df = names_mat_df.rename(columns={MF.mat: "matricule"})
     students_list = names_mat_df.to_dict(orient="records")
     mongo["RMN"]["eval_jobs"].update_one(
         {"job_id": job_id},
