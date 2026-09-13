@@ -385,7 +385,9 @@ if [ "$slack" -eq 1 ]; then
       # changed: post issues, or a recovery notice if we went back to healthy
       if [ "$status" -ne 0 ] || [ -n "$previous" ]; then post=1; fi
     fi
+    posted=1  # nothing to post counts as posted: the state may advance
     if [ "$post" -eq 1 ]; then
+      posted=0
       if [ -z "$issues" ] && [ "$status" -ne 0 ]; then
         # only the Warning-events line is left: the last issue cleared
         icon="✅"; headline="RMN cluster recovered: no open issues (recent Warning events only)"
@@ -400,11 +402,16 @@ if [ "$slack" -eq 1 ]; then
       resp="$(jq -n --arg ch "$SLACK_CHANNEL" --arg t "$text" '{channel:$ch,text:$t}' \
         | curl -sS --max-time 15 -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_TOKEN" -H 'Content-Type: application/json' -d @- || echo '{"ok":false,"error":"curl failed"}')"
-      if [ "$(jq -r .ok <<<"$resp")" != "true" ]; then
+      if [ "$(jq -r .ok <<<"$resp")" = "true" ]; then
+        posted=1
+      else
         echo "Slack post failed: $(jq -r '.error // .' <<<"$resp")" >&2
       fi
     fi
-    if [ -n "$state_configmap" ] && [ "$fingerprint" != "$previous" ]; then
+    # Save the new fingerprint only once Slack has the message. Saving it
+    # after a failed post (expired token, rate limit) made the next run see
+    # "no change" and stay silent until the set of problems changed.
+    if [ -n "$state_configmap" ] && [ "$fingerprint" != "$previous" ] && [ "$posted" -eq 1 ]; then
       kubectl create configmap "$state_configmap" -n "$namespace" \
         --from-literal=fingerprint="$fingerprint" --from-literal=updated="$stamp" \
         --dry-run=client -o yaml | kubectl apply -f - >/dev/null \
