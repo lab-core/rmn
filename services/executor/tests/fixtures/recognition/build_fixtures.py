@@ -34,29 +34,44 @@ GBOX = list(grade_box["exam"]["grade"])
 MBOX = list(matricule_box["exam"]["front"])
 RBOX = list(matricule_box["exam"]["regular"])
 
-# (fixture name, path under the storage, note)
+# (fixture name, path under the storage, grades written in the table, note)
 GRADE_CASES = [
     (
         "printed_ones",
-        "cover_pages/fb9bdeea-eb0e-4f72-b7f6-80ff8ed72861/MTH1106_AUTOMNE_2025_CP1_GROUPE_2-33_cover.pdf",
+        "cover_pages/fb9bdeea-eb0e-4f72-b7f6-80ff8ed72861/"
+        "MTH1106_AUTOMNE_2025_CP1_GROUPE_2-33_cover.pdf",
+        [1, 1, 1, 1, 1, 5],
         "five printed 1 and a printed total 5 (the grade overlay of a finalised task)",
     ),
     (
         "printed_with_zero",
         "documents/4e094d91-bbbf-44ea-96aa-d5e4a314ba7c/all/Justin_Dubois_2376663.pdf",
+        [0, 1, 1, 1, 1, 4],
         "printed 0, 1, 1, 1, 1 and total 4",
     ),
     (
         "blank",
-        "cover_pages/fb9bdeea-eb0e-4f72-b7f6-80ff8ed72861/MTH1106_AUTOMNE_2025_CP1_GROUPE_2-33_cover_nograde.pdf",
+        "cover_pages/fb9bdeea-eb0e-4f72-b7f6-80ff8ed72861/"
+        "MTH1106_AUTOMNE_2025_CP1_GROUPE_2-33_cover_nograde.pdf",
+        [0, 0, 0, 0, 0, 0],
         "empty boxes: a cover page scanned before grading",
     ),
     (
-        "overlapping_overlays",
+        "dot_glued_to_digits",
         "documents/4e094d91-bbbf-44ea-96aa-d5e4a314ba7c/all/rtnebsv-0.pdf",
-        "two grade overlays printed on top of each other: unreadable, the total check must reject it",
+        [3, 1, 1, 1, 1, 7],
+        "printed 3.0, 1.0, 1.0, 1.0, 1.0 and total 7.0 (an older overlay wrote "
+        "the .0); the jpeg-degraded dot touches the digits, so the model reads "
+        "a lone 4, a 10 and a 7 where 3.0, 1.0 and 1.0 are written",
     ),
 ]
+# Grades printed by the executor's own overlay writer on the blank table above
+# (no cover page of the storage carries a decimal grade): 5.3 has no allowed
+# decimal part and must be stored as 5.5, the quarter and half points are kept
+# and the total only matches once 5.3 is corrected.
+PRINTED_DECIMALS = ([5.3, 1.25, 2.75, 0.5, 0, 10], [5.5, 1.25, 2.75, 0.5, 0, 10])
+OVERLAY_JPEG_QUALITY = 5  # add_grades writes the cover page as a jpeg of this quality
+
 # job whose validated matricules are the ground truth, and the copies to use
 MATRICULE_JOB = "6667a9b4-21b8-4450-ab6c-1e9e89537e38"
 MATRICULE_COPIES = [
@@ -149,8 +164,7 @@ def main():
         "matricules": [],
     }
 
-    for name, rel, note in GRADE_CASES:
-        crop = crop_of(rel, GBOX)
+    def grade_case(name, crop, expected, note):
         cv2.imwrite(str(OUT / f"grades_{name}.png"), crop)
         matched, numbers, *_ = quiet(
             recognize.grade,
@@ -160,15 +174,38 @@ def main():
             max_grade=30,
             max_question=12,
         )
+        numbers = [float(n) for n in numbers]
         spec["grades"].append(
             {
                 "file": f"grades_{name}.png",
                 "note": note,
-                "matched": bool(matched),
-                "numbers": [float(n) for n in numbers],
+                "numbers": [float(n) for n in expected],
+                "known_miss": not (matched and numbers == [float(n) for n in expected]),
             }
         )
-        print(f"grades_{name}: matched={matched} numbers={numbers}")
+        print(f"grades_{name}: expected={expected} matched={matched} numbers={numbers}")
+
+    for name, rel, expected, note in GRADE_CASES:
+        grade_case(name, crop_of(rel, GBOX), expected, note)
+
+    # decimals: print on the blank scan with the overlay writer, then degrade
+    # the print as add_grades does (jpeg) before it is put back into a pdf
+    blank = cv2.imread(str(OUT / "grades_blank.png"), cv2.IMREAD_GRAYSCALE)
+    boxes = recognize.find_grade_boxes(blank, False, thick=0)
+    written, expected = PRINTED_DECIMALS
+    assert len(boxes) == len(written), len(boxes)
+    recognize.write_grade_texts(blank, boxes, written)
+    _, jpeg = cv2.imencode(
+        ".jpg", blank, [cv2.IMWRITE_JPEG_QUALITY, OVERLAY_JPEG_QUALITY]
+    )
+    grade_case(
+        "printed_decimals",
+        cv2.imdecode(jpeg, cv2.IMREAD_GRAYSCALE),
+        expected,
+        "printed by the overlay writer on the blank table: 5.3 has no allowed "
+        "decimal part and becomes 5.5, 1.25 / 2.75 / 0.5 are kept, the total "
+        "10 only matches once 5.3 is corrected",
+    )
 
     mongo = MongoClient(
         "mongodb://%s:%s@localhost:27017/"

@@ -900,6 +900,30 @@ def format_grade_text(number):
     return str(int(value)) if value.is_integer() else str(value)
 
 
+def write_grade_texts(img, boxes, numbers, offset=(0, 0), grade_ratio=0.5, color=0, thickness=2):
+    """Print the grades in the boxes of a grade table (the overlay of a finalised copy).
+
+    ``boxes`` are the contours found by ``find_grade_boxes`` on the table cropped
+    at ``offset`` in ``img``. The font scale is set once from the first printed
+    grade so every box uses the same size; an empty text (ignored question or
+    missing grade) leaves its box blank and does not set the scale.
+    """
+    x0, y0 = offset
+    font_scale = None
+    for b, number in zip(boxes, numbers):
+        (x, y, w, h) = cv2.boundingRect(b)
+        number_text = format_grade_text(number)
+        if number_text == "":
+            continue
+        (nw, nh), _ = cv2.getTextSize(number_text, cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
+        if font_scale is None:
+            font_scale = grade_ratio / max(nh / h, nw / w)
+        x_anchor = int(x + (w - nw * font_scale) / 2)
+        y_anchor = int(y + (h + nh * font_scale) / 2)
+        cv2.putText(img, number_text, (x0 + x_anchor, y0 + y_anchor),
+                    cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+
+
 def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'intermediate_image.jpg',
                trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11),
                jpg_quality: int = 5, grade_ratio: float = 0.5):
@@ -929,8 +953,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
             return False, cropped, [], boxes
 
         number_images = []
-        font_scale = None
-        for i, b in enumerate(boxes):
+        for b in boxes:
             (x, y, w, h) = cv2.boundingRect(b)
             if h <= 10 or w <= 10:
                 print("An invalid box number has been found (too small or too thin)")
@@ -940,22 +963,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
                     return find_right_boxes(box2, retry-1)
                 return False, cropped, number_images, boxes
 
-            thickness = 2
-            number_text = format_grade_text(numbers[i])
-            # an empty text leaves the box blank (ignored question or missing
-            # grade); it must not be used to compute the font scale (size 0)
-            if number_text == "":
-                continue
-            size, _ = cv2.getTextSize(number_text, cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
-            nw, nh = size
-            if font_scale is None:
-                font_scale=grade_ratio/max(nh/h, nw/w)
-            x_anchor = int(x + (w-nw*font_scale)/2)
-            y_anchor = int(y + (h+nh*font_scale)/2)
-            color = (0, 0, 255)
-            cv2.putText(np_img, number_text, (x0 + x_anchor, y0 + y_anchor),
-                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
-
+        write_grade_texts(np_img, boxes, numbers, (x0, y0), grade_ratio, color=(0, 0, 255))
         return True, cropped, number_images, boxes
 
     find_right_boxes(box)

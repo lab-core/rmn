@@ -25,7 +25,6 @@
     {
       "file": "grades_printed_ones.png",
       "note": "five printed 1 and a printed total 5 (the grade overlay of a finalised task)",
-      "matched": true,
       "numbers": [
         1.0,
         1.0,
@@ -33,12 +32,12 @@
         1.0,
         1.0,
         5.0
-      ]
+      ],
+      "known_miss": false
     },
     {
       "file": "grades_printed_with_zero.png",
       "note": "printed 0, 1, 1, 1, 1 and total 4",
-      "matched": true,
       "numbers": [
         0.0,
         1.0,
@@ -46,12 +45,12 @@
         1.0,
         1.0,
         4.0
-      ]
+      ],
+      "known_miss": false
     },
     {
       "file": "grades_blank.png",
       "note": "empty boxes: a cover page scanned before grading",
-      "matched": true,
       "numbers": [
         0.0,
         0.0,
@@ -59,20 +58,34 @@
         0.0,
         0.0,
         0.0
-      ]
+      ],
+      "known_miss": false
     },
     {
-      "file": "grades_overlapping_overlays.png",
-      "note": "two grade overlays printed on top of each other: unreadable, the total check must reject it",
-      "matched": false,
+      "file": "grades_dot_glued_to_digits.png",
+      "note": "printed 3.0, 1.0, 1.0, 1.0, 1.0 and total 7.0 (an older overlay wrote the .0); the jpeg-degraded dot touches the digits, so the model reads a lone 4, a 10 and a 7 where 3.0, 1.0 and 1.0 are written",
       "numbers": [
-        4.0,
+        3.0,
         1.0,
-        10.0,
         1.0,
-        7.0,
+        1.0,
+        1.0,
         7.0
-      ]
+      ],
+      "known_miss": true
+    },
+    {
+      "file": "grades_printed_decimals.png",
+      "note": "printed by the overlay writer on the blank table: 5.3 has no allowed decimal part and becomes 5.5, 1.25 / 2.75 / 0.5 are kept, the total 10 only matches once 5.3 is corrected",
+      "numbers": [
+        5.5,
+        1.25,
+        2.75,
+        0.5,
+        0.0,
+        10.0
+      ],
+      "known_miss": false
     }
   ],
   "matricules": [
