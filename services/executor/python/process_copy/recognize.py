@@ -42,9 +42,10 @@ import psutil
 from multiprocessing import Process, SimpleQueue
 from statistics import median
 from copy import copy
+import random
 
 from process_copy.config import re_mat, len_mat, known_mistmatch, min_documents_for_max_questions
-from process_copy.config import allowed_decimals_part, decimal_conversions
+from process_copy.config import allowed_decimals
 from process_copy.config import MoodleFields as MF
 from process_copy.mcc import get_name, load_csv, group_label
 from process_copy.preview import PreviewHandler
@@ -58,11 +59,6 @@ ignoreWrite = sys.gettrace() is None and "Debug" not in str(sys.stdin)
 
 storage = Storage()
 
-allowed_decimals = ["0", "25", "5", "75"]
-corrected_decimals = [
-    "5",
-    "75",
-]  # for length 1, use first one, lenght 2, use second one ...
 RED = (225, 6, 0)
 GREEN = (0, 154, 23)
 ORANGE = (255, 127, 0)
@@ -1294,26 +1290,16 @@ def try_fix_questions(max_question, predictions):
     return fixed, new_predictions
 
 
-def correct_decimals(p, conversions=None, allowed=None):
-    """Store the recognised decimal part of a grade as a valid quarter.
+def correct_decimals(p, allowed=None, rng=random):
+    """Make the decimal part of a grade allowed after the dot was moved.
 
-    ``conversions`` (default ``config.decimal_conversions``) maps a recognised
-    decimal part to the stored one: one recognised digit is one written digit,
-    and the only one-digit quarter is .5, so ".1" or ".7" read as ".5". A
-    decimal part that is neither converted nor already in ``allowed`` (default
-    ``config.allowed_decimals_part``) is snapped to the nearest allowed value,
-    or to 0; so is a converted value that ``allowed`` does not contain.
+    Same rule as the recognition: an allowed decimal part is kept, another is
+    replaced by a random allowed part with the same number of digits (see
+    ``config.allowed_decimals``).
     """
-    if conversions is None:
-        conversions = decimal_conversions
-    if allowed is None:
-        allowed = allowed_decimals_part
-    integer = p // 1
-    decimals = round(p - integer, 2)
-    new_decimals = conversions.get(decimals, decimals)
-    if new_decimals != 0 and new_decimals not in allowed:
-        new_decimals = min([0, *allowed], key=lambda d: abs(d - new_decimals))
-    n = integer + new_decimals
+    number, _, decimals = f"{p:.10f}".rstrip("0").partition(".")
+    decimals = random_allowed_decimals(decimals, allowed, rng)
+    n = float("%s.%s" % (number, decimals or "0"))
     print("Correct decimals:", p, "->", n)
     return n
 
@@ -1634,13 +1620,23 @@ def process_digits_combinations(all_digits, dot):
     combinations += trunc_combinations
     print("Combinations:", [(p, [i for (c, i) in d]) for (p, d) in combinations])
 
-    # process all combinations: normalize probability and extract number
+    # process all combinations by decreasing probability: normalize the
+    # probability and keep the numbers whose decimal part is allowed
     numbers = []
     just_allowed_decimals = len(trunc_combinations) == 0
-    for p, digits in combinations:
+    ranked = sorted(combinations, key=lambda c: c[0] / len(c[1]), reverse=True)
+    for p, digits in ranked:
         number = extract_number(digits, dot, just_allowed_decimals)
         if number is not None:
             numbers.append((p / len(digits), number))
+
+    if not numbers and just_allowed_decimals and ranked:
+        # no combination has an allowed decimal part: keep the most probable
+        # digits and draw an allowed decimal part of the same length
+        p, digits = ranked[0]
+        integer, decimals = split_digits(digits, dot)
+        decimals = random_allowed_decimals(decimals)
+        numbers.append((p / len(digits), float("%s.%s" % (integer, decimals or "0"))))
 
     if not numbers:
         return [(1.0, 0)]
@@ -1648,32 +1644,50 @@ def process_digits_combinations(all_digits, dot):
     return sorted(numbers, reverse=True)
 
 
+def split_digits(digits, dot):
+    """The integer and decimal digit strings of a recognised digit sequence."""
+    number = "".join("%d" % d[1] for d in digits[:dot])
+    decimals = "".join("%d" % d[1] for d in digits[dot:])
+    return number, decimals
+
+
+def allowed_decimals_with_digits(n_digits, allowed=None):
+    """Allowed decimal parts written with ``n_digits`` digits, "0" excluded.
+
+    A recognised non-zero digit is a fraction the student wrote: it is never
+    turned into a whole number.
+    """
+    allowed = allowed_decimals if allowed is None else allowed
+    return [d for d in allowed if len(d) == n_digits and int(d) != 0]
+
+
+def random_allowed_decimals(recognised, allowed=None, rng=random):
+    """An allowed decimal part for a recognised one that is not allowed.
+
+    Drawn at random among the allowed parts with the same number of digits
+    (``config.allowed_decimals``). When none has that many digits, the allowed
+    part closest in value is used. An empty or allowed part is returned as is.
+    """
+    allowed = allowed_decimals if allowed is None else allowed
+    if not recognised or recognised in allowed:
+        return recognised
+    same_length = allowed_decimals_with_digits(len(recognised), allowed)
+    if same_length:
+        chosen = rng.choice(same_length)
+    else:
+        value = float("0." + recognised)
+        chosen = min(allowed, key=lambda d: abs(float("0." + d) - value))
+    print("Corrected decimals", recognised, "->", chosen)
+    return chosen
+
+
 def extract_number(digits, dot, just_allowed_decimals=False):
-    # create number
-    number = ""
-    decimals = ""
-    for i, d in enumerate(digits):
-        if i < dot:
-            number = "%s%d" % (number, d[1])
-        else:
-            decimals = "%s%d" % (decimals, d[1])
-
-    # check if decimals are allowed when enable
+    """The number written by a digit sequence, or None when its decimals are
+    checked (``just_allowed_decimals``) and not allowed."""
+    number, decimals = split_digits(digits, dot)
     if just_allowed_decimals and decimals and decimals not in allowed_decimals:
-        # try to correct decimals
-        l = len(decimals)
-        if l <= len(corrected_decimals):
-            print("Corrected decimals", decimals, "->", corrected_decimals[l - 1])
-            print("Digits", [d[1] for d in digits])
-            decimals = corrected_decimals[l - 1]
-        else:
-            print(
-                "Found decimals not allowed: %s is not within %s."
-                % (decimals, ",".join(allowed_decimals))
-            )
-            return None
-
-    return float("%s.%s" % (number, decimals))
+        return None
+    return float("%s.%s" % (number, decimals or "0"))
 
 
 def find_edges(

@@ -45,22 +45,11 @@ class MoodleFields:
 
 
 # --- decimal part of a recognised grade ---------------------------------------
-# Decimal parts a grade can take (quarters of a point).
-allowed_decimals_part = [.25, .5, .75]
-
-# How a recognised decimal part is stored, keyed by the recognised decimals
-# rounded to two digits. One recognised digit means the student wrote one
-# decimal digit, and the only one-digit quarter is .5: whatever the digit was
-# read as (".1", ".7", ...), it is stored as .5. A recognised decimal part that
-# is neither listed here nor in allowed_decimals_part is snapped to the nearest
-# allowed value (or 0). Edit this table to change the conversions.
-decimal_conversions = {
-    0.1: 0.5,
-    0.2: 0.5,
-    0.3: 0.5,
-    0.4: 0.5,
-    0.6: 0.5,
-    0.7: 0.5,
-    0.8: 0.5,
-    0.9: 0.5,
-}
+# Decimal parts a grade can take, as the student writes them: "0" for a whole
+# number, "5" for a half, "25" and "75" for the quarters. The digit
+# combinations recognised in a box are tried by decreasing probability and the
+# first one whose decimal part is listed here wins. When none is, the decimal
+# part is replaced by one drawn at random among the allowed parts written with
+# the same number of digits: a single recognised digit can only become ".5",
+# the one-digit part other than "0". Edit this list to change what is allowed.
+allowed_decimals = ["0", "25", "5", "75"]

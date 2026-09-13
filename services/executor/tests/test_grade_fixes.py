@@ -29,24 +29,48 @@ def test_out_of_range_grades_are_scaled_down():
     assert predictions == [8.5, 3]
 
 
-def test_decimals_follow_the_configured_conversions():
-    from process_copy import config
+def test_an_allowed_decimal_part_is_kept_and_a_lone_digit_becomes_a_half():
     from process_copy.recognize import correct_decimals
 
-    # one recognised digit is one written digit, and the only one-digit
-    # quarter is .5: every single digit reads as .5
-    for digit in (1, 2, 3, 4, 5, 6, 7, 8, 9):
-        assert correct_decimals(7 + digit / 10) == 7.5, digit
-    assert correct_decimals(8.0) == 8.0
-    # two recognised digits that form a quarter are kept (they used to become .5)
     assert correct_decimals(7.75) == 7.75
     assert correct_decimals(7.25) == 7.25
-    # anything else snaps to the nearest allowed value
-    assert correct_decimals(7.33) == 7.25
-    assert correct_decimals(7.87) == 7.75
-    # the tables are configuration (process_copy/config.py)
-    assert correct_decimals(7.7, conversions={0.7: 0.75}) == 7.75
-    assert correct_decimals(7.4, conversions={}, allowed=[0.5]) == 7.5
-    # a conversion to a value that is not allowed snaps like any other
-    assert correct_decimals(7.7, conversions={0.7: 0.6}, allowed=[0.25, 0.75]) == 7.75
-    assert set(config.decimal_conversions.values()) <= {0, *config.allowed_decimals_part}
+    assert correct_decimals(7.5) == 7.5
+    assert correct_decimals(8.0) == 8.0
+    # one recognised digit is one written digit: the only one-digit part
+    # other than "0" is "5", whatever the digit was read as
+    for digit in (1, 2, 3, 4, 6, 7, 8, 9):
+        assert correct_decimals(7 + digit / 10) == 7.5, digit
+
+
+def test_two_unknown_digits_draw_a_random_two_digit_part():
+    import random
+
+    from process_copy.recognize import correct_decimals
+
+    drawn = {correct_decimals(7.33, rng=random.Random(seed)) for seed in range(20)}
+    assert drawn == {7.25, 7.75}
+    # more digits than any allowed part: closest allowed value
+    assert correct_decimals(7.875) == 7.75
+    assert correct_decimals(7.125, rng=random.Random(0)) in (7.0, 7.25)
+    # the allowed parts are configuration (process_copy/config.py)
+    assert correct_decimals(7.7, allowed=["0", "3", "5"], rng=random.Random(1)) in (7.3, 7.5)
+
+
+def test_box_candidates_are_tried_by_probability_then_drawn():
+    import random
+
+    from process_copy import recognize
+
+    # "7.7" read with "5" as the second choice of the last digit: 7.5 is the
+    # only candidate with an allowed decimal part, whatever its probability
+    digits = [(None, [(0.9, 7)]), (None, [(0.6, 7), (0.3, 5)])]
+    assert [n for _, n in recognize.process_digits_combinations(digits, dot=1)] == [7.5]
+    # no candidate is allowed: the most probable digits with a drawn part
+    digits = [(None, [(0.9, 7)]), (None, [(0.9, 3), (0.1, 4)])]
+    assert [n for _, n in recognize.process_digits_combinations(digits, dot=1)] == [7.5]
+    digits = [(None, [(0.9, 7)]), (None, [(0.9, 3)]), (None, [(0.9, 3)])]
+    recognize.random.seed(3)
+    assert recognize.process_digits_combinations(digits, dot=1)[0][1] in (7.25, 7.75)
+    # no dot: whole numbers pass through, best first
+    digits = [(None, [(0.6, 1), (0.4, 7)]), (None, [(0.9, 0)])]
+    assert [n for _, n in recognize.process_digits_combinations(digits, dot=2)] == [10.0, 70.0]
