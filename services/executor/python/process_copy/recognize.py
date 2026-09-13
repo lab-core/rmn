@@ -2015,14 +2015,38 @@ def find_digit_contours(
     return scnts, dot, thresh
 
 
+def ink_rects(thresh, min_size=5):
+    """Bounding rectangles of the ink blobs of a thresholded image, tiny specks left out."""
+    cnts, _ = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    rects = [cv2.boundingRect(c) for c in cnts]
+    return [(x, y, w, h) for (x, y, w, h) in rects if w >= min_size and h >= min_size]
+
+
 def get_clean_thresh(gray):
     # threshold the gray image, then apply a series of morphological
     # operations to cleanup the thresholded image
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     imwrite_png("blurred", blurred)
-    thresh = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)[
-        1
-    ]  # | cv2.THRESH_OTSU
+    thresh = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)[1]
+
+    # A digit-sized blob wider than tall is a dot or two digits glued together:
+    # the fixed threshold takes the gray halo of a degraded print (jpeg overlay,
+    # light scan) as ink and bridges the gap. Otsu's threshold thins the strokes
+    # and separates them; it is kept only when it splits a blob without losing a
+    # digit, so faint handwriting keeps the permissive threshold.
+    rects = ink_rects(thresh)
+    if rects:
+        max_h = max(h for _, _, _, h in rects)
+
+        def n_digit_sized(rs):
+            return sum(1 for _, _, _, h in rs if h > 0.5 * max_h)
+
+        if any(w > h > 0.5 * max_h for (_, _, w, h) in rects):
+            otsu = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+            orects = ink_rects(otsu)
+            if len(orects) > len(rects) and n_digit_sized(orects) >= n_digit_sized(rects):
+                print("Glued digits: Otsu threshold used")
+                thresh = otsu
     imwrite_png("thresh", thresh)
     return thresh
 

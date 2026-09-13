@@ -23,7 +23,10 @@ matricule_box = {
     }
 }
 
-known_mistmatch = {}
+# digit the model confuses -> digit it may actually be. The second one is added
+# to the candidates of a box with probability 0, so it is only chosen when the
+# total check needs it: a printed or handwritten 1 with a top flag reads as 7.
+known_mistmatch = {7: 1}
 
 class Latex:
     cmd = "pdflatex"

@@ -37,6 +37,20 @@ def page_with(crop_file, box):
     return page
 
 
+def check_known_miss(case, correct, found):
+    """xfail a crop the model is known to misread; a known miss that is now read
+    correctly must be un-flagged (strict, like an XPASS), so an improvement is
+    recorded in expected.json instead of hiding behind the flag."""
+    if not case.get("known_miss"):
+        return
+    if correct:
+        pytest.fail(
+            f"{case['file']} is read correctly now: set known_miss to false "
+            "(or regenerate the fixtures)"
+        )
+    pytest.xfail(f"known misread of {case['file']}: {found}")
+
+
 @pytest.mark.parametrize("case", SPEC["grades"], ids=lambda c: c["file"])
 def test_grade_boxes_are_read_and_checked_against_the_total(case, classifier):
     page = page_with(case["file"], SPEC["grade_box"])
@@ -45,8 +59,7 @@ def test_grade_boxes_are_read_and_checked_against_the_total(case, classifier):
     )
     assert len(boxes) == 6  # Q1..Q4, Bonus, Total
     numbers = [float(n) for n in numbers]
-    if case.get("known_miss"):
-        pytest.xfail(f"known misread of this table: {numbers} for {case['numbers']}")
+    check_known_miss(case, matched and numbers == case["numbers"], numbers)
     assert matched, case["note"]
     assert numbers == case["numbers"], case["note"]
 
@@ -62,6 +75,5 @@ def test_handwritten_matricule_is_read_from_its_boxes(case, classifier):
         [],
         separate_box=True,
     )
-    if case.get("known_miss"):
-        pytest.xfail(f"known misread of this page: {found} for {case['matricule']}")
+    check_known_miss(case, found == case["matricule"], found)
     assert found == case["matricule"]

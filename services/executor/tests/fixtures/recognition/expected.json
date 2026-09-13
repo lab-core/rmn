@@ -63,7 +63,7 @@
     },
     {
       "file": "grades_dot_glued_to_digits.png",
-      "note": "printed 3.0, 1.0, 1.0, 1.0, 1.0 and total 7.0 (an older overlay wrote the .0); the jpeg-degraded dot touches the digits, so the model reads a lone 4, a 10 and a 7 where 3.0, 1.0 and 1.0 are written",
+      "note": "printed 3.0, 1.0, 1.0, 1.0, 1.0 and total 7.0 (an older overlay wrote the .0); under the fixed threshold the jpeg-degraded dot touches the digits (a lone 4, a 10), so get_clean_thresh retries with Otsu, and the bonus 1 reads as 7 unless the total check falls back on the known 7 -> 1 confusion",
       "numbers": [
         3.0,
         1.0,
@@ -72,7 +72,7 @@
         1.0,
         7.0
       ],
-      "known_miss": true
+      "known_miss": false
     },
     {
       "file": "grades_printed_decimals.png",

@@ -61,8 +61,10 @@ GRADE_CASES = [
         "documents/4e094d91-bbbf-44ea-96aa-d5e4a314ba7c/all/rtnebsv-0.pdf",
         [3, 1, 1, 1, 1, 7],
         "printed 3.0, 1.0, 1.0, 1.0, 1.0 and total 7.0 (an older overlay wrote "
-        "the .0); the jpeg-degraded dot touches the digits, so the model reads "
-        "a lone 4, a 10 and a 7 where 3.0, 1.0 and 1.0 are written",
+        "the .0); under the fixed threshold the jpeg-degraded dot touches the "
+        "digits (a lone 4, a 10), so get_clean_thresh retries with Otsu, and "
+        "the bonus 1 reads as 7 unless the total check falls back on the "
+        "known 7 -> 1 confusion",
     ),
 ]
 # Grades printed by the executor's own overlay writer on the blank table above
