@@ -49,17 +49,18 @@ class MoodleFields:
 allowed_decimals_part = [.25, .5, .75]
 
 # How a recognised decimal part is stored, keyed by the recognised decimals
-# rounded to two digits. A single recognised digit cannot be a two-digit
-# quarter: ".7" is not ".75", it is read as ".5". A recognised decimal part
-# that is neither listed here nor in allowed_decimals_part is snapped to the
-# nearest allowed value (or 0). Edit this table to change the conversions.
+# rounded to two digits. One recognised digit means the student wrote one
+# decimal digit, and the only one-digit quarter is .5: whatever the digit was
+# read as (".1", ".7", ...), it is stored as .5. A recognised decimal part that
+# is neither listed here nor in allowed_decimals_part is snapped to the nearest
+# allowed value (or 0). Edit this table to change the conversions.
 decimal_conversions = {
-    0.1: 0.0,
-    0.2: 0.25,
-    0.3: 0.25,
+    0.1: 0.5,
+    0.2: 0.5,
+    0.3: 0.5,
     0.4: 0.5,
     0.6: 0.5,
     0.7: 0.5,
-    0.8: 0.75,
-    0.9: 0.75,
+    0.8: 0.5,
+    0.9: 0.5,
 }

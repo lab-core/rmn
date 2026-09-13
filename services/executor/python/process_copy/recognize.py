@@ -1298,10 +1298,11 @@ def correct_decimals(p, conversions=None, allowed=None):
     """Store the recognised decimal part of a grade as a valid quarter.
 
     ``conversions`` (default ``config.decimal_conversions``) maps a recognised
-    decimal part to the stored one: a single recognised digit cannot be a
-    two-digit quarter, so ".7" reads as ".5". A decimal part that is neither
-    converted nor already in ``allowed`` (default ``config.allowed_decimals_part``)
-    is snapped to the nearest allowed value, or to 0.
+    decimal part to the stored one: one recognised digit is one written digit,
+    and the only one-digit quarter is .5, so ".1" or ".7" read as ".5". A
+    decimal part that is neither converted nor already in ``allowed`` (default
+    ``config.allowed_decimals_part``) is snapped to the nearest allowed value,
+    or to 0; so is a converted value that ``allowed`` does not contain.
     """
     if conversions is None:
         conversions = decimal_conversions
@@ -1309,12 +1310,9 @@ def correct_decimals(p, conversions=None, allowed=None):
         allowed = allowed_decimals_part
     integer = p // 1
     decimals = round(p - integer, 2)
-    if decimals in conversions:
-        new_decimals = conversions[decimals]
-    elif decimals == 0 or decimals in allowed:
-        new_decimals = decimals
-    else:
-        new_decimals = min([0, *allowed], key=lambda d: abs(d - decimals))
+    new_decimals = conversions.get(decimals, decimals)
+    if new_decimals != 0 and new_decimals not in allowed:
+        new_decimals = min([0, *allowed], key=lambda d: abs(d - new_decimals))
     n = integer + new_decimals
     print("Correct decimals:", p, "->", n)
     return n

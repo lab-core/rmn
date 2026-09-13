@@ -33,20 +33,20 @@ def test_decimals_follow_the_configured_conversions():
     from process_copy import config
     from process_copy.recognize import correct_decimals
 
-    # one recognised digit cannot be a two-digit quarter: .7 reads as .5
-    assert correct_decimals(7.7) == 7.5
-    assert correct_decimals(7.6) == 7.5
-    assert correct_decimals(7.8) == 7.75
-    assert correct_decimals(7.2) == 7.25
-    assert correct_decimals(7.1) == 7.0
+    # one recognised digit is one written digit, and the only one-digit
+    # quarter is .5: every single digit reads as .5
+    for digit in (1, 2, 3, 4, 5, 6, 7, 8, 9):
+        assert correct_decimals(7 + digit / 10) == 7.5, digit
     assert correct_decimals(8.0) == 8.0
     # two recognised digits that form a quarter are kept (they used to become .5)
     assert correct_decimals(7.75) == 7.75
     assert correct_decimals(7.25) == 7.25
     # anything else snaps to the nearest allowed value
     assert correct_decimals(7.33) == 7.25
-    assert correct_decimals(7.9) == 7.75
+    assert correct_decimals(7.87) == 7.75
     # the tables are configuration (process_copy/config.py)
     assert correct_decimals(7.7, conversions={0.7: 0.75}) == 7.75
     assert correct_decimals(7.4, conversions={}, allowed=[0.5]) == 7.5
+    # a conversion to a value that is not allowed snaps like any other
+    assert correct_decimals(7.7, conversions={0.7: 0.6}, allowed=[0.25, 0.75]) == 7.75
     assert set(config.decimal_conversions.values()) <= {0, *config.allowed_decimals_part}
