@@ -1,0 +1,120 @@
+{
+  "page_shape": [
+    2550,
+    3300
+  ],
+  "grade_box": [
+    0.82,
+    0.96,
+    0.15,
+    0.55
+  ],
+  "matricule_box": [
+    0.05,
+    0.85,
+    0.15,
+    0.35
+  ],
+  "regular_matricule_box": [
+    0.55,
+    0.95,
+    0.05,
+    0.13
+  ],
+  "grades": [
+    {
+      "file": "grades_printed_ones.png",
+      "note": "five printed 1 and a printed total 5 (the grade overlay of a finalised task)",
+      "matched": true,
+      "numbers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        5.0
+      ]
+    },
+    {
+      "file": "grades_printed_with_zero.png",
+      "note": "printed 0, 1, 1, 1, 1 and total 4",
+      "matched": true,
+      "numbers": [
+        0.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        4.0
+      ]
+    },
+    {
+      "file": "grades_blank.png",
+      "note": "empty boxes: a cover page scanned before grading",
+      "matched": true,
+      "numbers": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "file": "grades_overlapping_overlays.png",
+      "note": "two grade overlays printed on top of each other: unreadable, the total check must reject it",
+      "matched": false,
+      "numbers": [
+        4.0,
+        1.0,
+        10.0,
+        1.0,
+        7.0,
+        7.0
+      ]
+    }
+  ],
+  "matricules": [
+    {
+      "file": "matricule_01.png",
+      "matricule": "2478756",
+      "known_miss": false
+    },
+    {
+      "file": "matricule_02.png",
+      "matricule": "2448628",
+      "known_miss": false
+    },
+    {
+      "file": "matricule_03.png",
+      "matricule": "2454322",
+      "known_miss": false
+    },
+    {
+      "file": "matricule_04.png",
+      "matricule": "2458168",
+      "known_miss": false
+    },
+    {
+      "file": "matricule_05.png",
+      "matricule": "2463197",
+      "known_miss": false
+    },
+    {
+      "file": "matricule_06.png",
+      "matricule": "2479195",
+      "known_miss": false
+    },
+    {
+      "file": "matricule_07.png",
+      "matricule": "2465638",
+      "known_miss": true
+    },
+    {
+      "file": "matricule_08.png",
+      "matricule": "2039859",
+      "known_miss": true
+    }
+  ]
+}
