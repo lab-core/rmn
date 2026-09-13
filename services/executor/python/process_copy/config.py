@@ -42,3 +42,24 @@ class MoodleFields:
     status = 'Statut'
     status_start_filter = 'Remis'
     group = '(?i)(gr|groupe?s?)$'
+
+
+# --- decimal part of a recognised grade ---------------------------------------
+# Decimal parts a grade can take (quarters of a point).
+allowed_decimals_part = [.25, .5, .75]
+
+# How a recognised decimal part is stored, keyed by the recognised decimals
+# rounded to two digits. A single recognised digit cannot be a two-digit
+# quarter: ".7" is not ".75", it is read as ".5". A recognised decimal part
+# that is neither listed here nor in allowed_decimals_part is snapped to the
+# nearest allowed value (or 0). Edit this table to change the conversions.
+decimal_conversions = {
+    0.1: 0.0,
+    0.2: 0.25,
+    0.3: 0.25,
+    0.4: 0.5,
+    0.6: 0.5,
+    0.7: 0.5,
+    0.8: 0.75,
+    0.9: 0.75,
+}

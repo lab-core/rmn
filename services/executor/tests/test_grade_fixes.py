@@ -29,12 +29,24 @@ def test_out_of_range_grades_are_scaled_down():
     assert predictions == [8.5, 3]
 
 
-def test_decimals_snap_to_the_nearest_quarter_including_three_quarters():
+def test_decimals_follow_the_configured_conversions():
+    from process_copy import config
     from process_copy.recognize import correct_decimals
 
-    assert correct_decimals(7.7) == 7.75  # used to come back as 7.5
-    assert correct_decimals(7.9) == 7.75
+    # one recognised digit cannot be a two-digit quarter: .7 reads as .5
+    assert correct_decimals(7.7) == 7.5
     assert correct_decimals(7.6) == 7.5
-    assert correct_decimals(7.3) == 7.25
+    assert correct_decimals(7.8) == 7.75
+    assert correct_decimals(7.2) == 7.25
     assert correct_decimals(7.1) == 7.0
     assert correct_decimals(8.0) == 8.0
+    # two recognised digits that form a quarter are kept (they used to become .5)
+    assert correct_decimals(7.75) == 7.75
+    assert correct_decimals(7.25) == 7.25
+    # anything else snaps to the nearest allowed value
+    assert correct_decimals(7.33) == 7.25
+    assert correct_decimals(7.9) == 7.75
+    # the tables are configuration (process_copy/config.py)
+    assert correct_decimals(7.7, conversions={0.7: 0.75}) == 7.75
+    assert correct_decimals(7.4, conversions={}, allowed=[0.5]) == 7.5
+    assert set(config.decimal_conversions.values()) <= {0, *config.allowed_decimals_part}

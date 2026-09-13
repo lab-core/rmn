@@ -44,6 +44,7 @@ from statistics import median
 from copy import copy
 
 from process_copy.config import re_mat, len_mat, known_mistmatch, min_documents_for_max_questions
+from process_copy.config import allowed_decimals_part, decimal_conversions
 from process_copy.config import MoodleFields as MF
 from process_copy.mcc import get_name, load_csv, group_label
 from process_copy.preview import PreviewHandler
@@ -58,7 +59,6 @@ ignoreWrite = sys.gettrace() is None and "Debug" not in str(sys.stdin)
 storage = Storage()
 
 allowed_decimals = ["0", "25", "5", "75"]
-allowed_decimals_part = [.25, .5, .75]
 corrected_decimals = [
     "5",
     "75",
@@ -1294,23 +1294,28 @@ def try_fix_questions(max_question, predictions):
     return fixed, new_predictions
 
 
-def correct_decimals(p):
-    decimals = p % 1
-    # search for closest one
-    close_d = 0
-    for j, d in enumerate(allowed_decimals_part):
-        if d < decimals:
-            close_d = d
-        else:
-            # closer to close d
-            decimals = close_d if decimals - close_d < d - decimals else d
-            break
+def correct_decimals(p, conversions=None, allowed=None):
+    """Store the recognised decimal part of a grade as a valid quarter.
+
+    ``conversions`` (default ``config.decimal_conversions``) maps a recognised
+    decimal part to the stored one: a single recognised digit cannot be a
+    two-digit quarter, so ".7" reads as ".5". A decimal part that is neither
+    converted nor already in ``allowed`` (default ``config.allowed_decimals_part``)
+    is snapped to the nearest allowed value, or to 0.
+    """
+    if conversions is None:
+        conversions = decimal_conversions
+    if allowed is None:
+        allowed = allowed_decimals_part
+    integer = p // 1
+    decimals = round(p - integer, 2)
+    if decimals in conversions:
+        new_decimals = conversions[decimals]
+    elif decimals == 0 or decimals in allowed:
+        new_decimals = decimals
     else:
-        # past the last allowed value (e.g. .9): snap down to it. This used to
-        # run whenever the loop ended on the last value, break or not, and
-        # turned a recognised .75 into .5
-        decimals = close_d
-    n = p // 1 + decimals
+        new_decimals = min([0, *allowed], key=lambda d: abs(d - decimals))
+    n = integer + new_decimals
     print("Correct decimals:", p, "->", n)
     return n
 
