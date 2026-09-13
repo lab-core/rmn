@@ -21,7 +21,8 @@ from python.process_copy.database import Database
 from python.process_copy.add_grades import process_writing
 from utils.stats import create_all_boxplots, create_stats_latex, remove_non_pdfs
 from utils.merge import process_merge
-from utils.utils import Job_Status, Document_Status, question_sort_key, ignored_positions
+from utils.utils import Job_Status, Document_Status, question_sort_key, ignored_positions, \
+    safe_path_component, ensure_within
 from utils.storage import Storage
 from utils.stop_handler import StopHandler
 from utils.clients import redis_client, socketio_client, update_status
@@ -489,13 +490,16 @@ if __name__ == "__main__":
                     print("Matricule", matricule, "not found in csv.")
                     continue
 
+                # the csv cells become file and folder names below: strip
+                # what would leave the job folder (separators, "..")
+                safe_name = safe_path_component(nom_complet)
+                safe_matricule = safe_path_component(matricule)
+
                 # find nom and prenom associated to this file
                 try:
-                    nom, prenom = nom_complet.split()
+                    nom, prenom = safe_name.split()
                 except Exception as e:
-                    # print(nom_complet)
-                    # print(e)
-                    nom = nom_complet
+                    nom = safe_name
                     prenom = ""
 
                 # store copy for moodle zip if necessary
@@ -507,10 +511,10 @@ if __name__ == "__main__":
                         print("Moodle participant id not found in " + identifiant)
                     else:
                         identifiant = m_id.group()
-                        folder_name = f"{nom_complet}_{identifiant}_{matricule}_assignsubmission_file_"
-                        m_folder = moodle_folder_path.joinpath(folder_name)
+                        folder_name = f"{safe_name}_{identifiant}_{safe_matricule}_assignsubmission_file_"
+                        m_folder = ensure_within(moodle_folder_path.joinpath(folder_name), moodle_folder_path)
                         m_folder.mkdir(exist_ok=True)
-                        m_dest = m_folder.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
+                        m_dest = m_folder.joinpath(f"{nom}_{prenom}_{safe_matricule}.pdf")
 
                         # transfer file to folder
                         shutil.copy(str(file), str(m_dest))
@@ -524,7 +528,7 @@ if __name__ == "__main__":
                                                           all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER,
                                                           question_names=question_names)
                                 # print("Stats for", nom_complet, "created:", fpdf)
-                                shutil.move(fpdf, m_folder.joinpath(f"{nom}_{prenom}_{matricule}_notes.pdf"))
+                                shutil.move(fpdf, m_folder.joinpath(f"{nom}_{prenom}_{safe_matricule}_notes.pdf"))
                             except ValueError:
                                 # file not found
                                 print(f"File {filename} does not correspond to a valid document.")
@@ -534,9 +538,10 @@ if __name__ == "__main__":
                 copies_path = all_copies_folder_path
                 if l_group:
                     group = df.at[matricule, l_group]
-                    copies_path = copies_path.joinpath(str(group))
+                    copies_path = ensure_within(copies_path.joinpath(safe_path_component(group)),
+                                                all_copies_folder_path)
                     copies_path.mkdir(exist_ok=True)
-                dest = copies_path.joinpath(f"{nom}_{prenom}_{matricule}.pdf")
+                dest = copies_path.joinpath(f"{nom}_{prenom}_{safe_matricule}.pdf")
                 shutil.move(str(file), str(dest))
 
                 i += 1

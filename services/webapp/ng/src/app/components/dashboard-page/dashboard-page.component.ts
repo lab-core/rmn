@@ -88,13 +88,13 @@ export class DashboardPageComponent {
         // matricule has been validated
         if (matricule) {
           await this.docService.getDocuments(this.taskId, false, docIndices);
-          this.examsList[resp.document_index] = this.docService.documentsList[0];
+          this.replaceDocument(this.examsList, this.docService.documentsList[0]);
           this.computeTotalMatricules();
         }
         // if question has been validated
         if (questions) {
           await this.docService.getDocuments(this.taskId, true, docIndices);
-          this.questionsDocList[resp.document_index] = this.docService.documentsList[0];
+          this.replaceDocument(this.questionsDocList, this.docService.documentsList[0]);
           this.computeQuestions();
         }
         // check if can be finalized
@@ -585,6 +585,20 @@ export class DashboardPageComponent {
         localStorage.removeItem(`${this.task.job_id}_copy`);
         PDFSource.clearAll(this.task.job_id, this.questionsDocList.length);
       }
+    }
+  }
+
+  // the lists are indexed by position while document_index is a server id;
+  // the two only coincide for a single-question task with no copies added later
+  private replaceDocument(list: any[], doc: any): void {
+    if (!doc) {
+      return;
+    }
+    const position = list.findIndex(d => d.document_index === doc.document_index);
+    if (position >= 0) {
+      list[position] = doc;
+    } else {
+      list.push(doc);
     }
   }
 

@@ -27,6 +27,10 @@ spec:
   jobTargetRef:
     template:
       spec:
+        # the executor never calls the Kubernetes API; without this every job
+        # pod carries a service-account token that anything reading files
+        # inside the pod (pdflatex \input of a csv value) could return to a user
+        automountServiceAccountToken: false
         volumes:
           - name: nfs-storage
             nfs:

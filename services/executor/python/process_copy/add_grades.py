@@ -40,7 +40,8 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11) ):
         job (dict): The job.
 
     Returns:
-        None
+        list: The document_index of the copies whose cover page could not be
+              written; those keep their original cover page.
     """
     job_id = job["job_id"]
     box_grades = def_grade_box["exam"]["grade"]  # default box for grades recognition
@@ -63,6 +64,7 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11) ):
     img_path = str(TMP_DIR.joinpath('intermediate_image.jpg'))
     print("Adding grades to copies ...")
     i = 0
+    failed = []
     for doc in documents:
         input_pdf_path = storage.abs_path(doc["rel_filepath"])
 
@@ -81,14 +83,27 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11) ):
         if not os.path.exists(input_pdf_path_backup):
             shutil.copy(input_pdf_path, input_pdf_path_backup)
 
+        # one scratch image serves every copy: remove it first, so a failed
+        # overlay cannot leave the previous student's cover page in place and
+        # have it written into this copy's pdf below
+        if os.path.exists(img_path):
+            os.remove(img_path)
         try:
             # use backup to add grades (not to overwrite grades if re-processing)
             add_grades(grades, input_pdf_path_backup, box_grades, img_path,  add_border=False, shape=shape)
         except Exception as e:
             print(f"Error while adding grades to {input_pdf_path}: {e}")
+        if not os.path.exists(img_path):
+            failed.append(doc["document_index"])
+            i += 1
+            print(f"({i}/{n_docs}) Grades NOT written on {input_pdf_path}: original cover page kept")
+            continue
 
         layout = img2pdf.get_fixed_dpi_layout_fun((dpi, dpi))
         with open(input_pdf_path, "wb") as f:
             f.write(img2pdf.convert(img_path, layout_fun=layout))
         i += 1
         print(f"({i}/{n_docs}) Modified PDF saved as {input_pdf_path}")
+    if failed:
+        print(f"Grades could not be written on {len(failed)} cover page(s): documents {failed}")
+    return failed

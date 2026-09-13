@@ -212,6 +212,24 @@ describe('TaskVerificationComponent', () => {
     expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('bonus'), 'Information');
   });
 
+  it('offline copies are matched by document index, not by position in the sorted list', async () => {
+    await create();
+    const saveCopy = spyOn(component, 'saveCopy').and.resolveTo(true);
+    // document_index 12 is a_Q3, which sits at position 1 once the list is sorted by student
+    const pdfSrc = new PDFSource(12, 'blob:12', 0);
+    component.offlineCopies.set(12, {
+      pdfSrc, file64: 'data:application/pdf;base64,JVBERi0xLjQ=', updated: false,
+      grade: 3, status: 'VALIDATED', questionIndex: 'Q3',
+    } as any);
+
+    await component.uploadOffline(false);
+
+    const file: File = saveCopy.calls.mostRecent().args[1];
+    expect(file.name).toBe('a_Q3.pdf');
+    expect(saveCopy.calls.mostRecent().args[0]).toBe(pdfSrc);
+    expect(notification.showSuccess).toHaveBeenCalled();
+  });
+
   it('skipping a copy tags it and keeps it to validate', async () => {
     await create();
     await component.skipCurrentCopy('2');

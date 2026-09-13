@@ -169,6 +169,16 @@ describe('MatriculeVerificationComponent', () => {
     expect(component.currentMatriculeWarning).toBeUndefined();
   });
 
+  it('changing the matricule edits the copy being viewed, not the one at that position', async () => {
+    await create();
+    component.initialCopyIndex = 1;
+    component.currentCopy = 2;  // the copy at position currentIndex() === 1
+    component.changeMatricule({ matricule: '9999999' });
+    expect(component.examsList[1].matricule).toBe('9999999');
+    expect(component.examsList[2].matricule).toBe('');
+    expect(component.currentMatricule).toBe(9999999);
+  });
+
   it('validating a matricule saves it and moves to the next unvalidated copy', async () => {
     await create();
     component.updateMatricule();

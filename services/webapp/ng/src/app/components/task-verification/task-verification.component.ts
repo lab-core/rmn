@@ -549,6 +549,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.disableNext = !pdfLoaded || this.offline || (this.currentVersion >= this.currentPdfSrc.lastVersion) || (this.currentVersion === undefined);
   }
 
+  // examsList is re-sorted by student, so a server document_index is not a
+  // position in it: every lookup by document index goes through here
+  examByDocumentIndex(documentIndex: number) {
+    return this.examsList.find(exam => exam.document_index === documentIndex);
+  }
+
   async changeCurrentDocumentIndex(docIndex, status, updateScroll: boolean=true): Promise<void> {
     const copyIndex = this.examsList.findIndex(exam => exam.document_index === docIndex);
     await this.changeCurrentCopy(copyIndex, status, updateScroll);
@@ -992,9 +998,13 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
     this.downloadingOffline = true;
     for (const copy of this.offlineCopies.values()) {
+      const exam = this.examByDocumentIndex(copy.pdfSrc.index);
+      if (exam === undefined) {
+        this.notificationService.showError(`La copie ${copy.pdfSrc.index} ne fait plus partie de la tâche.`, 'Error');
+        continue;
+      }
       if (copy.file64 !== undefined && !copy.updated) {
         const cFile: File = await fetch(copy.file64).then((res) => res.blob()).then((blob) => {
-          const exam = this.examsList[copy.pdfSrc.index];
           return new File([blob], exam.filename + '.pdf', { type: 'application/pdf' });
         });
         const result = await this.saveCopy(
@@ -1011,7 +1021,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         copy.updated = true;
         this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
       }
-      if (finalize) this.examsList[copy.pdfSrc.index].offline = false;
+      if (finalize) exam.offline = false;
     }
     this.notificationService.showSuccess('Téléversement terminé!', 'Success');
     if (finalize) await this.cleanOffline();
@@ -1031,12 +1041,16 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async loadOfflineCopies() {
     const allCopies = await db.getAllCopies();
     for (const copy of allCopies) {
+      const exam = this.examByDocumentIndex(copy.pdfSrc.index);
+      if (exam === undefined) {
+        continue;  // stored for a copy that is no longer part of this task
+      }
       if (copy.grade !== undefined) {
-        this.examsList[copy.pdfSrc.index].grade = copy.grade;
+        exam.grade = copy.grade;
       }
       copy.pdfSrc = await this.docService.loadPDFSource(copy.pdfSrc);
-      this.examsList[copy.pdfSrc.index].offline = true;
-      this.examsList[copy.pdfSrc.index].status = copy.status;
+      exam.offline = true;
+      exam.status = copy.status;
       this.offlineCopies.set(copy.pdfSrc.index, copy);
     }
   }

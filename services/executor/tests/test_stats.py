@@ -1,6 +1,10 @@
 """Statistics report: boxplots and the LaTeX tables fed to pdflatex."""
 
 import os
+import shutil
+from pathlib import Path
+
+import pytest
 
 import numpy as np
 
@@ -95,3 +99,63 @@ def test_stats_latex_for_the_class_average_leaves_the_student_column_blank(tmp_p
     lines = (tmp_path / "tmp" / "stats.tex").read_text().splitlines()
     assert lines[0].startswith("1 (/ 10) &  & 9.00 &")
     assert lines[1].startswith("Total (/ 10) &  & 9.00 &")
+
+
+def test_tex_escape_neutralises_every_special_character():
+    hostile = "}\\input{/etc/passwd}\\newcommand{\\x}{"
+    escaped = stats.tex_escape(hostile)
+    assert "\\input" not in escaped
+    assert escaped.startswith("\\}\\textbackslash{}input\\{")
+    assert stats.tex_escape("Smith & Wesson 100% #1 $_ ~^") == (
+        "Smith \\& Wesson 100\\% \\#1 \\$\\_ \\textasciitilde{}\\textasciicircum{}"
+    )
+    assert stats.tex_escape("Plain Name") == "Plain Name"
+
+
+def test_the_student_name_is_escaped_before_it_reaches_latex(tmp_path, monkeypatch):
+    monkeypatch.setattr(stats, "create_tex_pdf", lambda *a, **k: "main.pdf")
+    stats.create_stats_latex(
+        "}\\input{secret.csv}\\newcommand{\\x}{", None, 1, np.array([[1.0]]), [1, 1], ["Q1.png", "T.png"],
+        latex_dir=str(tmp_path / "tex"), TMP_DIR=str(tmp_path / "tmp"),
+    )
+    data = (tmp_path / "tmp" / "data.tex").read_text()
+    assert "\\input{secret.csv}" not in data
+    assert "\\renewcommand{\\nom}{\\}\\textbackslash{}input\\{secret.csv\\}" in data
+
+
+def test_create_tex_pdf_runs_in_the_tmp_dir_without_shell_escape(tmp_path):
+    # a stand-in for pdflatex that records how it was called and fails
+    fake = tmp_path / "fakelatex"
+    fake.write_text("#!/bin/sh\necho \"cwd=$(pwd)\"\necho \"args=$*\"\nexit 3\n")
+    fake.chmod(0o755)
+    tmp_dir = tmp_path / "tmp"
+    tmp_dir.mkdir()
+    before = os.getcwd()
+
+    with pytest.raises(ChildProcessError, match="exit code 3"):
+        stats.create_tex_pdf(tmp_path / "main.tex", tmp_dir, latex_cmd=str(fake))
+
+    assert os.getcwd() == before  # no chdir left behind
+    log = (tmp_dir / "stdout.log").read_text()
+    assert f"cwd={tmp_dir.resolve()}" in log
+    assert "-no-shell-escape" in log and "-interaction=nonstopmode" in log and "-halt-on-error" in log
+
+
+@pytest.mark.skipif(shutil.which("pdflatex") is None, reason="pdflatex not installed")
+def test_a_hostile_name_compiles_to_a_pdf_that_reads_nothing(tmp_path):
+    tex_dir = Path(__file__).resolve().parent.parent / "tex"
+    tmp_dir = tmp_path / "tmp"
+    tmp_dir.mkdir()
+    secret = tmp_dir / "secret.txt"
+    secret.write_text("THE-SECRET-ROSTER")
+    boxplot = stats.create_boxplot(np.array([1.0, 2.0, 3.0]), "Q1", str(tmp_dir))
+    total = stats.create_boxplot(np.array([1.0, 2.0, 3.0]), "Total", str(tmp_dir))
+
+    stats.create_stats_latex(
+        "}\\input{secret.txt}\\newcommand{\\x}{", 0, 1, np.array([[1.0, 2.0, 3.0]]), [3, 3],
+        [str(boxplot), str(total)], latex_dir=str(tex_dir), TMP_DIR=str(tmp_dir),
+    )
+    log = (tmp_dir / "stdout.log").read_text()
+    assert (tmp_dir / "main.pdf").exists()
+    assert "secret.txt" not in log.replace("secret.txt}", "")  # never opened as a file
+    assert "(./secret.txt" not in log

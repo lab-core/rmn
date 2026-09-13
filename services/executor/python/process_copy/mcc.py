@@ -29,6 +29,7 @@ import re
 import pandas as pd
 import unidecode
 import pymupdf
+from utils import stats
 from colorama import Fore, Style
 import traceback
 
@@ -339,10 +340,10 @@ def create_front_page(
     # define default input file
     if latex_input_file is None:
         latex_input_file = os.path.join(tmp_dir, Latex.input_file)
-    # remove ascents
-    no_accent_name = unidecode.unidecode(name)
+    # remove accents, then escape both values for LaTeX
+    no_accent_name = stats.tex_escape(unidecode.unidecode(name))
     # write the input file
-    input_data = Latex.input_content % (no_accent_name, matricule)
+    input_data = Latex.input_content % (no_accent_name, stats.tex_escape(matricule))
     with open(latex_input_file, "w") as f:
         f.write(input_data)
 
@@ -354,22 +355,6 @@ def create_tex_pdf(latex_file, tmp_dir="tmp/"):
     tmp_dir = os.path.abspath(tmp_dir)
     if not os.path.exists(tmp_dir):
         os.makedirs(tmp_dir)
-
-    # compile latex file
-    current = os.getcwd()
-    os.chdir(tmp_dir)
-    flog = "stdout.log"
-    with open(flog, "w") as fstdout:
-        try:
-            print(latex_file)
-            subprocess.check_call([Latex.cmd, latex_file], stdout=fstdout, timeout=1)
-        except subprocess.TimeoutExpired:
-            with open(flog) as f:
-                print(f.read())
-            raise ChildProcessError("Subprocess latex time out after 1 second.")
-    os.chdir(current)
-
-    # return path to pdf
-    fname = os.path.basename(latex_file)
-    fpdf = fname.rsplit(".", 1)[0] + ".pdf"
+    # same compiler settings as the stats pdf (cwd instead of chdir, no shell escape)
+    fpdf = stats.create_tex_pdf(latex_file, tmp_dir, latex_cmd=Latex.cmd, timeout=1)
     return os.path.join(tmp_dir, fpdf)
