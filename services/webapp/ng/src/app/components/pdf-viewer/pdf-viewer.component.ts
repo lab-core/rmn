@@ -417,7 +417,8 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
       const element = editorColl[i];
       // do not touch to the editing canvas as necessary to draw etc ...
       element['__zone_symbol__pointerdownfalse'] = [];  // remove drag
-      if (element['childNodes'].length > 1) {
+      // the three child nodes of an ink editor: canvas, resizers, alt-text button
+      if (element['childNodes'].length > 2) {
         element['style']['pointerEvents'] = 'none';
         element['classList'].remove('selectedEditor');
         element['classList'].remove('draggable');

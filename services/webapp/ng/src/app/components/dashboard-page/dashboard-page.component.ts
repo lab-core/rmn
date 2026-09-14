@@ -199,9 +199,17 @@ export class DashboardPageComponent {
   }
 
   public questionBonusChange(question: Question): void {
-    this.task.bonus_enabled_map[question.index][1] = question.bonus;
-    const nQ = this.questions.length - 1;
-    this.questions[nQ].max += question.bonus ? -question.max : question.max;
+    // the map holds every question of the template, by key
+    const entry = this.task.bonus_enabled_map.find((e) => e[0] === question.name);
+    if (entry) {
+      entry[1] = question.bonus;
+    }
+    // the Total row only exists with more than one question: a single-question
+    // task used to add its own max to itself
+    const total = this.questions[this.questions.length - 1];
+    if (this.questions.length > 1 && total.name === 'Total') {
+      total.max += question.bonus ? -question.max : question.max;
+    }
     this.tasksService.updateTaskBonus(this.taskId, this.task.bonus_enabled_map);
   }
 
@@ -334,15 +342,17 @@ export class DashboardPageComponent {
   // Compute histogram bins
   private computeHistogram(question: Question, maxBins = 10): Array<{value: number, count: number}> {
     // Prepare histogram bins
-    const maxGrade = Math.max(...question.grades, question.max)
-    const binRange = Math.ceil(maxGrade / maxBins);
+    // a max of 0 gave NaN bins (and threw inside the socket handler); a
+    // negative grade indexed bins[-1]
+    const maxGrade = Math.max(...question.grades, question.max, 0);
+    const binRange = Math.max(Math.ceil(maxGrade / maxBins), 1);
     const nBins = Math.ceil(maxGrade / binRange);
     const bins = [];
     for (let i = 0; i <= nBins; i++) {
       bins.push({value: i * binRange, count: 0});
     }
     question.grades.forEach(value => {
-      const binIndex = Math.floor(value / binRange);
+      const binIndex = Math.min(Math.max(Math.floor(value / binRange), 0), nBins);
       bins[binIndex].count++;
     });
     return bins;
