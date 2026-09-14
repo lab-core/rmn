@@ -182,6 +182,9 @@ jobs:
       # .npmrc (legacy-peer-deps) applies, exactly like the image build
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+      - name: Generated enums match services/common
+        # src/app/generated/rmn-contracts.ts is rendered from rmn_common.status
+        run: PYTHONPATH=../../common python3 -m rmn_common.typescript --check
       # Karma + Jasmine in the runner's preinstalled Chrome (CHROME_BIN is set
       # by the runner image); ChromeHeadlessCI adds --no-sandbox, see karma.conf.js
       - name: Run unit tests

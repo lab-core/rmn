@@ -26,6 +26,7 @@ import { of } from 'rxjs';
 
 import { NotificationService } from '../services/notification.service';
 import { PDFViewerComponent } from '../components/pdf-viewer/pdf-viewer.component';
+import { UserRole } from '../generated/rmn-contracts';
 
 /** Everything the templates need from Material, plus forms and no-op animations. */
 export const MATERIAL_MODULES = [
@@ -48,7 +49,7 @@ export function dialogRefSpy(): jasmine.SpyObj<MatDialogRef<any>> {
 export function userServiceStub(overrides: Record<string, any> = {}): any {
   return {
     currentUsername: 'alice',
-    role: 'Utilisateur',
+    role: UserRole.USER,
     saveVerifiedImages: false,
     moodleStructureInd: false,
     loggued: () => true,

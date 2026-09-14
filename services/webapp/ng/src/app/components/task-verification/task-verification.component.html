@@ -29,7 +29,7 @@
         @for (exam of subExamsList; track exam; let i = $index) {
           <div class="file-container"
             (click)="changeCurrentDocumentIndex(exam.document_index, exam.status, false)">
-            @if (exam.status == 'NOT_READY') {
+            @if (exam.status == DocumentStatus.NOT_READY) {
               <div class="disabled-copy">
                 <strong>{{formattedIndexes[i]}}</strong>
                 @if (exam.offline) {
@@ -37,7 +37,7 @@
                 }
               </div>
             }
-            @if (exam.status != 'NOT_READY') {
+            @if (exam.status != DocumentStatus.NOT_READY) {
               <div [ngClass]="getExamClass(exam)">
                 <strong>{{formattedIndexes[i]}}</strong>
                 @if (exam.offline) {
@@ -110,7 +110,7 @@
                     @for (tag of availableTags; track tag) {
                       <mat-option [value]="tag"><div class="round tag-color-{{tag}}"></div></mat-option>
                     }
-                    <mat-option [value]="'VALIDATED'"><div class="round green"></div></mat-option>
+                    <mat-option [value]="DocumentStatus.VALIDATED"><div class="round green"></div></mat-option>
                   </mat-select>
                 </mat-form-field>
               </div>
@@ -162,10 +162,10 @@
         @if (!isSidebarHidden) {
           <button mat-button (click)="nextCopy()" class="back-button3" [ngClass]="{'expanded': isSidebarHidden}"><mat-icon>arrow_forward_ios</mat-icon></button>
         }
-        @if (currentExam()?.status == 'DELETED') {
+        @if (currentExam()?.status == DocumentStatus.DELETED) {
           <div id="overlay-cross"></div>
         }
-        @if (currentExam()?.status == 'DELETED') {
+        @if (currentExam()?.status == DocumentStatus.DELETED) {
           <span class="cross">&times;</span>
         }
       </div>

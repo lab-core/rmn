@@ -1,8 +1,8 @@
 """Statuses stored in MongoDB and compared by the webapp.
 
 The values are the strings on the wire: the webapp compares against them
-literally (``'TO VALIDATE'``, ``'NOT_READY'``, ``'Administrateur'``), so they
-are not free to change.
+literally, so they are not free to change: the webapp's copy is generated from
+this module by :mod:`rmn_common.typescript` (``generated/rmn-contracts.ts``).
 """
 
 from enum import Enum
@@ -26,9 +26,11 @@ class Document_Status(Enum):
     VALIDATED = "VALIDATED"
     TO_VALIDATE = "TO VALIDATE"
     HIGH_ACCURACY = "HIGH ACCURACY"
-    # written by the executor and matched by the webapp; the server's former
-    # copy said "NOT READY" (with a space) and matched nothing
-    NOT_READY = "NOT_READY"
+    # like the other two-word statuses. Was "NOT_READY" until v1.5 (the server's
+    # copy said "NOT READY" and matched nothing): documents of jobs in progress
+    # at the upgrade need
+    #   db.job_documents.updateMany({status: "NOT_READY"}, {$set: {status: "NOT READY"}})
+    NOT_READY = "NOT READY"
     READY = "READY"
     DELETED = "DELETED"
 

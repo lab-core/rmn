@@ -27,7 +27,7 @@ def test_documents_round_trip(mongo_db):
 
     doc = db.get_document("job", 0)
     assert doc["matricule"] == "1234567"  # stored as text
-    assert doc["status"] == "NOT_READY"
+    assert doc["status"] == "NOT READY"
 
     assert db.update_document("job", 0, [5, 3], Document_Status.HIGH_ACCURACY, "2345678", 1.5, "A") is True
     doc = db.get_document("job", 0)

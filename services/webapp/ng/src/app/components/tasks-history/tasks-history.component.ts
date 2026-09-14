@@ -18,6 +18,7 @@ import { ThemePalette } from '@angular/material/core';
 import { ProgressSpinnerMode } from '@angular/material/progress-spinner';
 import { SERVER_URL } from 'src/app/utils';
 import { filter, first } from 'rxjs/operators';
+import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 
 
 @Component({
@@ -28,6 +29,7 @@ import { filter, first } from 'rxjs/operators';
     standalone: false
 })
 export class TasksHistoryComponent implements OnInit {
+  readonly JobStatus = JobStatus;
 
   tasksList: Array<any> = [];
   remainingTime: number;
@@ -104,7 +106,7 @@ export class TasksHistoryComponent implements OnInit {
 
     // subscribe to all running jobs
     this.tasksList.forEach(x => {
-      if (x.job_status == 'QUEUED' || x.job_status == 'RUN') {
+      if (x.job_status == JobStatus.QUEUED || x.job_status == JobStatus.RUN) {
         this.socketService.join(x.job_id);
       }
     });
@@ -162,18 +164,18 @@ export class TasksHistoryComponent implements OnInit {
             (data) => {
               let lastN = 0;
               let lastExecTime = 0;
-              let lastStatus = "NOT_READY";
+              let lastStatus = DocumentStatus.NOT_READY;
 
               const mapStatus = new Map<string, number>();
-              mapStatus.set("NOT_READY", 0);
-              mapStatus.set("VALIDATED", 1);
-              mapStatus.set("TO VALIDATE", 1);
-              mapStatus.set("HIGH ACCURACY", 1);
-              mapStatus.set("READY", 2);
+              mapStatus.set(DocumentStatus.NOT_READY, 0);
+              mapStatus.set(DocumentStatus.VALIDATED, 1);
+              mapStatus.set(DocumentStatus.TO_VALIDATE, 1);
+              mapStatus.set(DocumentStatus.HIGH_ACCURACY, 1);
+              mapStatus.set(DocumentStatus.READY, 2);
 
               const response = data["response"];
               response.forEach(y => {
-                if ((x.job_status === "RUN" && mapStatus.get(y.status) === 1) || (x.job_status === "FINALIZING" && mapStatus.get(y.status) === 2)) {
+                if ((x.job_status === JobStatus.RUN && mapStatus.get(y.status) === 1) || (x.job_status === JobStatus.FINALIZING && mapStatus.get(y.status) === 2)) {
                   lastN = y.document_index;
                   lastExecTime = y.exec_time;
                   lastStatus = y.status;
@@ -209,7 +211,7 @@ export class TasksHistoryComponent implements OnInit {
       task.queued_time = new Date(task.queued_time + 'Z');
     }
     task.info = this.statusInfo[task.job_status];
-    if (task.job_status === 'RETRY') {
+    if (task.job_status === JobStatus.RETRY) {
         const cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
         task.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
     }
@@ -295,15 +297,15 @@ export class TasksHistoryComponent implements OnInit {
     // if (task.job_status === 'ARCHIVED') {
     //   this.openTaskFilesDialog(task);
     // }
-    if (task.job_status === 'IGNORED' ||
-             task.job_status === 'QUEUED' ||
-             task.job_status === 'RUN' ||
-             task.job_status === 'VALIDATION' ||
-             task.job_status === 'VALIDATED' ||
-             task.job_status === 'FINALIZING' ||
-             task.job_status === 'ARCHIVED') {
+    if (task.job_status === JobStatus.IGNORED ||
+             task.job_status === JobStatus.QUEUED ||
+             task.job_status === JobStatus.RUN ||
+             task.job_status === JobStatus.VALIDATION ||
+             task.job_status === JobStatus.VALIDATED ||
+             task.job_status === JobStatus.FINALIZING ||
+             task.job_status === JobStatus.ARCHIVED) {
       this.router.navigate(['/dashboard', task.job_id]);
-    } else if (task.job_status === 'RETRY') {
+    } else if (task.job_status === JobStatus.RETRY) {
       this.retryJob(task);
     }
   }

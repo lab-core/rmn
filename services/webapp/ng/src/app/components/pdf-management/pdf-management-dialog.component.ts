@@ -9,6 +9,7 @@ import { OfflineCopy } from '../task-verification/offline-db';
 import { PDFDocument, PDFArray, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import { DocumentStatus } from '../../generated/rmn-contracts';
 
 
 export interface DialogData {
@@ -72,7 +73,7 @@ export class PdfManagementDialogComponent implements OnInit {
     this.info = "Downloading and Merging";
     let i = 0;
     for (const exam of this.data.examsList) {
-      if (exam["status"] !== 'NOT_READY') {
+      if (exam["status"] !== DocumentStatus.NOT_READY) {
         let pdfFileSrc;
         if (exam["offline"]) {
           pdfFileSrc = this.data.offlineCopies.get(exam["document_index"]).file64 ||
@@ -539,10 +540,10 @@ export class PdfManagementDialogComponent implements OnInit {
         exam.grade = grades[docIndex];
         const total = this.data.nMaxPointsPerQuestion.get(exam.question);
         if (exam.grade <= total + 1e-3) {
-          exam.status = 'VALIDATED';
+          exam.status = DocumentStatus.VALIDATED;
         } else {
           gradeError = true;
-          exam.status = 'TO VALIDATE';
+          exam.status = DocumentStatus.TO_VALIDATE;
         }
       }
 

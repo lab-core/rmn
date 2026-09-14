@@ -10,5 +10,5 @@ def test_status_values_match_what_is_stored():
     assert Document_Status.TO_VALIDATE.value == "TO VALIDATE"
     assert Document_Status.HIGH_ACCURACY.value == "HIGH ACCURACY"
     # the executor writes it and the webapp matches it with the underscore
-    assert Document_Status.NOT_READY.value == "NOT_READY"
+    assert Document_Status.NOT_READY.value == "NOT READY"
     assert User_Role.ADMIN.value == "Administrateur"

@@ -57,7 +57,7 @@
         <ng-container matColumnDef="job_infos">
           <th mat-header-cell *matHeaderCellDef mat-sort-header> Informations </th>
           <td mat-cell *matCellDef="let row">
-            @if (row.job_status === 'RETRY') {
+            @if (row.job_status === JobStatus.RETRY) {
               <div>
                 <div>{{ row.job_infos }}</div>
               </div>

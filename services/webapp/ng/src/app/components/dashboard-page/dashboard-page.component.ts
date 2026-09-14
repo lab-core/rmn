@@ -14,6 +14,7 @@ import { TaskFilesDialogComponent } from '../task-files-dialog/task-files-dialog
 import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog.component';
 import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
 import { CsvUpdateDialogComponent } from '../csv-update/csv-update-dialog.component';
+import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 
 interface Question {
   name: string;
@@ -38,6 +39,7 @@ interface Question {
     standalone: false
 })
 export class DashboardPageComponent {
+  readonly JobStatus = JobStatus;
   public task: any;
   public taskId: string;
   public taskName: string;
@@ -204,20 +206,20 @@ export class DashboardPageComponent {
   }
 
   public updateViewOnStatus() {
-    if (this.task.job_status === 'IGNORED' ||
-             this.task.job_status === 'QUEUED' ||
-             this.task.job_status === 'RUN' ||
-             this.task.job_status === 'VALIDATION' ||
-             this.task.job_status === 'VALIDATED' ||
-             this.task.job_status === 'FINALIZING' ||
-             this.task.job_status === 'ARCHIVED') {
+    if (this.task.job_status === JobStatus.IGNORED ||
+             this.task.job_status === JobStatus.QUEUED ||
+             this.task.job_status === JobStatus.RUN ||
+             this.task.job_status === JobStatus.VALIDATION ||
+             this.task.job_status === JobStatus.VALIDATED ||
+             this.task.job_status === JobStatus.FINALIZING ||
+             this.task.job_status === JobStatus.ARCHIVED) {
       this.taskName = this.task.job_name;
-      if (this.task.job_status === 'ARCHIVED') { this.taskName += ' (Archivée)'; }
-      this.disableButtons = this.task.job_status === 'VALIDATED' ||
-                            this.task.job_status === 'FINALIZING' ||
-                            this.task.job_status === 'ARCHIVED';
+      if (this.task.job_status === JobStatus.ARCHIVED) { this.taskName += ' (Archivée)'; }
+      this.disableButtons = this.task.job_status === JobStatus.VALIDATED ||
+                            this.task.job_status === JobStatus.FINALIZING ||
+                            this.task.job_status === JobStatus.ARCHIVED;
     } else {
-      if (this.task.job_status === 'ERROR') {
+      if (this.task.job_status === JobStatus.ERROR) {
         this.notificationService.showWarning('La tâche n\'est pas accessible.', 'Attention');
       } else {
         this.notificationService.showWarning('La tâche n\'est pas encore accessible.', 'Attention');
@@ -240,7 +242,7 @@ export class DashboardPageComponent {
   public computeTotalMatricules() {
     this.totalVerifiedMatricules = 0;
     this.examsList.forEach((doc) => {
-      if (doc.status === 'VALIDATED' || doc.status === 'DELETED') {
+      if (doc.status === DocumentStatus.VALIDATED || doc.status === DocumentStatus.DELETED) {
         this.totalVerifiedMatricules++;
       }
     });
@@ -285,7 +287,7 @@ export class DashboardPageComponent {
       const stats = questionsStats[doc.question];
       if (!stats) { return; }
       stats.count++;
-      if (doc.status === 'VALIDATED') {
+      if (doc.status === DocumentStatus.VALIDATED) {
         stats.validatedCount++;
         stats.grades.push(doc.grade);
         stats.total += doc.grade;
@@ -462,8 +464,8 @@ export class DashboardPageComponent {
   }
 
   async restore() {
-    await this.tasksService.updateTaskStatus(this.task.job_id, 'VALIDATION');
-    this.task.job_status = 'VALIDATION';
+    await this.tasksService.updateTaskStatus(this.task.job_id, JobStatus.VALIDATION);
+    this.task.job_status = JobStatus.VALIDATION;
     // /job/update/status emits no socket event, so refresh the view here:
     // re-enable the buttons and drop the "(Archivée)" suffix of the title
     this.updateViewOnStatus();

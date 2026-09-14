@@ -13,6 +13,7 @@ import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { MatSelectChange } from '@angular/material/select';
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { first } from 'rxjs/operators';
+import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 
 
 @Component({
@@ -23,6 +24,7 @@ import { first } from 'rxjs/operators';
     standalone: false
 })
 export class MatriculeVerificationComponent implements OnInit {
+  readonly DocumentStatus = DocumentStatus;
 
   constructor(private tasksService: TasksService,
               private validationService: ValidationService,
@@ -84,9 +86,9 @@ export class MatriculeVerificationComponent implements OnInit {
       // reroute page
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche indisponible');
       this.router.navigate(['/tasks-history']);
-    } else if (this.job.job_status === 'VALIDATED' ||
-              this.job.job_status === 'FINALIZING' ||
-              this.job.job_status === 'ARCHIVED') {
+    } else if (this.job.job_status === JobStatus.VALIDATED ||
+              this.job.job_status === JobStatus.FINALIZING ||
+              this.job.job_status === JobStatus.ARCHIVED) {
       // reroute page
       this.notificationService.showWarning('Veuillez sélectionner une tâche active!', 'Tâche inactive');
       this.router.navigate(['/tasks-history']);
@@ -263,7 +265,7 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   async loadPdf(version: number = undefined): Promise<void> {
-    if (this.currentExam()["status"] !== "NOT_READY") {
+    if (this.currentExam()["status"] !== DocumentStatus.NOT_READY) {
       this.pdfLoadStarts();
       const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false);
       if (pdfSource.url) {
@@ -274,7 +276,7 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   async changeCurrentCopy(copyIndex: number, status: string, updateScroll: boolean=true) {
-    if (status !== "NOT_READY") {
+    if (status !== DocumentStatus.NOT_READY) {
         const exam = this.examsList[copyIndex-this.initialCopyIndex];
         console.log("Change current copy to", copyIndex);
         this.currentCopyName = exam.filename;
@@ -328,20 +330,20 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   setChosenColor(status: string): void {
-    if(status === "TO VALIDATE") {
+    if(status === DocumentStatus.TO_VALIDATE) {
       this.colorChosen = "red";
     }
-    if(status === "HIGH ACCURACY") {
+    if(status === DocumentStatus.HIGH_ACCURACY) {
       this.colorChosen = "blue";
     }
-    if(status === "VALIDATED") {
+    if(status === DocumentStatus.VALIDATED) {
       this.colorChosen = "green";
     }
   }
 
   checkForAvailableCopies(): boolean {
     if (this.subExamsList.length == 0) return false;
-    const exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
+    const exam = this.subExamsList.find((exam: any) => exam["status"] != DocumentStatus.NOT_READY);
     return exam != undefined;
   }
 
@@ -363,7 +365,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   getCurrentMatricule() {
     const currentExam = this.currentExam();
-    if (currentExam && currentExam["status"] !== "NOT_READY" && currentExam["status"] !== "DELETED") {
+    if (currentExam && currentExam["status"] !== DocumentStatus.NOT_READY && currentExam["status"] !== DocumentStatus.DELETED) {
       this.currentMatricule = currentExam["matricule"];
       this.getDuplicatedMatricules();
       const matriculeRow = this.matriculeList.find(
@@ -391,7 +393,7 @@ export class MatriculeVerificationComponent implements OnInit {
   setValidatedStatus() {
     const currentExam = this.currentExam();
     if (currentExam) {
-        currentExam.status = "VALIDATED";
+        currentExam.status = DocumentStatus.VALIDATED;
     } else {
         console.error("Document not found for index:", this.currentCopy);
     }
@@ -430,7 +432,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   pdfLoadEnds() {
     this.pdfLoading = false;
-    if (this.currentExam().status == 'DELETED') {
+    if (this.currentExam().status == DocumentStatus.DELETED) {
       this.disabledValidationButton = true;
       this.pdfDeleted = true;
     } else {
@@ -442,7 +444,7 @@ export class MatriculeVerificationComponent implements OnInit {
   async validateMatricules() {
     let uncheckedcopy = 0;
     this.examsList.forEach((exam: any) => {
-      if (exam["status"] === "TO VALIDATE") {
+      if (exam["status"] === DocumentStatus.TO_VALIDATE) {
         uncheckedcopy += 1;
       }
     });
@@ -485,14 +487,14 @@ export class MatriculeVerificationComponent implements OnInit {
   async deletePdf(): Promise<void> {
     this.pdfDeleted = true;
     this.disabledValidationButton = true;
-    await this.updateExamStatus('DELETED');
+    await this.updateExamStatus(DocumentStatus.DELETED);
     this.nextCopy();
   }
 
   restorePdf(): void {
     this.pdfDeleted = false;
     this.disabledValidationButton = false;
-    this.updateExamStatus('TO VALIDATE');
+    this.updateExamStatus(DocumentStatus.TO_VALIDATE);
   }
 
   async updateExamStatus(examStatus, copy = this.currentCopy) {
@@ -547,8 +549,8 @@ export class MatriculeVerificationComponent implements OnInit {
     let counter = 0;
     let warning = '';
     this.examsList.forEach((exam: any) => {
-      if (exam.status !== 'DELETED' &&
-          exam.status !== 'NOT_READY' &&
+      if (exam.status !== DocumentStatus.DELETED &&
+          exam.status !== DocumentStatus.NOT_READY &&
           exam.matricule === mat &&
           exam.document_index !== this.currentCopy) {
         if (counter < 3) {
@@ -575,8 +577,8 @@ export class MatriculeVerificationComponent implements OnInit {
     const wanted = matricule === undefined || matricule === null ? undefined : String(matricule);
     const matricules = new Map<string, Array<any>>();
     this.examsList.forEach((exam: any) => {
-      if (exam.status !== 'DELETED' &&
-        exam.status !== 'NOT_READY' &&
+      if (exam.status !== DocumentStatus.DELETED &&
+        exam.status !== DocumentStatus.NOT_READY &&
         (!wanted || String(exam.matricule) === wanted)) {
         if (!matricules[exam.matricule]) {
           matricules[exam.matricule] = [];
@@ -588,8 +590,8 @@ export class MatriculeVerificationComponent implements OnInit {
     for (const exams of Object.values(matricules)) {
       if (exams.length > 1) {
         for (const exam of exams) {
-          if (exam.status !== 'TO VALIDATE') {
-            exam.status = 'TO VALIDATE';
+          if (exam.status !== DocumentStatus.TO_VALIDATE) {
+            exam.status = DocumentStatus.TO_VALIDATE;
             await this.updateExamStatus(exam.status, exam.document_index);
           }
         }
@@ -636,7 +638,7 @@ export class MatriculeVerificationComponent implements OnInit {
   previousCopyIndex(currentIndex = undefined): number {
     let tempIndex = currentIndex != undefined ? currentIndex : this.currentIndex();
     tempIndex--;
-    while (tempIndex >= 0 && (!this.subExamsList.includes(this.examsList[tempIndex]) || this.examsList[tempIndex].status == "NOT_READY")) {
+    while (tempIndex >= 0 && (!this.subExamsList.includes(this.examsList[tempIndex]) || this.examsList[tempIndex].status == DocumentStatus.NOT_READY)) {
       tempIndex --;
     }
     return tempIndex;
@@ -653,8 +655,8 @@ export class MatriculeVerificationComponent implements OnInit {
     currentIndex++;
     while (currentIndex < this.examsList.length && (
       !this.subExamsList.includes(this.examsList[currentIndex])
-      || this.examsList[currentIndex].status === "NOT_READY"
-      || (notValidated && this.examsList[currentIndex].status === "VALIDATED")
+      || this.examsList[currentIndex].status === DocumentStatus.NOT_READY
+      || (notValidated && this.examsList[currentIndex].status === DocumentStatus.VALIDATED)
     )) {
       currentIndex++;
     }
