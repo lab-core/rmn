@@ -68,9 +68,7 @@ describe('TaskRetryDialogComponent', () => {
     zip.file('notes.txt', 'x');
     const zipFile = new File([await zip.generateAsync({ type: 'blob' })], 'copies.zip');
 
-    component.onFileSelected({ target: { files: [pdf('a.pdf'), new File(['x'], 'readme.txt', { type: 'text/plain' }), zipFile] } });
-    await fixture.whenStable();
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await component.onFileSelected({ target: { files: [pdf('a.pdf'), new File(['x'], 'readme.txt', { type: 'text/plain' }), zipFile] } });
 
     expect(component.selectedFiles.map(f => f.name)).toEqual(['a.pdf', 'c.pdf']);
     expect(component.disabled).toBeFalse();
@@ -85,8 +83,7 @@ describe('TaskRetryDialogComponent', () => {
     create();
     const drop = new DragEvent('drop', { cancelable: true });
     Object.defineProperty(drop, 'dataTransfer', { value: { files: [pdf('a.pdf')] } });
-    component.onDrop(drop);
-    await fixture.whenStable();
+    await component.onDrop(drop);
     expect(drop.defaultPrevented).toBeTrue();
     expect(component.selectedFiles.length).toBe(1);
   });
