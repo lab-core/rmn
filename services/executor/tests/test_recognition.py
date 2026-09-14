@@ -10,9 +10,11 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import pandas as pd
 import pytest
 
 from process_copy import recognize
+from process_copy.config import MoodleFields as MF
 
 EXECUTOR = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "recognition"
@@ -77,3 +79,33 @@ def test_handwritten_matricule_is_read_from_its_boxes(case, classifier):
     )
     check_known_miss(case, found == case["matricule"], found)
     assert found == case["matricule"]
+
+
+@pytest.fixture(scope="module")
+def class_list():
+    """A Moodle grades table holding the matricule of every fixture page."""
+    matricules = [case["matricule"] for case in SPEC["matricules"]]
+    return pd.DataFrame(
+        {MF.name: [f"Student {m}" for m in matricules]},
+        index=pd.Index(matricules, name=MF.mat),
+    )
+
+
+@pytest.mark.parametrize("case", SPEC["matricules"], ids=lambda c: c["file"])
+def test_matricule_is_found_in_the_class_list_even_when_misread(
+    case, classifier, class_list
+):
+    # production passes the class lists: the candidates are walked by
+    # probability and the first matricule that exists wins, so a page the model
+    # misreads standalone is still matched (config.known_mistmatch_matricule
+    # adds the digits it does not propose, with probability 0)
+    page = page_with(case["file"], SPEC["matricule_box"])
+    found, _id_box, index = recognize.find_matricule(
+        [page],
+        SPEC["matricule_box"],
+        SPEC["regular_matricule_box"],
+        classifier,
+        [class_list],
+        separate_box=True,
+    )
+    assert (found, index) == (case["matricule"], 0)

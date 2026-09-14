@@ -44,7 +44,8 @@ from statistics import median
 from copy import copy
 import random
 
-from process_copy.config import re_mat, len_mat, known_mistmatch, min_documents_for_max_questions
+from process_copy.config import re_mat, len_mat, known_mistmatch, known_mistmatch_matricule
+from process_copy.config import min_documents_for_max_questions
 from process_copy.config import allowed_decimals, digit_margins
 from process_copy.config import MoodleFields as MF
 from process_copy.mcc import get_name, load_csv, group_label
@@ -1068,10 +1069,12 @@ def find_matricule(
                     dcnts, dot, dthresh = find_digit_contours(digit_box)
                     # check if only one digit has been found in the box
                     if len(dcnts) == 1:
-                        d = extract_digit(dcnts[0], digit_box, dthresh, classifier)
+                        d = extract_digit(dcnts[0], digit_box, dthresh, classifier,
+                                          confusions=known_mistmatch_matricule)
                     # if too many contours, just remove some pixels on the border of the image
                     elif len(dcnts) > 1:
-                        d = extract_digit(c, gray_box, thresh, classifier, border=-7)
+                        d = extract_digit(c, gray_box, thresh, classifier, border=-7,
+                                          confusions=known_mistmatch_matricule)
                     # if no contour at all, it means that at least one of the box is empty
                     # -> throw this results
                     else:
@@ -1080,7 +1083,8 @@ def find_matricule(
                     all_digits.append(d)
             # otherwise, extract all digits at once
             else:
-                all_digits = extract_all_digits(cnts, gray_box, thresh, classifier)
+                all_digits = extract_all_digits(
+                    cnts, gray_box, thresh, classifier, confusions=known_mistmatch_matricule)
                 all_digits = [d for c, d in all_digits]
         except cv2.error as e:
             print(e)
@@ -1546,18 +1550,26 @@ def clean_and_sort_digit_contours(
     return ccnts, dot
 
 
-def extract_all_digits(cnts, gray, thresh, classifier, threshold=1e-2, border=7):
+def extract_all_digits(cnts, gray, thresh, classifier, threshold=1e-2, border=7, confusions=None):
     all_digits = []
     for c in cnts:
         try:
-            d = extract_digit(c, gray, thresh, classifier, threshold, border)
+            d = extract_digit(c, gray, thresh, classifier, threshold, border, confusions)
             all_digits.append((c, d))
         except Exception as e:
             print(e)
     return all_digits
 
 
-def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7):
+def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7, confusions=None):
+    """Candidates ``(probability, digit)`` of the digit drawn by contour ``cnt``.
+
+    ``confusions`` maps a digit the model confuses to the digit it may be
+    (``config.known_mistmatch`` by default, the matricule table for a matricule);
+    the latter is appended with probability 0 when the former is a candidate.
+    """
+    if confusions is None:
+        confusions = known_mistmatch
     # creating a mask
     mask = np.zeros(gray.shape, dtype="uint8")
     (x, y, w, h) = cv2.boundingRect(cnt)
@@ -1595,7 +1607,7 @@ def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7):
             break
 
     # find known mismatch, and add it with probability 0
-    for k, v in known_mistmatch.items():
+    for k, v in confusions.items():
         numbs = [i for p, i in d]
         if k in numbs and v not in numbs:
             d.append((0, v))

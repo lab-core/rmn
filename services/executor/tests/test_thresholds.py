@@ -102,3 +102,25 @@ def test_digit_probabilities_are_averaged_over_the_framing_margins(monkeypatch):
         (0.5, 4),
         (0.5, 9),
     ]
+
+
+def test_confusion_table_of_the_matricule_is_separate():
+    gray = np.full((60, 40), 255, np.uint8)
+    gray[10:50, 15:25] = 0
+    thresh = recognize.get_clean_thresh(gray)
+    cnts, _ = cv2.findContours(
+        thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+    classifier = SevenClassifier()
+
+    def digits(**kwargs):
+        return [
+            d
+            for _, d in recognize.extract_digit(
+                cnts[0], gray, thresh, classifier, **kwargs
+            )
+        ]
+
+    assert digits() == [7, 1]  # config.known_mistmatch
+    assert digits(confusions={7: 4}) == [7, 4]
+    assert digits(confusions={}) == [7]

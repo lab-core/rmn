@@ -27,6 +27,11 @@ matricule_box = {
 # to the candidates of a box with probability 0, so it is only chosen when the
 # total check needs it: a printed or handwritten 1 with a top flag reads as 7.
 known_mistmatch = {7: 1}
+# same for the handwritten digits of a matricule. A candidate added here only
+# ranks after every real candidate, so it never changes a standalone reading;
+# it lets the lookup against the class lists recover a matricule whose digit
+# the model does not even propose (a 9 written like a 3, a thin 2 read as 1).
+known_mistmatch_matricule = {7: 1, 3: 9, 1: 2}
 # margins (fraction of the digit's size) around a digit in the 28 x 28 square
 # given to the model; the probabilities are averaged over them. The model was
 # trained on MNIST (digit in about 70% of the frame) mixed with frame-filling
