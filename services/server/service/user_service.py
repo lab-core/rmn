@@ -12,6 +12,11 @@ import re
 # missing (e.g. a database created before it existed). 0 disables expiry.
 TOKEN_TTL_DAYS = int(os.getenv("TOKEN_TTL_DAYS", "30"))
 
+# Hash checked when the login names an unknown user, so that request takes
+# as long as a wrong password and the response time does not reveal which
+# usernames exist. Random per process: it can never match a submitted value.
+_UNKNOWN_USER_HASH = generate_password_hash(uuid.uuid4().hex)
+
 
 def _utc(value):
     """Return a timezone-aware UTC datetime for a value read from Mongo.
@@ -130,12 +135,8 @@ class UserService:
         password = request_form['password']
         collection = database["users"]
         userDB = collection.find_one({"username": username})
-        if userDB is None :
-            return Response(
-                response=json.dumps({"response": f"Nom d'utilisateur/Mot de passe invalide"}),
-                status=404,
-            )
-        if check_password_hash(userDB['password'], password):
+        stored_hash = userDB['password'] if userDB is not None else _UNKNOWN_USER_HASH
+        if check_password_hash(stored_hash, password) and userDB is not None:
             token = UserService.create_token(userDB['username'], userDB['role'], database)
             response = {
                     "username": userDB['username'],
