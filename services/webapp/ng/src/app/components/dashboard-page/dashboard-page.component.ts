@@ -452,7 +452,7 @@ export class DashboardPageComponent {
   }
 
   public async reroute() {
-    this.router.navigate(['/task-history']);
+    this.router.navigate(['/tasks-history']);
   }
 
   public openTaskFilesDialog(): void {

@@ -10,6 +10,7 @@ import { MatSelectChange } from '@angular/material/select';
 import { first } from 'rxjs/operators';
 
 import { saveAs } from 'file-saver';
+import { csvLines, detectSeparator, splitCsvLine } from 'src/app/csv';
 
 //DropBox API
 declare function dropboxFiles(): void;
@@ -231,7 +232,6 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     }
     const pageCount = Number(inputElement.value);
     if (!Number.isInteger(pageCount) || pageCount <= 0) {
-      console.log("invalide valeur:", inputElement.value);
       this.notifyService.showError("Veuillez entrer une valeur entière positive.", "ERREUR");
       inputElement.value = '';
     } else {
@@ -250,7 +250,6 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     }
     const maxPoints = Number(inputElement.value);
     if (!Number.isFinite(maxPoints) || maxPoints <= 0.001) {
-      console.log("invalide valeur:", inputElement.value);
       this.notifyService.showError("Veuillez entrer une valeur positive.", "ERREUR");
       inputElement.value = '';
     } else {
@@ -410,31 +409,19 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     // Verify csv file
     const reader = new FileReader();
     reader.onload = () => {
-      // Entire file
-      const text = String(reader.result);
-
-      // By lines
-      let validCSV = false;
-      const lines = text.split('\n');
-      if (lines.length > 0) {
-        const line = lines[0];
-        const commas = (line.match(/,/g) || []).length;
-        const semicolumn = (line.match(/;/g) || []).length;
-        validCSV = commas >= 3 || semicolumn >= 3;
-        if (validCSV) {
-          const re_sep = commas >= 3 ? /,/g : /;/g;
-          const count = commas >= 3 ? commas : semicolumn;
-          lines.forEach(line => {
-            if (line) {
-              const lCount = (line.match(re_sep) || []).length;
-              if (lCount < count) {  // could be bigger if some separators are used between quotes
-                if (validCSV) {
-                  this.notifyService.showError("Cette ligne est invalide: "+line, "ERREUR");
-                }
-                validCSV = false;
-              }
-            }
-          });
+      // Every line must have the header's number of fields; quoted separators
+      // and a byte-order mark are handled by the csv helpers. The server checks
+      // the Moodle columns themselves when the task is created.
+      const lines = csvLines(String(reader.result));
+      let validCSV = lines.length > 0;
+      if (validCSV) {
+        const sep = detectSeparator(lines[0]);
+        const nCols = splitCsvLine(lines[0], sep).length;
+        validCSV = nCols >= 2;
+        const badLine = lines.find((line) => splitCsvLine(line, sep).length !== nCols);
+        if (badLine !== undefined) {
+          this.notifyService.showError("Cette ligne est invalide: " + badLine, "ERREUR");
+          validCSV = false;
         }
       }
 
@@ -500,7 +487,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   }
 
   getOneDriveAttibute(id) {
-    if(!this.showDropbox) {
+    if(!this.showOneDrive) {
       return null;
     } else {
       return this.getAttibute(id);
@@ -566,9 +553,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       this.http.post(`${SERVER_URL}front_page`, formdata, { responseType: 'blob' }).pipe(first()).subscribe(
         (data) => {
           // moodle.zip in data
-          const downloadURL = window.URL.createObjectURL(data);
-          saveAs(downloadURL, this.presentationCopiesName);
-          URL.revokeObjectURL(downloadURL);
+          saveAs(data, this.presentationCopiesName);
           this.disabled = false;
 
         },

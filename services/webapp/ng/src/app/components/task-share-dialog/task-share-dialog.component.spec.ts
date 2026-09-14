@@ -116,6 +116,16 @@ describe('TaskShareDialogComponent', () => {
       { success: true, message: "L'accès a été enlevé pour cette tâche." });
   });
 
+  it('unshare keeps the scope of question 0', async () => {
+    create({ questionIndex: 0 });
+    http.expectOne('/api/job/share').flush({ response: { share_url: 'https://rmn/x' } });
+    await settle();
+    component.unshare();
+    const req = http.expectOne('/api/job/unshare');
+    expect((req.request.body as FormData).get('question_index')).toBe('0');  // was dropped as falsy
+    req.flush({ response: 'OK' });
+  });
+
   it('unshare reports a refusal', async () => {
     create({});
     http.expectOne('/api/job/share').flush({ response: { share_url: 'https://rmn/x' } });

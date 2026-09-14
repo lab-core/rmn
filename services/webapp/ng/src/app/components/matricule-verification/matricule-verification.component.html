@@ -70,18 +70,6 @@
                   </div>
                 }
               </div>
-              @for (grade of this.currentGrades | keyvalue : sortNull; track trackByIndex($index, grade)) {
-                <div class="sub-check-container"
-                  >
-                  <h3>{{grade.key}}</h3>
-                  <div class="value-input-div">
-                    <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
-                      id="text-box" [(ngModel)]="grade.value"
-                      (input)="this.updateTotal(grade.key, grade.value)" step=any
-                      [disabled]="disabledValidationButton">
-                  </div>
-                </div>
-              }
             </div>
             <div class="validate-container">
               <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
@@ -134,18 +122,6 @@
                   </div>
                 }
               </div>
-              @for (grade of this.currentGrades | keyvalue : sortNull; track trackByIndex($index, grade)) {
-                <div class="sub-check-container"
-                  >
-                  <h3>{{grade.key}}</h3>
-                  <div class="value-input-div">
-                    <input (click)="this.selectText($event)" type="number" [attr.id]="this.setQuestionId(grade.key)"
-                      id="text-box" [(ngModel)]="grade.value"
-                      (input)="this.updateTotal(grade.key, grade.value)" step=any
-                      [disabled]="disabledValidationButton">
-                  </div>
-                </div>
-              }
             </div>
             <div class="validate-container">
               <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"

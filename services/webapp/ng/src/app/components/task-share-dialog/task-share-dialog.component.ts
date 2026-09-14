@@ -95,7 +95,7 @@ export class TaskShareDialogComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.data.taskId);
-    if (this.data.questionIndex) {
+    if (this.data.questionIndex !== undefined) {  // 0 is a question too
       formdata.append('question_index', this.data.questionIndex.toString());
     }
     if (this.data.all) {

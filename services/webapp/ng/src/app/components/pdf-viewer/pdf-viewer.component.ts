@@ -128,7 +128,7 @@ export class BezierAnnotation {
     this.inkAnnotation.paths = [];
     this.paths.forEach(path => {
       if (path === undefined) {
-        console.log('path undefined')
+        return;  // used to log and then dereference it
       }
       path.generateBezierPoints();
       this.inkAnnotation.paths.push(path.toObject());
@@ -202,7 +202,6 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   async ngOnInit(): Promise<void> {
-    console.log("PDF viewer init");
   }
 
   async ngOnChanges(changes: SimpleChanges) {
@@ -270,7 +269,6 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   async onPdfLoaded(e) {
-    console.log("Loaded");
     this.nInkAnnotations = 0;
     this.annotationsHistory = [];
     this.eraserHistory = [];

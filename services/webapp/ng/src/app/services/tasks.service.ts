@@ -56,12 +56,9 @@ export class TasksService {
     }
   }
 
-  private showProgress(event: HttpEvent<any>) {
-    console.log(event)
-    if (event.type == HttpEventType.UploadProgress) {
-      const percentDone = event.total ? Math.round(100 * event.loaded / event.total) : 0
-      console.log("Percentage Done : " + percentDone)
-    }
+  private showProgress(_event: HttpEvent<any>) {
+    // upload progress used to be written to the console on every event; the
+    // components show their own progress bars
   }
 
   async addTask(copies, csv, front_template_id, regular_template_id,

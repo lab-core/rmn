@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -8,6 +8,7 @@ import { SERVER_URL } from 'src/app/utils';
 import { OfflineCopy } from 'src/app/services/offline-db';
 import { PDFDocument, PDFArray, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import { saveAs } from 'file-saver';
+import { csvLines, detectSeparator, splitCsvLine } from 'src/app/csv';
 import JSZip from 'jszip';
 import { DocumentStatus } from '../../generated/rmn-contracts';
 
@@ -30,7 +31,7 @@ export interface DialogData {
     changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
-export class PdfManagementDialogComponent implements OnInit {
+export class PdfManagementDialogComponent {
 
   processing: boolean = false;
   percentageDone: number = 0;
@@ -55,11 +56,6 @@ export class PdfManagementDialogComponent implements OnInit {
               private docService: DocumentsService,
               private notificationService: NotificationService,
               @Inject(MAT_DIALOG_DATA) public data: DialogData) {
-  }
-
-  async ngOnInit() {
-    const e = document.getElementById('maxCopies') as HTMLInputElement;
-    e.value = this.maxCopiesPerPdf.toString();
   }
 
   async downloadAllFilesAsZip() {
@@ -289,23 +285,18 @@ export class PdfManagementDialogComponent implements OnInit {
   async parseCSVGrades(filename: string, file: File | Blob, grades: any) {
     // Entire file
     const text: string = String(await this.readFileSync(file, true));
-    const lines = text.split('\n');
+    const lines = csvLines(text);
+    if (lines.length === 0) {
+      this.notificationService.showError(`Csv file (${filename}) is empty.`, 'Erreur!');
+      return -1;
+    }
 
-    // Check separator
-    const line = lines[0].trim();
-    const commas = (line.match(/,/g) || []).length;
-    const semicolumn = (line.match(/;/g) || []).length;
-    const sep = commas >= semicolumn ? ',' : ';';
-
-    // Find index grade
-    let values = line.split(sep);
+    // header: separator, then the Note and Index columns
+    const sep = detectSeparator(lines[0]);
+    let values = splitCsvLine(lines[0], sep).map((v) => v.trim());
     const nCols = values.length;
-    const gradeIndex = values.findIndex((v) => {
-      return v === 'Note';
-    });
-    const docIndex = values.findIndex((v) => {
-      return v === 'Index';
-    });
+    const gradeIndex = values.indexOf('Note');
+    const docIndex = values.indexOf('Index');
     if (gradeIndex === -1 || docIndex === -1) {
       this.notificationService.showError(`Csv file (${filename}) does not have either Note or/and Index columns.`, 'Erreur!');
       return -1;
@@ -313,24 +304,24 @@ export class PdfManagementDialogComponent implements OnInit {
 
     // find grades for indices
     let n = 0;
-    for (let i = 1; i < lines.length; i++) {
-      values = lines[i].trim().split(sep);
+    for (const line of lines.slice(1)) {
+      values = splitCsvLine(line, sep).map((v) => v.trim());
       if (values.length !== nCols) {
-        if (lines[i].trim() !== '') {
-          this.notificationService.showError(`Csv file (${filename}) has an invalid row ${i + 1}: ${lines[i]}`, 'Erreur!');
-        }
-      } else {
-        const grade = parseFloat(values[gradeIndex]?.replace(',', '.'));
-        if (!isNaN(grade)) {
-          try {
-            const index = parseInt(values[docIndex]);
-            grades[index] = grade;
-            ++n;
-          } catch {
-            this.notificationService.showError(`Csv file (${filename}) has an invalid Index for row ${i + 1}: ${lines[i]}`, 'Erreur!');
-          }
-        }
+        this.notificationService.showError(`Csv file (${filename}) has an invalid row: ${line}`, 'Erreur!');
+        continue;
       }
+      const grade = parseFloat(values[gradeIndex].replace(',', '.'));
+      if (isNaN(grade)) {
+        continue;  // no grade for this copy
+      }
+      // parseInt never throws: a non-numeric Index used to be dropped silently
+      const index = parseInt(values[docIndex], 10);
+      if (isNaN(index)) {
+        this.notificationService.showError(`Csv file (${filename}) has an invalid Index for row: ${line}`, 'Erreur!');
+        continue;
+      }
+      grades[index] = grade;
+      ++n;
     }
     return n;
   }
@@ -449,7 +440,6 @@ export class PdfManagementDialogComponent implements OnInit {
           }
 
           const totalPageCount = pdfDoc.getPageCount();
-          console.log(`The document ${pdfFile} has ${totalPageCount} pages.`);
 
           let k = 0;
           const pageCount = mergedPDFDocs[questionIndex].getPageCount();
@@ -467,7 +457,6 @@ export class PdfManagementDialogComponent implements OnInit {
         }
         i++;
         this.percentageDone = 50 + Math.round(50 * i / keys.length);
-        console.log(`Processed ${i} / ${keys.length} merged files.`);
       }
 
       // processing each question index and replace the original documents
@@ -477,12 +466,10 @@ export class PdfManagementDialogComponent implements OnInit {
         const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
         nQuestionExams += totalPageCount / pagesPerQuestion;
       }
-      console.log(`Total number of exams to process: ${nQuestionExams}`);
 
       this.info = 'Splitting (3/4)';
       this.percentageDone = 0;
       i = 0;
-      console.log('Starting splitting merged documents...');
       for (const questionIndex of Object.keys(mergedPDFDocs)) {
         await this.timeout();
         const mergedDoc = mergedPDFDocs[questionIndex];
@@ -529,7 +516,6 @@ export class PdfManagementDialogComponent implements OnInit {
           }
           i++;
           this.percentageDone = Math.round(100 * i / nQuestionExams);
-          console.log(`Processed ${originalDoc.filename}: ${i} / ${nQuestionExams} original documents.`);
         }
       }
 
@@ -544,30 +530,35 @@ export class PdfManagementDialogComponent implements OnInit {
       const finalZipBlob = await zip.generateAsync({type: 'blob'});
       const finalZipFile = new File([finalZipBlob], 'split_documents.zip', {type: 'application/zip'});
 
-      // update exam grades
-      let gradeError = false;
+      // update exam grades: a negative grade or one above the question's
+      // maximum goes back to validation; an unknown maximum refuses nothing
+      // (it used to send every imported grade back with one blanket error)
+      const suspicious: number[] = [];
+      const unknown: string[] = [];
       for (const docIndex of Object.keys(grades)) {
-        const docIdx = parseInt(docIndex);
+        const docIdx = parseInt(docIndex, 10);
         const exam = this.data.examsList.find((e) => {
           return e.document_index === docIdx;
         });
         if (!exam) {
-          console.log(`No exam found for document index: ${docIndex}`);
+          unknown.push(docIndex);
           continue;
         }
         exam.grade = grades[docIndex];
         const total = this.data.nMaxPointsPerQuestion.get(exam.question);
-        if (exam.grade <= total + 1e-3) {
-          exam.status = DocumentStatus.VALIDATED;
-        } else {
-          gradeError = true;
+        if (exam.grade < 0 || (total !== undefined && exam.grade > total + 1e-3)) {
+          suspicious.push(docIdx);
           exam.status = DocumentStatus.TO_VALIDATE;
+        } else {
+          exam.status = DocumentStatus.VALIDATED;
         }
       }
-
-      // display error notification
-      if (gradeError) {
-        this.notificationService.showError(`Some grades seem wrong. Check the non validated copies.`, 'Erreur');
+      if (unknown.length > 0) {
+        this.notificationService.showWarning(`Aucune copie pour les index ${unknown.join(', ')} du csv.`, 'Attention');
+      }
+      if (suspicious.length > 0) {
+        this.notificationService.showError(
+          `Les notes des copies ${suspicious.join(', ')} sont négatives ou dépassent le maximum: elles restent à valider.`, 'Erreur');
       }
 
       const uploadFormData = new FormData();
@@ -587,7 +578,6 @@ export class PdfManagementDialogComponent implements OnInit {
               this.percentageDone = data.total ? Math.round(100 * data.loaded / data.total) : 0
             } else if (data.type === HttpEventType.Response) {
               if (data.ok) {
-                console.log('Files replaced successfully', data);
                 this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succès');
                 this.dialogRef.close({hasUploadedZip: true});
               } else {

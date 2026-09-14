@@ -56,12 +56,21 @@ describe('PdfManagementDialogComponent', () => {
     const comma = new Blob(['Fichier,Index,Note\nQ1.pdf,0,8.5\nQ1.pdf,1,7\nbad,row\n\n']);
     expect(await component.parseCSVGrades('notes.csv', comma, grades)).toBe(2);
     expect(grades).toEqual({ 0: 8.5, 1: 7 });
-    expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('invalid row 4'), 'Erreur!');
+    expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('invalid row: bad,row'), 'Erreur!');
 
     const semicolon = new Blob(['Fichier;Index;Note\nQ1.pdf;3;7,5\n']);
     const more: any = {};
     expect(await component.parseCSVGrades('notes.csv', semicolon, more)).toBe(1);
     expect(more).toEqual({ 3: 7.5 });
+  });
+
+  it('copes with a byte-order mark, quoted separators and a non-numeric Index', async () => {
+    const grades: any = {};
+    const csv = new Blob(['\ufeffFichier,Nom,Index,Note\n"Q1, a.pdf","Dupont, Jean",2,9\nQ1.pdf,x,abc,5\n']);
+    expect(await component.parseCSVGrades('notes.csv', csv, grades)).toBe(1);
+    expect(grades).toEqual({ 2: 9 });
+    // the row with the bad index used to be dropped without a word
+    expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('invalid Index'), 'Erreur!');
   });
 
   it('refuses a csv without the Index and Note columns', async () => {

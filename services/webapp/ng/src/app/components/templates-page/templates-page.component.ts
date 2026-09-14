@@ -126,9 +126,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     formdata.append('template_id', template["template_id"]);
     this.http.post(`${SERVER_URL}template/download/src`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(
       (data) => {
-        const downloadURL = window.URL.createObjectURL(data);
-        saveAs(downloadURL, template["src_name"]);
-        URL.revokeObjectURL(downloadURL);
+        saveAs(data, template["src_name"]);
       },
       (error) => {
         console.error(error);
