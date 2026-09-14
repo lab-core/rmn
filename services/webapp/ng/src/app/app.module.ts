@@ -52,7 +52,7 @@ import { UserProfileComponent } from './components/user-profile/user-profile.com
 import { WarningDialogComponent } from './components/warning-dialog/warning-dialog.component';
 
 // providers
-import { CacheInterceptor, ErrorInterceptor, FreshHttpInterceptor } from './services/interceptor.service';
+import { ErrorInterceptor, FreshHttpInterceptor } from './services/interceptor.service';
 
 @NgModule({ declarations: [
         AppComponent,
@@ -111,7 +111,6 @@ import { CacheInterceptor, ErrorInterceptor, FreshHttpInterceptor } from './serv
         //   useValue: 'random_nonce_value'
         // },
         provideHttpClient(withXhr(), withInterceptorsFromDi()),
-        { provide: HTTP_INTERCEPTORS, useClass: CacheInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: FreshHttpInterceptor, multi: true },  // should be applied before ErrorInterceptor (in reverse for multi=true)
     ] })

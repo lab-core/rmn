@@ -140,7 +140,7 @@ describe('DashboardPageComponent', () => {
     ]);
     component.copySelection = component.copiesList[1];
     component.selectCopy();
-    expect(localStorage.getItem('job_copy')).toBe('1');
+    expect(localStorage.getItem('job_dashboard_copy')).toBe('1');  // its own key, not the correction pages'
   });
 
   it('question helpers read the task definition', async () => {
@@ -291,6 +291,6 @@ describe('DashboardPageComponent', () => {
     await create();
     fixture.destroy();
     expect(socket.socket.handlers['doc_validated']).toBeUndefined();
-    expect(socket.socket.emit).toHaveBeenCalledWith('leave', 'job');
+    expect(socket.leave).toHaveBeenCalledWith('job');
   });
 });

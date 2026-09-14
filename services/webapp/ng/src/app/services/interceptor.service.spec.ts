@@ -5,7 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { firstValueFrom } from 'rxjs';
 
-import { CacheInterceptor, ErrorInterceptor, FreshHttpInterceptor } from './interceptor.service';
+import { ErrorInterceptor, FreshHttpInterceptor } from './interceptor.service';
 import { UserService } from './user.service';
 
 function setup(interceptor: any, extraProviders: any[] = []) {
@@ -114,39 +114,6 @@ describe('ErrorInterceptor', () => {
     const ok = firstValueFrom(http.get('/api/jobs'));
     backend.expectOne('/api/jobs').flush({ response: [] });
     expect(await ok).toEqual({ response: [] });
-  });
-});
-
-describe('CacheInterceptor', () => {
-  let http: HttpClient;
-  let backend: HttpTestingController;
-
-  beforeEach(() => ({ http, backend } = setup(CacheInterceptor)));
-  afterEach(() => backend.verify());
-
-  it('serves a repeated GET from memory and never caches a POST', async () => {
-    const first = firstValueFrom(http.get('/api/config'));
-    backend.expectOne('/api/config').flush({ v: 1 });
-    expect(await first).toEqual({ v: 1 });
-
-    const second = await firstValueFrom(http.get('/api/config'));
-    backend.expectNone('/api/config');
-    expect(second).toEqual({ v: 1 });
-
-    for (const value of [2, 3]) {
-      const post = firstValueFrom(http.post('/api/config', {}));
-      backend.expectOne('/api/config').flush({ v: value });
-      expect(await post).toEqual({ v: value });
-    }
-  });
-
-  it('caches per URL', async () => {
-    const a = firstValueFrom(http.get('/api/a'));
-    backend.expectOne('/api/a').flush('a');
-    await a;
-    const b = firstValueFrom(http.get('/api/b'));
-    backend.expectOne('/api/b').flush('b');
-    expect(await b).toBe('b');
   });
 });
 
