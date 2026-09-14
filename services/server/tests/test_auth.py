@@ -180,3 +180,9 @@ def test_request_body_cap_returns_413(client, app_module_fixture, monkeypatch):
     assert resp.status_code == 413
     assert resp.mimetype == "application/json"
     assert resp.get_json()["response"].startswith("Error")
+
+
+def test_token_lookup_index_exists(app_module_fixture):
+    # every token check (server and socketIO handshakes) looks a token up
+    info = app_module_fixture.mongo["RMN"]["tokens"].index_information()
+    assert info["token_lookup"]["key"] == [("token", 1)]

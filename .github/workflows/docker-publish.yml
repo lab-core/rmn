@@ -25,6 +25,11 @@ on:
         type: boolean
         default: true
 
+# least privilege for the workflow token (the caller's permissions apply too)
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   check_diff:
     name: Check if any file has changed
@@ -42,7 +47,7 @@ jobs:
       - name: Get last successful commit
         id: last-successful-commit
         continue-on-error: true
-        uses: tylermilner/last-successful-commit-hash-action@v1
+        uses: tylermilner/last-successful-commit-hash-action@05daa3c9de5f3074f13f6edbb7f6c0eec567cfcd  # v1: pinned, it receives github.token
         with:
           github-token: ${{ github.token }}
           workflow-id: docker-publish-all.yml
