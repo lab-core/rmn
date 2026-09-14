@@ -3,6 +3,7 @@ __pycache__/
 **front_page**
 .idea/**
 venv*/
+*.egg-info/
 
 # Local secrets — never commit
 .env

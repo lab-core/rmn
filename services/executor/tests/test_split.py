@@ -12,7 +12,7 @@ from utils.split import (
     split_and_save,
     verify_names_and_n_pages,
 )
-from utils.utils import Document_Status
+from rmn_common.status import Document_Status
 
 PAGES = {"Q1": 2, "Q2": 1}  # cover page + 3 question pages = 4 pages per copy
 

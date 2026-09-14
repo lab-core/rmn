@@ -9,6 +9,16 @@ on:
       image:
         required: true
         type: string
+      dockerfile:
+        description: Dockerfile path, relative to the context.
+        required: false
+        type: string
+        default: Dockerfile
+      watch:
+        description: Space-separated paths whose changes trigger a build (default the context).
+        required: false
+        type: string
+        default: ''
       push:
         description: Push the built image. Set to false to only check that it builds.
         required: false
@@ -44,12 +54,18 @@ jobs:
             # Fail loudly if git cannot compute the diff: an unreadable commit
             # used to make this silently report "same" and skip the build.
             set -euo pipefail
+            # paths that decide whether this image is rebuilt (the server and
+            # executor build from services/ but only care about their own
+            # directory and the shared package)
+            watch="${{ inputs.watch }}"
+            [ -z "$watch" ] && watch="${{ inputs.context }}"
             if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
                 # manual run: build/push every image regardless of diff
                 echo "status=changed" >> "$GITHUB_OUTPUT"
             elif [ "${{ github.event_name }}" = "pull_request" ]; then
                 # `build-images` label: build only if the PR touches this image's context
-                changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- "${{ inputs.context }}")
+                # shellcheck disable=SC2086  # $watch is a list of paths
+                changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- $watch)
                 [ -z "${changed_files}" ] && echo "status=same" >> "$GITHUB_OUTPUT" || echo "status=changed" >> "$GITHUB_OUTPUT"
             else
                 last_commit="${{ steps.last-successful-commit.outputs.commit-hash }}"
@@ -58,7 +74,8 @@ jobs:
                     # error): build everything rather than silently skipping.
                     echo "status=changed" >> "$GITHUB_OUTPUT"
                 else
-                    changed_files=$(git diff --name-only "${last_commit}" "${{ github.event.after }}" -- "${{ inputs.context }}")
+                    # shellcheck disable=SC2086
+                    changed_files=$(git diff --name-only "${last_commit}" "${{ github.event.after }}" -- $watch)
                     [ -z "${changed_files}" ] && echo "status=same" >> "$GITHUB_OUTPUT" || echo "status=changed" >> "$GITHUB_OUTPUT"
                 fi
             fi
@@ -119,6 +136,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.context }}
+          file: ${{ inputs.context }}/${{ inputs.dockerfile }}
           # Push only when asked to and the login succeeded. A skipped login
           # never pushes.
           push: ${{ inputs.push && steps.login.outcome == 'success' }}

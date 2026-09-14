@@ -2,7 +2,7 @@ import os
 import shutil
 import datetime as dt
 import cv2
-from utils.utils import Document_Status, Job_Status
+from rmn_common.status import Document_Status, Job_Status
 from utils.storage import Storage, ROOT_DIR
 from utils.clients import mongo_client
 

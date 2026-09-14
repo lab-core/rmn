@@ -1,0 +1,17 @@
+# Build context is services/: keep this service and the shared package only.
+# (BuildKit reads <Dockerfile>.dockerignore next to the Dockerfile.)
+*
+!common/
+!executor/
+common/tests/
+common/*.egg-info/
+**/__pycache__/
+**/.pytest_cache/
+executor/venv*/
+executor/tmp_*/
+executor/tests/
+executor/images/
+executor/test.py
+executor/requirements.old.txt
+executor/README.md
+executor/Dockerfile*

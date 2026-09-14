@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from utils.utils import validate_questions
+from rmn_common.questions import validate_questions
 
 
 def _evaluate(client, user, token, pages, points, bonus=None):

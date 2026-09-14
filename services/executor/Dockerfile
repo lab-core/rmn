@@ -17,7 +17,9 @@ RUN groupadd --gid 1000 rmn \
 
 WORKDIR /Executor
 
-COPY ./requirements.txt ./requirements.txt
+# Build context is services/ (see docker-compose.yml and docker-publish-all.yml)
+# so the shared package next to this service can be copied in.
+COPY executor/requirements.txt ./requirements.txt
 
 # pip's download cache (~1.5 GB of wheels per platform) lives in a BuildKit
 # cache mount: it is not baked into the layer (which kept the image small with
@@ -25,9 +27,14 @@ COPY ./requirements.txt ./requirements.txt
 # requirements.txt only downloads the new packages.
 RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
+# Contracts shared with the server; its own layer so a change there does not
+# reinstall the (large) dependencies above.
+COPY common /opt/rmn-common
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps /opt/rmn-common
+
 # The executor creates its per-job tmp_<id> work directories next to its code,
 # so the app directory has to belong to the runtime user.
-COPY --chown=rmn:rmn . .
+COPY --chown=rmn:rmn executor/ .
 
 ENV ENVIRONMENT=production
 # Writable HOME: TeX Live's font cache (~/.texlive*) and matplotlib's config

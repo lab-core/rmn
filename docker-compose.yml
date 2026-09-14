@@ -21,7 +21,9 @@ services:
       - ./storage/mongo:/data/db
   executor:
    build:
-     context: ./services/executor
+     # services/ so the image can copy the shared rmn-common package
+     context: ./services
+     dockerfile: executor/Dockerfile
      # reuse the dependency layers published by CI (see docker-publish.yml)
      cache_from:
        - type=registry,ref=rmni/executor:buildcache
@@ -41,8 +43,8 @@ services:
      - ./storage:/Executor/storage
   server:
     build:
-      context: ./services/server
-      dockerfile: Dockerfile-dev
+      context: ./services
+      dockerfile: server/Dockerfile-dev
       cache_from:
         - type=registry,ref=rmni/server:buildcache
     restart: always
@@ -78,8 +80,8 @@ services:
     # build: ./services/webapp
     # command: bash -c "while true; do echo hello; sleep 2; done"
     build:
-      context: ./services/webapp
-      dockerfile: Dockerfile-dev
+      context: ./services
+      dockerfile: webapp/Dockerfile-dev
       # the npm install layer is shared with the published image
       cache_from:
         - type=registry,ref=rmni/webapp:buildcache

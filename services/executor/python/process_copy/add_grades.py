@@ -6,7 +6,8 @@ import shutil
 from process_copy.database import Database
 from process_copy.recognize import add_grades
 from utils.storage import Storage
-from utils.utils import Document_Status, ignored_positions
+from rmn_common.status import Document_Status
+from rmn_common.questions import ignored_positions
 from process_copy.config import grade_box as def_grade_box
 storage = Storage()
 

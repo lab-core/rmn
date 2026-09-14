@@ -7,6 +7,7 @@ import { SERVER_URL } from 'src/app/utils';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { first } from 'rxjs/operators';
+import { JobStatus } from '../../generated/rmn-contracts';
 
 
 export interface DialogData {
@@ -153,7 +154,7 @@ export class TaskRetryDialogComponent implements OnInit {
     this.http.post(requestURL, formData).pipe(first()).subscribe(
         (data) => {
             this.notifyService.showSuccess('Reprise de la tâche', 'SUCCÈS');
-            this.dialogRef.close('IGNORED');
+            this.dialogRef.close(JobStatus.IGNORED);
 
         },
         (error) => {
@@ -186,7 +187,7 @@ export class TaskRetryDialogComponent implements OnInit {
       } else if (event.type === HttpEventType.Response) {
         this.uploading = false;
         this.notifyService.showSuccess('Fichier(s) téléversé(s) avec succès', 'SUCCÈS');
-        this.dialogRef.close('CORRECTED');
+        this.dialogRef.close(JobStatus.CORRECTED);
         this.uploadedFiles.push(...this.selectedFiles.map(file => file.name));
         this.selectedFiles = [];
         sub.unsubscribe();

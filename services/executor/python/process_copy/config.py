@@ -44,17 +44,7 @@ class Latex:
     input_content = "\\renewcommand{\\nom}{%s}\n\\renewcommand{\\matricule}{%s}\n"
 
 
-class MoodleFields:
-    mat = 'Matricule'
-    name = 'Nom complet'
-    id = 'Identifiant'
-    question = 'Question'
-    grade = 'Note'
-    max = 'Note maximale'
-    mdate = 'Dernière modification (note)'
-    status = 'Statut'
-    status_start_filter = 'Remis'
-    group = '(?i)(gr|groupe?s?)$'
+# MoodleFields moved to rmn_common.moodle (shared with the server)
 
 
 # --- decimal part of a recognised grade ---------------------------------------

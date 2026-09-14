@@ -14,6 +14,7 @@ import { MatSelectChange } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { first } from 'rxjs/operators';
 import { db, OfflineCopy } from './offline-db';
+import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 
 
 @Component({
@@ -25,6 +26,7 @@ import { db, OfflineCopy } from './offline-db';
     standalone: false
 })
 export class TaskVerificationComponent implements OnInit, OnDestroy {
+  readonly DocumentStatus = DocumentStatus;
 
   constructor(private tasksService: TasksService,
     private validationService: ValidationService,
@@ -119,9 +121,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       // reroute page
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche indisponible');
       this.router.navigate(['/tasks-history']);
-    } else if (this.job.job_status === 'VALIDATED' ||
-               this.job.job_status === 'FINALIZING' ||
-               this.job.job_status === 'ARCHIVED') {
+    } else if (this.job.job_status === JobStatus.VALIDATED ||
+               this.job.job_status === JobStatus.FINALIZING ||
+               this.job.job_status === JobStatus.ARCHIVED) {
       this.notificationService.showWarning('Veuillez sélectionner une tâche active!', 'Tâche inactive');
       this.router.navigate(['/tasks-history']);
     }
@@ -153,7 +155,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.socketService.join(this.job.job_id);
     this.socketService.getSocket().on('document_ready', async (params: any) => {
       await this.getDocuments();
-      if (this.currentCopy < 0 || this.currentExam()['status'] === "VALIDATED") {
+      if (this.currentCopy < 0 || this.currentExam()['status'] === DocumentStatus.VALIDATED) {
         this.nextCopy();
       }
     });
@@ -280,16 +282,16 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   getExamClass(exam: any): string {
     let examClass: string;
-    if (exam.status === 'VALIDATED') {
+    if (exam.status === DocumentStatus.VALIDATED) {
       examClass = 'validated-copy';
-    } else if (exam.status === 'TO VALIDATE') {
+    } else if (exam.status === DocumentStatus.TO_VALIDATE) {
       examClass = 'to-validate-copy';
       if (this.availableTags.includes(exam.tag)) {
         examClass += ' tag-color-' + exam.tag;
       }
-    } else if (exam.status === 'HIGH ACCURACY') {
+    } else if (exam.status === DocumentStatus.HIGH_ACCURACY) {
       examClass = 'high-precision-copy';
-    } else if (exam.status === 'DELETED') {
+    } else if (exam.status === DocumentStatus.DELETED) {
       examClass = 'deleted-copy';
     }
 
@@ -501,7 +503,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async loadPdf(version: number = undefined): Promise<boolean> {
-    if (this.currentExam()["status"] !== "NOT_READY") {
+    if (this.currentExam()["status"] !== DocumentStatus.NOT_READY) {
       this.checkNavigationArrows(false);
       this.pdfLoading = true;
       let pdfSource;
@@ -560,7 +562,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     await this.changeCurrentCopy(copyIndex, status, updateScroll);
   }
   async changeCurrentCopy(copyIndex, status, updateScroll: boolean=true): Promise<void> {
-    if (status !== "NOT_READY") {
+    if (status !== DocumentStatus.NOT_READY) {
       this.pdfLoading = true;
       if (await this.saveCurrentCopy()) {
         const exam = this.examsList[copyIndex];
@@ -642,23 +644,23 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   setChosenColor(status: string, tag): void {
-    if(status === "TO VALIDATE") {
+    if(status === DocumentStatus.TO_VALIDATE) {
       this.colorChosen = "red";
       if (this.availableTags.includes(tag)) {
         this.colorChosen = 'tag-color-' + tag;
       }
     }
-    if(status === "HIGH ACCURACY") {
+    if(status === DocumentStatus.HIGH_ACCURACY) {
       this.colorChosen = "blue";
     }
-    if(status === "VALIDATED") {
+    if(status === DocumentStatus.VALIDATED) {
       this.colorChosen = "green";
     }
   }
 
   checkForAvailableCopies(): boolean {
     if (this.subExamsList.length == 0) return false;
-    const exam = this.subExamsList.find((exam: any) => exam["status"] != "NOT_READY");
+    const exam = this.subExamsList.find((exam: any) => exam["status"] != DocumentStatus.NOT_READY);
     return exam !== undefined;
   }
 
@@ -667,8 +669,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   setValidatedStatus(): boolean {
-    if (this.currentStatus != "VALIDATED") {
-      this.currentStatus = "VALIDATED";
+    if (this.currentStatus != DocumentStatus.VALIDATED) {
+      this.currentStatus = DocumentStatus.VALIDATED;
       return true;
     } else {
       return false;
@@ -689,7 +691,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (exam["tag"] !== tag) {
       this.currentTagModified = true;  // ensure that the copy will be saved
     }
-    this.currentStatus = "TO VALIDATE";
+    this.currentStatus = DocumentStatus.TO_VALIDATE;
     exam["tag"] = tag;
     await this.updateCurrentCopy(false);
   }
@@ -697,7 +699,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   isRespectingTagFilter(exam) {
     // default current copy
     if (this.tagFilter === '') return true;
-    if (exam.status === 'TO VALIDATE') {
+    if (exam.status === DocumentStatus.TO_VALIDATE) {
       // default next copy to validate -> comment first line
       if (this.tagFilter === '') return true;
       if (this.tagFilter === exam.tag) return true;
@@ -921,7 +923,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   checkValidationButton(): void {
     // this.disabledValidationButton = !this.job || this.job["job_status"] !== 'VALIDATION';
-    const disabledValidationButton = this.examsList.some((exam) => exam.status !== 'VALIDATED');
+    const disabledValidationButton = this.examsList.some((exam) => exam.status !== DocumentStatus.VALIDATED);
     const questionIndex = this.route.snapshot.queryParams.question_index;
 
     if (!this.disabledDropDown) {
@@ -929,7 +931,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     } else if (questionIndex) {
       // exact question, not a substring of the filename (Q1 matched Q10..Q19)
       const subExams = this.examsList.filter((exam) => exam.question === `Q${questionIndex}`);
-      this.disabledValidationButton = subExams.some((exam) => exam.status !== 'VALIDATED');
+      this.disabledValidationButton = subExams.some((exam) => exam.status !== DocumentStatus.VALIDATED);
     }
   }
 

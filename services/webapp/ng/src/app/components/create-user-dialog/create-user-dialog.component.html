@@ -25,8 +25,8 @@
         <mat-form-field appearance="fill">
             <mat-label>Select an option</mat-label>
             <mat-select [(value)]="selected">
-              <mat-option value="Administrateur">Administrateur</mat-option>
-              <mat-option value="Utilisateur">Utilisateur</mat-option>
+              <mat-option [value]="UserRole.ADMIN">Administrateur</mat-option>
+              <mat-option [value]="UserRole.USER">Utilisateur</mat-option>
             </mat-select>
         </mat-form-field>
     </div>

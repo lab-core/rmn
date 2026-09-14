@@ -3,7 +3,7 @@
 import datetime as dt
 
 from process_copy.database import Database
-from utils.utils import Document_Status, Job_Status
+from rmn_common.status import Document_Status, Job_Status
 
 
 def test_insert_question_derives_the_index_from_the_key(mongo_db):
@@ -27,7 +27,7 @@ def test_documents_round_trip(mongo_db):
 
     doc = db.get_document("job", 0)
     assert doc["matricule"] == "1234567"  # stored as text
-    assert doc["status"] == "NOT_READY"
+    assert doc["status"] == "NOT READY"
 
     assert db.update_document("job", 0, [5, 3], Document_Status.HIGH_ACCURACY, "2345678", 1.5, "A") is True
     doc = db.get_document("job", 0)

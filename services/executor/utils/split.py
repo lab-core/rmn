@@ -7,7 +7,8 @@ from pathlib import Path
 from pypdf import PdfReader, PdfWriter
 from python.process_copy.database import Database
 from utils.storage import Storage
-from utils.utils import Document_Status, active_question_keys
+from rmn_common.status import Document_Status
+from rmn_common.questions import active_question_keys
 from collections import OrderedDict
 from werkzeug.utils import secure_filename
 

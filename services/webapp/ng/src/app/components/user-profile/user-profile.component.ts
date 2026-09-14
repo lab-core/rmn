@@ -5,6 +5,7 @@ import { UserService } from 'src/app/services/user.service';
 import { ChangePasswordDialogComponent } from '../change-password-dialog/change-password-dialog.component';
 import { CreateUserDialogComponent } from '../create-user-dialog/create-user-dialog.component';
 import { first } from 'rxjs/operators';
+import { UserRole } from '../../generated/rmn-contracts';
 
 @Component({
     selector: 'app-user-profile',
@@ -14,6 +15,7 @@ import { first } from 'rxjs/operators';
     standalone: false
 })
 export class UserProfileComponent implements OnInit {
+  readonly UserRole = UserRole;
 
   constructor(public dialog: MatDialog,
     public userService: UserService,

@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rmn-common"
+version = "0.1.0"
+description = "Contracts shared by the RMN server and executor: statuses, question keys, Moodle columns, storage layout."
+requires-python = ">=3.13"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["rmn_common*"]

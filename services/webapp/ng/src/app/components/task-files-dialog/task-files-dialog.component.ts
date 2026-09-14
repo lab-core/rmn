@@ -8,6 +8,7 @@ import { saveAs } from 'file-saver';
 import { HttpClient, HttpEventType } from '@angular/common/http';
 import { SERVER_URL } from 'src/app/utils';
 import { first } from 'rxjs/operators';
+import { JobStatus } from '../../generated/rmn-contracts';
 
 export interface DialogData {
   taskId: string;
@@ -191,8 +192,8 @@ export class TaskFilesDialogComponent implements OnInit {
   }
 
   async restore() {
-    await this.tasksService.updateTaskStatus(this.data.taskId, 'VALIDATION');
-    this.dialogRef.close('VALIDATION');
+    await this.tasksService.updateTaskStatus(this.data.taskId, JobStatus.VALIDATION);
+    this.dialogRef.close(JobStatus.VALIDATION);
   }
 
   cancel(): void {

@@ -65,7 +65,7 @@
 
                 <div class="buttons-container">
                   <button class="change-password" mat-raised-button color="primary" (click)="openChangePasswordDialog()">Changer le mot de passe</button>
-                  @if (this.userService.role == 'Administrateur') {
+                  @if (this.userService.role == UserRole.ADMIN) {
                     <button class="profile-button" mat-raised-button color="accent" (click)="openCreateUserDialog()">Créer un compte</button>
                   }
                 </div>

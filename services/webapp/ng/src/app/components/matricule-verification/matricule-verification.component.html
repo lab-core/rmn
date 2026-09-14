@@ -16,30 +16,30 @@
           @for (exam of this.subExamsList; track exam; let i = $index) {
             <div class="file-container"
               (click)="changeCurrentCopy(exam.document_index, exam.status, false)">
-              @if (exam.status == 'NOT_READY') {
+              @if (exam.status == DocumentStatus.NOT_READY) {
                 <div class="disabled-copy">
                   <strong>{{i + 1}}</strong>
                 </div>
               }
-              @if (exam.status == 'VALIDATED') {
+              @if (exam.status == DocumentStatus.VALIDATED) {
                 <div [ngClass]="exam.document_index == this.currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
                   >
                   <strong>{{i + 1}}</strong>
                 </div>
               }
-              @if (exam.status == 'TO VALIDATE') {
+              @if (exam.status == DocumentStatus.TO_VALIDATE) {
                 <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
                   >
                   <strong>{{i + 1}}</strong>
                 </div>
               }
-              @if (exam.status == 'HIGH ACCURACY') {
+              @if (exam.status == DocumentStatus.HIGH_ACCURACY) {
                 <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
                   >
                   <strong>{{i + 1}}</strong>
                 </div>
               }
-              @if (exam.status == 'DELETED') {
+              @if (exam.status == DocumentStatus.DELETED) {
                 <div [ngClass]="exam.document_index == this.currentCopy ? 'deleted-copy chosen-copy' : 'deleted-copy'"
                   >
                   <strong>{{i + 1}}</strong>

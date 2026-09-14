@@ -17,6 +17,7 @@ import { ValidationService } from 'src/app/services/validation.service';
 import {
   MATERIAL_MODULES, PdfViewerStubComponent, notificationSpy, routeStub, settle, socketServiceStub, userServiceStub, waitUntil,
 } from '../../testing/helpers';
+import { DocumentStatus } from '../../generated/rmn-contracts';
 
 const JOB = {
   job_id: 'job', job_status: 'VALIDATION', groups: ['A', 'B'],
@@ -29,7 +30,7 @@ const JOB = {
 const EXAMS = [
   { document_index: 0, status: 'VALIDATED', matricule: '1234567', filename: 'a', group: 'A' },
   { document_index: 1, status: 'TO VALIDATE', matricule: '2345678', filename: 'b', group: 'B' },
-  { document_index: 2, status: 'NOT_READY', matricule: '', filename: 'c', group: 'A' },
+  { document_index: 2, status: DocumentStatus.NOT_READY, matricule: '', filename: 'c', group: 'A' },
   { document_index: 3, status: 'HIGH ACCURACY', matricule: '3456789', filename: 'd', group: 'A' },
 ];
 

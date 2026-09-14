@@ -14,11 +14,16 @@ RUN groupadd --gid 1000 rmn \
 
 WORKDIR /Server
 
-COPY ./requirements.txt ./requirements.txt
+# Build context is services/ (see docker-compose.yml and docker-publish-all.yml)
+# so the shared package next to this service can be copied in.
+COPY server/requirements.txt ./requirements.txt
 
 RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
-COPY --chown=rmn:rmn . .
+COPY common /opt/rmn-common
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps /opt/rmn-common
+
+COPY --chown=rmn:rmn server/ .
 
 ENV ENVIRONMENT=production
 ENV PYTHONUNBUFFERED=1

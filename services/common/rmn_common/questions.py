@@ -1,45 +1,12 @@
+"""The ``Q<n>`` question keys shared by the task definition and the storage tree.
+
+A task carries three per-question lists, ``[["Q1", value], ...]`` (JavaScript
+``Array.from(map.entries())``), for pages, points and bonus. The keys name
+folders and files on the executor side, and a question with 0 page is
+*ignored*: its box exists on the cover template but it is not part of the exam.
+"""
+
 import re
-from enum import Enum
-
-
-class Job_Status(Enum):
-    SPLIT = "SPLIT"
-    RETRY = "RETRY"
-    CORRECTED = "CORRECTED"
-    IGNORED = "IGNORED"
-    QUEUED = "QUEUED"
-    RUN = "RUN"
-    VALIDATION = "VALIDATION"
-    VALIDATED = "VALIDATED"
-    FINALIZING = "FINALIZING"
-    ARCHIVED = "ARCHIVED"
-    ERROR = "ERROR"
-
-
-class Output_File(Enum):
-    PREVIEW_FILE = "preview_file"
-    NOTES_CSV_FILE = "notes_csv_file"
-    ZIP_FILE = "zip_file"
-    STATS_PDF_FILE = "stats_pdf_file"
-
-
-class Client_Type(Enum):
-    JOB_EXECUTOR = "job_executor"
-    WEB_CLIENT = "web_client"
-
-
-class Document_Status(Enum):
-    VALIDATED = "VALIDATED"
-    TO_VALIDATE = "TO VALIDATE"
-    HIGH_ACCURACY = "HIGH ACCURACY"
-    NOT_READY = "NOT READY"
-    DELETED = "DELETED"
-
-
-class User_Role(Enum):
-    USER = "Utilisateur"
-    ADMIN = "Administrateur"
-
 
 QUESTION_KEY = re.compile(r"Q[1-9][0-9]*")
 
@@ -49,10 +16,8 @@ def validate_questions(
 ):
     """Check the per-question lists sent when a task is created.
 
-    Each list is ``[["Q1", value], ...]`` (JS ``Array.from(map.entries())``).
-    A question with 0 page is ignored (not part of the exam although its box
-    exists on the template): it must then also have 0 point. Returns an error
-    message (French, shown to the user) or ``None`` when the lists are valid.
+    Returns an error message (French, shown to the user) or ``None`` when the
+    lists are valid.
     """
     lists = (n_pages_per_question, n_max_points_per_question, bonus_enabled_map)
     for entries in lists:
@@ -87,3 +52,41 @@ def validate_questions(
         if pages > 0 and max_points == 0:
             return f"{key} : une question corrigée doit valoir au moins un point."
     return None
+
+
+def question_sort_key(item):
+    """Numeric sort key for a "Q<n>" key or a ("Q<n>", value) pair.
+
+    A plain sort of the keys is lexicographic ("Q10" < "Q2"), which mismaps
+    per-question data once a task has 10 or more questions.
+    """
+    key = item[0] if isinstance(item, (list, tuple)) else item
+    digits = re.sub(r"\D", "", str(key))
+    return int(digits) if digits else 0
+
+
+def question_position(key):
+    """0-based position of a "Q<n>" key: "Q3" -> 2."""
+    return question_sort_key(key) - 1
+
+
+def _question_items(n_pages_per_question):
+    """(key, value) pairs from either the dict or the [[key, value], ...] wire shape."""
+    if isinstance(n_pages_per_question, dict):
+        return list(n_pages_per_question.items())
+    return [(item[0], item[1]) for item in n_pages_per_question]
+
+
+def active_question_keys(n_pages_per_question):
+    """Numerically sorted keys of the questions that are not ignored."""
+    keys = [key for key, pages in _question_items(n_pages_per_question) if pages]
+    return sorted(keys, key=question_sort_key)
+
+
+def ignored_positions(n_pages_per_question):
+    """0-based positions (index in ``job_documents.grades``) of ignored questions."""
+    return {
+        question_position(key)
+        for key, pages in _question_items(n_pages_per_question)
+        if not pages
+    }
