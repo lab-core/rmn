@@ -138,18 +138,38 @@ export class MatriculeVerificationComponent implements OnInit {
     }
   }
 
+  // The arrow keys belong to the matricule search box while it has the
+  // focus (caret in the text, option list navigation); the page-level
+  // shortcuts used to fire at the same time and jump copies mid-typing.
+  // Enter is left alone: selecting an option and validating with one key is
+  // the intended flow.
+  typingInAField(): boolean {
+    const el = document.activeElement as HTMLElement | null;
+    return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable
+      || el.closest('.ng-select') !== null);
+  }
+
   @HostListener('document:keydown.arrowright', ['$event'])
   onKeydownArrowRightHandler(event: KeyboardEvent) {
+    if (this.typingInAField()) {
+      return;
+    }
     this.nextCopy();
   }
 
   @HostListener('document:keydown.arrowleft', ['$event'])
   onKeydownArrowLeftHandler(event: KeyboardEvent) {
+    if (this.typingInAField()) {
+      return;
+    }
     this.previousCopy();
   }
 
   @HostListener('document:keydown.arrowup', ['$event'])
   onKeydownArrowUpHandler(event: KeyboardEvent) {
+    if (this.typingInAField()) {
+      return;
+    }
     // move up (-> 4 copies)
     let tempIndex = this.previousCopyIndex();
     let i = 1;
@@ -167,6 +187,9 @@ export class MatriculeVerificationComponent implements OnInit {
 
   @HostListener('document:keydown.arrowdown', ['$event'])
   onKeydownArrowDownHandler(event: KeyboardEvent) {
+    if (this.typingInAField()) {
+      return;
+    }
     // move down (-> 4 copies)
     let tempIndex = this.nextCopyIndex();
     let i = 1;
@@ -426,13 +449,36 @@ export class MatriculeVerificationComponent implements OnInit {
 
     if (uncheckedcopy > 0) {
       this.openwarningDialog();
+    } else if (!this.hasQuestionsToGrade()) {
+      // matricules were the only thing to check: finalize, as the
+      // confirmation dialog does. This branch used to navigate away with a
+      // success toast and no request, leaving the task in VALIDATION.
+      await this.finalizeJob();
     } else {
+      // every matricule is saved already; grading comes next
       this.disabledValidationcontainer = true;
       this.pdfLoadEnds();
       this.router.navigate(['/tasks-history']);
       const message = "Les matricules ont été validés avec succès!";
       this.notificationService.showInfo(message, "Alerte!")
-      // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
+    }
+  }
+
+  hasQuestionsToGrade(): boolean {
+    return (this.job?.n_max_points_per_question ?? []).length > 0;
+  }
+
+  async finalizeJob(): Promise<void> {
+    this.disabledValidationcontainer = true;
+    this.pdfLoadStarts();
+    const response = await this.validationService.validateJob(
+      this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
+    if (response === 'OK') {
+      this.router.navigate(['/tasks-history']);
+      this.notificationService.showInfo('La tâche est en cours de finalisation!', 'Alerte!');
+    } else {
+      this.pdfLoadEnds();
+      this.disabledValidationcontainer = false;
     }
   }
 
@@ -476,16 +522,7 @@ export class MatriculeVerificationComponent implements OnInit {
     });
     dialogRef.afterClosed().pipe(first()).subscribe(async (result) => {
         if (result !== undefined && result === true) {
-          this.disabledValidationcontainer = true;
-          this.pdfLoadStarts();
-          const response = await this.validationService.validateJob(
-            this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
-          if (response === 'OK') {
-            this.router.navigate(['/tasks-history']);
-            const message = 'La tâche est en cours de finalisation!';
-            this.notificationService.showInfo(message, 'Alerte!');
-            // this.openTaskFilesDialog(this.tasksService.getvalidatingTaskId());
-          }
+          await this.finalizeJob();
         }
 
       }, (error) => {
@@ -534,11 +571,13 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   async updateStatusOfAllDuplicatedMatricules(matricule = undefined): Promise<void> {
+    // exams carry the matricule as a string, callers may pass a number
+    const wanted = matricule === undefined || matricule === null ? undefined : String(matricule);
     const matricules = new Map<string, Array<any>>();
     this.examsList.forEach((exam: any) => {
       if (exam.status !== 'DELETED' &&
         exam.status !== 'NOT_READY' &&
-        (!matricule || exam.matricule === matricule)) {
+        (!wanted || String(exam.matricule) === wanted)) {
         if (!matricules[exam.matricule]) {
           matricules[exam.matricule] = [];
         }

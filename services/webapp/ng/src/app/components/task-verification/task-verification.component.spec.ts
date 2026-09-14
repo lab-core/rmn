@@ -147,6 +147,17 @@ describe('TaskVerificationComponent', () => {
     expect(component.disabledDropDown).toBeFalse();  // logged in
   });
 
+  it('the validate button of a shared question counts that question only, not Q10 for Q1', async () => {
+    await create(JOB, { question_index: '1' });
+    component.disabledDropDown = true;  // a share-link visitor locked on Q1
+    component.examsList.push({ document_index: 20, basename: 'a', question: 'Q10', status: 'TO VALIDATE', filename: 'a_Q10' });
+    component.examsList.forEach(e => { if (e.question === 'Q1') { e.status = 'VALIDATED'; } });
+
+    component.checkValidationButton();
+
+    expect(component.disabledValidationButton).toBeFalse();
+  });
+
   it('colours the copies by status and tag', async () => {
     await create();
     expect(component.getExamClass({ status: 'VALIDATED', document_index: 99 })).toBe('validated-copy');

@@ -42,8 +42,11 @@ import psutil
 from multiprocessing import Process, SimpleQueue
 from statistics import median
 from copy import copy
+import random
 
-from process_copy.config import re_mat, len_mat, known_mistmatch, min_documents_for_max_questions
+from process_copy.config import re_mat, len_mat, known_mistmatch, known_mistmatch_matricule
+from process_copy.config import min_documents_for_max_questions
+from process_copy.config import allowed_decimals, digit_margins
 from process_copy.config import MoodleFields as MF
 from process_copy.mcc import get_name, load_csv, group_label
 from process_copy.preview import PreviewHandler
@@ -57,12 +60,6 @@ ignoreWrite = sys.gettrace() is None and "Debug" not in str(sys.stdin)
 
 storage = Storage()
 
-allowed_decimals = ["0", "25", "5", "75"]
-allowed_decimals_part = [.25, .5, .75]
-corrected_decimals = [
-    "5",
-    "75",
-]  # for length 1, use first one, lenght 2, use second one ...
 RED = (225, 6, 0)
 GREEN = (0, 154, 23)
 ORANGE = (255, 127, 0)
@@ -341,7 +338,26 @@ def process_all(
             g_args = (*g_args, q_results)
             p = Process(target=process_func, args=g_args)
             p.start()
-            doc_index, matricules_data = q_results.get()
+            # wait for the result but notice a worker that died without
+            # reporting (OOM kill, segfault): q_results.get() alone blocked
+            # forever while the heartbeat kept the job looking alive
+            result = None
+            while result is None:
+                p.join(timeout=1)
+                if not q_results.empty():
+                    result = q_results.get()
+                elif p.exitcode is not None:
+                    break
+            if result is None:
+                print(
+                    Fore.RED
+                    + f"Recognition worker died (exit code {p.exitcode}) at document {batch_start}."
+                    + Style.RESET_ALL
+                )
+                stalled_at = batch_start
+                break
+            doc_index, matricules_data = result
+            p.join()
         else:
             doc_index = process_func(*g_args)
 
@@ -515,7 +531,12 @@ def grade_files(
                     print("Group:", group)
 
             # fill moodle csv file
-            if numbers and len(numbers) > 1:
+            if i < 0:
+                # grades_dfs[-1] would silently append a row for the misread
+                # matricule to the last csv; keep the grades in the database
+                # only, the copy is flagged TO VALIDATE below
+                print(Fore.RED + "%s: grades not written to the csv (matricule unknown)" % filename + Style.RESET_ALL)
+            elif numbers and len(numbers) > 1:
                 print("Found numbers:", numbers)
 
                 # db.save_unverified_number_images(
@@ -880,6 +901,30 @@ def format_grade_text(number):
     return str(int(value)) if value.is_integer() else str(value)
 
 
+def write_grade_texts(img, boxes, numbers, offset=(0, 0), grade_ratio=0.5, color=0, thickness=2):
+    """Print the grades in the boxes of a grade table (the overlay of a finalised copy).
+
+    ``boxes`` are the contours found by ``find_grade_boxes`` on the table cropped
+    at ``offset`` in ``img``. The font scale is set once from the first printed
+    grade so every box uses the same size; an empty text (ignored question or
+    missing grade) leaves its box blank and does not set the scale.
+    """
+    x0, y0 = offset
+    font_scale = None
+    for b, number in zip(boxes, numbers):
+        (x, y, w, h) = cv2.boundingRect(b)
+        number_text = format_grade_text(number)
+        if number_text == "":
+            continue
+        (nw, nh), _ = cv2.getTextSize(number_text, cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
+        if font_scale is None:
+            font_scale = grade_ratio / max(nh / h, nw / w)
+        x_anchor = int(x + (w - nw * font_scale) / 2)
+        y_anchor = int(y + (h + nh * font_scale) / 2)
+        cv2.putText(img, number_text, (x0 + x_anchor, y0 + y_anchor),
+                    cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+
+
 def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'intermediate_image.jpg',
                trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11),
                jpg_quality: int = 5, grade_ratio: float = 0.5):
@@ -909,8 +954,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
             return False, cropped, [], boxes
 
         number_images = []
-        font_scale = None
-        for i, b in enumerate(boxes):
+        for b in boxes:
             (x, y, w, h) = cv2.boundingRect(b)
             if h <= 10 or w <= 10:
                 print("An invalid box number has been found (too small or too thin)")
@@ -920,22 +964,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
                     return find_right_boxes(box2, retry-1)
                 return False, cropped, number_images, boxes
 
-            thickness = 2
-            number_text = format_grade_text(numbers[i])
-            # an empty text leaves the box blank (ignored question or missing
-            # grade); it must not be used to compute the font scale (size 0)
-            if number_text == "":
-                continue
-            size, _ = cv2.getTextSize(number_text, cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
-            nw, nh = size
-            if font_scale is None:
-                font_scale=grade_ratio/max(nh/h, nw/w)
-            x_anchor = int(x + (w-nw*font_scale)/2)
-            y_anchor = int(y + (h+nh*font_scale)/2)
-            color = (0, 0, 255)
-            cv2.putText(np_img, number_text, (x0 + x_anchor, y0 + y_anchor),
-                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
-
+        write_grade_texts(np_img, boxes, numbers, (x0, y0), grade_ratio, color=(0, 0, 255))
         return True, cropped, number_images, boxes
 
     find_right_boxes(box)
@@ -1040,10 +1069,12 @@ def find_matricule(
                     dcnts, dot, dthresh = find_digit_contours(digit_box)
                     # check if only one digit has been found in the box
                     if len(dcnts) == 1:
-                        d = extract_digit(dcnts[0], digit_box, dthresh, classifier)
+                        d = extract_digit(dcnts[0], digit_box, dthresh, classifier,
+                                          confusions=known_mistmatch_matricule)
                     # if too many contours, just remove some pixels on the border of the image
                     elif len(dcnts) > 1:
-                        d = extract_digit(c, gray_box, thresh, classifier, border=-7)
+                        d = extract_digit(c, gray_box, thresh, classifier, border=-7,
+                                          confusions=known_mistmatch_matricule)
                     # if no contour at all, it means that at least one of the box is empty
                     # -> throw this results
                     else:
@@ -1052,7 +1083,8 @@ def find_matricule(
                     all_digits.append(d)
             # otherwise, extract all digits at once
             else:
-                all_digits = extract_all_digits(cnts, gray_box, thresh, classifier)
+                all_digits = extract_all_digits(
+                    cnts, gray_box, thresh, classifier, confusions=known_mistmatch_matricule)
                 all_digits = [d for c, d in all_digits]
         except cv2.error as e:
             print(e)
@@ -1270,20 +1302,16 @@ def try_fix_questions(max_question, predictions):
     return fixed, new_predictions
 
 
-def correct_decimals(p):
-    decimals = p % 1
-    # search for closest one
-    close_d = 0
-    for j, d in enumerate(allowed_decimals_part):
-        if d < decimals:
-            close_d = d
-        else:
-            # closer to close d
-            decimals = close_d if decimals - close_d < d - decimals else d
-            break
-    if j == len(allowed_decimals_part) - 1:
-        decimals = close_d
-    n = p // 1 + decimals
+def correct_decimals(p, allowed=None, rng=random):
+    """Make the decimal part of a grade allowed after the dot was moved.
+
+    Same rule as the recognition: an allowed decimal part is kept, another is
+    replaced by a random allowed part with the same number of digits (see
+    ``config.allowed_decimals``).
+    """
+    number, _, decimals = f"{p:.10f}".rstrip("0").partition(".")
+    decimals = random_allowed_decimals(decimals, allowed, rng)
+    n = float("%s.%s" % (number, decimals or "0"))
     print("Correct decimals:", p, "->", n)
     return n
 
@@ -1522,18 +1550,26 @@ def clean_and_sort_digit_contours(
     return ccnts, dot
 
 
-def extract_all_digits(cnts, gray, thresh, classifier, threshold=1e-2, border=7):
+def extract_all_digits(cnts, gray, thresh, classifier, threshold=1e-2, border=7, confusions=None):
     all_digits = []
     for c in cnts:
         try:
-            d = extract_digit(c, gray, thresh, classifier, threshold, border)
+            d = extract_digit(c, gray, thresh, classifier, threshold, border, confusions)
             all_digits.append((c, d))
         except Exception as e:
             print(e)
     return all_digits
 
 
-def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7):
+def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7, confusions=None):
+    """Candidates ``(probability, digit)`` of the digit drawn by contour ``cnt``.
+
+    ``confusions`` maps a digit the model confuses to the digit it may be
+    (``config.known_mistmatch`` by default, the matricule table for a matricule);
+    the latter is appended with probability 0 when the former is a candidate.
+    """
+    if confusions is None:
+        confusions = known_mistmatch
     # creating a mask
     mask = np.zeros(gray.shape, dtype="uint8")
     (x, y, w, h) = cv2.boundingRect(cnt)
@@ -1550,14 +1586,17 @@ def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7):
     ]
     imwrite_png("roi", roi)
 
-    roi = make_square(roi)
-    imwrite_png("roi2", roi)
+    # The model was trained on MNIST (digit in about 70% of the frame) mixed
+    # with a dataset whose digits fill it, so no single framing matches the
+    # training data: predict the digit framed with each margin of
+    # config.digit_margins and average the probabilities.
+    squares = [make_square(roi, margin=m) for m in digit_margins]
+    imwrite_png("roi2", squares[0])
 
     # predicting
-    roi = roi / 255  # normalize
-    roi = roi.reshape(1, 28, 28, 1).astype("float32")
-    pproba = classifier.predict(roi, verbose=0)
-    predict = [(p, i) for i, p in enumerate(pproba[0])]
+    batch = np.stack(squares).reshape(len(squares), 28, 28, 1).astype("float32") / 255
+    pproba = classifier.predict(batch, verbose=0).mean(axis=0)
+    predict = [(p, i) for i, p in enumerate(pproba)]
     predict = sorted(predict, reverse=True)
     cumul = 0
     d = []
@@ -1568,7 +1607,7 @@ def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7):
             break
 
     # find known mismatch, and add it with probability 0
-    for k, v in known_mistmatch.items():
+    for k, v in confusions.items():
         numbs = [i for p, i in d]
         if k in numbs and v not in numbs:
             d.append((0, v))
@@ -1604,13 +1643,23 @@ def process_digits_combinations(all_digits, dot):
     combinations += trunc_combinations
     print("Combinations:", [(p, [i for (c, i) in d]) for (p, d) in combinations])
 
-    # process all combinations: normalize probability and extract number
+    # process all combinations by decreasing probability: normalize the
+    # probability and keep the numbers whose decimal part is allowed
     numbers = []
     just_allowed_decimals = len(trunc_combinations) == 0
-    for p, digits in combinations:
+    ranked = sorted(combinations, key=lambda c: c[0] / len(c[1]), reverse=True)
+    for p, digits in ranked:
         number = extract_number(digits, dot, just_allowed_decimals)
         if number is not None:
             numbers.append((p / len(digits), number))
+
+    if not numbers and just_allowed_decimals and ranked:
+        # no combination has an allowed decimal part: keep the most probable
+        # digits and draw an allowed decimal part of the same length
+        p, digits = ranked[0]
+        integer, decimals = split_digits(digits, dot)
+        decimals = random_allowed_decimals(decimals)
+        numbers.append((p / len(digits), float("%s.%s" % (integer, decimals or "0"))))
 
     if not numbers:
         return [(1.0, 0)]
@@ -1618,32 +1667,50 @@ def process_digits_combinations(all_digits, dot):
     return sorted(numbers, reverse=True)
 
 
+def split_digits(digits, dot):
+    """The integer and decimal digit strings of a recognised digit sequence."""
+    number = "".join("%d" % d[1] for d in digits[:dot])
+    decimals = "".join("%d" % d[1] for d in digits[dot:])
+    return number, decimals
+
+
+def allowed_decimals_with_digits(n_digits, allowed=None):
+    """Allowed decimal parts written with ``n_digits`` digits, "0" excluded.
+
+    A recognised non-zero digit is a fraction the student wrote: it is never
+    turned into a whole number.
+    """
+    allowed = allowed_decimals if allowed is None else allowed
+    return [d for d in allowed if len(d) == n_digits and int(d) != 0]
+
+
+def random_allowed_decimals(recognised, allowed=None, rng=random):
+    """An allowed decimal part for a recognised one that is not allowed.
+
+    Drawn at random among the allowed parts with the same number of digits
+    (``config.allowed_decimals``). When none has that many digits, the allowed
+    part closest in value is used. An empty or allowed part is returned as is.
+    """
+    allowed = allowed_decimals if allowed is None else allowed
+    if not recognised or recognised in allowed:
+        return recognised
+    same_length = allowed_decimals_with_digits(len(recognised), allowed)
+    if same_length:
+        chosen = rng.choice(same_length)
+    else:
+        value = float("0." + recognised)
+        chosen = min(allowed, key=lambda d: abs(float("0." + d) - value))
+    print("Corrected decimals", recognised, "->", chosen)
+    return chosen
+
+
 def extract_number(digits, dot, just_allowed_decimals=False):
-    # create number
-    number = ""
-    decimals = ""
-    for i, d in enumerate(digits):
-        if i < dot:
-            number = "%s%d" % (number, d[1])
-        else:
-            decimals = "%s%d" % (decimals, d[1])
-
-    # check if decimals are allowed when enable
+    """The number written by a digit sequence, or None when its decimals are
+    checked (``just_allowed_decimals``) and not allowed."""
+    number, decimals = split_digits(digits, dot)
     if just_allowed_decimals and decimals and decimals not in allowed_decimals:
-        # try to correct decimals
-        l = len(decimals)
-        if l <= len(corrected_decimals):
-            print("Corrected decimals", decimals, "->", corrected_decimals[l - 1])
-            print("Digits", [d[1] for d in digits])
-            decimals = corrected_decimals[l - 1]
-        else:
-            print(
-                "Found decimals not allowed: %s is not within %s."
-                % (decimals, ",".join(allowed_decimals))
-            )
-            return None
-
-    return float("%s.%s" % (number, decimals))
+        return None
+    return float("%s.%s" % (number, decimals or "0"))
 
 
 def find_edges(
@@ -1963,14 +2030,38 @@ def find_digit_contours(
     return scnts, dot, thresh
 
 
+def ink_rects(thresh, min_size=5):
+    """Bounding rectangles of the ink blobs of a thresholded image, tiny specks left out."""
+    cnts, _ = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    rects = [cv2.boundingRect(c) for c in cnts]
+    return [(x, y, w, h) for (x, y, w, h) in rects if w >= min_size and h >= min_size]
+
+
 def get_clean_thresh(gray):
     # threshold the gray image, then apply a series of morphological
     # operations to cleanup the thresholded image
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     imwrite_png("blurred", blurred)
-    thresh = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)[
-        1
-    ]  # | cv2.THRESH_OTSU
+    thresh = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)[1]
+
+    # A digit-sized blob wider than tall is a dot or two digits glued together:
+    # the fixed threshold takes the gray halo of a degraded print (jpeg overlay,
+    # light scan) as ink and bridges the gap. Otsu's threshold thins the strokes
+    # and separates them; it is kept only when it splits a blob without losing a
+    # digit, so faint handwriting keeps the permissive threshold.
+    rects = ink_rects(thresh)
+    if rects:
+        max_h = max(h for _, _, _, h in rects)
+
+        def n_digit_sized(rs):
+            return sum(1 for _, _, _, h in rs if h > 0.5 * max_h)
+
+        if any(w > h > 0.5 * max_h for (_, _, w, h) in rects):
+            otsu = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+            orects = ink_rects(otsu)
+            if len(orects) > len(rects) and n_digit_sized(orects) >= n_digit_sized(rects):
+                print("Glued digits: Otsu threshold used")
+                thresh = otsu
     imwrite_png("thresh", thresh)
     return thresh
 

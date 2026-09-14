@@ -23,7 +23,20 @@ matricule_box = {
     }
 }
 
-known_mistmatch = {}
+# digit the model confuses -> digit it may actually be. The second one is added
+# to the candidates of a box with probability 0, so it is only chosen when the
+# total check needs it: a printed or handwritten 1 with a top flag reads as 7.
+known_mistmatch = {7: 1}
+# same for the handwritten digits of a matricule. A candidate added here only
+# ranks after every real candidate, so it never changes a standalone reading;
+# it lets the lookup against the class lists recover a matricule whose digit
+# the model does not even propose (a 9 written like a 3, a thin 2 read as 1).
+known_mistmatch_matricule = {7: 1, 3: 9, 1: 2}
+# margins (fraction of the digit's size) around a digit in the 28 x 28 square
+# given to the model; the probabilities are averaged over them. The model was
+# trained on MNIST (digit in about 70% of the frame) mixed with frame-filling
+# digits. A wider 0.4 framing reads a flat handwritten 0 as a 9.
+digit_margins = [0.1, 0.25]
 
 class Latex:
     cmd = "pdflatex"
@@ -42,3 +55,14 @@ class MoodleFields:
     status = 'Statut'
     status_start_filter = 'Remis'
     group = '(?i)(gr|groupe?s?)$'
+
+
+# --- decimal part of a recognised grade ---------------------------------------
+# Decimal parts a grade can take, as the student writes them: "0" for a whole
+# number, "5" for a half, "25" and "75" for the quarters. The digit
+# combinations recognised in a box are tried by decreasing probability and the
+# first one whose decimal part is listed here wins. When none is, the decimal
+# part is replaced by one drawn at random among the allowed parts written with
+# the same number of digits: a single recognised digit can only become ".5",
+# the one-digit part other than "0". Edit this list to change what is allowed.
+allowed_decimals = ["0", "25", "5", "75"]

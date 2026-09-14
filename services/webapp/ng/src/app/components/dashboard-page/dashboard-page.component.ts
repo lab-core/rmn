@@ -480,7 +480,8 @@ export class DashboardPageComponent {
         all: true,
       };
       if (!isTotal) {
-        queryParams['questionIndex'] = question.index + 1;
+        // task-verification and the share-token payload read question_index
+        queryParams['question_index'] = question.index + 1;
       }
       this.userService.addShareToken(queryParams);
       this.router.navigate([`/task-validation`], { queryParams });

@@ -224,7 +224,7 @@ describe('DashboardPageComponent', () => {
     user.shared = () => true;
     component.correctQuestion(component.questions[0]);
     expect(router.navigate).toHaveBeenCalledWith(['/task-validation'], {
-      queryParams: { job_id: 'job', all: true, questionIndex: 1, token: 'share-1' },
+      queryParams: { job_id: 'job', all: true, question_index: 1, token: 'share-1' },
     });
     component.verifyMatricules();
     expect(router.navigate).toHaveBeenCalledWith(['/matricule-validation'], {
