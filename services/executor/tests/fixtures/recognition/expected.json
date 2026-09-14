@@ -122,7 +122,7 @@
     {
       "file": "matricule_07.png",
       "matricule": "2465638",
-      "known_miss": true
+      "known_miss": false
     },
     {
       "file": "matricule_08.png",

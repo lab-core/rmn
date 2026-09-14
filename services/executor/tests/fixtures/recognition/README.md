@@ -22,7 +22,10 @@ contour detection).
   `fetch_box(page, matricule_box)` (2040 x 660 px), with the interior of the
   name, first-name and signature cells painted white (the table lines are
   kept: the detection walks the cells of the biggest contour). The seven
-  handwritten digits of the matricule remain.
+  handwritten digits of the matricule remain. `matricule_07.png` has a thin 2
+  that reads as 1 when the digit fills the model's frame; it guards the
+  averaging over `config.digit_margins`. `matricule_08.png` is the known miss:
+  its last 9 is written like a 3 and no framing makes 9 a candidate.
 - `expected.json`: the page shape and boxes the crops were taken with, and
   for each crop the value the recogniser must return. `known_miss` marks
   crops the current model misreads (xfail); when such a crop starts reading

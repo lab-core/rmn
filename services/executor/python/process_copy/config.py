@@ -27,6 +27,11 @@ matricule_box = {
 # to the candidates of a box with probability 0, so it is only chosen when the
 # total check needs it: a printed or handwritten 1 with a top flag reads as 7.
 known_mistmatch = {7: 1}
+# margins (fraction of the digit's size) around a digit in the 28 x 28 square
+# given to the model; the probabilities are averaged over them. The model was
+# trained on MNIST (digit in about 70% of the frame) mixed with frame-filling
+# digits. A wider 0.4 framing reads a flat handwritten 0 as a 9.
+digit_margins = [0.1, 0.25]
 
 class Latex:
     cmd = "pdflatex"

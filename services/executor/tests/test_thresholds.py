@@ -1,4 +1,5 @@
-"""The digit threshold on degraded prints (glued dot) and the known confusions."""
+"""The digit threshold on degraded prints (glued dot), the framing margins given
+to the model and the known confusions."""
 
 import cv2
 import numpy as np
@@ -70,3 +71,34 @@ def test_known_confusion_adds_the_other_digit_with_probability_zero():
     candidates = recognize.extract_digit(cnts[0], gray, thresh, SevenClassifier())
     assert candidates[0][1] == 7
     assert (0, 1) in [(float(p), i) for p, i in candidates]
+
+
+class FramingClassifier:
+    """Answers 4 for the first framing of the batch and 9 for the second."""
+
+    def __init__(self):
+        self.batches = []
+
+    def predict(self, batch, verbose=0):
+        self.batches.append(batch.shape)
+        out = np.zeros((batch.shape[0], 10), np.float32)
+        out[0, 4] = 1.0
+        out[1:, 9] = 1.0
+        return out
+
+
+def test_digit_probabilities_are_averaged_over_the_framing_margins(monkeypatch):
+    monkeypatch.setattr(recognize, "digit_margins", [0.1, 0.25])
+    gray = np.full((60, 40), 255, np.uint8)
+    gray[10:50, 15:25] = 0
+    thresh = recognize.get_clean_thresh(gray)
+    cnts, _ = cv2.findContours(
+        thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+    classifier = FramingClassifier()
+    candidates = recognize.extract_digit(cnts[0], gray, thresh, classifier)
+    assert classifier.batches == [(2, 28, 28, 1)]  # one call, one row per margin
+    assert sorted((round(float(p), 2), d) for p, d in candidates) == [
+        (0.5, 4),
+        (0.5, 9),
+    ]

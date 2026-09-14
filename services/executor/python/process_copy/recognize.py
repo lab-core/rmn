@@ -45,7 +45,7 @@ from copy import copy
 import random
 
 from process_copy.config import re_mat, len_mat, known_mistmatch, min_documents_for_max_questions
-from process_copy.config import allowed_decimals
+from process_copy.config import allowed_decimals, digit_margins
 from process_copy.config import MoodleFields as MF
 from process_copy.mcc import get_name, load_csv, group_label
 from process_copy.preview import PreviewHandler
@@ -1574,14 +1574,17 @@ def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7):
     ]
     imwrite_png("roi", roi)
 
-    roi = make_square(roi)
-    imwrite_png("roi2", roi)
+    # The model was trained on MNIST (digit in about 70% of the frame) mixed
+    # with a dataset whose digits fill it, so no single framing matches the
+    # training data: predict the digit framed with each margin of
+    # config.digit_margins and average the probabilities.
+    squares = [make_square(roi, margin=m) for m in digit_margins]
+    imwrite_png("roi2", squares[0])
 
     # predicting
-    roi = roi / 255  # normalize
-    roi = roi.reshape(1, 28, 28, 1).astype("float32")
-    pproba = classifier.predict(roi, verbose=0)
-    predict = [(p, i) for i, p in enumerate(pproba[0])]
+    batch = np.stack(squares).reshape(len(squares), 28, 28, 1).astype("float32") / 255
+    pproba = classifier.predict(batch, verbose=0).mean(axis=0)
+    predict = [(p, i) for i, p in enumerate(pproba)]
     predict = sorted(predict, reverse=True)
     cumul = 0
     d = []
