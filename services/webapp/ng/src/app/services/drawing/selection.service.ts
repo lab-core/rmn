@@ -68,6 +68,9 @@ export class SelectionService {
   } 
 
   mouseUp(event: MouseEvent): void {
+    if (!this.selectedRect) {
+      return;  // a click on the empty svg selects nothing
+    }
     this.selectedRect.setAttribute( 'cursor', 'grab');
 
     this.checkForOutOfBounds();
@@ -255,46 +258,22 @@ export class SelectionService {
   }
 
 
+  /** Keep the selected box inside the container: clamp each axis once (the
+   *  previous version recursed until every side fitted and never returned for
+   *  a box wider or taller than the container). */
   checkForOutOfBounds(){
     const svgContainerWidth = this.svgContainer.clientWidth;
     const svgContainerHeight = this.svgContainer.clientHeight;
+    const width = Number(this.selectedRect.getAttribute('width'));
+    const height = Number(this.selectedRect.getAttribute('height'));
 
-    const rectX1 = this.selectedRect.getAttribute('x');
-    const rectY1 = this.selectedRect.getAttribute('y');
-    const rectX2 = Number(this.selectedRect.getAttribute('width')) + Number(rectX1);
-    const rectY2 = Number(this.selectedRect.getAttribute('height')) + Number(rectY1);
-  
-    if (rectX1.includes('-') && rectY1.includes('-')){
-      this.selectedRect.setAttribute('x', '0');
-      this.selectedRect.setAttribute( 'y', '0');
-      this.moveControlPoints(this.selectedRect,0,0,false,false);
-      this.checkForOutOfBounds();
-    }
-    else if (rectX1.includes('-') && !rectY1.includes('-')){
-      this.selectedRect.setAttribute('x', '0');
-      this.selectedRect.setAttribute( 'y', rectY1);
-      this.moveControlPoints(this.selectedRect,0,Number(rectY1),false,false);
-      this.checkForOutOfBounds();
-    }
-    else if (!rectX1.includes('-') && rectY1.includes('-')){
-      this.selectedRect.setAttribute('x', rectX1);
-      this.selectedRect.setAttribute( 'y',  '0');
-      this.moveControlPoints(this.selectedRect,Number(rectX1),0,false,false);
-      this.checkForOutOfBounds();
-    }
-    else if (rectX2 > svgContainerWidth){
-      const difference = rectX2 - svgContainerWidth;
-      this.selectedRect.setAttribute('x', (Number(rectX1) - difference).toString());
-      this.selectedRect.setAttribute( 'y',  rectY1);
-      this.moveControlPoints(this.selectedRect,(Number(rectX1) - difference),Number(rectY1),false,false);
-      this.checkForOutOfBounds();
-    }
-    else if (rectY2 > svgContainerHeight){
-      const difference = rectY2 - svgContainerHeight;
-      this.selectedRect.setAttribute('x', rectX1);
-      this.selectedRect.setAttribute( 'y',  (Number(rectY1) - difference).toString());
-      this.moveControlPoints(this.selectedRect,Number(rectX1),(Number(rectY1) - difference),false,false);
-      this.checkForOutOfBounds();
-    }
+    const clamp = (value: number, max: number) => Math.min(Math.max(value, 0), Math.max(max, 0));
+    const x = clamp(Number(this.selectedRect.getAttribute('x')), svgContainerWidth - width);
+    const y = clamp(Number(this.selectedRect.getAttribute('y')), svgContainerHeight - height);
+
+    this.selectedRect.setAttribute('x', x.toString());
+    this.selectedRect.setAttribute('y', y.toString());
+    this.moveControlPoints(this.selectedRect, x, y, false, false);
   }
 }
+

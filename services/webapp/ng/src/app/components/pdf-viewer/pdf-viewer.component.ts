@@ -652,11 +652,17 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     this.eraseAnnotations(i, center[0], center[1]);
   }
 
-  private getScaleFactor() {
+  /** pdf.js's --scale-factor on the viewer element (1 at 100 %). The value used
+   *  to be scraped from cssText with a regex that needed a decimal point, so an
+   *  integer zoom threw on every pointer move of the eraser. */
+  getScaleFactor(): number {
     const viewer = document.getElementById('viewer');
-    const style = viewer['style']['cssText'];
-    const matches = style.match(/\d+\.\d+/);
-    return parseFloat(matches[0]);
+    if (!viewer) {
+      return 1;
+    }
+    const declared = viewer.style.getPropertyValue('--scale-factor') || getComputedStyle(viewer).getPropertyValue('--scale-factor');
+    const factor = parseFloat(declared);
+    return Number.isFinite(factor) && factor > 0 ? factor : 1;
   }
 
   private moveCircularCursor(event: PointerEvent) {
