@@ -151,20 +151,7 @@ def run_args(args):
                 print('    '+g)
     args.grades = grades
 
-    l_input = ''
-    suffix = ''
-    if args.course:
-        l_input += '\\renewcommand{\\cours}{%s}\n' % args.course
-        suffix += '%s_' % args.course
-    if args.session:
-        l_input += '\\renewcommand{\\session}{%s}\n' % args.session
-        suffix += '%s_' % args.session
-    if args.name:
-        l_input += '\\renewcommand{\\devoir}{%s}\n' % args.name
-        suffix += args.name
-    config.Latex.input_content += l_input
-    if args.suffix is None and suffix:
-        args.suffix = suffix
+    set_latex_input(args)
 
     if args.train:
         print('Training recognition deep learning model')
@@ -218,6 +205,29 @@ def run_args(args):
         except Exception as e:
             print(e)
             raise
+
+
+def set_latex_input(args):
+    """Course, session and assignment name of this run for the LaTeX pages.
+
+    Written from the base each run: this used to append to
+    ``Latex.input_content``, so one process handling several jobs typeset
+    every previous job's course and session too.
+    """
+    l_input = ''
+    suffix = ''
+    if args.course:
+        l_input += '\\renewcommand{\\cours}{%s}\n' % args.course
+        suffix += '%s_' % args.course
+    if args.session:
+        l_input += '\\renewcommand{\\session}{%s}\n' % args.session
+        suffix += '%s_' % args.session
+    if args.name:
+        l_input += '\\renewcommand{\\devoir}{%s}\n' % args.name
+        suffix += args.name
+    config.Latex.input_content = config.Latex.base_input_content + l_input
+    if args.suffix is None and suffix:
+        args.suffix = suffix
 
 
 def parse_run_args(args):

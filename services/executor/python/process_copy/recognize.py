@@ -316,7 +316,7 @@ def process_all(
     eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
     default_status = Document_Status.HIGH_ACCURACY if eval_job["validate_matricule"] else Document_Status.VALIDATED
 
-    # get max RAM
+    # get max RAM (see memory_used_gb: the container's usage, not the node's)
     max_RAM_GB = int(os.getenv("MAX_RAM_GB", "1000"))
     doc_index = 0
     batch = 1
@@ -361,9 +361,8 @@ def process_all(
         else:
             doc_index = process_func(*g_args)
 
-        # Getting usage of virtual_memory in GB ( 4th field)
         print(f"[{datetime.now()}]", doc_index, "files have been processed.")
-        print(f"[{datetime.now()}]", 'RAM Used - end batch', batch, '(GB):', psutil.virtual_memory()[3] / 1000000000)
+        print(f"[{datetime.now()}]", 'RAM Used - end batch', batch, '(GB):', memory_used_gb())
         batch += 1
         last_index = db.documents_collection().count_documents({"job_id": job_id}) - 1
 
@@ -640,8 +639,7 @@ def grade_files(
 
             doc_index += 1
 
-            # Getting usage of virtual_memory in GB ( 4th field)
-            RAM_used = psutil.virtual_memory()[3] / 1000000000
+            RAM_used = memory_used_gb()
             print('RAM Used once grade found (GB):', RAM_used)
 
             if max_nb_questions is None and len(n_questions) > min_documents_for_max_questions:
@@ -809,8 +807,7 @@ def find_matricules(
 
             doc_index += 1
 
-            # Getting usage of virtual_memory in GB ( 4th field)
-            RAM_used = psutil.virtual_memory()[3] / 1000000000
+            RAM_used = memory_used_gb()
             print(f"[{datetime.now()}]", 'RAM Used once grade found (GB):', RAM_used)
 
             if RAM_used >= max_RAM_GB:
@@ -933,8 +930,6 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
     np_img = np.array(img)
     x0 = int(box[0] * np_img.shape[1])
     y0 = int(box[2] * np_img.shape[0])
-    original_shape = np_img.shape
-    cv2.resize(np_img, shape, interpolation=cv2.INTER_LINEAR)
     if grays is None:
         print(Fore.RED + "%s: No valid pdf" % pdf_path + Style.RESET_ALL)
         return False
@@ -960,16 +955,22 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
                 print("An invalid box number has been found (too small or too thin)")
                 if retry > 0:
                     print("Retry grading", retry)
-                    box2 = (box[0]-.01, box[0]+.01, box[0]-.01, box[0]+.01)
+                    box2 = (box[0]-.01, box[1]+.01, box[2]-.01, box[3]+.01)
                     return find_right_boxes(box2, retry-1)
                 return False, cropped, number_images, boxes
 
         write_grade_texts(np_img, boxes, numbers, (x0, y0), grade_ratio, color=(0, 0, 255))
         return True, cropped, number_images, boxes
 
-    find_right_boxes(box)
-    cv2.resize(np_img, (original_shape[1], original_shape[0]), interpolation=cv2.INTER_LINEAR)
+    # no image when the boxes were not found: the caller keeps the original
+    # cover page and flags the copy (a page without grades used to be written
+    # silently)
+    found, *_ = find_right_boxes(box)
+    if not found:
+        print(Fore.RED + "%s: grade boxes not found, no overlay written" % pdf_path + Style.RESET_ALL)
+        return False
     cv2.imwrite(img_path, np_img, [cv2.IMWRITE_JPEG_QUALITY, jpg_quality])
+    return True
 
 
 def compare_all(paths, grades_csv, box, dpi=300, shape=(8.5, 11)):
@@ -1329,8 +1330,10 @@ def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=Non
             print("An invalid box number has been found (too small or too thin)")
             if retry > 0:
                 print("Retry grading", retry)
-                box2 = (box[0]-.01, box[0]+.01, box[0]-.01, box[0]+.01)
-                return grade(gray, box2, classifier, add_border, trim, max_grade, retry-1)
+                # a slightly wider box (the old retry box collapsed every
+                # coordinate onto box[0], and retry-1 landed in max_question)
+                box2 = (box[0]-.01, box[1]+.01, box[2]-.01, box[3]+.01)
+                return grade(gray, box2, classifier, add_border, trim, max_grade, max_question, retry-1)
             return False, [], cropped, number_images, boxes
         box_img = cropped[y + 5: y + h - 5, x + 5: x + w - 5]
         # check if need to trim
@@ -1873,13 +1876,39 @@ def find_grade_boxes(cropped, add_border=False, max_diff=50, thick=5):
     return boxes
 
 
+# files read for the container's memory usage (cgroup v2, then v1); when the
+# process is not in a cgroup the resident size of this process is used
+CGROUP_MEMORY_FILES = ("/sys/fs/cgroup/memory.current", "/sys/fs/cgroup/memory/memory.usage_in_bytes")
+
+
+def memory_used_gb(cgroup_files=CGROUP_MEMORY_FILES):
+    """Memory used by this container in GB, for the MAX_RAM_GB guard.
+
+    ``psutil.virtual_memory()`` reads /proc/meminfo, the node's memory: the
+    guard tripped on other pods' usage or never at all, and the OOM-kill came
+    first.
+    """
+    for path in cgroup_files:
+        try:
+            with open(path) as f:
+                return int(f.read().strip()) / 1e9
+        except (OSError, ValueError):
+            continue
+    return psutil.Process().memory_info().rss / 1e9
+
+
+# pages rasterised when the whole document must be searched for a matricule:
+# at 300 dpi a page is ~25 MB, and the matricule box is on every page anyway
+MAX_RASTERISED_PAGES = int(os.getenv("MAX_RASTERISED_PAGES", "30"))
+
+
 def gray_images(fpdf, pages=None, dpi=300, straighten=True, shape=None):
     # shape: width, height
     # fpdf: path to pdf file to grade
     images = []
     if pages is None:
         try:
-            images = convert_from_path(fpdf, dpi=dpi)
+            images = convert_from_path(fpdf, dpi=dpi, first_page=1, last_page=MAX_RASTERISED_PAGES)
         except Image.DecompressionBombError as e:
             print("Decompression issue for %s." % fpdf)
             return None
