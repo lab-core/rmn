@@ -38,6 +38,19 @@ def token_expired(record, now=None):
 
 pass_characters = "a-zA-ZÀ-ÿ0-9.@!#%$?_-"
 pattern = re.compile("^[{}]+$".format(pass_characters))
+# Shortest accepted password, on signup and on both change routes (the admin
+# reset included). The webapp's change dialog already asked for 8; the
+# server used to accept one character.
+MIN_PASSWORD_LENGTH = 8
+
+
+def password_error(password):
+    """The reason a password is refused, or None when it is acceptable."""
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return f"Error: password must be at least {MIN_PASSWORD_LENGTH} characters long."
+    if pattern.match(password) is None:
+        return f"Error: password contains illegal characters. You can use only those: {pass_characters}"
+    return None
 # the username names a directory under front_page_temp and is a key everywhere
 # else: letters, digits and . _ @ - only, 3 to 64 characters
 username_pattern = re.compile(r"^[A-Za-z0-9._@-]{3,64}$")
@@ -188,11 +201,9 @@ class UserService:
                 status=400,
             )
 
-        if pattern.match(password) is None:
-            return Response(
-                response=json.dumps({"response": f"Error: password contains illegal characters. You can use only those: %s" % pass_characters}),
-                status=400,
-            )
+        error = password_error(password)
+        if error is not None:
+            return Response(response=json.dumps({"response": error}), status=400)
 
         if not Role.available(role):
             return Response(
@@ -300,11 +311,9 @@ class UserService:
             )
 
         new_password = request_form['new_password']
-        if pattern.match(new_password) is None:
-            return Response(
-                response=json.dumps({"response": f"Error: new_password contains illegal characters. You can use only those: %s" % pass_characters}),
-                status=400,
-            )
+        error = password_error(new_password)
+        if error is not None:
+            return Response(response=json.dumps({"response": error}), status=400)
 
         if username is None:
             username = request_form['username']

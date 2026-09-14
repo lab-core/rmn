@@ -42,6 +42,10 @@ export class CreateUserDialogComponent implements OnInit {
     if (this.username.length == 0 || this.pass.length == 0 || this.passRepeat.length == 0) {
       this.notification.showWarning("Veuillez remplir le(s) champ(s) vide(s)!", "Champ Vide");
     }
+    else if (this.pass.length < 8) {
+      // same minimum as the change-password dialog and the server
+      this.notification.showWarning("Veuillez entrer au minimum 8 caractères!", "Avertissement!");
+    }
     else if (this.pass != this.passRepeat) {
       this.notification.showError("Votre mot de passe ne concordre pas à celui répété!", "Champs Non Égaux");
     }

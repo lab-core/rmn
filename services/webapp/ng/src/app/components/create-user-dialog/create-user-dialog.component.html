@@ -10,14 +10,14 @@
     <div class="input">
         <mat-form-field appearance="outline">
             <mat-label>Entrez le mot de passe</mat-label>
-            <input [(ngModel)]="this.pass" minlength="1" maxlength="32" matInput [type]="hideNewPass ? 'password' : 'text'" (keypress)="updateCharacters($event)">
+            <input [(ngModel)]="this.pass" minlength="8" maxlength="32" matInput [type]="hideNewPass ? 'password' : 'text'" (keypress)="updateCharacters($event)">
             <mat-icon matSuffix (click)="hideNewPass = !hideNewPass" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hideNewPass">{{hideNewPass ? 'visibility_off' : 'visibility'}}</mat-icon>
         </mat-form-field>
     </div>
     <div class="input">
         <mat-form-field appearance="outline">
             <mat-label>Répétez le mot de passe</mat-label>
-            <input [(ngModel)]="this.passRepeat" minlength="1" maxlength="32" matInput [type]="hideNewPass2 ? 'password' : 'text'" (keypress)="updateCharacters($event)"/>
+            <input [(ngModel)]="this.passRepeat" minlength="8" maxlength="32" matInput [type]="hideNewPass2 ? 'password' : 'text'" (keypress)="updateCharacters($event)"/>
             <mat-icon matSuffix (click)="hideNewPass2 = !hideNewPass2" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hideNewPass2">{{hideNewPass2 ? 'visibility_off' : 'visibility'}}</mat-icon>
         </mat-form-field>
     </div>

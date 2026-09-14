@@ -1,6 +1,7 @@
 """User management: signup rules, profile flags, password change and token helpers."""
 
 import datetime as dt
+import json
 
 import service.user_service as user_service
 from service.user_service import Role, UserService, _utc, token_expired
@@ -39,7 +40,7 @@ def test_signup_requires_an_admin_token(client, user_factory, login):
     token = login("alice")
     resp = client.post(
         "/signup",
-        data={"user_id": "alice", "token": token, "username": "bob", "password": "pw", "role": USER},
+        data={"user_id": "alice", "token": token, "username": "bob", "password": "Passw0rd", "role": USER},
     )
     assert resp.status_code == 401
 
@@ -50,18 +51,18 @@ def test_admin_signup_validates_and_hashes(client, user_factory, login, app_modu
     base = {"user_id": "root", "token": token, "role": USER}
 
     assert client.post("/signup", data={**base, "username": "bob", "password": "bad space"}).status_code == 400
-    assert client.post("/signup", data={**base, "username": "bob", "password": "pw", "role": "Boss"}).status_code == 400
+    assert client.post("/signup", data={**base, "username": "bob", "password": "Passw0rd", "role": "Boss"}).status_code == 400
     assert client.post("/signup", data={**base, "username": "bob"}).status_code == 400
 
-    resp = client.post("/signup", data={**base, "username": "bob", "password": "S3cret!"})
+    resp = client.post("/signup", data={**base, "username": "bob", "password": "S3cret!!"})
     assert resp.status_code == 200
     bob = app_module_fixture.mongo["RMN"]["users"].find_one({"username": "bob"})
     assert bob["role"] == USER
-    assert bob["password"] != "S3cret!" and check_password_hash(bob["password"], "S3cret!")
+    assert bob["password"] != "S3cret!!" and check_password_hash(bob["password"], "S3cret!!")
     assert bob["saveVerifiedImages"] is False and bob["moodleStructureInd"] is True
 
     # the name is taken now
-    assert client.post("/signup", data={**base, "username": "bob", "password": "Other1"}).status_code == 404
+    assert client.post("/signup", data={**base, "username": "bob", "password": "Other123"}).status_code == 404
 
 
 def test_profile_flags(client, user_factory, login, app_module_fixture):
@@ -89,13 +90,13 @@ def test_change_password_checks_the_old_one(client, user_factory, login):
     token = login("alice", "pass123")
     base = {"username": "alice", "token": token}
 
-    assert client.post("/password", data={**base, "old_password": "nope", "new_password": "New1"}).status_code == 500
+    assert client.post("/password", data={**base, "old_password": "nope", "new_password": "NewPass1"}).status_code == 500
     assert client.post("/password", data={**base, "old_password": "pass123", "new_password": "bad space"}).status_code == 400
     assert client.post("/password", data={**base, "old_password": "pass123"}).status_code == 400
 
-    assert client.post("/password", data={**base, "old_password": "pass123", "new_password": "New1"}).status_code == 200
+    assert client.post("/password", data={**base, "old_password": "pass123", "new_password": "NewPass1"}).status_code == 200
     assert client.post("/login", data={"username": "alice", "password": "pass123"}).status_code == 404
-    login("alice", "New1")
+    login("alice", "NewPass1")
 
 
 def test_delete_tokens_by_owner_and_age(app_module_fixture):
@@ -146,22 +147,53 @@ def test_signup_rejects_unsafe_usernames(client, user_factory, login, username):
     # the username names a directory (front_page_temp) and is a key everywhere
     user_factory("root", role=ADMIN)
     token = login("root")
-    base = {"user_id": "root", "token": token, "role": USER, "password": "S3cret!"}
+    base = {"user_id": "root", "token": token, "role": USER, "password": "S3cret!!"}
     assert client.post("/signup", data={**base, "username": username}).status_code == 400
 
 
 def test_signup_accepts_the_usual_usernames(client, user_factory, login):
     user_factory("root", role=ADMIN)
     token = login("root")
-    base = {"user_id": "root", "token": token, "role": USER, "password": "S3cret!"}
+    base = {"user_id": "root", "token": token, "role": USER, "password": "S3cret!!"}
     for username in ("jean.dupont", "j_dupont@poly", "JD-2026"):
         assert client.post("/signup", data={**base, "username": username}).status_code == 200
+
+
+def test_passwords_shorter_than_the_minimum_are_refused(client, user_factory, login):
+    # the webapp asked for 8 characters in its change dialog, the server took 1
+    user_factory("root", role=ADMIN)
+    user_factory("alice", password="pass1234")
+    short = "A" * (user_service.MIN_PASSWORD_LENGTH - 1)
+    ok = "A" * user_service.MIN_PASSWORD_LENGTH
+    root, alice = login("root"), login("alice", "pass1234")
+
+    resp = client.post(
+        "/signup", data={"user_id": "root", "token": root, "role": USER, "username": "bob", "password": short}
+    )
+    assert resp.status_code == 400 and "8 characters" in json.loads(resp.data)["response"]
+    resp = client.post(
+        "/password",
+        data={"username": "alice", "token": alice, "old_password": "pass1234", "new_password": short},
+    )
+    assert resp.status_code == 400
+    resp = client.post(
+        "/admin/change_password",
+        data={"username": "alice", "new_password": short},
+        headers={"X-Admin-Key": "test-admin-key"},
+    )
+    assert resp.status_code == 400
+    # the old password is untouched by the refused attempts
+    login("alice", "pass1234")
+
+    assert client.post(
+        "/signup", data={"user_id": "root", "token": root, "role": USER, "username": "bob", "password": ok}
+    ).status_code == 200
 
 
 def test_admin_password_reset_of_an_unknown_user_is_a_404(client):
     resp = client.post(
         "/admin/change_password",
-        data={"username": "ghost", "new_password": "Reset1"},
+        data={"username": "ghost", "new_password": "Reset123"},
         headers={"X-Admin-Key": "test-admin-key"},
     )
     assert resp.status_code == 404

@@ -29,8 +29,35 @@ from functools import wraps
 
 
 app = Flask(__name__)
-cors = CORS(app)
+
+
+def cors_origins(value):
+    """Expand the comma-separated CORS_ORIGINS setting into an allow-list.
+
+    Same syntax as the socketIO service: "*" allows every origin (local
+    development), an entry with a scheme is taken as-is and a bare hostname
+    allows both https:// and http://, so the deployment can pass the public
+    host of rmn-config unchanged.
+    """
+    if value.strip() == "*":
+        return "*"
+    origins = []
+    for entry in (o.strip() for o in value.split(",")):
+        if not entry:
+            continue
+        if "://" in entry:
+            origins.append(entry)
+        else:
+            origins.extend([f"https://{entry}", f"http://{entry}"])
+    return origins
+
+
+# Which browser origins may call the API. Every route is decorated with
+# @cross_origin(), which reads its defaults from these keys: pinned to the
+# public host in production (server.yml), "*" when the variable is absent.
+app.config["CORS_ORIGINS"] = cors_origins(os.getenv("CORS_ORIGINS", "*"))
 app.config["CORS_HEADERS"] = "Content-Type"
+cors = CORS(app)
 
 # Cap the request body. The ingress already limits it (proxy-body-size 5G);
 # this is the backstop when Flask is reached some other way. Copies zips are
