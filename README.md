@@ -41,7 +41,7 @@ spec after 10 s.
 
 | Service  | From `services/<service>` |
 |----------|---------------------------|
-| common   | `pip install -e . pytest && python -m pytest` (the contracts shared by server, executor and webapp, see `services/common/README.md`; `python -m rmn_common.typescript` regenerates the webapp's enums) |
+| common   | `pip install -e . pytest && python -m pytest` (the contracts shared by server, executor and webapp, see `services/common/README.md`; `python -m rmn_common.typescript` regenerates the webapp's enums, the webapp images do it at build time) |
 | server   | `pip install -r requirements-dev.txt && python -m pytest` |
 | executor | `pip install -r requirements-dev.txt && python -m pytest` (Python 3.13; the tested modules import the image's stack, tensorflow included, about 1.8 GB) |
 | socketIO | `pip install -r requirements-dev.txt && python -m pytest` |

@@ -1,16 +1,26 @@
 # syntax=docker/dockerfile:1
 
 # Dev image: ng serve with the sources mounted from the host (docker-compose.yml).
+# Build context is services/ (see Dockerfile-dev.dockerignore), the same COPY
+# lines as Dockerfile so the npm install layer is shared with the published image.
+
+# the enums rendered from rmn_common.status; the host mount of ng/src hides
+# this copy under docker-compose, where the committed file is used instead
+FROM python:3.13-alpine AS contracts
+COPY common/rmn_common /rmn_common
+RUN python -m rmn_common.typescript /contracts/rmn-contracts.ts
+
 FROM node:26
 WORKDIR /app
 
 # lockfile + .npmrc (legacy-peer-deps) so the image installs exactly what was
 # tested; npm download cache is a BuildKit cache mount kept across builds.
-COPY ng/package.json ng/package-lock.json ng/.npmrc ./
+COPY webapp/ng/package.json webapp/ng/package-lock.json webapp/ng/.npmrc ./
 RUN --mount=type=cache,target=/root/.npm npm ci
 
-COPY ng/ .
-COPY assets/* node_modules/ngx-extended-pdf-viewer/assets/
+COPY webapp/ng/ .
+COPY --from=contracts /contracts/rmn-contracts.ts src/app/generated/rmn-contracts.ts
+COPY webapp/assets/* node_modules/ngx-extended-pdf-viewer/assets/
 
 EXPOSE 80
 

@@ -55,7 +55,9 @@ jobs:
     uses: ./.github/workflows/docker-publish.yml
     with:
       image: rmni/webapp
-      context: ./services/webapp
+      context: ./services
+      dockerfile: webapp/Dockerfile
+      watch: services/webapp services/common
       push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.push) }}
     secrets: inherit
 

@@ -14,8 +14,11 @@ used to be copied into each service (and had started to drift):
 - `rmn_common.typescript`: renders the enums of `rmn_common.status` to
   `services/webapp/ng/src/app/generated/rmn-contracts.ts` (`JobStatus`,
   `DocumentStatus`, `OutputFile`, `UserRole`), the webapp's only copy of the
-  values it compares. Run `python -m rmn_common.typescript` after changing a
-  status; the tests here and the webapp CI job run it with `--check`.
+  values it compares. The webapp images render it again at build time from
+  the `rmn_common` they are built with (`services/webapp/Dockerfile*`), so an
+  image never carries a stale copy; the committed file serves `ng serve`,
+  `ng test` and the IDE. Run `python -m rmn_common.typescript` after changing
+  a status; the tests here and the webapp CI job run it with `--check`.
 
 No third-party dependency. Each service installs it from the repo:
 

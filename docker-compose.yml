@@ -80,8 +80,8 @@ services:
     # build: ./services/webapp
     # command: bash -c "while true; do echo hello; sleep 2; done"
     build:
-      context: ./services/webapp
-      dockerfile: Dockerfile-dev
+      context: ./services
+      dockerfile: webapp/Dockerfile-dev
       # the npm install layer is shared with the published image
       cache_from:
         - type=registry,ref=rmni/webapp:buildcache

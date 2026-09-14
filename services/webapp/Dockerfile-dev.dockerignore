@@ -1,0 +1,11 @@
+# Build context is services/: keep the webapp and the shared package only.
+# (BuildKit reads <Dockerfile>.dockerignore next to the Dockerfile.)
+*
+!common/rmn_common/
+!webapp/
+**/__pycache__/
+webapp/ng/node_modules/
+webapp/ng/.angular/
+webapp/ng/dist/
+webapp/Dockerfile*
+webapp/.dockerignore

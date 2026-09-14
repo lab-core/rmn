@@ -15,8 +15,8 @@ def test_every_enum_member_is_rendered():
 
 def test_committed_webapp_file_is_up_to_date():
     # `python -m rmn_common.typescript` rewrites it
-    path = typescript.DEFAULT_PATH
-    assert path.exists(), f"{path} missing: run python -m rmn_common.typescript"
+    path = typescript.default_path()
+    assert path is not None and path.exists(), "run python -m rmn_common.typescript"
     assert path.read_text() == typescript.render()
 
 
