@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 
 from process_copy import recognize
-from process_copy.config import MoodleFields as MF
+from rmn_common.moodle import MoodleFields as MF
 
 EXECUTOR = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "recognition"
