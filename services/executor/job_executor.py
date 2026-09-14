@@ -25,6 +25,7 @@ from utils.merge import process_merge
 from rmn_common.status import Job_Status, Document_Status
 from rmn_common.questions import question_sort_key, ignored_positions
 from rmn_common.paths import safe_path_component, ensure_within
+from rmn_common.spreadsheet import defuse_csv
 from utils.storage import Storage
 from utils.stop_handler import StopHandler
 from utils.clients import redis_client, socketio_client, update_status
@@ -455,8 +456,10 @@ if __name__ == "__main__":
                     df.loc[mat, MF.mdate] = date
                     df.loc[mat, "index"] = doc["document_index"] + 1
 
-        # save grades
+        # save grades; the file is opened in a spreadsheet by the teacher, so a
+        # roster value that reads as a formula is neutralised first
         df.to_csv(csv_file_path, mode="w+")
+        defuse_csv(csv_file_path)
 
         # update all document status
         db.documents_collection().update_many(
@@ -757,8 +760,9 @@ if __name__ == "__main__":
             cleanup_deleted_job(job_id)
             return
 
-        # Save csv files in storage
+        # Save csv files in storage (downloadable from here on: formulas out)
         notes_csv_file_id = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
+        defuse_csv(os.path.join(OUTPUT_FOLDER, "notes.csv"))
         storage.move_to(os.path.join(OUTPUT_FOLDER, "notes.csv"), notes_csv_file_id)
 
         # finalize job: add job output to database if not existinf already -> first time the job is processed

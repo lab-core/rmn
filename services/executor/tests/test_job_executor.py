@@ -204,3 +204,29 @@ def test_job_ids_from_the_queue_must_look_like_ids():
     assert job_executor.valid_job_id("template_12")
     for bad in ("../etc", "a/b", "", None, 12, "x" * 65, "-leading", "sp ace"):
         assert not job_executor.valid_job_id(bad), bad
+
+
+def test_defused_grades_csv_survives_the_pandas_round_trip(tmp_path):
+    # the finalize step reads back the csv it wrote after the first run: the
+    # apostrophe must stay on the hostile name and off the grades and index
+    import pandas as pd
+    from rmn_common.moodle import MoodleFields as MF
+
+    path = tmp_path / "notes.csv"
+    df = pd.DataFrame(
+        {
+            MF.mat: ["1234567", "2345678"],
+            MF.name: ['=HYPERLINK("http://evil")', "Dupont, Marie"],
+            MF.grade: [12.5, None],
+            MF.mdate: ["-", "-"],
+        }
+    ).set_index(MF.mat)
+    df.to_csv(path)
+    assert job_executor.defuse_csv(path) == 1
+
+    back = pd.read_csv(path, index_col=MF.mat, dtype={MF.mat: str})
+    assert list(back.index) == ["1234567", "2345678"]
+    assert back[MF.name].tolist() == ["'=HYPERLINK(\"http://evil\")", "Dupont, Marie"]
+    assert back[MF.grade].fillna(0).tolist() == [12.5, 0]
+    assert (back[MF.mdate] == "-").all()
+    assert job_executor.defuse_csv(path) == 0
