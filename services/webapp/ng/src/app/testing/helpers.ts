@@ -56,8 +56,8 @@ export function userServiceStub(overrides: Record<string, any> = {}): any {
     shared: () => false,
     addTokens: (form: FormData) => {
       form.append('user_id', 'alice');
-      form.append('token', 'tok');
     },
+    authHeader: () => 'Bearer tok',
     addShareToken: (params: any) => { params.token = 'share-1'; },
     getSocketAuth: () => ({ user_id: 'alice', token: 'tok' }),
     loggedOut$: new Subject<void>(),
