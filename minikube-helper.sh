@@ -16,13 +16,7 @@ function printBashUsage {
 }
 
 # load config arguments in one line
-A=()
-while [ ! -z "$1" ]; do
-    for v in "$1"; do
-        A+=("$v")
-    done
-    shift 1;
-done
+A=("$@")
 
 # parse arguments
 MEMORY="12268"
