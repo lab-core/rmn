@@ -63,3 +63,15 @@ def test_validate_questions_rejects_bad_keys_and_inconsistent_lists():
         validate_questions([["Q1", 1]], [["Q1", 0]], [["Q1", False]]) is not None
     )  # graded but worth nothing
     assert validate_questions([["Q1", 1]], [["Q1", 1]], [["Q1", "true"]]) is not None
+
+
+def test_validate_bonus_map():
+    from rmn_common.questions import validate_bonus_map
+
+    assert validate_bonus_map([["Q1", True], ["Q2", False]]) is None
+    assert validate_bonus_map([]) is None
+    assert validate_bonus_map("garbage") is not None
+    assert validate_bonus_map([["Q1"]]) is not None
+    assert validate_bonus_map([["Q1", True], ["Q1", False]]) is not None
+    assert validate_bonus_map([["bonus", True]]) is not None
+    assert validate_bonus_map([["Q1", "yes"]]) is not None

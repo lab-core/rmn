@@ -5,6 +5,7 @@ import datetime as dt
 import service.user_service as user_service
 from service.user_service import Role, UserService, _utc, token_expired
 from werkzeug.security import check_password_hash
+import pytest
 
 ADMIN = "Administrateur"
 USER = "Utilisateur"
@@ -125,3 +126,42 @@ def test_users_and_delete(app_module_fixture, user_factory):
     UserService.delete("alice", db)
     assert UserService.users(db) == ["bob"]
     assert db["tokens"].count_documents({"username": "alice"}) == 0
+
+
+def test_profile_flags_apply_to_the_token_owner(client, user_factory, login, app_module_fixture):
+    # no username in the form: the token says who is updated
+    user_factory("alice")
+    token = login("alice")
+    users = app_module_fixture.mongo["RMN"]["users"]
+    resp = client.put("/updateSaveVerifiedImages", data={"token": token, "saveVerifiedImages": "1"})
+    assert resp.status_code == 200
+    assert users.find_one({"username": "alice"})["saveVerifiedImages"] is True
+    resp = client.put("/updateMoodleStructureInd", data={"token": token, "moodleStructureInd": "0"})
+    assert resp.status_code == 200
+    assert users.find_one({"username": "alice"})["moodleStructureInd"] is False
+
+
+@pytest.mark.parametrize("username", ["ab", "bad name", "../..", "a" * 65, "x/y", ""])
+def test_signup_rejects_unsafe_usernames(client, user_factory, login, username):
+    # the username names a directory (front_page_temp) and is a key everywhere
+    user_factory("root", role=ADMIN)
+    token = login("root")
+    base = {"user_id": "root", "token": token, "role": USER, "password": "S3cret!"}
+    assert client.post("/signup", data={**base, "username": username}).status_code == 400
+
+
+def test_signup_accepts_the_usual_usernames(client, user_factory, login):
+    user_factory("root", role=ADMIN)
+    token = login("root")
+    base = {"user_id": "root", "token": token, "role": USER, "password": "S3cret!"}
+    for username in ("jean.dupont", "j_dupont@poly", "JD-2026"):
+        assert client.post("/signup", data={**base, "username": username}).status_code == 200
+
+
+def test_admin_password_reset_of_an_unknown_user_is_a_404(client):
+    resp = client.post(
+        "/admin/change_password",
+        data={"username": "ghost", "new_password": "Reset1"},
+        headers={"X-Admin-Key": "test-admin-key"},
+    )
+    assert resp.status_code == 404

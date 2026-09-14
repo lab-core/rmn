@@ -74,7 +74,7 @@ def test_template_info_converts_boxes_and_lock(client, alice, app_module_fixture
     info = client.post("/template/info", data=_auth(alice, template_id="l1")).get_json(force=True)["response"]
     assert not info["locked"]  # locked, but mine
 
-    assert client.post("/template/info", data=_auth(alice, template_id="nope")).status_code == 400
+    assert client.post("/template/info", data=_auth(alice, template_id="nope")).status_code == 404
     assert client.post("/template/info", data=_auth(alice)).status_code == 400
 
 
@@ -155,3 +155,34 @@ def test_delete_cannot_remove_a_default_template(client, alice, app_module_fixtu
     _template(mongo, "d1", "alice", "Example: Exam", locked=True)
     assert client.post("/template/delete", data=_auth(alice, template_id="d1")).status_code == 404
     assert mongo["RMN"]["template"].find_one({"template_id": "d1"}) is not None
+
+
+def test_another_users_template_cannot_be_read(client, alice, app_module_fixture):
+    # info, download and source used to look the id up alone; ids come back
+    # from /template/info and travel in share links
+    mongo = app_module_fixture.mongo
+    _template(mongo, "t2", "bob", "Bobs", src="/nonexistent/src.tex")
+    for route in ("/template/info", "/template/download", "/template/download/src"):
+        assert client.post(route, data=_auth(alice, template_id="t2")).status_code == 404, route
+
+
+def test_locked_default_template_is_readable_by_everyone(client, alice, app_module_fixture):
+    mongo = app_module_fixture.mongo
+    storage = app_module_fixture.storage
+    _template(mongo, "d1", "admin", "Default", locked=True)
+    path = storage.abs_path("templates/d1.pdf")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(b"%PDF-1.4 default")
+    try:
+        assert client.post("/template/info", data=_auth(alice, template_id="d1")).status_code == 200
+        resp = client.post("/template/download", data=_auth(alice, template_id="d1"))
+        assert resp.status_code == 200
+        assert resp.data == b"%PDF-1.4 default"
+    finally:
+        os.remove(path)
+
+
+def test_unknown_template_download_is_a_404_not_a_500(client, alice):
+    assert client.post("/template/download", data=_auth(alice, template_id="nope")).status_code == 404
+    assert client.post("/template/download/src", data=_auth(alice, template_id="nope")).status_code == 404
