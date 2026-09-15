@@ -107,4 +107,42 @@ describe('RectangleService', () => {
     expect(service.getIdentificationRectCoords()).toEqual(NULL_BOX);
     expect(service.getQuestionsRectCoords()).toEqual(NULL_BOX);
   });
+
+  it('a click without drag keeps the existing box', () => {
+    service.init();
+    service.mouseDown({ offsetX: 20, offsetY: 10 } as MouseEvent, true);
+    service.mouseMove({ offsetX: 120, offsetY: 60 } as MouseEvent, true);
+    service.mouseUp({} as MouseEvent, true);
+    const before = service.getIdentificationRectCoords();
+
+    // mouseDown used to remove the zone at once, and mouseUp persisted a 0x0 box
+    service.mouseDown({ offsetX: 50, offsetY: 50 } as MouseEvent, true);
+    service.mouseUp({} as MouseEvent, true);
+    expect(svg.querySelectorAll('#identification').length).toBe(1);
+    expect(svg.querySelector('#identification').getAttribute('width')).toBe('100');
+    expect(service.getIdentificationRectCoords()).toEqual(before);
+
+    // same when the pointer leaves the container without having dragged
+    service.mouseDown({ offsetX: 50, offsetY: 50 } as MouseEvent, true);
+    service.mouseLeave({} as MouseEvent, true);
+    expect(service.isMouseDown).toBeFalse();
+    expect(service.getIdentificationRectCoords()).toEqual(before);
+  });
+
+  it('a new drag replaces the existing box of the same kind only', () => {
+    service.init();
+    service.mouseDown({ offsetX: 0, offsetY: 0 } as MouseEvent, true);
+    service.mouseMove({ offsetX: 50, offsetY: 50 } as MouseEvent, true);
+    service.mouseUp({} as MouseEvent, true);
+    service.mouseDown({ offsetX: 100, offsetY: 0 } as MouseEvent, false);
+    service.mouseMove({ offsetX: 200, offsetY: 100 } as MouseEvent, false);
+    service.mouseUp({} as MouseEvent, false);
+
+    service.mouseDown({ offsetX: 10, offsetY: 10 } as MouseEvent, true);
+    service.mouseMove({ offsetX: 30, offsetY: 30 } as MouseEvent, true);
+    service.mouseUp({} as MouseEvent, true);
+    expect(svg.querySelectorAll('rect').length).toBe(2);
+    expect(svg.querySelector('#identification').getAttribute('x')).toBe('10');
+    expect(svg.querySelector('#questions').getAttribute('x')).toBe('100');
+  });
 });

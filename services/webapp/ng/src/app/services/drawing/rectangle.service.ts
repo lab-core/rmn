@@ -60,17 +60,9 @@ export class RectangleService {
 
   mouseDown(event: MouseEvent, identification : boolean): void  {
     this.isMouseDown = true;
+    // the existing zone is removed when the drag actually starts (mouseMove):
+    // removing it here made a click without drag persist an empty 0x0 box
 
-    if (identification === true){
-      if(document.getElementById("identification") !== null){
-        document.getElementById("identification").remove();
-      }
-    }else{
-      if(document.getElementById("questions") !== null){
-        document.getElementById("questions").remove();
-      }
-    }
-    
     this.svgContainer = document.querySelector('#svg');
     const svgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     this.svgRect = svgRect as SVGGraphicsElement;
@@ -80,6 +72,10 @@ export class RectangleService {
 
   mouseMove(event: MouseEvent, identification : boolean): void  {
     if(this.isMouseDown === true){
+      if (!this.svgRect.isConnected) {
+        // the drag starts: the previous zone of this kind goes
+        document.getElementById(identification ? "identification" : "questions")?.remove();
+      }
       this.current_mousex = event.offsetX;
       this.current_mousey = event.offsetY;
       const width = Math.abs(this.current_mousex - this.previous_mousex);
@@ -106,6 +102,9 @@ export class RectangleService {
 
   mouseUp(event: MouseEvent, identification : boolean): void {
     this.isMouseDown = false;
+    if (!this.drewSomething()) {
+      return;  // a click without drag: the existing zone stays
+    }
 
     const svgContainerWidth = this.svgContainer.clientWidth;
     const svgContainerHeight = this.svgContainer.clientHeight;
@@ -124,8 +123,20 @@ export class RectangleService {
     }
   }
 
+  /** Whether the current drag produced a visible box. */
+  private drewSomething(): boolean {
+    if (!this.svgRect || !this.svgRect.isConnected) {
+      return false;
+    }
+    const drawn = Number(this.svgRect.getAttribute('width')) > 0 && Number(this.svgRect.getAttribute('height')) > 0;
+    if (!drawn) {
+      this.svgRect.remove();
+    }
+    return drawn;
+  }
+
   mouseLeave(event: MouseEvent, identification : boolean): void {
-    if(this.isMouseDown === true){
+    if(this.isMouseDown === true && this.drewSomething()){
       const svgContainerWidth = this.svgContainer.clientWidth;
       const svgContainerHeight = this.svgContainer.clientHeight;
 

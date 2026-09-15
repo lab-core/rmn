@@ -803,7 +803,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           if (this.currentGradeModified) {
             copy.grade = this.currentGrade;
           }
-          db.updateCopy(copy);
+          await db.updateCopy(copy);  // a failed write used to lose the offline work silently
         } else {
           const result = await this.saveCopy(
             this.currentPdfSrc,
@@ -1060,7 +1060,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     for (const exam of this.subExamsList) {
       exam.offline = false;
     }
-    db.deleteAllCopies(this.offlineCopies);
+    await db.deleteAllCopies(this.offlineCopies);
     this.offline = false;
     this.downloadingOffline = false;
     await db.markOnline();
