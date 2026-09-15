@@ -17,6 +17,30 @@ storage = Storage()
 CURRENT_START_PAGE = 2  # start_page
 
 
+# an archive was extracted with no budget: a small zip can inflate to fill the
+# shared storage. Copies are a few MB each; 20 GiB is far above a full cohort.
+MAX_ZIP_MEMBERS = int(os.getenv("MAX_ZIP_MEMBERS", "20000"))
+MAX_UNZIPPED_BYTES = int(os.getenv("MAX_UNZIPPED_GB", "20")) * 1024 ** 3
+
+
+def check_zip_budget(zip_ref, name, max_members=None, max_bytes=None):
+    """Raise ValueError (the message shown to the user) when the archive is too big.
+
+    The declared sizes are summed before anything is written, so a zip bomb
+    is refused without extracting it.
+    """
+    max_members = MAX_ZIP_MEMBERS if max_members is None else max_members
+    max_bytes = MAX_UNZIPPED_BYTES if max_bytes is None else max_bytes
+    members = zip_ref.infolist()
+    if len(members) > max_members:
+        raise ValueError(f"Erreur: {name} contient {len(members)} fichiers (maximum {max_members}).")
+    total = sum(m.file_size for m in members)
+    if total > max_bytes:
+        raise ValueError(
+            f"Erreur: {name} se décompresse en {total / 1024 ** 3:.1f} Go (maximum {max_bytes // 1024 ** 3} Go)."
+        )
+
+
 def calculate_total_expected_pages(n_pages_per_question):
     """
     Calculate the total expected number of pages based on the number of pages per question.
@@ -236,6 +260,7 @@ def process_folder(zip_folder, job_id, n_pages_per_question, TMP_DIR):
     os.makedirs(temp_path, exist_ok=True)
     for zip_file in zip_path.glob('*.zip'):
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+            check_zip_budget(zip_ref, zip_file.name)
             zip_ref.extractall(temp_path)
             extracted_files = []
             for root, dirs, files in os.walk(temp_path):
