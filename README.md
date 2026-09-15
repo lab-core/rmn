@@ -1,5 +1,20 @@
 # Reconaissance des matricules et notes
 
+[![Tests](https://github.com/lab-core/rmn/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/lab-core/rmn/actions/workflows/tests.yml)
+[![Docker images](https://github.com/lab-core/rmn/actions/workflows/docker-publish-all.yml/badge.svg)](https://github.com/lab-core/rmn/actions/workflows/docker-publish-all.yml)
+[![Dependency audit](https://github.com/lab-core/rmn/actions/workflows/dependency-audit.yml/badge.svg)](https://github.com/lab-core/rmn/actions/workflows/dependency-audit.yml)
+[![Docker Hub](https://img.shields.io/docker/v/rmni/server?sort=semver&logo=docker&label=rmni%2F*)](https://hub.docker.com/u/rmni)
+
+[![server](https://img.shields.io/docker/image-size/rmni/server/latest?label=server)](https://hub.docker.com/r/rmni/server)
+[![executor](https://img.shields.io/docker/image-size/rmni/executor/latest?label=executor)](https://hub.docker.com/r/rmni/executor)
+[![webapp](https://img.shields.io/docker/image-size/rmni/webapp/latest?label=webapp)](https://hub.docker.com/r/rmni/webapp)
+[![socketio](https://img.shields.io/docker/image-size/rmni/socketio/latest?label=socketio)](https://hub.docker.com/r/rmni/socketio)
+
+[![Python](https://img.shields.io/badge/python-3.13%20%7C%203.14-3776AB?logo=python&logoColor=white)](services/server)
+[![Flask](https://img.shields.io/badge/flask-3.1-000000?logo=flask&logoColor=white)](services/server)
+[![Angular](https://img.shields.io/badge/angular-22-DD0031?logo=angular&logoColor=white)](services/webapp/ng)
+[![Kubernetes](https://img.shields.io/badge/kubernetes-KEDA%20ScaledJob-326CE5?logo=kubernetes&logoColor=white)](deployment)
+
 ### Minimum configuration
 
 To use the webapp, you need one of the following versions at minimum for your browser:
