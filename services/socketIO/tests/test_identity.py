@@ -90,3 +90,12 @@ def test_anonymous_joins_nothing(db):
     db["eval_jobs"].insert_one({"job_id": "job", "user_id": "alice"})
     assert can_join({"role": "anonymous"}, "job") is False
     assert can_join({}, "job") is False
+
+
+def test_service_token_must_be_a_string_and_match_exactly():
+    from conftest import SERVICE_TOKEN
+
+    assert identify({"service_token": SERVICE_TOKEN})["role"] == "service"
+    # a non-string (a Mongo operator, a list) or a prefix never identifies the backend
+    for bad in ({"$ne": ""}, [SERVICE_TOKEN], SERVICE_TOKEN[:-1], SERVICE_TOKEN + "x", ""):
+        assert identify({"service_token": bad})["role"] == "anonymous", bad

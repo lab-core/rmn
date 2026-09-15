@@ -1,3 +1,4 @@
+import { PASSWORD_CHARACTER_REGEX, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, passwordError } from 'src/app/utils';
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -15,6 +16,8 @@ import { UserRole } from '../../generated/rmn-contracts';
 export class CreateUserDialogComponent implements OnInit {
   readonly UserRole = UserRole;
   username: string = '';
+  readonly passwordMinLength = PASSWORD_MIN_LENGTH;
+  readonly passwordMaxLength = PASSWORD_MAX_LENGTH;
   pass: string = '';
   passRepeat: string = '';
   selected: string = '';
@@ -32,8 +35,7 @@ export class CreateUserDialogComponent implements OnInit {
   }
 
   updateCharacters(event: KeyboardEvent) {
-    const regex = new RegExp("^[a-zA-ZÀ-ÿ0-9.@!#%$?_-]+$");
-    if (!regex.test(event.key)) {
+    if (!PASSWORD_CHARACTER_REGEX.test(event.key)) {
       event.preventDefault();
     }
   }
@@ -41,6 +43,10 @@ export class CreateUserDialogComponent implements OnInit {
   attemptCreate() {
     if (this.username.length == 0 || this.pass.length == 0 || this.passRepeat.length == 0) {
       this.notification.showWarning("Veuillez remplir le(s) champ(s) vide(s)!", "Champ Vide");
+    }
+    else if (passwordError(this.pass)) {
+      // length and characters: the server's rules, checked before sending
+      this.notification.showWarning(passwordError(this.pass), "Avertissement!");
     }
     else if (this.pass != this.passRepeat) {
       this.notification.showError("Votre mot de passe ne concordre pas à celui répété!", "Champs Non Égaux");

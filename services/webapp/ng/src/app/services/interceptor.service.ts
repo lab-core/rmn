@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest, HttpResponse, HttpParams, HttpHeaders } from '@angular/common/http';
-import { Observable, of, throwError, timer } from 'rxjs';
-import { catchError, tap, switchMap } from 'rxjs/operators';
+import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest, HttpParams } from '@angular/common/http';
+import { Observable, throwError, timer } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 import { UserService } from './user.service';
 import { NotificationService } from 'src/app/services/notification.service';
 
@@ -63,34 +63,6 @@ export class ErrorInterceptor implements HttpInterceptor {
     );
   }
 }
-
-@Injectable({
-  providedIn: 'root',
-})
-export class CacheInterceptor implements HttpInterceptor {
-  private cache = new Map<string, HttpResponse<any>>();
-
-  intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    if (request.method !== 'GET') {
-      return next.handle(request);
-    }
-
-    const cachedResponse = this.cache.get(request.url);
-
-    if (cachedResponse) {
-      return of(cachedResponse);
-    }
-
-    return next.handle(request).pipe(
-      tap((event) => {
-        if (event instanceof HttpResponse) {
-          this.cache.set(request.url, event);
-        }
-      })
-    );
-  }
-}
-
 
 @Injectable({
   providedIn: 'root',

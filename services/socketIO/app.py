@@ -2,6 +2,7 @@ from flask import Flask, request
 from flask_socketio import SocketIO, send, emit, join_room, leave_room
 from pymongo import MongoClient
 import datetime
+import hmac
 import os
 import json
 import eventlet
@@ -45,9 +46,14 @@ def _origins(value):
 _cors = os.getenv("SOCKETIO_CORS_ORIGINS", "*")
 cors_allowed_origins = "*" if _cors.strip() == "*" else _origins(_cors)
 
-# Mongo is used to validate user tokens and authorize room joins.
-mongodb_user = os.getenv("MONGODB_USER", "adminuser")
-mongodb_pass = os.getenv("MONGODB_PASSWORD", "example")
+# Mongo is used to validate user tokens and authorize room joins. In
+# production the credentials must be set (the sample defaults are for dev).
+mongodb_user = os.getenv("MONGODB_USER")
+mongodb_pass = os.getenv("MONGODB_PASSWORD")
+if not mongodb_user or not mongodb_pass:
+    if os.getenv("ENVIRONMENT") == "production":
+        raise RuntimeError("MONGODB_USER and MONGODB_PASSWORD must be set")
+    mongodb_user, mongodb_pass = "adminuser", "example"
 mongodb_host = "mongo" if os.getenv("ENVIRONMENT") == "production" else "localhost"
 mongo = MongoClient(f"mongodb://{mongodb_user}:{mongodb_pass}@{mongodb_host}:27017/?retryWrites=true&w=majority")
 
@@ -100,7 +106,8 @@ def _str(value):
 def identify(auth):
     """Map the handshake ``auth`` payload to a connection identity."""
     auth = auth if isinstance(auth, dict) else {}
-    if SERVICE_TOKEN and auth.get("service_token") == SERVICE_TOKEN:
+    service_token = _str(auth.get("service_token"))
+    if SERVICE_TOKEN and service_token and hmac.compare_digest(service_token, SERVICE_TOKEN):
         return {"role": "service"}
 
     token = _str(auth.get("token"))
@@ -167,6 +174,12 @@ def on_connection(auth):
     except Exception as exc:  # e.g. Mongo unreachable
         # Reject cleanly rather than let the exception escape the handler.
         print(f"Rejected connection: could not identify client ({exc})")
+        return False
+    if identity.get("role") == "anonymous":
+        # no valid credential: nothing could ever be joined, so the connection
+        # is refused rather than kept as a dead socket (the webapp now sends
+        # its current credentials on every connection attempt)
+        print("Rejected connection: no valid credential")
         return False
     connections[request.sid] = identity
     print(f"Connected ({identity.get('role')})")

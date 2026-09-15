@@ -4,7 +4,7 @@ import { PdfManagementDialogComponent } from '../pdf-management/pdf-management-d
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';
-import { SocketService } from 'src/app/services/socket.service';
+import { SocketHandler, SocketService } from 'src/app/services/socket.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
@@ -13,7 +13,7 @@ import { PDFViewerComponent } from 'src/app/components/pdf-viewer/pdf-viewer.com
 import { MatSelectChange } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { first } from 'rxjs/operators';
-import { db, OfflineCopy } from './offline-db';
+import { db, OfflineCopy } from 'src/app/services/offline-db';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 
 
@@ -36,14 +36,17 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private userService: UserService,
-    private docService: DocumentsService) {
-      window.addEventListener('beforeunload', (event) => {
-        if (this.offline) {
-          event.preventDefault();
-          event.returnValue = '';
-        }
-      });
+    private docService: DocumentsService) {}
+
+  // a window listener added in the constructor was never removed: each visit
+  // pinned the destroyed component (and its pdf blobs) through the closure
+  @HostListener('window:beforeunload', ['$event'])
+  warnBeforeLeavingOffline(event: BeforeUnloadEvent) {
+    if (this.offline) {
+      event.preventDefault();
+      event.returnValue = '';
     }
+  }
 
   @ViewChild(PDFViewerComponent)
   pdfViewer: PDFViewerComponent;
@@ -159,35 +162,45 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
 
     this.socketService.join(this.job.job_id);
-    this.socketService.getSocket().on('document_ready', async (params: any) => {
+    this.onDocumentReady = async (params: any) => {
       await this.getDocuments();
       if (this.currentCopy < 0 || this.currentExam()['status'] === DocumentStatus.VALIDATED) {
         this.nextCopy();
       }
-    });
+    };
+    this.socketService.on('document_ready', this.onDocumentReady);
 
     if (this.userService.loggued()) {
       this.socketService.join(this.userService.currentUsername);
-      this.socketService.getSocket().on('job_status', async (params: any) => {
+      this.onJobStatus = async (params: any) => {
         const resp = JSON.parse(params);
         const jobId = resp.job_id;
         if (this.job.job_id === jobId) {
           this.job.job_status = resp.status;
           this.checkValidationButton();
         }
-      });
+      };
+      this.socketService.on('job_status', this.onJobStatus);
     }
     this.generateFormattedIndexes();
     this.initializeQuestionIndexes();
     this.checkValidationButton();
   }
 
+  private onDocumentReady: SocketHandler;
+  private onJobStatus: SocketHandler;
+
   async ngOnDestroy(): Promise<any> {
     this.docService.clearPdfSources();
-    if (this.socketService.getSocket()){
-      this.socketService.getSocket().off('document_ready');
-      this.socketService.getSocket().off('job_status');
-      this.socketService.disconnectSocket();
+    // this page's handlers and rooms only: the socket stays open for the next page
+    if (this.onDocumentReady) {
+      this.socketService.off('document_ready', this.onDocumentReady);
+    }
+    if (this.onJobStatus) {
+      this.socketService.off('job_status', this.onJobStatus);
+    }
+    if (this.job) {
+      this.socketService.leave(this.job.job_id);
     }
   }
 
@@ -1063,7 +1076,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       if (copy.grade !== undefined) {
         exam.grade = copy.grade;
       }
-      copy.pdfSrc = await this.docService.loadPDFSource(copy.pdfSrc);
+      copy.pdfSrc = await this.docService.loadPDFSource(copy.pdfSrc, this.tasksService.getvalidatingTaskId());
       exam.offline = true;
       exam.status = copy.status;
       this.offlineCopies.set(copy.pdfSrc.index, copy);

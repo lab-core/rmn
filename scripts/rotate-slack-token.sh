@@ -35,9 +35,9 @@ if ! command -v kubectl >/dev/null 2>&1; then
 else
   echo "==> Updating the '$SECRET_KEY' key in Secret '$SECRET_NAME' ..."
   # patch the single key without touching the others (stringData is auto-encoded)
-  kubectl patch secret "$SECRET_NAME" \
-    --type merge \
-    -p "{\"stringData\":{\"$SECRET_KEY\":\"$new_token\"}}"
+  # the patch goes through stdin, not the argv (ps, shell history)
+  printf '{"stringData":{"%s":"%s"}}' "$SECRET_KEY" "$new_token" \
+    | kubectl patch secret "$SECRET_NAME" --type merge --patch-file /dev/stdin
 
   echo "==> Rolling the server deployment to pick up the new token ..."
   kubectl rollout restart deployment/server
@@ -50,7 +50,7 @@ if [ -f .env ]; then
   if grep -q '^SLACK_TOKEN=' .env; then
     tmp="$(mktemp)"
     # replace the line without printing the token
-    awk -v t="$new_token" '/^SLACK_TOKEN=/{print "SLACK_TOKEN=" t; next} {print}' .env > "$tmp"
+    NEW_TOKEN="$new_token" awk '/^SLACK_TOKEN=/{print "SLACK_TOKEN=" ENVIRON["NEW_TOKEN"]; next} {print}' .env > "$tmp"
     mv "$tmp" .env
   else
     printf 'SLACK_TOKEN=%s\n' "$new_token" >> .env

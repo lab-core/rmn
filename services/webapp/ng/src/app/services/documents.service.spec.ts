@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { Subject } from 'rxjs';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
@@ -6,6 +7,7 @@ import { DocumentsService, PDFSource } from './documents.service';
 import { UserService } from './user.service';
 
 const userStub = {
+  loggedOut$: new Subject<void>(),
   addTokens: (form: FormData) => {
     form.append('user_id', 'alice');
     form.append('token', 'tok');
@@ -174,6 +176,27 @@ describe('DocumentsService', () => {
     const pending = service.downloadPdf('job', 0, false);
     http.expectOne('/api/document/download').flush(new Blob(), { status: 404, statusText: 'Not Found' });
     expect(await pending).toBeNull();
+  });
+
+  it('caches per job, not per index alone, and revokes a source it overwrites', async () => {
+    spyOn(URL, 'createObjectURL').and.returnValues('blob:a', 'blob:b', 'blob:c');
+    const revoke = spyOn(URL, 'revokeObjectURL');
+    const first = service.getPdfSource('job-a', 7, false);
+    http.expectOne('/api/document/download').flush(new Blob(['a']));
+    await first;
+    // job B's document 7 is not job A's
+    expect(service.getAvailablePdfSource('job-b', 7)).toBeUndefined();
+    const second = service.getPdfSource('job-b', 7, false);
+    http.expectOne('/api/document/download').flush(new Blob(['b']));
+    await second;
+    expect(service.getAvailablePdfSource('job-a', 7).url).toBe('blob:a');
+    expect(service.getAvailablePdfSource('job-b', 7).url).toBe('blob:b');
+    // a refresh of job A's document 7 revokes the previous object URL
+    const third = service.getPdfSource('job-a', 7, false, undefined, -1);  // older than -1 min: always refetched
+    http.expectOne('/api/document/download').flush(new Blob(['c']));
+    await third;
+    expect(revoke).toHaveBeenCalledWith('blob:a');
+    expect(service.getAvailablePdfSource('job-a', 7).url).toBe('blob:c');
   });
 
   it('clearPdfSources revokes every object URL', async () => {

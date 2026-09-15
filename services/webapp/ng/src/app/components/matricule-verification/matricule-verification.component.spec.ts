@@ -317,6 +317,6 @@ describe('MatriculeVerificationComponent', () => {
     await create();
     fixture.destroy();
     expect(docs.clearPdfSources).toHaveBeenCalled();
-    expect(socket.disconnectSocket).toHaveBeenCalled();
+    expect(socket.leave).toHaveBeenCalled();
   });
 });

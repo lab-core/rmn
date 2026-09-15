@@ -27,6 +27,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# read the repository and the workflow runs (last successful publish); the
+# registry push uses the Docker Hub secrets, not the workflow token
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   push_executor_to_dockerhub:
     if: github.event_name != 'pull_request' || github.event.label.name == 'build-images'

@@ -18,6 +18,7 @@ import { ThemePalette } from '@angular/material/core';
 import { ProgressSpinnerMode } from '@angular/material/progress-spinner';
 import { SERVER_URL } from 'src/app/utils';
 import { filter, first } from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 
 
@@ -85,55 +86,55 @@ export class TasksHistoryComponent implements OnInit {
     private userService: UserService
   ) {}
 
-  async ngOnInit(): Promise<void> {
-    // Assign the data to the data source for the table to render
-    this.getTasks();
-    this.socketService.join(this.userService.currentUsername)
-    this.socketService.getSocket().on('job_status', async (params: any) => {
-      const resp = JSON.parse(params)
-      const job_id = resp.job_id;
-      const job_status = resp.status;
+  // the rooms this page joined, left when it is destroyed
+  private readonly joinedRooms: string[] = [];
 
-      const task = this.tasksList.find(task => task.job_id === job_id);
-      if (task !== undefined) {
-        task.job_status = job_status;
-        if (resp.job_infos) task.job_infos = resp.job_infos;
-        this.updateTask(task);
-        const message = "Le status de la tâche " + task.job_name + " a changé à: " + task.info + " !";
-        this.notificationService.showInfo(message, "Alerte!")
-      };
-    });
+  private readonly onJobStatus = (params: any) => {
+    const resp = JSON.parse(params)
+    const job_id = resp.job_id;
+    const job_status = resp.status;
+
+    const task = this.tasksList.find(task => task.job_id === job_id);
+    if (task !== undefined) {
+      task.job_status = job_status;
+      if (resp.job_infos) task.job_infos = resp.job_infos;
+      this.updateTask(task);
+      const message = "Le status de la tâche " + task.job_name + " a changé à: " + task.info + " !";
+      this.notificationService.showInfo(message, "Alerte!")
+    };
+  };
+
+  private readonly onDocumentReady = (params: any) => {
+    // progress events of the running jobs: the table only re-renders
+    this.dataSource.data = this.tasksList;
+  };
+
+  async ngOnInit(): Promise<void> {
+    // the list first: the room joins below used to run over an empty array
+    // because getTasks() was not awaited, so live jobs never updated
+    await this.getTasks();
+    this.joinRoom(this.userService.currentUsername);
+    this.socketService.on('job_status', this.onJobStatus);
 
     // subscribe to all running jobs
     this.tasksList.forEach(x => {
       if (x.job_status == JobStatus.QUEUED || x.job_status == JobStatus.RUN) {
-        this.socketService.join(x.job_id);
+        this.joinRoom(x.job_id);
       }
     });
+    this.socketService.on('document_ready', this.onDocumentReady);
+  }
 
-    this.socketService.getSocket().on('document_ready', async (params: any) => {
-      const resp = JSON.parse(params)
-      const job_id = resp.job_id;
-      const lastN = resp.document_index;
-      const lastExecTime = resp.execution_time;
-      // let n_total_doc = resp.n_total_doc;
-      this.tasksList.forEach(x => {
-        if (x.job_id === job_id) {
-          // x.job_estimation = Math.round((n_total_doc - lastN) * lastExecTime);
-          // x.job_completion = Math.round((lastN / n_total_doc) * 100);
-        }
-      });
-      this.dataSource.data = this.tasksList;
-    });
-
-    // setInterval(this.decrementTime.bind(this), 1000);
+  private joinRoom(room: string) {
+    this.joinedRooms.push(room);
+    this.socketService.join(room);
   }
 
   ngOnDestroy(): void {
-    if (this.socketService.getSocket()) {
-      this.socketService.getSocket().off('document_ready');
-      this.socketService.getSocket().off('job_status');
-      this.socketService.disconnectSocket();
+    this.socketService.off('document_ready', this.onDocumentReady);
+    this.socketService.off('job_status', this.onJobStatus);
+    for (const room of this.joinedRooms) {
+      this.socketService.leave(room);
     }
   }
 
@@ -146,64 +147,23 @@ export class TasksHistoryComponent implements OnInit {
     }
   }
 
-  getTasks() {
+  async getTasks(): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
-    this.http.post<any>(`${SERVER_URL}jobs`, formdata).pipe(first()).subscribe(
-      (data) => {
-        this.tasksList = data['response'];
-        this.tasksList.forEach((task: any) => {
-          this.updateTask(task, true);
-        });
-
-        this.tasksList.forEach(x => {
-          const formdata: FormData = new FormData();
-          this.userService.addTokens(formdata);
-          formdata.append('job_id', x.job_id);
-          this.http.post<any>(`${SERVER_URL}documents`, formdata).pipe(first()).subscribe(
-            (data) => {
-              let lastN = 0;
-              let lastExecTime = 0;
-              let lastStatus = DocumentStatus.NOT_READY;
-
-              const mapStatus = new Map<string, number>();
-              mapStatus.set(DocumentStatus.NOT_READY, 0);
-              mapStatus.set(DocumentStatus.VALIDATED, 1);
-              mapStatus.set(DocumentStatus.TO_VALIDATE, 1);
-              mapStatus.set(DocumentStatus.HIGH_ACCURACY, 1);
-              mapStatus.set(DocumentStatus.READY, 2);
-
-              const response = data["response"];
-              response.forEach(y => {
-                if ((x.job_status === JobStatus.RUN && mapStatus.get(y.status) === 1) || (x.job_status === JobStatus.FINALIZING && mapStatus.get(y.status) === 2)) {
-                  lastN = y.document_index;
-                  lastExecTime = y.exec_time;
-                  lastStatus = y.status;
-                }
-              });
-
-              // if (x.job_status === "RUN" || x.job_status === "FINALIZING") {
-              //   x.job_estimation = Math.round((response[0].n_total_doc - lastN) * lastExecTime);
-              // }
-              // if (x.job_status === "QUEUED") {
-              //   x.job_completion = 0;
-              // } else if (x.job_status === "ERROR") {
-              //   x.job_completion = 0;
-              // } else if (x.job_status === "ARCHIVED") {
-              //   x.job_completion = 100;
-              // } else {
-              //   x.job_completion = Math.round((lastN / response[0].n_total_doc) * 100);
-              // }
-            }, (error) => {
-              console.error(error);
-            });
-        });
-        this.dataSource.data = this.tasksList;
-        this.dataSource.paginator = this.paginator;
-        this.dataSource.sort = this.sort;
-      }, (error) => {
-        console.error(error);
+    try {
+      const data = await firstValueFrom(this.http.post<any>(`${SERVER_URL}jobs`, formdata));
+      this.tasksList = data['response'];
+      this.tasksList.forEach((task: any) => {
+        this.updateTask(task, true);
       });
+      // (one POST /documents per task used to follow, computing progress
+      // values whose every consumer was commented out)
+      this.dataSource.data = this.tasksList;
+      this.dataSource.paginator = this.paginator;
+      this.dataSource.sort = this.sort;
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   updateTask(task, updateTime: boolean=false) {
@@ -211,7 +171,9 @@ export class TasksHistoryComponent implements OnInit {
       task.queued_time = new Date(task.queued_time + 'Z');
     }
     task.info = this.statusInfo[task.job_status];
-    if (task.job_status === JobStatus.RETRY) {
+    // the server sends the messages as one string; a second RETRY event on
+    // the same row used to find the array of the first and throw
+    if (task.job_status === JobStatus.RETRY && typeof task.job_infos === 'string') {
         const cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
         task.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
     }

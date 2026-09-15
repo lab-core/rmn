@@ -12,7 +12,7 @@ import { WarningDialogComponent } from '../warning-dialog/warning-dialog.compone
 import { NotificationService } from 'src/app/services/notification.service';
 import { SocketService } from 'src/app/services/socket.service';
 import { UserService } from 'src/app/services/user.service';
-import { MATERIAL_MODULES, MainMenuStubComponent, notificationSpy, socketServiceStub, userServiceStub } from '../../testing/helpers';
+import { MATERIAL_MODULES, MainMenuStubComponent, notificationSpy, socketServiceStub, userServiceStub, settle } from '../../testing/helpers';
 
 const JOBS = [
   {
@@ -35,7 +35,7 @@ describe('TasksHistoryComponent', () => {
   let notification: jasmine.SpyObj<NotificationService>;
   let socket: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     notification = notificationSpy();
     socket = socketServiceStub();
     TestBed.configureTestingModule({
@@ -60,7 +60,7 @@ describe('TasksHistoryComponent', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
     http.expectOne('/api/jobs').flush({ response: JSON.parse(JSON.stringify(JOBS)) });
-    http.match('/api/documents').forEach(req => req.flush({ response: [] }));
+    await settle();  // ngOnInit awaits the list before joining the rooms
     fixture.detectChanges();
   });
 
@@ -153,6 +153,6 @@ describe('TasksHistoryComponent', () => {
   it('leaves the socket when destroyed', () => {
     fixture.destroy();
     expect(socket.socket.handlers['job_status']).toBeUndefined();
-    expect(socket.disconnectSocket).toHaveBeenCalled();
+    expect(socket.leave).toHaveBeenCalled();
   });
 });
