@@ -70,20 +70,23 @@ export class TaskRetryDialogComponent implements OnInit {
     fileUpload.click();
   }
 
-  onFileSelected(event: any): void {
+  /** Returns once every selected zip has been unpacked, so callers can await it. */
+  onFileSelected(event: any): Promise<void> {
     if (event.target.files) {
       const files: FileList = event.target.files;
       this.selectedFiles.push(...Array.from(files));
-      this.handleFiles();
+      return this.handleFiles();
     }
+    return Promise.resolve();
   }
 
-  onDrop(event: DragEvent): void {
+  onDrop(event: DragEvent): Promise<void> {
     event.preventDefault();
     if (event.dataTransfer && event.dataTransfer.files) {
       this.selectedFiles.push(...Array.from(event.dataTransfer.files));
-      this.handleFiles();
+      return this.handleFiles();
     }
+    return Promise.resolve();
   }
 
   onDragOver(event: DragEvent): void {

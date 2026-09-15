@@ -91,3 +91,41 @@ def test_malformed_lists_are_rejected():
     assert validate_questions({"Q1": 1}, [], []) is not None
     assert validate_questions([["Q1"]], [["Q1", 1]], [["Q1", False]]) is not None
     assert validate_questions([["Q1", True]], [["Q1", 1]], [["Q1", False]]) is not None
+
+
+def test_bonus_update_is_validated(client, user_factory, login, job_factory, app_module_fixture):
+    # the executor reads bonus_enabled_map back: garbage used to be stored as is
+    user_factory("alice")
+    token = login("alice")
+    job_factory("j1", "alice")
+    base = {"job_id": "j1", "user_id": "alice", "token": token}
+    for bad in ('"garbage"', '[["bonus", true]]', '[["Q1", "yes"]]', '[["Q1", true], ["Q1", false]]', "{not json"):
+        assert client.post("/job/update/bonus", data={**base, "bonus_enabled_map": bad}).status_code == 400, bad
+    assert client.post("/job/update/bonus", data={**base, "bonus_enabled_map": '[["Q1", true], ["Q2", false]]'}).status_code == 200
+    job = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_id": "j1"})
+    assert job["bonus_enabled_map"] == [["Q1", True], ["Q2", False]]
+
+
+def test_unreadable_csv_leaves_no_orphan_job(client, user_factory, login, app_module_fixture):
+    # the job document was inserted before the files were read, so a failed
+    # upload left a SPLIT job with no files in the history forever
+    user_factory("alice")
+    token = login("alice")
+    data = {
+        "user_id": "alice",
+        "token": token,
+        "front_template_id": "front",
+        "regular_template_id": "regular",
+        "front_template_name": "front",
+        "regular_template_name": "regular",
+        "job_name": "exam",
+        "statistics_for_students": "true",
+        "n_pages_per_question": json.dumps([["Q1", 1]]),
+        "n_max_points_per_question": json.dumps([["Q1", 5]]),
+        "bonus_enabled_map": json.dumps([["Q1", False]]),
+        "notes_csv_file": (io.BytesIO(b""), "notes.csv"),  # empty: pandas raises
+        "zip_file": (io.BytesIO(b"PK\x05\x06" + b"\x00" * 18), "copies.zip"),
+    }
+    resp = client.post("/evaluate", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 500
+    assert app_module_fixture.mongo["RMN"]["eval_jobs"].count_documents({}) == 0
