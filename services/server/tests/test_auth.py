@@ -182,6 +182,12 @@ def test_request_body_cap_returns_413(client, app_module_fixture, monkeypatch):
     assert resp.get_json()["response"].startswith("Error")
 
 
+def test_token_lookup_index_exists(app_module_fixture):
+    # every token check (server and socketIO handshakes) looks a token up
+    info = app_module_fixture.mongo["RMN"]["tokens"].index_information()
+    assert info["token_lookup"]["key"] == [("token", 1)]
+
+
 def test_username_field_is_checked_even_with_user_id(client, user_factory, login):
     # bob's token and user_id with alice's username used to pass: the username
     # clause was skipped whenever user_id was present, and the profile

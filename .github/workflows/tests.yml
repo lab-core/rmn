@@ -20,6 +20,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# the workflow token only reads: the repository, and the pull request's file
+# list for the paths filter
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -31,6 +37,7 @@ jobs:
       socketio: ${{ steps.filter.outputs.socketio }}
       webapp: ${{ steps.filter.outputs.webapp }}
       nginx: ${{ steps.filter.outputs.nginx }}
+      deployment: ${{ steps.filter.outputs.deployment }}
     steps:
       # push events diff against the commit before the push, which needs history
       - uses: actions/checkout@v7
@@ -66,6 +73,11 @@ jobs:
               - 'services/webapp/default.conf'
               - 'nginx.conf'
               - 'security_headers'
+            deployment:
+              - *workflow
+              - 'deployment/**'
+              - 'scripts/**'
+              - 'minikube-helper.sh'
 
   common-tests:
     needs: changes
@@ -226,3 +238,21 @@ jobs:
             -v /tmp/fullchain.pem:/etc/ssl/rmn/fullchain.pem:ro \
             -v /tmp/privkey.pem:/etc/ssl/rmn/privkey.pem:ro \
             nginx:stable-alpine nginx -t
+
+  deployment-config:
+    # the manifests render and the operator scripts parse: none of this was
+    # validated before it reached the cluster
+    needs: changes
+    if: needs.changes.outputs.deployment == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Render the kustomization
+        run: kubectl kustomize deployment/ > /dev/null
+      - name: Shell scripts parse and pass shellcheck (errors only)
+        run: |
+          for f in scripts/*.sh minikube-helper.sh deployment/k8s-health.sh; do
+            bash -n "$f"
+          done
+          shellcheck -S error scripts/*.sh minikube-helper.sh deployment/k8s-health.sh

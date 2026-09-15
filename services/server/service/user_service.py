@@ -83,6 +83,9 @@ class UserService:
         and recreated when TOKEN_TTL_DAYS changed (or expiry was disabled).
         """
         collection = database["tokens"]
+        # every token check (server and socketIO handshakes) looks a token up:
+        # without this index each one was a collection scan
+        collection.create_index([("token", 1)], name="token_lookup")
         name = "creation_time_ttl"
         existing = collection.index_information().get(name)
         if TOKEN_TTL_DAYS <= 0:
