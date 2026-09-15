@@ -74,7 +74,7 @@ describe('ChangePasswordDialogComponent', () => {
     const req = http.expectOne('/api/password');
     const form = req.request.body as FormData;
     expect(form.get('username')).toBe('alice');
-    expect(form.get('token')).toBe('tok');
+    expect(form.has('token')).toBeFalse();
     expect(form.get('old_password')).toBe('old-pass');
     expect(form.get('new_password')).toBe('longenough1');
     req.flush({ response: 'ok' });
