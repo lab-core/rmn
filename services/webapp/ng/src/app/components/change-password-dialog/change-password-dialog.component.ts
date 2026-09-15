@@ -3,7 +3,7 @@ import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
-import { SERVER_URL } from 'src/app/utils';
+import { SERVER_URL, PASSWORD_CHARACTER_REGEX } from 'src/app/utils';
 import { first } from 'rxjs/operators';
 
 @Component({
@@ -29,8 +29,7 @@ export class ChangePasswordDialogComponent implements OnInit {
   }
 
   updateCharacters(event: KeyboardEvent) {
-    const regex = new RegExp("^[a-zA-ZÀ-ÿ0-9.@!#%$?_-]+$");
-    if (!regex.test(event.key)) {
+    if (!PASSWORD_CHARACTER_REGEX.test(event.key)) {
       event.preventDefault();
    }
   }

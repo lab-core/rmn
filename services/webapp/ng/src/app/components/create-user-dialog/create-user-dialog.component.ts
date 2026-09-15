@@ -1,3 +1,4 @@
+import { PASSWORD_CHARACTER_REGEX } from 'src/app/utils';
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -32,8 +33,7 @@ export class CreateUserDialogComponent implements OnInit {
   }
 
   updateCharacters(event: KeyboardEvent) {
-    const regex = new RegExp("^[a-zA-ZÀ-ÿ0-9.@!#%$?_-]+$");
-    if (!regex.test(event.key)) {
+    if (!PASSWORD_CHARACTER_REGEX.test(event.key)) {
       event.preventDefault();
     }
   }

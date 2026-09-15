@@ -36,7 +36,11 @@ def token_expired(record, now=None):
     now = now or dt.datetime.now(dt.UTC)
     return now - _utc(created) >= dt.timedelta(days=TOKEN_TTL_DAYS)
 
-pass_characters = "a-zA-ZÀ-ÿ0-9.@!#%$?_-"
+# Special characters accepted in a password: the classical set (the one
+# Bitwarden generates, !@#$%^&*) plus the . ? _ - that were always accepted.
+# The regex and the error message are both built from this list.
+PASSWORD_SPECIAL_CHARACTERS = "!@#$%^&*.?_-"
+pass_characters = "a-zA-ZÀ-ÿ0-9" + re.escape(PASSWORD_SPECIAL_CHARACTERS)
 pattern = re.compile("^[{}]+$".format(pass_characters))
 # Shortest accepted password, on signup and on both change routes (the admin
 # reset included). The webapp's change dialog already asked for 8; the
@@ -49,7 +53,10 @@ def password_error(password):
     if len(password) < MIN_PASSWORD_LENGTH:
         return f"Error: password must be at least {MIN_PASSWORD_LENGTH} characters long."
     if pattern.match(password) is None:
-        return f"Error: password contains illegal characters. You can use only those: {pass_characters}"
+        return (
+            "Error: password contains illegal characters. You can use letters, digits and "
+            + " ".join(PASSWORD_SPECIAL_CHARACTERS)
+        )
     return None
 # the username names a directory under front_page_temp and is a key everywhere
 # else: letters, digits and . _ @ - only, 3 to 64 characters

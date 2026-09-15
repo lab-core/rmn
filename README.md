@@ -430,7 +430,7 @@ anything and can be deleted: `kubectl delete secret admin-api-key`.)
 
 ##### Create a user
 Role can be either "Utilisateur" or "Administrateur"; passwords need at least
-8 characters (letters, digits and `. @ ! # % $ ? _ -`):
+8 characters (letters, digits and `! @ # $ % ^ & * . ? _ -`):
 ```
 curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "username=admin" --form "password=testtest" --form "role=Administrateur" http://localhost/api/admin/signup
 ```

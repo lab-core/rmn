@@ -188,6 +188,11 @@ def test_passwords_shorter_than_the_minimum_are_refused(client, user_factory, lo
     assert client.post(
         "/signup", data={"user_id": "root", "token": root, "role": USER, "username": "bob", "password": ok}
     ).status_code == 200
+    # the classical special characters are all accepted
+    assert client.post(
+        "/signup", data={"user_id": "root", "token": root, "role": USER, "username": "carol", "password": "P@ss!#$%^&*.?_-"}
+    ).status_code == 200
+    login("carol", "P@ss!#$%^&*.?_-")
 
 
 def test_admin_password_reset_of_an_unknown_user_is_a_404(client):
