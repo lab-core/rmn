@@ -132,15 +132,37 @@ describe('DashboardPageComponent', () => {
     expect(finalize.disabled).toBeTrue();
   });
 
-  it('builds the copy picker from the student list', async () => {
+  it('builds the copy picker from the student list and points the correction pages at the pick', async () => {
     await create();
     expect(component.copiesList).toEqual([
-      { identifiant: '1234567 - Alice A', index: 0, copy: 0 },
-      { identifiant: '2345678 - Bob B', index: 1, copy: 1 },
+      { identifiant: '1234567 - Alice A', index: 0, basename: 'a', copy: 0 },
+      { identifiant: '2345678 - Bob B', index: 1, basename: 'b', copy: 1 },
     ]);
+    expect(component.copySelection).toBeNull();
+
     component.copySelection = component.copiesList[1];
     component.selectCopy();
-    expect(localStorage.getItem('job_dashboard_copy')).toBe('1');  // its own key, not the correction pages'
+    // the copy's identity, not a position: the pages order their lists differently
+    expect(JSON.parse(localStorage.getItem('job_dashboard_copy'))).toEqual({ document_index: 1, basename: 'b' });
+    expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('copie 2'), 'Copie sélectionnée');
+
+    // the pick survives a reload of the dashboard
+    component.getCopiesList();
+    expect(component.copySelection).toBe(component.copiesList[1]);
+  });
+
+  it('a student without a recognised copy is N/A and cannot be selected', async () => {
+    await create();
+    component.task.students_list.push({ matricule: '3456789', 'Nom complet': 'Carl C' });
+    component.getCopiesList();
+    const carl = component.copiesList[2];
+    expect(carl.copy).toBeUndefined();
+    component.copySelection = carl;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.select-index-container p:last-of-type').textContent.trim()).toBe('N/A');
+    expect((fixture.nativeElement.querySelector('.select-index-button') as HTMLButtonElement).disabled).toBeTrue();
+    component.selectCopy();
+    expect(localStorage.getItem('job_dashboard_copy')).toBeNull();
   });
 
   it('question helpers read the task definition', async () => {

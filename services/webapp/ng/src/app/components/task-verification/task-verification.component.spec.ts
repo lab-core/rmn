@@ -129,6 +129,28 @@ describe('TaskVerificationComponent', () => {
     expect(fixture.nativeElement.querySelector('.pdf-stub').textContent).toBe('blob:10');
   });
 
+  it('opens on the copy picked on the dashboard and keeps that student across questions', async () => {
+    await create();
+    // the dashboard stores the copy's identity (whole-copy index + file name)
+    localStorage.setItem('job_dashboard_copy', JSON.stringify({ document_index: 1, basename: 'b' }));
+    localStorage.setItem('job_copy', '0');  // the resume pointer loses
+    component.currentCopy = -1;
+    await component.getDocuments();
+    expect(component.currentCopy).toBe(2);  // b_Q1
+    expect(component.currentDocumentIndex).toBe(11);
+
+    component.onQuestionIndexChange({ value: '3' } as any);
+    await settle();
+    expect(component.currentDocumentIndex).toBe(13);  // b_Q3
+
+    // a pick with no document in this task falls back to the resume pointer
+    localStorage.setItem('job_dashboard_copy', JSON.stringify({ document_index: 99, basename: 'zzz' }));
+    localStorage.setItem('job_copy', '1');
+    component.currentCopy = -1;
+    await component.getDocuments();
+    expect(component.currentCopy).toBe(1);
+  });
+
   it('picking a question narrows the list and follows the same student', async () => {
     await create();
     component.onQuestionIndexChange({ value: '3' } as any);

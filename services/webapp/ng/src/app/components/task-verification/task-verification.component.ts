@@ -15,6 +15,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { first } from 'rxjs/operators';
 import { db, OfflineCopy } from 'src/app/services/offline-db';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
+import { selectedCopyIndex } from 'src/app/selected-copy';
 
 
 @Component({
@@ -439,10 +440,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       }
       return indexFirstExam[e1.basename] - indexFirstExam[e2.basename];
     });
-    // initialize initialCopyIndex and currentCopy
+    // initialize initialCopyIndex and currentCopy: the copy picked on the
+    // dashboard wins, then the copy this page was left on, then the first
     if (this.examsList.length > 0 && this.currentCopy < 0) {
-      const copy = localStorage.getItem(`${this.tasksService.getvalidatingTaskId()}_copy`);
-      if (copy !== null) {
+      const jobId = this.tasksService.getvalidatingTaskId();
+      const selected = selectedCopyIndex(jobId, this.examsList);
+      const copy = localStorage.getItem(`${jobId}_copy`);
+      if (selected >= 0) {
+        this.currentCopy = selected;
+      } else if (copy !== null && this.examsList[parseInt(copy)]) {
         this.currentCopy = parseInt(copy);
       } else {
         this.currentCopy = 0;
