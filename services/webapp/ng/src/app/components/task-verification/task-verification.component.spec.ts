@@ -274,6 +274,6 @@ describe('TaskVerificationComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/dashboard', 'job']);
     fixture.destroy();
     expect(docs.clearPdfSources).toHaveBeenCalled();
-    expect(socket.disconnectSocket).toHaveBeenCalled();
+    expect(socket.leave).toHaveBeenCalled();
   });
 });

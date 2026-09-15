@@ -5,7 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { first } from 'rxjs/operators';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { NotificationService } from 'src/app/services/notification.service';
-import { SocketService } from 'src/app/services/socket.service';
+import { SocketHandler, SocketService } from 'src/app/services/socket.service';
 import { TasksService } from 'src/app/services/tasks.service';
 import { UserService } from 'src/app/services/user.service';
 import { ValidationService } from 'src/app/services/validation.service';
@@ -81,7 +81,7 @@ export class DashboardPageComponent {
     }
 
     this.socketService.join(this.taskId);
-    this.socketService.getSocket().on('doc_validated', async (params: any) => {
+    this.onDocValidated = async (params: any) => {
       const resp = JSON.parse(params);
       const questions: boolean = resp.questions;
       const matricule: boolean = resp.matricule;
@@ -104,8 +104,9 @@ export class DashboardPageComponent {
       } catch (error) {
         console.error(error);
       }
-    });
-    this.socketService.getSocket().on('job_status', async (params: any) => {
+    };
+    this.socketService.on('doc_validated', this.onDocValidated);
+    this.onJobStatus = async (params: any) => {
       const resp = JSON.parse(params);
       const statusChanged = this.task.job_status !== resp.status;
       if (statusChanged) {
@@ -121,19 +122,24 @@ export class DashboardPageComponent {
       if (statusChanged || resp.job_infos) {
         this.loadTask();  // reload the counters (e.g. copies were added)
       }
-    });
+    };
+    this.socketService.on('job_status', this.onJobStatus);
   }
 
+  private onDocValidated: SocketHandler;
+  private onJobStatus: SocketHandler;
+
   public ngOnDestroy(): void {
-    // remove the socket listeners and leave the room so revisiting the
-    // dashboard does not stack duplicate handlers on the shared socket
-    const socket = this.socketService.getSocket();
-    if (socket) {
-      socket.off('doc_validated');
-      socket.off('job_status');
-      if (this.taskId) {
-        socket.emit('leave', this.taskId);
-      }
+    // remove this page's socket listeners (only these) and leave the room so
+    // revisiting the dashboard does not stack duplicate handlers
+    if (this.onDocValidated) {
+      this.socketService.off('doc_validated', this.onDocValidated);
+    }
+    if (this.onJobStatus) {
+      this.socketService.off('job_status', this.onJobStatus);
+    }
+    if (this.taskId) {
+      this.socketService.leave(this.taskId);
     }
   }
 
@@ -181,7 +187,9 @@ export class DashboardPageComponent {
   }
 
   public selectCopy() {
-    localStorage.setItem(`${this.taskId}_copy`, this.copySelection.copy);
+    // its own key: `${jobId}_copy` meant three different things in three
+    // components, and each view restored the other's value
+    localStorage.setItem(`${this.taskId}_dashboard_copy`, this.copySelection.copy);
   }
 
   public async getTask() {
@@ -585,7 +593,9 @@ export class DashboardPageComponent {
         const message = 'La tâche est en cours de finalisation!';
         this.notificationService.showInfo(message, 'Alerte!');
         // clear local storage
-        localStorage.removeItem(`${this.task.job_id}_copy`);
+        for (const key of ['_copy', '_matricule_copy', '_dashboard_copy']) {
+          localStorage.removeItem(`${this.task.job_id}${key}`);
+        }
         PDFSource.clearAll(this.task.job_id, this.questionsDocList.length);
       }
     }

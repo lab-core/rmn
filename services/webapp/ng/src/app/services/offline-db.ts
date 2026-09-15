@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { PDFSource } from 'src/app/services/documents.service';
+import { PDFSource } from './pdf-source';
 
 
 interface StatusItem {
@@ -96,6 +96,15 @@ class OfflineDB extends Dexie {
       keys.push(copy.id);
     }
     await db.copyItems.bulkDelete(keys)
+  }
+
+  /** Every offline copy and status of every job: called on logout, so the
+   *  student pdfs stored for offline correction do not outlive the session on
+   *  a shared machine. */
+  async clearAll() {
+    await db.copyItems.clear();
+    await db.statusItems.clear();
+    this.statusId = undefined;
   }
 }
 

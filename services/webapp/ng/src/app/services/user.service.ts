@@ -2,7 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRouteSnapshot, Router, RouterStateSnapshot } from '@angular/router';
 import { NotificationService } from 'src/app/services/notification.service';
+import { Subject } from 'rxjs';
 import { SERVER_URL } from '../utils';
+import { db } from './offline-db';
 
 
 @Injectable({
@@ -18,6 +20,9 @@ export class UserService {
   saveVerifiedImages: boolean = false;
   moodleStructureInd: boolean = false;
   warningShown: boolean = true;
+  /** Fires after logout(): the socket and the pdf cache drop the previous
+   *  user's state on it (they used to survive into the next session). */
+  readonly loggedOut$ = new Subject<void>();
 
   constructor(private http: HttpClient,
               private router: Router,
@@ -99,6 +104,10 @@ export class UserService {
     this.token = undefined;
     this.currentUsername = undefined;
     this.role = undefined;
+    this.clearShareToken();
+    // the student pdfs kept for offline correction are the previous user's
+    db.clearAll().catch((error) => console.error('offline database not cleared', error));
+    this.loggedOut$.next();
   }
 
   signup(username, password, role) {

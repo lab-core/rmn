@@ -6,6 +6,7 @@ import { ToastrService } from 'ngx-toastr';
 
 import { UserService } from './user.service';
 import { NotificationService } from './notification.service';
+import { db } from './offline-db';
 
 describe('UserService', () => {
   let http: HttpTestingController;
@@ -166,5 +167,23 @@ describe('UserService', () => {
     expect(form.get('password')).toBe('S3cret');
     expect(form.get('role')).toBe('Utilisateur');
     req.flush({ response: 'Utilisateur Créé' });
+  });
+
+  it('logout ends the whole session: storage, share token, offline copies, and tells the others', async () => {
+    session();
+    localStorage.setItem('newTask', 'roster');
+    const service = fresh();
+    service.canActivateShared({ queryParams: { token: 'share-1', question_index: '2' } } as any, {} as any);
+    const clearAll = spyOn(db, 'clearAll').and.resolveTo();
+    let notified = 0;
+    service.loggedOut$.subscribe(() => notified++);
+
+    service.logout();
+
+    expect(service.loggued()).toBeFalse();
+    expect(service.shared()).toBeFalse();
+    expect(localStorage.getItem('newTask')).toBeNull();
+    expect(clearAll).toHaveBeenCalled();
+    expect(notified).toBe(1);
   });
 });

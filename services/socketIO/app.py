@@ -175,6 +175,12 @@ def on_connection(auth):
         # Reject cleanly rather than let the exception escape the handler.
         print(f"Rejected connection: could not identify client ({exc})")
         return False
+    if identity.get("role") == "anonymous":
+        # no valid credential: nothing could ever be joined, so the connection
+        # is refused rather than kept as a dead socket (the webapp now sends
+        # its current credentials on every connection attempt)
+        print("Rejected connection: no valid credential")
+        return False
     connections[request.sid] = identity
     print(f"Connected ({identity.get('role')})")
 

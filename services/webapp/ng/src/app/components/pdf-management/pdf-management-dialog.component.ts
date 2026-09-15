@@ -5,7 +5,7 @@ import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
-import { OfflineCopy } from '../task-verification/offline-db';
+import { OfflineCopy } from 'src/app/services/offline-db';
 import { PDFDocument, PDFArray, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';

@@ -75,8 +75,8 @@ def test_only_the_service_can_push(connect, alice_job):
     bob = connect({"token": "tok-bob"})
     bob.emit("job_status", json.dumps({"user_id": "alice", "job_id": "job", "status": "ERROR"}))
     bob.emit("document_ready", json.dumps({"job_id": "job"}))
-    anonymous = connect({})
-    anonymous.emit("doc_validated", json.dumps({"job_id": "job"}))
+    share = connect({"share_token": "unknown"})
+    share.emit("doc_validated", json.dumps({"job_id": "job"}))
 
     assert _names(alice) == []
 
@@ -84,18 +84,22 @@ def test_only_the_service_can_push(connect, alice_job):
 def test_join_is_denied_without_rights(connect, alice_job):
     bob = connect({"token": "tok-bob"})
     bob.emit("join", "job")  # alice's job
-    anonymous = connect({})
-    anonymous.emit("join", "job")
-    anonymous.emit("join", "alice")
     bob.get_received()
-    anonymous.get_received()
 
     service = connect({"service_token": SERVICE_TOKEN})
     service.emit("document_ready", json.dumps({"job_id": "job"}))
     service.emit("job_status", json.dumps({"user_id": "alice", "job_id": "job", "status": "RUN"}))
 
     assert _names(bob) == []
-    assert _names(anonymous) == []
+
+
+def test_anonymous_connections_are_refused(connect, alice_job):
+    # no credential, an expired token, an unknown share token: refused at the
+    # handshake instead of kept as a dead socket
+    assert not connect({}).is_connected()
+    assert not connect({"token": "nope"}).is_connected()
+    assert connect({"share_token": "unknown"}).is_connected()  # a share role, checked at join
+    assert app_module.connections == {} or all(c["role"] != "anonymous" for c in app_module.connections.values())
 
 
 def test_share_token_receives_the_shared_job(connect, db):
