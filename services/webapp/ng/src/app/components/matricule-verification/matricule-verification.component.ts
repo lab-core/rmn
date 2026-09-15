@@ -55,8 +55,6 @@ export class MatriculeVerificationComponent implements OnInit {
   currentCopyName: string;
   currentMatricule: number;
   currentGrade: number | null;
-  currentTotal: number;
-  currentGrades: Map<string, number>;
   currentStatus: string;
   currentMatriculeSelection: string;
   currentMatriculeWarning: string;
@@ -246,7 +244,6 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   getSubExamsList(): void {
-    console.log("group", this.group);
     if (this.group) {
       const subExamsList = [];
       this.examsList.forEach((exam: any) => {
@@ -255,16 +252,13 @@ export class MatriculeVerificationComponent implements OnInit {
         }
       });
       this.subExamsList = subExamsList;
-      console.log("sub exam list size for group", this.group, subExamsList.length, "/", this.examsList.length);
     } else {
-      console.log("sub exam list is the full list of size", this.examsList.length);
       this.subExamsList = this.examsList;
     }
   }
 
   loadSubExamsList(): void {
     this.getSubExamsList();
-    console.log("Group:", this.group, this.subExamsList.length, "exams");
     // if any copy available
     if (this.checkForAvailableCopies()) {
       this.currentCopy -= 1;
@@ -292,7 +286,6 @@ export class MatriculeVerificationComponent implements OnInit {
   async changeCurrentCopy(copyIndex: number, status: string, updateScroll: boolean=true) {
     const exam = this.examsList[copyIndex-this.initialCopyIndex];
     if (exam && status !== DocumentStatus.NOT_READY) {
-        console.log("Change current copy to", copyIndex);
         this.currentCopyName = exam.filename;
         this.setCurrentCopy(copyIndex);
         this.disabledValidationcontainer = false;
@@ -613,23 +606,6 @@ export class MatriculeVerificationComponent implements OnInit {
     }
   }
 
-  updateTotal(gradeKey, gradeValue): void {
-    this.currentGrades[gradeKey] = gradeValue;
-    this.currentTotal = this.getTotal();
-  }
-
-  getTotal(): number {
-    let sum = 0;
-    for (const question of Object.keys(this.currentGrades)) {
-      sum += this.currentGrades[question];
-    }
-    return sum;
-  }
-
-  trackByIndex(index, _): number {
-    return index;
-  }
-
   reroute() {
     if (this.shareAll) {
       const queryParams = {
@@ -680,8 +656,6 @@ export class MatriculeVerificationComponent implements OnInit {
   loggued(): boolean {
     return this.userService.loggued();
   }
-
-  sortNull(): void {}
 
   showFilter(): boolean {
     return (this.loggued() || this.shareAll) && this.groupsList.length > 1;

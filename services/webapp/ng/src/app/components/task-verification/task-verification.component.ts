@@ -148,7 +148,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
     // if no exam available -> reroute to the dashboard
     if (this.examsList.length === 0) {
-      console.log('No question is available for this task', this.tasksService.getvalidatingTaskId());
       this.router.navigate(['/dashboard', this.tasksService.getvalidatingTaskId()]);
     }
 
@@ -474,7 +473,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   getSubExamsList(): void {
-    console.log("group", this.group)
     if (this.group) {
       const subExamsList = [];
       this.examsList.forEach((exam: any) => {
@@ -483,16 +481,13 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         }
       })
       this.subExamsList = subExamsList;
-      console.log("sub exam list size for group", this.group, subExamsList.length, "/", this.examsList.length)
     } else {
-      console.log("sub exam list is the full list of size", this.examsList.length)
       this.subExamsList = this.examsList;
     }
   }
 
   loadSubExamsList(): void {
     this.getSubExamsList();
-    console.log("Group:", this.group, this.subExamsList.length, "exams")
     // if any copy available
     if (this.checkForAvailableCopies()) {
       this.currentCopy = -1;
@@ -504,9 +499,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
  addGradeToQuestion(validGrade: boolean): boolean {
     if (this.currentGrade !== null) {
       if (this.currentGrade >= 0) {
-        if (this.currentGrade > this.nMaxPointsPerQuestion.get(this.currentQuestionIndex)) {
-          const excessPoints = this.currentGrade - this.nMaxPointsPerQuestion.get(this.currentQuestionIndex);
-          this.notificationService.showWarning(`Vous avez rajouté ${excessPoints} point(s) bonus`, 'Attention!');
+        const max = this.nMaxPointsPerQuestion.get(this.currentQuestionIndex);
+        if (max === undefined) {
+          // a missing maximum used to disable the check silently
+          this.notificationService.showWarning('Maximum de la question inconnu: la note est enregistrée sans vérification.', 'Attention!');
+        } else if (this.currentGrade > max) {
+          this.notificationService.showWarning(`Vous avez rajouté ${this.currentGrade - max} point(s) bonus`, 'Attention!');
         }
         return this.saveCurrentGrade();
       } else {
@@ -588,7 +586,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.pdfLoading = true;
       if (await this.saveCurrentCopy()) {
         const exam = this.examsList[copyIndex];
-        console.log("Change current copy to", exam["document_index"]);
         this.currentQuestionIndex = exam.question;
         this.currentCopyName = exam.basename;
         this.currentTag = exam.tag;
@@ -838,7 +835,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         pdfSource.annotations,
         tag,
     );
-    console.log('Try to save current copy and obtained response:', validationResponse);
     if (validationResponse === 'OK') {
       pdfSource.clear(jobId);
       return true;

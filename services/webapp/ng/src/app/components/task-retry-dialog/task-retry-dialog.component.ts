@@ -6,7 +6,8 @@ import { HttpClient, HttpEventType } from '@angular/common/http';
 import { SERVER_URL } from 'src/app/utils';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
-import { first } from 'rxjs/operators';
+import { forkJoin, of } from 'rxjs';
+import { catchError, first, map } from 'rxjs/operators';
 import { JobStatus } from '../../generated/rmn-contracts';
 
 
@@ -219,9 +220,7 @@ export class TaskRetryDialogComponent implements OnInit {
             } else if (data.type === HttpEventType.Response) {
                 const typeExport = 'application/pdf';
                 const file = new Blob([data.body as any], { type: typeExport });
-                const downloadURL = window.URL.createObjectURL(file);
-                saveAs(downloadURL, filename);
-                URL.revokeObjectURL(downloadURL);
+                saveAs(file, filename);
                 this.downloading = false;
                 this.downloadProgress = 0;
                 sub.unsubscribe();
@@ -239,35 +238,33 @@ export class TaskRetryDialogComponent implements OnInit {
 
   downloadAllAsZip(): void {
     const job_id = this.data.taskId;
-    const zip = new JSZip();
-    let count = 0;
     const filenames = this.filenames;
-
-    filenames.forEach((filename) => {
+    if (filenames.length === 0) {
+      return;
+    }
+    const downloads = filenames.map((filename) => {
       const formData = new FormData();
       this.userService.addTokens(formData);
       formData.append('job_id', job_id);
       formData.append('file', filename);
-
-      const requestURL = `${SERVER_URL}incorrect/download`;
-
-      this.http.post(requestURL, formData, { responseType: 'blob' }).pipe(first()).subscribe(
-        (data: Blob) => {
-          zip.file(filename, data);
-          count++;
-          if (count === filenames.length) {
-            zip.generateAsync({ type: 'blob' }).then((content) => {
-              saveAs(content, 'all_pdfs.zip');
-            });
-          }
-
-        },
-        (error) => {
-          console.error('Download error', error);
-          this.notifyService.showError("Certains fichiers n'ont pas pu être téléchargés", 'ERREUR');
-
-        }
+      return this.http.post(`${SERVER_URL}incorrect/download`, formData, { responseType: 'blob' }).pipe(
+        first(),
+        map((data: Blob) => ({ filename, data })),
+        catchError(() => of({ filename, data: undefined as Blob | undefined })),
       );
+    });
+    // every download is awaited, failed or not: a counter of successes used
+    // to leave the zip unbuilt forever when one file failed
+    forkJoin(downloads).pipe(first()).subscribe(async (results) => {
+      const zip = new JSZip();
+      const failed = results.filter((r) => !r.data).map((r) => r.filename);
+      results.filter((r) => r.data).forEach((r) => zip.file(r.filename, r.data));
+      if (failed.length > 0) {
+        this.notifyService.showError(`Fichier(s) non téléchargé(s): ${failed.join(', ')}`, 'ERREUR');
+      }
+      if (failed.length < results.length) {
+        saveAs(await zip.generateAsync({ type: 'blob' }), 'all_pdfs.zip');
+      }
     });
   }
 

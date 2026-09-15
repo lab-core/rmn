@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { AfterViewInit, Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnInit, ChangeDetectionStrategy, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { SocketHandler, SocketService } from 'src/app/services/socket.service';
 import { TemplateService } from 'src/app/services/template.service';
@@ -19,6 +19,8 @@ import { first } from 'rxjs/operators';
     standalone: false
 })
 export class TemplateEditorComponent implements OnInit, AfterViewInit {
+  // static: the canvas is always in the template, so it is resolved before ngOnInit
+  @ViewChild('cv', { static: true }) canvasRef: ElementRef<HTMLCanvasElement>;
 
   templateName: string = 'Template';
   toolType: string = 'rectangle';
@@ -71,7 +73,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
 
   async loadTemplate() {
     // Apply page dimensions to the `<canvas>` element.
-    const canvas = document.getElementById("cv") as HTMLCanvasElement;
+    const canvas = this.canvasRef.nativeElement;
     const context = canvas.getContext("2d");
 
     const img = new Image();

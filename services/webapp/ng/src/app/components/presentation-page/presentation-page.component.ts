@@ -86,9 +86,7 @@ export class PresentationPageComponent implements OnInit {
       this.http.post(`${SERVER_URL}front_page`, formdata, { responseType: 'blob' }).pipe(first()).subscribe(
         (data) => {
           // moodle.zip in data
-          const downloadURL = window.URL.createObjectURL(data);
-          saveAs(downloadURL, this.copiesName);
-          URL.revokeObjectURL(downloadURL);
+          saveAs(data, this.copiesName);
           this.disabled = false;
 
         },

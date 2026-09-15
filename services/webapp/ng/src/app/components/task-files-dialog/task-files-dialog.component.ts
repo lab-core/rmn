@@ -170,14 +170,7 @@ export class TaskFilesDialogComponent implements OnInit {
               typeExport = 'application/pdf'
             }
             const file = new Blob([data.body as any], { type: typeExport });
-            const downloadURL = window.URL.createObjectURL(file);
-            // const download = document.createElement('download-file');
-            // download.setAttribute("href", downloadURL);
-            // download.setAttribute("download", filename);
-            // download.click();
-            // download.remove();
-            saveAs(downloadURL, filename);
-            URL.revokeObjectURL(downloadURL);
+            saveAs(file, filename);
             this.downloading = false;
             this.downloadProgress = 0;
             sub.unsubscribe();

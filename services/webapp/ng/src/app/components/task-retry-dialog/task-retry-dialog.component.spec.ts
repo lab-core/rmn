@@ -7,7 +7,7 @@ import JSZip from 'jszip';
 import { TaskRetryDialogComponent } from './task-retry-dialog.component';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
-import { MATERIAL_MODULES, dialogRefSpy, notificationSpy, userServiceStub } from '../../testing/helpers';
+import { MATERIAL_MODULES, dialogRefSpy, notificationSpy, settle, userServiceStub } from '../../testing/helpers';
 
 const MESSAGES = ['Erreur: a.pdf a 1 page manquante.', 'Erreur: b.pdf a 2 pages de trop.'];
 const pdf = (name: string) => new File(['%PDF'], name, { type: 'application/pdf' });
@@ -136,6 +136,19 @@ describe('TaskRetryDialogComponent', () => {
     expect(req.request.responseType).toBe('blob');
     req.flush(new Blob(), { status: 404, statusText: 'Not Found' });
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('téléchargement'), 'ERREUR');
+  });
+
+  it('the zip of rejected copies is built even when one download fails', async () => {
+    create();
+    component.filenames = ['a.pdf', 'b.pdf'];
+    component.downloadAllAsZip();
+    const reqs = http.match('/api/incorrect/download');
+    expect(reqs.length).toBe(2);
+    reqs[0].flush(new Blob(['%PDF-a']));
+    reqs[1].flush(new Blob(), { status: 404, statusText: 'Not Found' });
+    for (let i = 0; i < 50 && !notification.showError.calls.count(); i++) { await settle(1); }
+    // a counter of successes used to wait for the second file forever
+    expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('b.pdf'), 'ERREUR');
   });
 
   it('cancel closes without a status', () => {
