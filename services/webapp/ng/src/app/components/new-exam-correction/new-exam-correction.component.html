@@ -52,7 +52,7 @@
                 <div class="breaker"></div>
                 <form [formGroup]="secondFormGroup">
                     <div class="files-steps-options-container">
-                        <input #copiesFileInput hidden="true" type="file" onclick="this.value=null"
+                        <input #copiesFileInput hidden="true" type="file" (click)="copiesFileInput.value = ''"
                             (change)="CopiesFileEvent($event)" accept=".zip" />
                         <button id="copies-input-button" mat-flat-button color="primary"
                             (click)="copiesFileInput.click()" [disabled]="this.uploading">Téléverser localement</button>

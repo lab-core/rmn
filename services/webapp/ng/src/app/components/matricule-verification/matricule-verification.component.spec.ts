@@ -189,7 +189,7 @@ describe('MatriculeVerificationComponent', () => {
     expect(form.get('job_id')).toBe('job');
     expect(form.get('document_index')).toBe('0');
     expect(form.get('matricule')).toBe('1234567');
-    expect(form.get('token')).toBe('tok');
+    expect(form.has('token')).toBeFalse();
     req.flush({ response: 'OK' });
     await settle();
     expect(component.examsList[0].status).toBe('VALIDATED');
@@ -317,6 +317,6 @@ describe('MatriculeVerificationComponent', () => {
     await create();
     fixture.destroy();
     expect(docs.clearPdfSources).toHaveBeenCalled();
-    expect(socket.disconnectSocket).toHaveBeenCalled();
+    expect(socket.leave).toHaveBeenCalled();
   });
 });

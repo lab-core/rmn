@@ -6,11 +6,11 @@ import { provideRouter } from '@angular/router';
 import { ValidationService } from './validation.service';
 import { UserService } from './user.service';
 
-// a logged-in user: the real service appends user_id + token to every form
+// a logged-in user: the real service appends user_id to every form (the token
+// goes in the Authorization header, see AuthInterceptor)
 const userStub = {
   addTokens: (form: FormData) => {
     form.append('user_id', 'alice');
-    form.append('token', 'tok');
   }
 };
 
@@ -42,7 +42,7 @@ describe('ValidationService', () => {
     expect(req.request.method).toBe('POST');
     const form = req.request.body as FormData;
     expect(form.get('user_id')).toBe('alice');
-    expect(form.get('token')).toBe('tok');
+    expect(form.has('token')).toBeFalse();
     expect(form.get('job_id')).toBe('job');
     expect(form.get('document_index')).toBe('3');
     expect(form.get('question_index')).toBe('Q2');
@@ -90,7 +90,7 @@ describe('ValidationService', () => {
     const form = req.request.body as FormData;
     expect(form.get('job_id')).toBe('job');
     expect(form.get('moodle_ind')).toBe('1');
-    expect(form.get('token')).toBe('tok');
+    expect(form.has('token')).toBeFalse();
     req.flush({ response: 'OK' });
     expect(await pending).toBe('OK');
 

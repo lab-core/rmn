@@ -5,7 +5,7 @@ import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
-import { OfflineCopy } from '../task-verification/offline-db';
+import { OfflineCopy } from 'src/app/services/offline-db';
 import { PDFDocument, PDFArray, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
@@ -76,8 +76,13 @@ export class PdfManagementDialogComponent implements OnInit {
       if (exam["status"] !== DocumentStatus.NOT_READY) {
         let pdfFileSrc;
         if (exam["offline"]) {
-          pdfFileSrc = this.data.offlineCopies.get(exam["document_index"]).file64 ||
-            this.docService.getAvailablePdfSource(this.data.jobId, exam["document_index"]).url;
+          pdfFileSrc = this.data.offlineCopies.get(exam["document_index"])?.file64 ||
+            this.docService.getAvailablePdfSource(this.data.jobId, exam["document_index"])?.url;
+          if (!pdfFileSrc) {
+            this.notificationService.showError(`Copie ${exam["document_index"]} introuvable hors ligne.`, 'Erreur');
+            this.processing = false;
+            return;
+          }
         } else {
           // fetch latest pdf file
           pdfFileSrc = (await this.docService.getPdfSource(this.data.jobId, exam["document_index"], false, undefined, -1)).url;
@@ -143,10 +148,16 @@ export class PdfManagementDialogComponent implements OnInit {
       ? `${this.data.jobName}_Q${this.data.index}.zip`
       : `${this.data.jobName}.zip`;
 
-    zip.generateAsync({type: 'blob'})
-      .then((content) => {
-        saveAs(content, zipName);
-      });
+    // the success toast and the close used to run before the zip existed
+    try {
+      const content = await zip.generateAsync({type: 'blob'});
+      saveAs(content, zipName);
+    } catch (error) {
+      console.error(error);
+      this.notificationService.showError('La création du zip a échoué.', 'Erreur');
+      this.processing = false;
+      return;
+    }
 
     this.processing = false;
     this.notificationService.showSuccess('Téléchargement terminé!', 'Success');
@@ -412,6 +423,13 @@ export class PdfManagementDialogComponent implements OnInit {
           }
 
           const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
+          if (!(pagesPerQuestion > 0)) {
+            // a question missing from the task definition used to flow as NaN
+            // through the page arithmetic and produce empty documents
+            this.notificationService.showError(`Nombre de pages inconnu pour ${questionIndex}.`, 'Erreur');
+            this.processing = false;
+            return;
+          }
           for (let j = 0; j < pdfDoc.getPageCount(); j++) {
             try {
               if (!this.checkAnnotationAndRemove(pdfDoc, j)) {
@@ -561,7 +579,7 @@ export class PdfManagementDialogComponent implements OnInit {
 
       this.percentageDone = 0;
       this.info = 'Uploading (4/4)';
-      const sub = this.http.post(`${SERVER_URL}/documents/replace`, uploadFormData,
+      const sub = this.http.post(`${SERVER_URL}documents/replace`, uploadFormData,
         {reportProgress: true, observe: 'events'})
         .subscribe(
           (data) => {

@@ -22,7 +22,7 @@ import { MatSortModule } from '@angular/material/sort';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatTableModule } from '@angular/material/table';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 
 import { NotificationService } from '../services/notification.service';
 import { PDFViewerComponent } from '../components/pdf-viewer/pdf-viewer.component';
@@ -56,10 +56,11 @@ export function userServiceStub(overrides: Record<string, any> = {}): any {
     shared: () => false,
     addTokens: (form: FormData) => {
       form.append('user_id', 'alice');
-      form.append('token', 'tok');
     },
+    authHeader: () => 'Bearer tok',
     addShareToken: (params: any) => { params.token = 'share-1'; },
     getSocketAuth: () => ({ user_id: 'alice', token: 'tok' }),
+    loggedOut$: new Subject<void>(),
     logout: jasmine.createSpy('logout'),
     login: jasmine.createSpy('login').and.resolveTo(undefined),
     signup: jasmine.createSpy('signup').and.returnValue(of({})),
@@ -74,17 +75,25 @@ export class FakeSocket {
   handlers: Record<string, (payload: any) => void> = {};
   emit = jasmine.createSpy('emit');
   on(name: string, handler: (payload: any) => void) { this.handlers[name] = handler; }
-  off(name: string) { delete this.handlers[name]; }
+  off(name: string, handler?: (payload: any) => void) {
+    if (handler === undefined || this.handlers[name] === handler) {
+      delete this.handlers[name];
+    }
+  }
   async fire(name: string, payload: any) { await this.handlers[name]?.(payload); }
 }
 
+/** SocketService double: join/leave/on/off spies over one FakeSocket. */
 export function socketServiceStub(): any {
   const socket = new FakeSocket();
   return {
     socket,
     join: jasmine.createSpy('join'),
+    leave: jasmine.createSpy('leave'),
+    on: jasmine.createSpy('on').and.callFake((name: string, handler: any) => { socket.on(name, handler); return handler; }),
+    off: jasmine.createSpy('off').and.callFake((name: string, handler: any) => socket.off(name, handler)),
     getSocket: () => socket,
-    disconnectSocket: jasmine.createSpy('disconnectSocket'),
+    disconnect: jasmine.createSpy('disconnect'),
   };
 }
 

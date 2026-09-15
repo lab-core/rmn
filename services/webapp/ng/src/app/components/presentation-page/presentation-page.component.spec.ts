@@ -73,7 +73,7 @@ describe('PresentationPageComponent', () => {
     expect(form.get('suffix')).toBe('H26');
     expect((form.get('moodle_zip') as File).name).toBe('moodle.zip');
     expect((form.get('latex_front_page') as File).name).toBe('front.tex');
-    expect(form.get('token')).toBe('tok');
+    expect(form.has('token')).toBeFalse();  // the token travels in the Authorization header
     expect(req.request.responseType).toBe('blob');
     req.flush(new Blob(), { status: 500, statusText: 'LaTeX failed' });
 

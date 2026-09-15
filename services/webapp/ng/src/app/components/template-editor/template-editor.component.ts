@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { AfterViewInit, Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
-import { SocketService } from 'src/app/services/socket.service';
+import { SocketHandler, SocketService } from 'src/app/services/socket.service';
 import { TemplateService } from 'src/app/services/template.service';
 import { RectangleService } from 'src/app/services/drawing/rectangle.service';
 import { SelectionService } from 'src/app/services/drawing/selection.service';
@@ -55,11 +55,16 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
     }
   }
 
+  private onTemplateRendered: SocketHandler;
+
   ngOnDestroy(): void {
     if (this.templateService.getUrl()) {
       this.templateService.revokeUrl();
-      this.socketService.getSocket().off('template_rendered');
-      this.socketService.disconnectSocket();
+    }
+    // this page's handler and room only: the socket stays open for the next page
+    if (this.onTemplateRendered) {
+      this.socketService.off('template_rendered', this.onTemplateRendered);
+      this.socketService.leave(this.templateService.getId());
     }
   }
 
@@ -80,7 +85,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
 
   joinSocket() {
     this.socketService.join(this.templateService.getId());
-    this.socketService.getSocket().on('template_rendered', async (data: any) => {
+    this.onTemplateRendered = async (data: any) => {
       data = JSON.parse(data);
       this.templateService.setNQuestions(data["n_questions"] || 0);
       const formdata: FormData = new FormData();
@@ -95,7 +100,8 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
           this.notifyService.showSuccess("Le template a été mis à jour.", "Rendu");
           this.disabled = this.templateService.getLocked();
       });
-    });
+    };
+    this.socketService.on('template_rendered', this.onTemplateRendered);
   }
 
   ngAfterViewInit(): void {

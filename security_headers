@@ -10,7 +10,10 @@ add_header X-Content-Type-Options nosniff always;
 # Nonce strategy in angular: substitute 'random_nonce_value' by a unique value per request
 # Use unsafe-inline for style, as many dependencies ad pdf-viewer or angular/material would not work correctly otherwise
 set $cspNonce $request_id;
-sub_filter_types *;
+# the nonce placeholder only lives in index.html: text/html (the default) is
+# the only type rewritten, a multi-GB pdf or zip body is not scanned. The
+# upstream response must not be compressed for sub_filter to see it:
+# proxy_params sends Accept-Encoding "".
 sub_filter_once off;
 sub_filter random_nonce_value $cspNonce;
 #add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'nonce-$cspNonce'; script-src 'self' 'nonce-$cspNonce'; img-src 'self' 'nonce-$cspNonce' blob: data:; connect-src 'self' 'nonce-$cspNonce' blob: data:; script-src-elem 'self' 'nonce-$cspNonce' https://www.dropbox.com https://js.live.net;" always;
@@ -29,8 +32,9 @@ add_header X-Xss-Protection 0 always;
 # 6- Protects against clickjacking attacks by denying the framing of the content.
 add_header X-Frame-Options DENY always;
 
-# 7- Conceals the server information from the response headers, adding a layer of security through obscurity.
-add_header Server hide always;
+# 7- Conceals the nginx version: add_header cannot replace the built-in Server
+# header (the response carried both "Server: nginx/x.y" and "Server: hide").
+server_tokens off;
 
 # 8- Permissions-Policy is a header that allows site to control which APIs or features can be used in the browser.
 add_header Permissions-Policy "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()" always;

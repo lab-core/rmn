@@ -6,6 +6,7 @@ import { ToastrService } from 'ngx-toastr';
 
 import { UserService } from './user.service';
 import { NotificationService } from './notification.service';
+import { db } from './offline-db';
 
 describe('UserService', () => {
   let http: HttpTestingController;
@@ -66,7 +67,8 @@ describe('UserService', () => {
     const form = new FormData();
     service.addTokens(form);
     expect(form.get('user_id')).toBe('alice');
-    expect(form.get('token')).toBe('tok');
+    expect(form.has('token')).toBeFalse();
+    expect(service.authHeader()).toBe('Bearer tok');
     expect(service.getSocketAuth()).toEqual({ user_id: 'alice', token: 'tok' });
   });
 
@@ -108,6 +110,7 @@ describe('UserService', () => {
     expect(form.get('share_token')).toBe('share-1');
     expect(form.get('question_index')).toBe('Q2');
     expect(form.has('token')).toBeFalse();
+    expect(service.authHeader()).toBeUndefined();  // the link's scope, not the user's
     expect(service.getSocketAuth()).toEqual({ share_token: 'share-1' });
     const params: any = {};
     service.addShareToken(params);
@@ -144,7 +147,7 @@ describe('UserService', () => {
     expect(req.request.method).toBe('PUT');
     expect((req.request.body as FormData).get('saveVerifiedImages')).toBe('1');
     expect((req.request.body as FormData).get('username')).toBe('alice');
-    expect((req.request.body as FormData).get('token')).toBe('tok');
+    expect((req.request.body as FormData).has('token')).toBeFalse();
     req.flush({ response: 'ok' });
     expect(service.saveVerifiedImages).toBeTrue();
 
@@ -166,5 +169,23 @@ describe('UserService', () => {
     expect(form.get('password')).toBe('S3cret');
     expect(form.get('role')).toBe('Utilisateur');
     req.flush({ response: 'Utilisateur Créé' });
+  });
+
+  it('logout ends the whole session: storage, share token, offline copies, and tells the others', async () => {
+    session();
+    localStorage.setItem('newTask', 'roster');
+    const service = fresh();
+    service.canActivateShared({ queryParams: { token: 'share-1', question_index: '2' } } as any, {} as any);
+    const clearAll = spyOn(db, 'clearAll').and.resolveTo();
+    let notified = 0;
+    service.loggedOut$.subscribe(() => notified++);
+
+    service.logout();
+
+    expect(service.loggued()).toBeFalse();
+    expect(service.shared()).toBeFalse();
+    expect(localStorage.getItem('newTask')).toBeNull();
+    expect(clearAll).toHaveBeenCalled();
+    expect(notified).toBe(1);
   });
 });

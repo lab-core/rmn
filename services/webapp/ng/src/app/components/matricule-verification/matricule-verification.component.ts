@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, O
 import { MatDialog } from '@angular/material/dialog';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';
-import { SocketService } from 'src/app/services/socket.service';
+import { SocketHandler, SocketService } from 'src/app/services/socket.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { HttpClient } from '@angular/common/http';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -102,34 +102,43 @@ export class MatriculeVerificationComponent implements OnInit {
       this.loadSubExamsList();
 
       this.socketService.join(this.job["job_id"]);
-      this.socketService.getSocket().on('document_ready', async (params: any) => {
+      this.onDocumentReady = async (params: any) => {
         await this.getDocuments();
         this.getSubExamsList();
         if (this.disabledValidationcontainer) {
           this.nextCopy();
         }
-      });
+      };
+      this.socketService.on('document_ready', this.onDocumentReady);
 
       if (this.userService.loggued()) {
         this.socketService.join(this.userService.currentUsername);
-        this.socketService.getSocket().on('job_status', async (params: any) => {
+        this.onJobStatus = async (params: any) => {
           const resp = JSON.parse(params);
           const jobId = resp.job_id;
           if (this.job["job_id"] === jobId) {
             this.job["job_status"] = resp.status;
           }
-        });
+        };
+        this.socketService.on('job_status', this.onJobStatus);
       }
     }
   }
 
+  private onDocumentReady: SocketHandler;
+  private onJobStatus: SocketHandler;
 
   ngOnDestroy(): void {
     this.docService.clearPdfSources();
-    if (this.socketService.getSocket()){
-      this.socketService.getSocket().off('document_ready');
-      this.socketService.getSocket().off('job_status');
-      this.socketService.disconnectSocket();
+    // this page's handlers and rooms only: the socket stays open for the next page
+    if (this.onDocumentReady) {
+      this.socketService.off('document_ready', this.onDocumentReady);
+    }
+    if (this.onJobStatus) {
+      this.socketService.off('job_status', this.onJobStatus);
+    }
+    if (this.job) {
+      this.socketService.leave(this.job["job_id"]);
     }
   }
 
@@ -219,7 +228,8 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   initializeCopy() {
-    const sCopy = localStorage.getItem(`${this.tasksService.getvalidatingTaskId()}_copy`);
+    // its own key (see dashboard-page selectCopy)
+    const sCopy = localStorage.getItem(`${this.tasksService.getvalidatingTaskId()}_matricule_copy`);
     if (sCopy != undefined) {
       const copy = parseInt(sCopy);
       this.currentCopy = copy % this.examsList.length + this.initialCopyIndex;
@@ -232,7 +242,7 @@ export class MatriculeVerificationComponent implements OnInit {
     const jobId = this.tasksService.getvalidatingTaskId();
     this.currentCopy = copy;
     copy -= this.initialCopyIndex;
-    localStorage.setItem(`${jobId}_copy`, copy.toString());
+    localStorage.setItem(`${jobId}_matricule_copy`, copy.toString());
   }
 
   getSubExamsList(): void {
@@ -265,19 +275,23 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   async loadPdf(version: number = undefined): Promise<void> {
-    if (this.currentExam()["status"] !== DocumentStatus.NOT_READY) {
+    const exam = this.currentExam();
+    if (exam && exam["status"] !== DocumentStatus.NOT_READY) {
       this.pdfLoadStarts();
-      const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false);
-      if (pdfSource.url) {
-        this.pdfUrl = pdfSource.url;
+      try {
+        const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false);
+        if (pdfSource?.url) {
+          this.pdfUrl = pdfSource.url;
+        }
+      } finally {
+        this.pdfLoadEnds();  // a failed download used to leave the spinner on
       }
-      this.pdfLoadEnds();
     }
   }
 
   async changeCurrentCopy(copyIndex: number, status: string, updateScroll: boolean=true) {
-    if (status !== DocumentStatus.NOT_READY) {
-        const exam = this.examsList[copyIndex-this.initialCopyIndex];
+    const exam = this.examsList[copyIndex-this.initialCopyIndex];
+    if (exam && status !== DocumentStatus.NOT_READY) {
         console.log("Change current copy to", copyIndex);
         this.currentCopyName = exam.filename;
         this.setCurrentCopy(copyIndex);

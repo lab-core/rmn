@@ -88,8 +88,9 @@ describe('TaskVerificationComponent', () => {
     fixture = TestBed.createComponent(TaskVerificationComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
-    // ngOnInit ends after an IndexedDB round trip and the first copy is opened
-    await waitUntil(() => component.currentQuestionIndex !== undefined);
+    // ngOnInit ends after an IndexedDB round trip and the first copy is opened,
+    // or right after the redirect of an unusable task
+    await waitUntil(() => component.currentQuestionIndex !== undefined || (router.navigate as jasmine.Spy).calls.count() > 0);
     await settle();
     fixture.detectChanges();
   };
@@ -100,13 +101,18 @@ describe('TaskVerificationComponent', () => {
     await create({ ...JOB, job_status: 'ARCHIVED' });
     expect(notification.showWarning).toHaveBeenCalledWith(jasmine.any(String), 'Tâche inactive');
     expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);
+    // and the initialisation stops there (it used to go on and throw on the job)
+    expect(component.examsList || []).toEqual([]);  // never loaded
+    expect(console.error).not.toHaveBeenCalled();
+    expect(socket.join).not.toHaveBeenCalled();
   });
 
   it('orders the copies by student, lists the corrected questions and opens the first copy', async () => {
     await create();
     expect(component.examsList.map(e => e.filename)).toEqual(['a_Q1', 'a_Q3', 'b_Q1', 'b_Q3']);
     expect(component.questionIndexes).toEqual(['Tout sélectionner', '1', '3']);  // Q2 is ignored
-    expect(component.formattedIndexes).toEqual(['1|Q1', '1|Q3', '2|Q1', '2|Q3']);
+    // labels by document index, so a filtered tile list still shows its own copy's label
+    expect(component.formattedIndexes).toEqual({ 10: '1|Q1', 11: '2|Q1', 12: '1|Q3', 13: '2|Q3' });
     expect(component.nMaxPointsPerQuestion.get('Q3')).toBe(5);
     expect(component.bonusEnabledMap.get('Q3')).toBeTrue();
 
@@ -128,7 +134,7 @@ describe('TaskVerificationComponent', () => {
     component.onQuestionIndexChange({ value: '3' } as any);
     await settle();
     expect(component.subExamsList.map(e => e.filename)).toEqual(['a_Q3', 'b_Q3']);
-    expect(component.formattedIndexes).toEqual(['1', '2']);
+    expect(component.formattedIndexes).toEqual({ 12: '1', 13: '2' });
     expect(component.currentCopy).toBe(1);  // a's Q3
     expect(component.currentQuestionIndex).toBe('Q3');
     expect(component.nextCopyIndex()).toBe(3);
@@ -223,6 +229,20 @@ describe('TaskVerificationComponent', () => {
     expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('bonus'), 'Information');
   });
 
+  it('a refused grade leaves the copy to validate, not VALIDATED without a grade', async () => {
+    await create();
+    component.currentGrade = null;
+    await component.validateCurrentCopy();
+    await settle();
+    expect(notification.showWarning).toHaveBeenCalledWith('Veuillez saisir une note.', 'Note invalide');
+    // the status was set to VALIDATED before the grade check and stayed so:
+    // clicking another copy then saved VALIDATED with grade undefined
+    expect(component.currentStatus).toBe('TO VALIDATE');
+    expect(component.examsList[0].status).toBe('TO VALIDATE');
+    expect(component.currentGradeModified).toBeFalse();
+    expect(component.currentCopy).toBe(0);
+  });
+
   it('offline copies are matched by document index, not by position in the sorted list', async () => {
     await create();
     const saveCopy = spyOn(component, 'saveCopy').and.resolveTo(true);
@@ -274,6 +294,6 @@ describe('TaskVerificationComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/dashboard', 'job']);
     fixture.destroy();
     expect(docs.clearPdfSources).toHaveBeenCalled();
-    expect(socket.disconnectSocket).toHaveBeenCalled();
+    expect(socket.leave).toHaveBeenCalled();
   });
 });

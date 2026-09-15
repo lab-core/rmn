@@ -4,7 +4,7 @@ import { PdfManagementDialogComponent } from '../pdf-management/pdf-management-d
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { TasksService } from 'src/app/services/tasks.service';
 import { ValidationService } from 'src/app/services/validation.service';
-import { SocketService } from 'src/app/services/socket.service';
+import { SocketHandler, SocketService } from 'src/app/services/socket.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
@@ -13,7 +13,7 @@ import { PDFViewerComponent } from 'src/app/components/pdf-viewer/pdf-viewer.com
 import { MatSelectChange } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { first } from 'rxjs/operators';
-import { db, OfflineCopy } from './offline-db';
+import { db, OfflineCopy } from 'src/app/services/offline-db';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 
 
@@ -36,14 +36,17 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private userService: UserService,
-    private docService: DocumentsService) {
-      window.addEventListener('beforeunload', (event) => {
-        if (this.offline) {
-          event.preventDefault();
-          event.returnValue = '';
-        }
-      });
+    private docService: DocumentsService) {}
+
+  // a window listener added in the constructor was never removed: each visit
+  // pinned the destroyed component (and its pdf blobs) through the closure
+  @HostListener('window:beforeunload', ['$event'])
+  warnBeforeLeavingOffline(event: BeforeUnloadEvent) {
+    if (this.offline) {
+      event.preventDefault();
+      event.returnValue = '';
     }
+  }
 
   @ViewChild(PDFViewerComponent)
   pdfViewer: PDFViewerComponent;
@@ -91,7 +94,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   group: string;
   groupsList: Array<string>;
   questionIndexes: Array<string> = [];
-  formattedIndexes: Array<string> = [];
+  // copy label by document index: the tiles iterate the filtered list, so a
+  // label stored by position pointed at another copy once a filter was on
+  formattedIndexes: Record<number, string> = {};
   availableTags: Array<string> = ["1", "2"]; // ["1", "2", "3"];
   tagFilter: string = "";
 
@@ -117,15 +122,19 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     } catch (err) {
       console.error(err);
     }
+    // stop here after redirecting: the rest of the initialisation used to run
+    // on an undefined job and throw
     if (!this.job || !this.job.job_id) {
       // reroute page
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche indisponible');
       this.router.navigate(['/tasks-history']);
+      return;
     } else if (this.job.job_status === JobStatus.VALIDATED ||
                this.job.job_status === JobStatus.FINALIZING ||
                this.job.job_status === JobStatus.ARCHIVED) {
       this.notificationService.showWarning('Veuillez sélectionner une tâche active!', 'Tâche inactive');
       this.router.navigate(['/tasks-history']);
+      return;
     }
 
     // set job parameters
@@ -153,35 +162,45 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
 
     this.socketService.join(this.job.job_id);
-    this.socketService.getSocket().on('document_ready', async (params: any) => {
+    this.onDocumentReady = async (params: any) => {
       await this.getDocuments();
       if (this.currentCopy < 0 || this.currentExam()['status'] === DocumentStatus.VALIDATED) {
         this.nextCopy();
       }
-    });
+    };
+    this.socketService.on('document_ready', this.onDocumentReady);
 
     if (this.userService.loggued()) {
       this.socketService.join(this.userService.currentUsername);
-      this.socketService.getSocket().on('job_status', async (params: any) => {
+      this.onJobStatus = async (params: any) => {
         const resp = JSON.parse(params);
         const jobId = resp.job_id;
         if (this.job.job_id === jobId) {
           this.job.job_status = resp.status;
           this.checkValidationButton();
         }
-      });
+      };
+      this.socketService.on('job_status', this.onJobStatus);
     }
     this.generateFormattedIndexes();
     this.initializeQuestionIndexes();
     this.checkValidationButton();
   }
 
+  private onDocumentReady: SocketHandler;
+  private onJobStatus: SocketHandler;
+
   async ngOnDestroy(): Promise<any> {
     this.docService.clearPdfSources();
-    if (this.socketService.getSocket()){
-      this.socketService.getSocket().off('document_ready');
-      this.socketService.getSocket().off('job_status');
-      this.socketService.disconnectSocket();
+    // this page's handlers and rooms only: the socket stays open for the next page
+    if (this.onDocumentReady) {
+      this.socketService.off('document_ready', this.onDocumentReady);
+    }
+    if (this.onJobStatus) {
+      this.socketService.off('job_status', this.onJobStatus);
+    }
+    if (this.job) {
+      this.socketService.leave(this.job.job_id);
     }
   }
 
@@ -268,14 +287,13 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   generateFormattedIndexes(): void {
-    this.formattedIndexes = [];
+    this.formattedIndexes = {};
     const indices = {};
     for (const exam of this.examsList) {
       if (!(exam.question in indices)) {
         indices[exam.question] = 1;
       }
-      const index = `${indices[exam.question]}|${exam.question}`;
-      this.formattedIndexes.push(index);
+      this.formattedIndexes[exam.document_index] = `${indices[exam.question]}|${exam.question}`;
       indices[exam.question] += 1;
     }
   }
@@ -373,9 +391,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     const questionString = `Q${questionIndex}`;
     this.subExamsList = this.examsList.filter(exam => exam.question === questionString);
 
-    this.formattedIndexes = this.subExamsList.map((_, i) => {
-      const subIndex = (i % this.subExamsList.length) + 1;
-      return `${subIndex}`;
+    this.formattedIndexes = {};
+    this.subExamsList.forEach((exam, i) => {
+      this.formattedIndexes[exam.document_index] = `${i + 1}`;
     });
   }
 
@@ -503,16 +521,20 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async loadPdf(version: number = undefined): Promise<boolean> {
-    if (this.currentExam()["status"] !== DocumentStatus.NOT_READY) {
+    const exam = this.currentExam();
+    if (exam && exam["status"] !== DocumentStatus.NOT_READY) {
       this.checkNavigationArrows(false);
       this.pdfLoading = true;
       let pdfSource;
-      if (this.offline) {
-        pdfSource = this.docService.getAvailablePdfSource(this.tasksService.getvalidatingTaskId(), this.currentDocumentIndex);
-      } else {
-        pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentDocumentIndex, true, version);
+      try {
+        if (this.offline) {
+          pdfSource = this.docService.getAvailablePdfSource(this.tasksService.getvalidatingTaskId(), this.currentDocumentIndex);
+        } else {
+          pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentDocumentIndex, true, version);
+        }
+      } finally {
+        this.pdfLoading = false;  // a failed download used to leave the full-screen spinner on
       }
-      this.pdfLoading = false;
       if (pdfSource) {
         if (this.pdfUrl !== pdfSource.url) {
           this.currentPdfSrc = pdfSource;
@@ -741,7 +763,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         console.error('Erreur lors de la validation ou du téléchargement du fichier :', error);
         this.notificationService.showError('Échec de la validation ou du téléchargement du document.', 'Erreur de validation');
         this.pdfLoading = false;
-        // this.changeCurrentExam(this.currentCopy);
+        // the status was set to VALIDATED before the grade was checked: back
+        // to the stored one, or the next copy change saved VALIDATED with no grade
+        this.getCurrentStatus();
+        this.currentGradeModified = false;
     }
 
     this.checkValidationButton();
@@ -778,7 +803,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           if (this.currentGradeModified) {
             copy.grade = this.currentGrade;
           }
-          db.updateCopy(copy);
+          await db.updateCopy(copy);  // a failed write used to lose the offline work silently
         } else {
           const result = await this.saveCopy(
             this.currentPdfSrc,
@@ -1035,7 +1060,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     for (const exam of this.subExamsList) {
       exam.offline = false;
     }
-    db.deleteAllCopies(this.offlineCopies);
+    await db.deleteAllCopies(this.offlineCopies);
     this.offline = false;
     this.downloadingOffline = false;
     await db.markOnline();
@@ -1051,7 +1076,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       if (copy.grade !== undefined) {
         exam.grade = copy.grade;
       }
-      copy.pdfSrc = await this.docService.loadPDFSource(copy.pdfSrc);
+      copy.pdfSrc = await this.docService.loadPDFSource(copy.pdfSrc, this.tasksService.getvalidatingTaskId());
       exam.offline = true;
       exam.status = copy.status;
       this.offlineCopies.set(copy.pdfSrc.index, copy);

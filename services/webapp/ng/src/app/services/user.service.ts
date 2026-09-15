@@ -2,7 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRouteSnapshot, Router, RouterStateSnapshot } from '@angular/router';
 import { NotificationService } from 'src/app/services/notification.service';
+import { Subject } from 'rxjs';
 import { SERVER_URL } from '../utils';
+import { db } from './offline-db';
 
 
 @Injectable({
@@ -18,6 +20,9 @@ export class UserService {
   saveVerifiedImages: boolean = false;
   moodleStructureInd: boolean = false;
   warningShown: boolean = true;
+  /** Fires after logout(): the socket and the pdf cache drop the previous
+   *  user's state on it (they used to survive into the next session). */
+  readonly loggedOut$ = new Subject<void>();
 
   constructor(private http: HttpClient,
               private router: Router,
@@ -47,6 +52,9 @@ export class UserService {
     this.questionIndex = undefined;
   }
 
+  /** Credentials that belong in the body: the share token of a share link, or
+   *  the user id the server checks against the token. The token itself goes in
+   *  the Authorization header (AuthInterceptor, authHeader()). */
   addTokens(form) {
     if (this.shareToken) {
       form.append('share_token', this.shareToken);
@@ -55,8 +63,17 @@ export class UserService {
       }
     } else if (this.token) {
       form.append('user_id', this.currentUsername);
-      form.append('token', this.token);
     }
+  }
+
+  /** Value of the Authorization header for API requests, or undefined when
+   *  there is no session or a share link is in use (the share token travels in
+   *  the form, and a logged-in user on a share link acts as the link). */
+  authHeader(): string | undefined {
+    if (this.shareToken || !this.token) {
+      return undefined;
+    }
+    return `Bearer ${this.token}`;
   }
 
   addShareToken(queryParams) {
@@ -99,6 +116,10 @@ export class UserService {
     this.token = undefined;
     this.currentUsername = undefined;
     this.role = undefined;
+    this.clearShareToken();
+    // the student pdfs kept for offline correction are the previous user's
+    db.clearAll().catch((error) => console.error('offline database not cleared', error));
+    this.loggedOut$.next();
   }
 
   signup(username, password, role) {
@@ -118,7 +139,6 @@ export class UserService {
     this.saveVerifiedImages = saveVerifiedImages;
     const formdata: FormData = new FormData();
     formdata.append('username', this.currentUsername);
-    formdata.append('token', this.token);
     formdata.append('saveVerifiedImages', (+saveVerifiedImages).toString());
     const url = SERVER_URL + 'updateSaveVerifiedImages';
 
@@ -129,7 +149,6 @@ export class UserService {
     this.moodleStructureInd = moodleStructureInd;
     const formdata: FormData = new FormData();
     formdata.append('username', this.currentUsername);
-    formdata.append('token', this.token);
     formdata.append('moodleStructureInd', (+moodleStructureInd).toString());
     const url = SERVER_URL + 'updateMoodleStructureInd';
 

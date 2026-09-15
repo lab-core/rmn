@@ -5,7 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { first } from 'rxjs/operators';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { NotificationService } from 'src/app/services/notification.service';
-import { SocketService } from 'src/app/services/socket.service';
+import { SocketHandler, SocketService } from 'src/app/services/socket.service';
 import { TasksService } from 'src/app/services/tasks.service';
 import { UserService } from 'src/app/services/user.service';
 import { ValidationService } from 'src/app/services/validation.service';
@@ -81,7 +81,7 @@ export class DashboardPageComponent {
     }
 
     this.socketService.join(this.taskId);
-    this.socketService.getSocket().on('doc_validated', async (params: any) => {
+    this.onDocValidated = async (params: any) => {
       const resp = JSON.parse(params);
       const questions: boolean = resp.questions;
       const matricule: boolean = resp.matricule;
@@ -104,8 +104,9 @@ export class DashboardPageComponent {
       } catch (error) {
         console.error(error);
       }
-    });
-    this.socketService.getSocket().on('job_status', async (params: any) => {
+    };
+    this.socketService.on('doc_validated', this.onDocValidated);
+    this.onJobStatus = async (params: any) => {
       const resp = JSON.parse(params);
       const statusChanged = this.task.job_status !== resp.status;
       if (statusChanged) {
@@ -121,19 +122,24 @@ export class DashboardPageComponent {
       if (statusChanged || resp.job_infos) {
         this.loadTask();  // reload the counters (e.g. copies were added)
       }
-    });
+    };
+    this.socketService.on('job_status', this.onJobStatus);
   }
 
+  private onDocValidated: SocketHandler;
+  private onJobStatus: SocketHandler;
+
   public ngOnDestroy(): void {
-    // remove the socket listeners and leave the room so revisiting the
-    // dashboard does not stack duplicate handlers on the shared socket
-    const socket = this.socketService.getSocket();
-    if (socket) {
-      socket.off('doc_validated');
-      socket.off('job_status');
-      if (this.taskId) {
-        socket.emit('leave', this.taskId);
-      }
+    // remove this page's socket listeners (only these) and leave the room so
+    // revisiting the dashboard does not stack duplicate handlers
+    if (this.onDocValidated) {
+      this.socketService.off('doc_validated', this.onDocValidated);
+    }
+    if (this.onJobStatus) {
+      this.socketService.off('job_status', this.onJobStatus);
+    }
+    if (this.taskId) {
+      this.socketService.leave(this.taskId);
     }
   }
 
@@ -181,7 +187,9 @@ export class DashboardPageComponent {
   }
 
   public selectCopy() {
-    localStorage.setItem(`${this.taskId}_copy`, this.copySelection.copy);
+    // its own key: `${jobId}_copy` meant three different things in three
+    // components, and each view restored the other's value
+    localStorage.setItem(`${this.taskId}_dashboard_copy`, this.copySelection.copy);
   }
 
   public async getTask() {
@@ -199,9 +207,17 @@ export class DashboardPageComponent {
   }
 
   public questionBonusChange(question: Question): void {
-    this.task.bonus_enabled_map[question.index][1] = question.bonus;
-    const nQ = this.questions.length - 1;
-    this.questions[nQ].max += question.bonus ? -question.max : question.max;
+    // the map holds every question of the template, by key
+    const entry = this.task.bonus_enabled_map.find((e) => e[0] === question.name);
+    if (entry) {
+      entry[1] = question.bonus;
+    }
+    // the Total row only exists with more than one question: a single-question
+    // task used to add its own max to itself
+    const total = this.questions[this.questions.length - 1];
+    if (this.questions.length > 1 && total.name === 'Total') {
+      total.max += question.bonus ? -question.max : question.max;
+    }
     this.tasksService.updateTaskBonus(this.taskId, this.task.bonus_enabled_map);
   }
 
@@ -334,15 +350,17 @@ export class DashboardPageComponent {
   // Compute histogram bins
   private computeHistogram(question: Question, maxBins = 10): Array<{value: number, count: number}> {
     // Prepare histogram bins
-    const maxGrade = Math.max(...question.grades, question.max)
-    const binRange = Math.ceil(maxGrade / maxBins);
+    // a max of 0 gave NaN bins (and threw inside the socket handler); a
+    // negative grade indexed bins[-1]
+    const maxGrade = Math.max(...question.grades, question.max, 0);
+    const binRange = Math.max(Math.ceil(maxGrade / maxBins), 1);
     const nBins = Math.ceil(maxGrade / binRange);
     const bins = [];
     for (let i = 0; i <= nBins; i++) {
       bins.push({value: i * binRange, count: 0});
     }
     question.grades.forEach(value => {
-      const binIndex = Math.floor(value / binRange);
+      const binIndex = Math.min(Math.max(Math.floor(value / binRange), 0), nBins);
       bins[binIndex].count++;
     });
     return bins;
@@ -585,7 +603,9 @@ export class DashboardPageComponent {
         const message = 'La tâche est en cours de finalisation!';
         this.notificationService.showInfo(message, 'Alerte!');
         // clear local storage
-        localStorage.removeItem(`${this.task.job_id}_copy`);
+        for (const key of ['_copy', '_matricule_copy', '_dashboard_copy']) {
+          localStorage.removeItem(`${this.task.job_id}${key}`);
+        }
         PDFSource.clearAll(this.task.job_id, this.questionsDocList.length);
       }
     }
