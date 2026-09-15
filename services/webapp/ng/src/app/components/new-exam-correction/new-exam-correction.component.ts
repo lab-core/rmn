@@ -384,8 +384,9 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     const target = fileInput.target as HTMLInputElement;
     const file: File = (target.files as FileList)[0];
     this.copiesName = file.name;
+    // textContent: the file name is user data, not markup
     document.getElementById("files-upload-label").setAttribute("value", this.copiesName);
-    document.getElementById("files-upload-label").innerHTML = this.copiesName;
+    document.getElementById("files-upload-label").textContent = this.copiesName;
     this.copies = file;
   }
 
@@ -452,7 +453,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   setCSVName(csvName: string) {
     this.csvName = csvName;
     document.getElementById("csv-upload-label").setAttribute("value", this.csvName);
-    document.getElementById("csv-upload-label").innerHTML = this.csvName;
+    document.getElementById("csv-upload-label").textContent = this.csvName;
   }
 
   checkDisabled(): boolean {
@@ -631,17 +632,13 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     }
   }
 
-  saveToLocalStorage(task) {
-    const reader = new FileReader();
-    reader.readAsDataURL(this.csv); // Convert to Base64
-    reader.onload = function () {
-      task.csv = reader.result;
-      const taskJson = JSON.stringify(task);
-      localStorage.setItem('newTask', taskJson);
-    };
-  }
-
-
+  /** The draft of the task being defined, kept in localStorage between visits.
+   *
+   *  The per-question Maps are written as plain objects: JSON.stringify of a
+   *  Map is "{}", so a draft used to come back with every question at zero.
+   *  The class list is not stored: it was base64-encoded (names and
+   *  matricules of every student) on every keystroke, against a ~5 MB quota
+   *  shared with the annotation drafts; the user picks the csv again. */
   saveTask() {
     if (this.doNotSaveTask) return;
 
@@ -650,25 +647,16 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       frontTemplate: this.selectedFrontTemplate,
       regularTemplate: this.selectedRegularTemplate,
       nQuestions: this.nQuestions,
-      nPages: this.nPagesPerQuestion,
-      maxPoints: this.nMaxPointsPerQuestion,
-      bonus: this.bonusEnabledMap,
-      ignored: this.ignoredQuestions,
+      nPages: Object.fromEntries(this.nPagesPerQuestion),
+      maxPoints: Object.fromEntries(this.nMaxPointsPerQuestion),
+      bonus: Object.fromEntries(this.bonusEnabledMap),
+      ignored: Object.fromEntries(this.ignoredQuestions),
       stats: this.statisticsForStudents,
-      csvName: this.csvName
-    }
-
-    if (this.csv == undefined) {
-      const taskJson = JSON.stringify(task);
-      localStorage.setItem('newTask', taskJson);
-    } else {
-      const reader = new FileReader();
-      reader.readAsDataURL(this.csv); // Convert to Base64
-      reader.onload = function () {
-        task['csv'] = reader.result;
-        const taskJson = JSON.stringify(task);
-        localStorage.setItem('newTask', taskJson);
-      };
+    };
+    try {
+      localStorage.setItem('newTask', JSON.stringify(task));
+    } catch (error) {
+      console.warn('draft task not saved', error);  // quota exceeded: the form still works
     }
   }
 
@@ -681,17 +669,19 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       this.selectedFrontTemplate = task.frontTemplate;
       this.selectedRegularTemplate = task.regularTemplate;
       this.nQuestions = task.nQuestions;
-      for (const key in task.nPages) this.nPagesPerQuestion[key] = task.nPages[key];
-      for (const key in task.maxPoints) this.nMaxPointsPerQuestion[key] = task.maxPoints[key];
-      for (const key in task.bonus) this.bonusEnabledMap[key] = task.bonus[key];
-      for (const key in task.ignored) this.ignoredQuestions[key] = task.ignored[key];
+      // both the Map and its property form: the inputs are bound to
+      // nPagesPerQuestion[key] while the logic reads the Map
+      const restore = (map: Map<string, any>, values: Record<string, any>) => {
+        for (const key in values || {}) {
+          map.set(key, values[key]);
+          map[key] = values[key];
+        }
+      };
+      restore(this.nPagesPerQuestion, task.nPages);
+      restore(this.nMaxPointsPerQuestion, task.maxPoints);
+      restore(this.bonusEnabledMap, task.bonus);
+      restore(this.ignoredQuestions, task.ignored);
       this.statisticsForStudents = task.stats;
-
-      if (task.csv) {
-        const csvBlob = await fetch(task.csv).then(async (r) => r.blob());
-        this.csv = new File([csvBlob], task.csvName);
-        this.setCSVName(task.csvName);
-      }
     }
   }
 

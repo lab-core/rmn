@@ -31,7 +31,7 @@
             (click)="changeCurrentDocumentIndex(exam.document_index, exam.status, false)">
             @if (exam.status == DocumentStatus.NOT_READY) {
               <div class="disabled-copy">
-                <strong>{{formattedIndexes[i]}}</strong>
+                <strong>{{formattedIndexes[exam.document_index]}}</strong>
                 @if (exam.offline) {
                   <mat-icon class="bottom-right-icon">file_copy</mat-icon>
                 }
@@ -39,7 +39,7 @@
             }
             @if (exam.status != DocumentStatus.NOT_READY) {
               <div [ngClass]="getExamClass(exam)">
-                <strong>{{formattedIndexes[i]}}</strong>
+                <strong>{{formattedIndexes[exam.document_index]}}</strong>
                 @if (exam.offline) {
                   <mat-icon class="bottom-right-icon">file_copy</mat-icon>
                 }

@@ -67,7 +67,7 @@ describe('TasksService', () => {
     const status = service.updateTaskStatus('job', 'ARCHIVED');
     let req = http.expectOne('/api/job/update/status');
     expect((req.request.body as FormData).get('job_status')).toBe('ARCHIVED');
-    expect((req.request.body as FormData).get('token')).toBe('tok');
+    expect((req.request.body as FormData).get('user_id')).toBe('alice');
     req.flush({ response: 'OK' });
     await status;
 

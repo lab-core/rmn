@@ -21,7 +21,7 @@
               <h4>{{ copyName }}</h4>
             </div>
         </div>
-        <input #fileInput type="file" id="file-input" onclick="this.value=null" (change)="onFileSelected($event)" accept=".pdf">
+        <input #fileInput type="file" id="file-input" (click)="fileInput.value = ''" (change)="onFileSelected($event)" accept=".pdf">
     </div>
 
     <div class="num-pages-container">

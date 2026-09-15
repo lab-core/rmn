@@ -53,6 +53,7 @@ import { WarningDialogComponent } from './components/warning-dialog/warning-dial
 
 // providers
 import { ErrorInterceptor, FreshHttpInterceptor } from './services/interceptor.service';
+import { AuthInterceptor } from './services/auth.interceptor';
 
 @NgModule({ declarations: [
         AppComponent,
@@ -111,6 +112,8 @@ import { ErrorInterceptor, FreshHttpInterceptor } from './services/interceptor.s
         //   useValue: 'random_nonce_value'
         // },
         provideHttpClient(withXhr(), withInterceptorsFromDi()),
+        // first, so the retry interceptor's clones carry the header too
+        { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         { provide: HTTP_INTERCEPTORS, useClass: FreshHttpInterceptor, multi: true },  // should be applied before ErrorInterceptor (in reverse for multi=true)
     ] })

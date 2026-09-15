@@ -109,9 +109,12 @@ export class TaskFilesDialogComponent implements OnInit {
       const resp = data['response'];
       if (resp.share_url) {
         const download = document.getElementById('download-file');
-        // const download = document.createElement('download-file');
-        // const fileName = resp.share_url.substring(resp.share_url.lastIndexOf('/') + 1);
-        download.setAttribute("href", resp.share_url+"&filename="+filename);
+        if (!download) {
+          console.error('download anchor missing');
+          return;
+        }
+        // the name is a query value: & or # in it used to truncate the URL
+        download.setAttribute("href", resp.share_url + "&filename=" + encodeURIComponent(filename));
         download.setAttribute("download", filename);
         download.click();
       }

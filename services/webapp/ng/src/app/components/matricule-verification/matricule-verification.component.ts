@@ -275,19 +275,23 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   async loadPdf(version: number = undefined): Promise<void> {
-    if (this.currentExam()["status"] !== DocumentStatus.NOT_READY) {
+    const exam = this.currentExam();
+    if (exam && exam["status"] !== DocumentStatus.NOT_READY) {
       this.pdfLoadStarts();
-      const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false);
-      if (pdfSource.url) {
-        this.pdfUrl = pdfSource.url;
+      try {
+        const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false);
+        if (pdfSource?.url) {
+          this.pdfUrl = pdfSource.url;
+        }
+      } finally {
+        this.pdfLoadEnds();  // a failed download used to leave the spinner on
       }
-      this.pdfLoadEnds();
     }
   }
 
   async changeCurrentCopy(copyIndex: number, status: string, updateScroll: boolean=true) {
-    if (status !== DocumentStatus.NOT_READY) {
-        const exam = this.examsList[copyIndex-this.initialCopyIndex];
+    const exam = this.examsList[copyIndex-this.initialCopyIndex];
+    if (exam && status !== DocumentStatus.NOT_READY) {
         console.log("Change current copy to", copyIndex);
         this.currentCopyName = exam.filename;
         this.setCurrentCopy(copyIndex);

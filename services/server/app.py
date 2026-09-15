@@ -97,6 +97,20 @@ LATEX_INPUT_FILE = ROOT_DIR.joinpath("data.tex")
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 
 
+def request_token(form):
+    """The login token of the current request.
+
+    Read from ``Authorization: Bearer <token>`` first: a header is not part
+    of the multipart body, so it never lands in body logging and the webapp
+    sets it in one interceptor instead of in forty forms. The ``token`` form
+    (or query) field is still accepted for older clients and share links.
+    """
+    scheme, _, value = request.headers.get("Authorization", "").strip().partition(" ")
+    if scheme.lower() == "bearer" and value.strip():
+        return value.strip()
+    return form.get("token")
+
+
 def check_token(form, role=None, check_username=True):
     """The (error response, username) of the token in ``form``.
 
@@ -104,14 +118,14 @@ def check_token(form, role=None, check_username=True):
     legitimately names someone else: an admin creating a user on /signup.
     """
     # check if token provided
-    if "token" not in form:
+    token = request_token(form)
+    if token is None:
         return Response(
             response=json.dumps({"response": "Error: token not provided."}),
             status=401,
         ), None
     # check if token valid
     db = mongo["RMN"]
-    token = form['token']
     valid, username = UserService.verify_token(token, db, role)
     # "code" lets the webapp tell a dead session (log out, back to the login
     # page) apart from the other 401s (a job or question this user cannot see)

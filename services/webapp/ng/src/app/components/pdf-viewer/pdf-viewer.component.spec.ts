@@ -102,6 +102,25 @@ describe('PDFViewerComponent', () => {
     spyOn(console, 'log');
   });
 
+  it('reads the scale factor from the viewer element, integer zooms included', () => {
+    const component = fixture.componentInstance;
+    expect(component.getScaleFactor()).toBe(1);  // no viewer yet
+    const viewer = document.createElement('div');
+    viewer.id = 'viewer';
+    document.body.appendChild(viewer);
+    try {
+      viewer.style.setProperty('--scale-factor', '1.5');
+      expect(component.getScaleFactor()).toBe(1.5);
+      // an integer zoom used to throw on every pointer move of the eraser
+      viewer.style.setProperty('--scale-factor', '1');
+      expect(component.getScaleFactor()).toBe(1);
+      viewer.style.setProperty('--scale-factor', 'garbage');
+      expect(component.getScaleFactor()).toBe(1);
+    } finally {
+      viewer.remove();
+    }
+  });
+
   it('tells the user when the copy has no pdf', () => {
     fixture.componentRef.setInput('pdfUrl', undefined);
     fixture.detectChanges();

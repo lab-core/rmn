@@ -62,8 +62,20 @@ class Storage:
             raise ValueError("STORAGE is not set and this Storage has no default path")
 
     def abs_path(self, r_path):
-        """Absolute path of a storage-relative path (an absolute input is returned as is)."""
-        return os.path.join(str(self.path), str(r_path))
+        """Absolute path of a storage-relative path.
+
+        An absolute input is accepted when it already lies under the root
+        (callers hand back paths this method returned). Anything that would
+        resolve outside the root, a ``..`` component or a foreign absolute
+        path, raises ``ValueError``: every read and write of the tree goes
+        through here, so this is the one containment check for all of them.
+        """
+        joined = os.path.join(str(self.path), str(r_path))
+        root = os.path.realpath(self.path)
+        resolved = os.path.realpath(joined)
+        if resolved != root and not resolved.startswith(root + os.sep):
+            raise ValueError(f"path escapes the storage root: {r_path}")
+        return joined
 
     def rel_path(self, abs_path):
         """Storage-relative path of an absolute path under the root."""

@@ -42,7 +42,7 @@ class TemplateService():
 
         except Exception as e:
             print(e)
-            return Response(response=f"Error: Failed to download files.", status=500)
+            return Response(response="Error: Failed to download files.", status=500)
 
         response, code = TemplateService.create_template(request.form, temp_template_file_name, db, storage)
         if code == 200:
