@@ -14,6 +14,7 @@ import { MatSelectChange } from '@angular/material/select';
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
 import { first } from 'rxjs/operators';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
+import { selectedCopyIndex } from 'src/app/selected-copy';
 
 
 @Component({
@@ -226,9 +227,14 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   initializeCopy() {
-    // its own key (see dashboard-page selectCopy)
-    const sCopy = localStorage.getItem(`${this.tasksService.getvalidatingTaskId()}_matricule_copy`);
-    if (sCopy != undefined) {
+    const jobId = this.tasksService.getvalidatingTaskId();
+    // the copy picked on the dashboard wins, then the copy this page was left
+    // on (its own key: the correction page counts differently), then the first
+    const selected = selectedCopyIndex(jobId, this.examsList);
+    const sCopy = localStorage.getItem(`${jobId}_matricule_copy`);
+    if (selected >= 0) {
+      this.currentCopy = selected + this.initialCopyIndex;
+    } else if (sCopy != undefined) {
       const copy = parseInt(sCopy);
       this.currentCopy = copy % this.examsList.length + this.initialCopyIndex;
     } else {

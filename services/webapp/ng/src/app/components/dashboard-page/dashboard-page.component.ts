@@ -15,6 +15,7 @@ import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog
 import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
 import { CsvUpdateDialogComponent } from '../csv-update/csv-update-dialog.component';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
+import { SELECTED_COPY_SUFFIX, selectedCopy, selectedCopyKey } from 'src/app/selected-copy';
 
 interface Question {
   name: string;
@@ -167,6 +168,11 @@ export class DashboardPageComponent {
     return this.userService.shared();
   }
 
+  /** One entry per student of the class list. A student whose copy was
+   *  recognised carries the copy's document index and file name (the name is
+   *  shared with its per-question documents) and its position among the
+   *  recognised copies; without a copy the entry shows N/A and cannot be
+   *  selected. */
   public getCopiesList(): void {
     const tempDict = {};
     this.task.students_list.forEach((x) => {
@@ -176,20 +182,33 @@ export class DashboardPageComponent {
     this.examsList.forEach((exam) => {
       if (exam.matricule && tempDict[exam.matricule]) {
         tempDict[exam.matricule].index = exam.document_index;
+        tempDict[exam.matricule].basename = exam.filename;
         tempDict[exam.matricule].copy = copy;
         copy += 1;
       }
     });
-    this.copiesList = Object.values(tempDict).map((x) => {
-      // x['identifiant'] = (x['index'] || 'N/A') + ' -> ' + x['identifiant'];
-      return x;
-    });
+    this.copiesList = Object.values(tempDict);
+    // restore the selection the correction pages are pointed at
+    const selected = selectedCopy(this.taskId);
+    this.copySelection = selected
+      ? this.copiesList.find((c) => c.index === selected.document_index) ?? null
+      : null;
   }
 
+  /** Point the correction and matricule pages at the selected student's copy:
+   *  they open on it the next time a question is loaded (see
+   *  task-verification's selectedCopyIndex). The key is the copy's identity,
+   *  not a position: the pages order their lists differently. */
   public selectCopy() {
-    // its own key: `${jobId}_copy` meant three different things in three
-    // components, and each view restored the other's value
-    localStorage.setItem(`${this.taskId}_dashboard_copy`, this.copySelection.copy);
+    if (!this.copySelection || this.copySelection.copy === undefined) {
+      return;  // N/A: the student has no recognised copy
+    }
+    localStorage.setItem(
+      selectedCopyKey(this.taskId),
+      JSON.stringify({ document_index: this.copySelection.index, basename: this.copySelection.basename }),
+    );
+    this.notificationService.showInfo(
+      `Les pages de correction s'ouvriront sur la copie ${this.copySelection.copy + 1}.`, 'Copie sélectionnée');
   }
 
   public async getTask() {
@@ -603,7 +622,7 @@ export class DashboardPageComponent {
         const message = 'La tâche est en cours de finalisation!';
         this.notificationService.showInfo(message, 'Alerte!');
         // clear local storage
-        for (const key of ['_copy', '_matricule_copy', '_dashboard_copy']) {
+        for (const key of ['_copy', '_matricule_copy', SELECTED_COPY_SUFFIX]) {
           localStorage.removeItem(`${this.task.job_id}${key}`);
         }
         PDFSource.clearAll(this.task.job_id, this.questionsDocList.length);

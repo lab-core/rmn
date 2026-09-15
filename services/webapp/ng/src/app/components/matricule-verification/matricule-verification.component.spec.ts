@@ -130,6 +130,19 @@ describe('MatriculeVerificationComponent', () => {
     expect(docs.getPdfSource.calls.allArgs().map(a => a[1])).toContain(1);
   });
 
+  it('opens on the copy picked on the dashboard', async () => {
+    await create();
+    localStorage.setItem('job_dashboard_copy', JSON.stringify({ document_index: 3, basename: 'd' }));
+    localStorage.setItem('job_matricule_copy', '1');  // the resume pointer loses
+    component.initializeCopy();
+    expect(component.currentCopy).toBe(3);
+
+    // a pick that is not among the copies falls back to the resume pointer
+    localStorage.setItem('job_dashboard_copy', JSON.stringify({ document_index: 99 }));
+    component.initializeCopy();
+    expect(component.currentCopy).toBe(1);
+  });
+
   it('navigation skips copies that are not ready', async () => {
     await create();
     expect(component.nextCopyIndex(1)).toBe(3);

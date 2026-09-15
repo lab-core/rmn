@@ -18,7 +18,8 @@
         </div>
         <p>{{ this.copySelection ? (this.copySelection.copy + 1 || "N/A") : "" }}</p>
         @if (this.copySelection) {
-<button class="select-index-button" mat-raised-button color="primary" (click)="selectCopy()">Sélectionner</button>
+<button class="select-index-button" mat-raised-button color="primary" (click)="selectCopy()"
+                [disabled]="this.copySelection.copy === undefined">Sélectionner</button>
 }
     </div>
 }
