@@ -15,3 +15,9 @@ executor/test.py
 executor/requirements.old.txt
 executor/README.md
 executor/Dockerfile*
+# the Keras model and the training data stay out of the image: it runs the .tflite
+executor/digit_recognizer.h5
+executor/models/
+executor/python/process_copy/train.py
+executor/python/process_copy/export_tflite.py
+executor/requirements-train.txt

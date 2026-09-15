@@ -23,9 +23,9 @@ SPEC = json.loads((FIXTURES / "expected.json").read_text())
 
 @pytest.fixture(scope="module")
 def classifier():
-    from keras.models import load_model
+    from process_copy.classifier import load_classifier
 
-    return load_model(str(EXECUTOR / "digit_recognizer.h5"))
+    return load_classifier(str(EXECUTOR / "digit_recognizer.tflite"))
 
 
 def page_with(crop_file, box):

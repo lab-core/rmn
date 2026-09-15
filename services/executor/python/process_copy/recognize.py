@@ -44,6 +44,7 @@ from statistics import median
 from copy import copy
 import random
 
+from process_copy.classifier import load_classifier
 from process_copy.config import re_mat, len_mat, known_mistmatch, known_mistmatch_matricule
 from process_copy.config import min_documents_for_max_questions
 from process_copy.config import allowed_decimals, digit_margins
@@ -117,8 +118,7 @@ def find_all_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
     # box_matricule['regular'] = regular_box_matricule['regular']
 
     # loading our CNN model
-    from keras.models import load_model
-    classifier = load_model("digit_recognizer.h5")
+    classifier = load_classifier()
 
     # load csv
     grades_dfs, grades_names = load_csv(grades_csv)
@@ -471,11 +471,7 @@ def grade_files(
 
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
     # loading our CNN model
-    from keras.models import load_model
-    # classifier = load_model("digit_recognizer.h5")
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    model_path = os.path.join(base_dir, 'digit_recognizer.h5')
-    classifier = load_model(model_path)
+    classifier = load_classifier()
 
     # handler = PreviewHandler()
 
@@ -720,10 +716,7 @@ def find_matricules(
     # find matricules
     shape = (int(dpi * shape[0]), int(dpi * shape[1]))
     # loading our CNN model
-    from keras.models import load_model
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    model_path = os.path.join(base_dir, 'digit_recognizer.h5')
-    classifier = load_model(model_path)
+    classifier = load_classifier()
 
     try:
         # Create SocketIO connection
@@ -980,8 +973,7 @@ def compare_all(paths, grades_csv, box, dpi=300, shape=(8.5, 11)):
     grades_df = pd.read_csv(grades_csv, index_col="Matricule")
 
     # loading our CNN model
-    from keras.models import load_model
-    classifier = load_model("digit_recognizer.h5")
+    classifier = load_classifier()
 
     # grade files
     tp = 0
@@ -1422,8 +1414,7 @@ def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=Non
 
 def test(gray_img, classifier=None, trim=None):
     if classifier is None:
-        from keras.models import load_model
-        classifier = load_model("digit_recognizer.h5")
+        classifier = load_classifier()
 
     # image copy
     gray = gray_img.copy()

@@ -1,0 +1,5 @@
+# Training (train.py) and export (export_tflite.py) of the digit model.
+# Development only: the image runs the exported .tflite with LiteRT.
+-r requirements.txt
+tensorflow==2.21.0
+keras==3.15.1
