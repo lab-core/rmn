@@ -48,9 +48,9 @@ describe('CreateUserDialogComponent', () => {
     component.attemptCreate();
     expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('minimum 8'), 'Avertissement!');
 
-    fill('bob', 'x'.repeat(65), 'x'.repeat(65), 'Utilisateur');
+    fill('bob', 'x'.repeat(33), 'x'.repeat(33), 'Utilisateur');
     component.attemptCreate();
-    expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('maximum 64'), 'Avertissement!');
+    expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('maximum 32'), 'Avertissement!');
 
     fill('bob', 'has a space', 'has a space', 'Utilisateur');
     component.attemptCreate();

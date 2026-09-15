@@ -48,9 +48,9 @@ describe('ChangePasswordDialogComponent', () => {
     component.attemptSave();
     expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('champ'), 'Champ Vide');
 
-    fill('old', 'x'.repeat(65), 'x'.repeat(65));
+    fill('old', 'x'.repeat(33), 'x'.repeat(33));
     component.attemptSave();
-    expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('maximum 64'), 'Avertissement!');
+    expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('maximum 32'), 'Avertissement!');
 
     fill('old', 'has a space', 'has a space');
     component.attemptSave();

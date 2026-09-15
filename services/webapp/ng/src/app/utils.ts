@@ -8,7 +8,7 @@ export const PASSWORD_CHARACTER_REGEX = new RegExp(
   '^[a-zA-ZÀ-ÿ0-9' + PASSWORD_SPECIAL_CHARACTERS.replace(/[\\\]^-]/g, '\\$&') + ']+$');
 /** Same bounds as the server (user_service.MIN/MAX_PASSWORD_LENGTH). */
 export const PASSWORD_MIN_LENGTH = 8;
-export const PASSWORD_MAX_LENGTH = 64;
+export const PASSWORD_MAX_LENGTH = 32;
 
 /** Why a password would be refused by the server, or undefined when it is
  *  acceptable: the dialogs check before sending so the user gets the reason

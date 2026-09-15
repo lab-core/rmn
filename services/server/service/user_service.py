@@ -46,7 +46,7 @@ pattern = re.compile("^[{}]+$".format(pass_characters))
 # reset included). The webapp's change dialog already asked for 8; the
 # server used to accept one character.
 MIN_PASSWORD_LENGTH = 8
-MAX_PASSWORD_LENGTH = 64  # mirrored in the webapp's utils.ts
+MAX_PASSWORD_LENGTH = 32  # mirrored in the webapp's utils.ts
 
 
 def password_error(password):
