@@ -35,8 +35,9 @@ class TemplateService():
             os.makedirs(TEMP_FOLDER)
         try:
             template_file = request.files.get("template_file")
-            template_file_name = secure_filename(template_file.filename)
-            temp_template_file_name = str(TEMP_FOLDER.joinpath(template_file_name))
+            template_file_name = secure_filename(template_file.filename) or "template.pdf"
+            # unique: two users uploading "template.pdf" at once shared the path
+            temp_template_file_name = str(TEMP_FOLDER.joinpath(f"{uuid.uuid4()}_{template_file_name}"))
             template_file.save(FileIO(temp_template_file_name, "wb"))
 
         except Exception as e:
@@ -203,7 +204,17 @@ class TemplateService():
 
         return Response(response=json.dumps({"response": user_templates_list}), status=200)
 
-    def get_template_info(request, db):
+    @staticmethod
+    def readable_by(template_id, user_id):
+        """The query for a template ``user_id`` may read: own, or a locked default.
+
+        Info, download and source used to look the id up alone, so any user
+        could read any template (ids come back from /template/info and travel
+        in share links).
+        """
+        return {"template_id": template_id, "$or": [{"user_id": user_id}, {"locked": True}]}
+
+    def get_template_info(user_id, request, db):
         request_form = request.form
 
         if "user_id" not in request_form:
@@ -217,20 +228,12 @@ class TemplateService():
                 status=400,
             )
 
-        user_id = request_form["user_id"]
         template_id = str(request_form["template_id"])
-
-        if not os.path.exists(TEMP_FOLDER):
-            os.makedirs(TEMP_FOLDER)
-
-
-        # Define db and collection used
-
         collection = db["template"]
 
-        template = collection.find_one({"template_id": template_id})
+        template = collection.find_one(TemplateService.readable_by(template_id, user_id))
         if template is None:
-            return Response(response="Template not found in db.", status=400)
+            return Response(response=json.dumps({"response": "Error: template not found."}), status=404)
 
         template_resp = {
             "template_name": template['template_name'],
@@ -243,7 +246,7 @@ class TemplateService():
 
         return Response(response=json.dumps({"response": template_resp}), status=200)
 
-    def download_template_file(request, db, storage):
+    def download_template_file(user_id, request, db, storage):
         request_form = request.form
 
         #
@@ -254,12 +257,16 @@ class TemplateService():
             )
 
         template_id = str(request_form["template_id"])
-        template = db["template"].find_one({"template_id": template_id})
+        template = db["template"].find_one(TemplateService.readable_by(template_id, user_id))
+        if template is None:
+            return Response(response=json.dumps({"response": "Error: template not found."}), status=404)
         spath = template.get("template_rendered_file_id", template["template_file_id"])
         print("template file path:", spath)
 
-        # Save file to local
-        filepath = str(TEMP_FOLDER.joinpath(template_id))
+        # Save file to local (unique name: a concurrent download removed the
+        # file under the first request)
+        os.makedirs(TEMP_FOLDER, exist_ok=True)
+        filepath = str(TEMP_FOLDER.joinpath(f"{uuid.uuid4()}_{template_id}"))
         # # convert to image if pdf
         # if spath.endswith(".pdf"):
         #     img = convert_from_path(storage.abs_path(spath), dpi=300, first_page=0, last_page=1)[0]
@@ -275,7 +282,7 @@ class TemplateService():
 
         return file_send
 
-    def download_template_source(request, db):
+    def download_template_source(user_id, request, db):
         request_form = request.form
 
         #
@@ -286,7 +293,9 @@ class TemplateService():
             )
 
         template_id = str(request_form["template_id"])
-        template = db["template"].find_one({"template_id": template_id})
+        template = db["template"].find_one(TemplateService.readable_by(template_id, user_id))
+        if template is None:
+            return Response(response=json.dumps({"response": "Error: template not found."}), status=404)
 
         if 'src' not in template:
             return Response(

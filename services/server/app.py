@@ -7,7 +7,7 @@ from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from pathlib import Path
 from rmn_common.status import Job_Status, Output_File, Document_Status
-from rmn_common.questions import validate_questions
+from rmn_common.questions import validate_questions, validate_bonus_map
 from rmn_common.moodle import MoodleFields as MF
 from utils.storage import Storage
 from utils.clients import redis_client, socketio_client, mongo_client
@@ -29,8 +29,35 @@ from functools import wraps
 
 
 app = Flask(__name__)
-cors = CORS(app)
+
+
+def cors_origins(value):
+    """Expand the comma-separated CORS_ORIGINS setting into an allow-list.
+
+    Same syntax as the socketIO service: "*" allows every origin (local
+    development), an entry with a scheme is taken as-is and a bare hostname
+    allows both https:// and http://, so the deployment can pass the public
+    host of rmn-config unchanged.
+    """
+    if value.strip() == "*":
+        return "*"
+    origins = []
+    for entry in (o.strip() for o in value.split(",")):
+        if not entry:
+            continue
+        if "://" in entry:
+            origins.append(entry)
+        else:
+            origins.extend([f"https://{entry}", f"http://{entry}"])
+    return origins
+
+
+# Which browser origins may call the API. Every route is decorated with
+# @cross_origin(), which reads its defaults from these keys: pinned to the
+# public host in production (server.yml), "*" when the variable is absent.
+app.config["CORS_ORIGINS"] = cors_origins(os.getenv("CORS_ORIGINS", "*"))
 app.config["CORS_HEADERS"] = "Content-Type"
+cors = CORS(app)
 
 # Cap the request body. The ingress already limits it (proxy-body-size 5G);
 # this is the backstop when Flask is reached some other way. Copies zips are
@@ -70,7 +97,12 @@ LATEX_INPUT_FILE = ROOT_DIR.joinpath("data.tex")
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 
 
-def check_token(form, role=None):
+def check_token(form, role=None, check_username=True):
+    """The (error response, username) of the token in ``form``.
+
+    ``check_username=False`` for the one route where the form's ``username``
+    legitimately names someone else: an admin creating a user on /signup.
+    """
     # check if token provided
     if "token" not in form:
         return Response(
@@ -88,8 +120,12 @@ def check_token(form, role=None):
             response=json.dumps({"response": "Error: token not valid. Please login.", "code": "token_invalid"}),
             status=401,
         ), None
+    # both fields, when sent, must name the token's owner. The username check
+    # used to be skipped when user_id was also present, so a form with its own
+    # user_id and another user's username reached the handlers that update
+    # the user named by the form.
     if ("user_id" in form and form["user_id"] != username) or \
-            ("username" in form and form["username"] != username and "user_id" not in form):
+            (check_username and "username" in form and form["username"] != username):
         print(f"Error: token belongs to username {username}.")
         return Response(
             response=json.dumps({"response": "Error: token belongs to another username.", "code": "token_invalid"}),
@@ -99,12 +135,12 @@ def check_token(form, role=None):
     return None, username
 
 
-def verify_token(role=None):
+def verify_token(role=None, check_username=True):
     def _verify_token(f):
         @wraps(f)
         def __verify_token(*args, **kwargs):
             # check if token valid
-            resp, user_id = check_token(request.form, role)
+            resp, user_id = check_token(request.form, role, check_username)
             if resp:
                 return resp
             return f(user_id)
@@ -185,9 +221,6 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
                 job = db["eval_jobs"].find_one({"job_id": job_id, "user_id": user_id})
                 if job is None:
                     print(f"Error: job {job_id} for user {user_id} doesn't exist.")
-                    job = db["eval_jobs"].find_one({"job_id": job_id})
-                    if job:
-                        print("Found job:", job)
                     # if there is a share token, try it after
                     if "share_token" not in request_form:
                         return Response(
@@ -286,7 +319,7 @@ def login():
 
 @app.route("/signup", methods=["POST"])
 @cross_origin()
-@verify_token(Role.ADMIN)
+@verify_token(Role.ADMIN, check_username=False)  # the form's username is the new user
 def signup(user_id):
     db = mongo["RMN"]
     return UserService.signup(request, db)
@@ -297,14 +330,14 @@ def signup(user_id):
 @verify_token()
 def update_user(user_id):
     db = mongo["RMN"]
-    return UserService.update_save_verified_images(request, db)
+    return UserService.update_save_verified_images(user_id, request, db)
 
 @app.route("/updateMoodleStructureInd", methods=["PUT"])
 @cross_origin()
 @verify_token()
 def update_moodle_structure_ind(user_id):
     db = mongo["RMN"]
-    return UserService.update_moodle_structure_ind(request, db)
+    return UserService.update_moodle_structure_ind(user_id, request, db)
 
 
 @app.route("/password", methods=["POST"])
@@ -312,7 +345,7 @@ def update_moodle_structure_ind(user_id):
 @verify_token()
 def change_password(user_id):
     db = mongo["RMN"]
-    return UserService.change_password(request, db, True)
+    return UserService.change_password(request, db, True, username=user_id)
 
 
 @app.route("/evaluate", methods=["POST"])
@@ -424,7 +457,7 @@ def evaluate(user_id):
     try:
         # only for a zip with a folder for each student
         notes_csv_file = request.files.get("notes_csv_file")
-        notes_csv_file_name = TEMP_FOLDER.joinpath(secure_filename(notes_csv_file.filename))
+        notes_csv_file_name = temp_upload_path(notes_csv_file.filename)
         notes_csv_file.save(FileIO(notes_csv_file_name, "wb"))
         save_csv(str(notes_csv_file_name), notes_file_id)
 
@@ -441,6 +474,8 @@ def evaluate(user_id):
         zip_file.save(zip_abs_path)
     except Exception as e:
         print(e)
+        # no orphan: a SPLIT job without files would sit in the history forever
+        collection.delete_one({"job_id": job_id})
         return Response(response="Error: Failed to download files.", status=500)
 
     # add to Redis Queue
@@ -455,6 +490,17 @@ def evaluate(user_id):
     )
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+def temp_upload_path(filename):
+    """A path under TEMP_FOLDER that no other request can be using.
+
+    The client filename alone collided: two users uploading ``notes.csv`` in
+    the same second overwrote each other's temp file, so one job got the
+    other's roster.
+    """
+    os.makedirs(TEMP_FOLDER, exist_ok=True)
+    return TEMP_FOLDER.joinpath(f"{uuid.uuid4()}_{secure_filename(filename or '') or 'upload'}")
 
 
 def save_csv(file_name, notes_file_id):
@@ -496,7 +542,7 @@ def delete_template(user_id):
 @verify_token()
 def get_template_info(user_id):
     db = mongo["RMN"]
-    return TemplateService.get_template_info(request, db)
+    return TemplateService.get_template_info(user_id, request, db)
 
 
 @app.route("/template/download", methods=["POST"])
@@ -504,14 +550,14 @@ def get_template_info(user_id):
 @verify_token()
 def download_template(user_id):
     db = mongo["RMN"]
-    return TemplateService.download_template_file(request, db, storage)
+    return TemplateService.download_template_file(user_id, request, db, storage)
 
 @app.route("/template/download/src", methods=["post"])
 @cross_origin()
 @verify_token()
 def download_template_source(user_id):
     db = mongo["RMN"]
-    return TemplateService.download_template_source(request, db)
+    return TemplateService.download_template_source(user_id, request, db)
 
 
 @app.route("/template/modify", methods=["POST"])
@@ -724,7 +770,14 @@ def bonus_job(user_id):
         )
 
     job_id = str(request_form["job_id"])
-    bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
+    try:
+        bonus_enabled_map = json.loads(request_form["bonus_enabled_map"])
+    except ValueError:
+        return Response(response=json.dumps({"response": "Error: bonus_enabled_map is not JSON."}), status=400)
+    # the executor reads this list back: malformed input used to be stored as is
+    error = validate_bonus_map(bonus_enabled_map)
+    if error:
+        return Response(response=json.dumps({"response": f"Error: {error}"}), status=400)
     db = mongo["RMN"]
     # scope to the requesting user so one user cannot mutate another's job
     result = db["eval_jobs"].update_one(
@@ -810,8 +863,7 @@ def csv_job(user_id):
     if not os.path.exists(TEMP_FOLDER):
         os.makedirs(TEMP_FOLDER)
     notes_csv_file = request.files.get("csv")
-    notes_csv_file_name = secure_filename(notes_csv_file.filename)
-    notes_csv_file_name = str(TEMP_FOLDER.joinpath(notes_csv_file_name))
+    notes_csv_file_name = str(temp_upload_path(notes_csv_file.filename))
     notes_csv_file.save(FileIO(notes_csv_file_name, "wb"))
 
     # replace old csv file
@@ -1204,7 +1256,7 @@ def download_file():
     # Save file to local
     filename = request_form.get('filename')
     print("File to send", file_id, filename)
-    filepath = str(TEMP_FOLDER.joinpath(file_id.split(os.sep)[-1]))
+    filepath = str(temp_upload_path(file_id.split(os.sep)[-1]))
     storage.copy_from(file_id, filepath)
     file_send = send_file(filepath, download_name=filename, as_attachment=True)
     os.remove(filepath)
@@ -1537,7 +1589,8 @@ def replace_document(validity):
 
     file = request_files["file"]
     temp_file = tempfile.NamedTemporaryFile(delete_on_close=False)
-    temp_file.write(file.read())
+    # streamed: the upload used to be read whole into memory first
+    file.save(temp_file)
     temp_file.flush()
 
     thread = Thread(target=replace_thread,
@@ -1548,6 +1601,17 @@ def replace_document(validity):
 
 
 def replace_thread(validity, job_id, grades, temp_file):
+    # the temp file is removed whatever happens: an exception in the detached
+    # thread used to leak it (the 200 has already been sent)
+    try:
+        replace_documents(validity, job_id, grades, temp_file.name)
+    finally:
+        temp_file.close()
+        if os.path.exists(temp_file.name):
+            os.remove(temp_file.name)
+
+
+def replace_documents(validity, job_id, grades, zip_path):
     db = mongo["RMN"]
 
     for doc_index, grade in grades.items():
@@ -1581,7 +1645,7 @@ def replace_thread(validity, job_id, grades, temp_file):
         if not r:
             print('Invalid filename:', job_id, q_doc["basename"])
 
-    with ZipFile(temp_file.name, 'r') as zip_file:
+    with ZipFile(zip_path, 'r') as zip_file:
         for file_info in zip_file.infolist():
             if not file_info.filename.endswith(".pdf"):
                 continue
@@ -1611,7 +1675,6 @@ def replace_thread(validity, job_id, grades, temp_file):
                     {"job_id": job_id, "rel_filepath": storage_path, "version": last_version + 1,
                      "version_filepath": version_filepath, "annotations": []}
                 )
-    temp_file.close()
 
 
 def version_basename(filename):
@@ -1646,12 +1709,14 @@ def tag_document(validity):
             )
 
     db = mongo["RMN"]
-    db["job_questions"].update_one({
-        "job_id": str(request_form["job_id"]),
-        "document_index": int(request_form["document_index"])
-    }, {
-        "$set": { "tag": request_form["tag"] }
-    })
+    query = {"job_id": str(request_form["job_id"]), "document_index": int(request_form["document_index"])}
+    q_doc = db["job_questions"].find_one(query)
+    if q_doc is None:
+        return Response(response=json.dumps({"response": "Error: document not found."}), status=404)
+    # a single-question link may only tag its own question
+    if not question_allowed(validity, q_doc.get("question_index")):
+        return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=401)
+    db["job_questions"].update_one(query, {"$set": {"tag": request_form["tag"]}})
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
@@ -1734,7 +1799,14 @@ def update_document(validity):
                     return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
                                     status=404)
         else:
-            grades = [float(g) for g in request_form["grades"]]
+            # the grades of every question of the copy, as a JSON list. This
+            # branch iterated the JSON text character by character and then
+            # returned 404 unconditionally.
+            try:
+                grades = [float(g) for g in json.loads(request_form["grades"])]
+            except (TypeError, ValueError):
+                return Response(response=json.dumps({"response": "Error: grades must be a JSON list of numbers."}),
+                                status=400)
             r = db["job_documents"].update_one(
                 {"job_id": job_id, "document_index": document_index},
                 {"$set": {
@@ -1742,8 +1814,9 @@ def update_document(validity):
                     "grades": grades
                 }}
             )
-            return Response(response=json.dumps({"response": f"Error: document {document_index} not found."}),
-                            status=404)
+            if r.matched_count == 0:
+                return Response(response=json.dumps({"response": f"Error: document {document_index} not found."}),
+                                status=404)
 
     # replacing the previous file by the new one in storage if any
     if "file" in request.files:
@@ -2225,10 +2298,44 @@ def admin_executor():
     redis.rpush("job_queue", "{}")
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
+# limits of the moodle zip sent to /front_page: the archive was extracted with
+# no budget (a small zip can inflate to fill the disk)
+FRONT_PAGE_MAX_MEMBERS = 5000
+FRONT_PAGE_MAX_UNZIPPED_BYTES = 4 * 1024 ** 3
+
+
+def extract_bounded(zip_path, dest, max_members=None, max_bytes=None):
+    """Extract ``zip_path`` into ``dest``; the error message when it exceeds the budget.
+
+    The declared sizes are summed before anything is written. Member names
+    are made safe by ``ZipFile.extract`` itself (``..`` and absolute paths are
+    stripped). The limits default to the module constants at call time.
+    """
+    max_members = FRONT_PAGE_MAX_MEMBERS if max_members is None else max_members
+    max_bytes = FRONT_PAGE_MAX_UNZIPPED_BYTES if max_bytes is None else max_bytes
+    with ZipFile(zip_path, "r") as zip_ref:
+        members = zip_ref.infolist()
+        if len(members) > max_members:
+            return f"Error: the zip has {len(members)} members (max {max_members})."
+        total = sum(m.file_size for m in members)
+        if total > max_bytes:
+            return f"Error: the zip inflates to {total} bytes (max {max_bytes})."
+        zip_ref.extractall(dest)
+    return None
+
+
 @app.route("/front_page", methods=["POST"])
 @cross_origin()
 @verify_token()
 def front_page(user_id):
+    """Add a LaTeX cover page to every copy of a Moodle zip; returns the new zip.
+
+    Needs pdflatex in the image (the published server image has none, so the
+    endpoint answers 501 rather than pretending). Everything happens in a
+    directory created for this request and removed afterwards: the working
+    directory used to be named after the user, so two requests of one user
+    shared it and the user name was a path component.
+    """
     request_form = request.form
 
     if "suffix" not in request_form:
@@ -2257,60 +2364,52 @@ def front_page(user_id):
             status=400,
         )
 
-    user_id = str(request_form["user_id"])
+    if shutil.which(FrontPageHandler.CMD) is None:
+        return Response(
+            response=json.dumps({"response": "Error: LaTeX (pdflatex) is not installed on the server."}),
+            status=501,
+        )
+
     suffix = str(request_form["suffix"])
     moodle_zip = request.files.get("moodle_zip")
     latex_front_page = request.files.get("latex_front_page")
 
-    if not os.path.exists(FRONT_PAGE_TEMP_FOLDER):
-        os.makedirs(FRONT_PAGE_TEMP_FOLDER)
+    os.makedirs(FRONT_PAGE_TEMP_FOLDER, exist_ok=True)
+    work_dir = Path(tempfile.mkdtemp(prefix=f"{secure_filename(user_id) or 'user'}_", dir=FRONT_PAGE_TEMP_FOLDER))
+    try:
+        # streamed to disk: the zip used to be read whole into memory
+        moodle_zip_path = work_dir.joinpath("moodle.zip")
+        moodle_zip.save(str(moodle_zip_path))
+        content_dir = work_dir.joinpath("moodle")
+        content_dir.mkdir()
+        error = extract_bounded(moodle_zip_path, content_dir)
+        if error:
+            return Response(response=json.dumps({"response": error}), status=413)
+        moodle_zip_path.unlink()
 
-    current_temp_folder = FRONT_PAGE_TEMP_FOLDER.joinpath(user_id)
+        latex_front_page_path = work_dir.joinpath(secure_filename(latex_front_page.filename) or "front_page.tex")
+        latex_front_page.save(FileIO(latex_front_page_path, "wb"))
+        shutil.copy(LATEX_INPUT_FILE, work_dir)
+        latex_input_file = work_dir.joinpath("data.tex")
 
-    if not os.path.exists(current_temp_folder):
-        os.makedirs(current_temp_folder)
+        handler = FrontPageHandler()
+        done, failed = handler.addFrontPages(
+            str(work_dir), str(content_dir), suffix, str(latex_front_page_path), str(latex_input_file)
+        )
+        # a failure is reported, not hidden behind a 200 with an incomplete zip
+        if failed or not done:
+            return Response(
+                response=json.dumps({"response": f"Error: {failed} copie(s) sans page couverture, {done} réussie(s)."}),
+                status=500,
+            )
 
-    moodle_zip_name = secure_filename(moodle_zip.filename)
-    latex_front_page_name = secure_filename(latex_front_page.filename)
-
-    # Copy latex_input_file in temp_folder
-    shutil.copy(LATEX_INPUT_FILE, current_temp_folder)
-
-    moodle_zip_filepath = str(current_temp_folder.joinpath(moodle_zip_name))
-    latex_front_page_filepath = str(current_temp_folder.joinpath(latex_front_page_name))
-    latex_input_file_filepath = str(current_temp_folder.joinpath("data.tex"))
-
-    with open(moodle_zip_filepath, "wb") as f_out:
-        file_content = moodle_zip.stream.read()
-        f_out.write(file_content)
-
-    content_temp_folder = current_temp_folder.joinpath("moodle")
-    if not os.path.exists(content_temp_folder):
-        os.makedirs(content_temp_folder)
-
-    with ZipFile(moodle_zip_filepath, 'r') as zip_ref:
-        zip_ref.extractall(content_temp_folder)
-    os.remove(moodle_zip_filepath)
-
-    latex_front_page.save(FileIO(latex_front_page_filepath, "wb"))
-
-    handler = FrontPageHandler()
-    handler.addFrontPages(
-        str(current_temp_folder),
-        content_temp_folder,
-        suffix,
-        latex_front_page_filepath,
-        latex_input_file_filepath,
-    )
-
-    shutil.make_archive(str(content_temp_folder), "zip", content_temp_folder)
-
-    file_send = send_file(f"{str(content_temp_folder)}.zip")
-
-    shutil.rmtree(str(current_temp_folder))
-
-    return file_send
+        archive = shutil.make_archive(str(work_dir.joinpath("moodle")), "zip", content_dir)
+        # send_file opens the archive now; the directory can go
+        return send_file(archive, download_name="moodle.zip", as_attachment=True)
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # the debugger exposes a console on any unhandled exception: opt in only
+    app.run(debug=os.getenv("FLASK_DEBUG") == "1")

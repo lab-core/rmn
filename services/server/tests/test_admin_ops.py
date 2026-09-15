@@ -53,10 +53,10 @@ def test_admin_delete_user_removes_everything_they_own(
 def test_admin_change_password_needs_no_old_password(client, user_factory, login):
     user_factory("alice", password="pass123")
     resp = client.post(
-        "/admin/change_password", data={"username": "alice", "new_password": "Reset1"}, headers=HEADERS
+        "/admin/change_password", data={"username": "alice", "new_password": "Reset123"}, headers=HEADERS
     )
     assert resp.status_code == 200
-    login("alice", "Reset1")
+    login("alice", "Reset123")
     assert client.post("/login", data={"username": "alice", "password": "pass123"}).status_code == 404
 
 

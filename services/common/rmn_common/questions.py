@@ -90,3 +90,25 @@ def ignored_positions(n_pages_per_question):
         for key, pages in _question_items(n_pages_per_question)
         if not pages
     }
+
+
+def validate_bonus_map(bonus_enabled_map):
+    """Check the per-question bonus list sent to ``/job/update/bonus``.
+
+    Same shape as at task creation: ``[["Q1", true], ...]`` with unique
+    ``Q<n>`` keys and boolean values. Returns an error message (French) or
+    ``None``; the executor reads the stored list back, so garbage must not
+    reach the database.
+    """
+    if not isinstance(bonus_enabled_map, list) or any(
+        not isinstance(e, (list, tuple)) or len(e) != 2 for e in bonus_enabled_map
+    ):
+        return "format des questions invalide."
+    keys = [e[0] for e in bonus_enabled_map]
+    if len(set(keys)) != len(keys):
+        return "question en double."
+    if any(not isinstance(k, str) or QUESTION_KEY.fullmatch(k) is None for k in keys):
+        return "les questions doivent être nommées Q1, Q2, ..."
+    if any(not isinstance(e[1], bool) for e in bonus_enabled_map):
+        return "le bonus d'une question doit être vrai ou faux."
+    return None

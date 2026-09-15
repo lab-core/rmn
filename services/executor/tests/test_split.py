@@ -71,9 +71,7 @@ def test_no_questions_accepts_any_page_count(tmp_path, pdf_factory):
     assert errors == []
 
 
-def test_split_and_save_writes_questions_cover_versions_and_db(
-    tmp_path, storage_root, mongo_db, pdf_factory
-):
+def test_split_and_save_writes_questions_cover_versions_and_db(tmp_path, storage_root, mongo_db, pdf_factory):
     alice = pdf_factory(tmp_path / "alice.pdf", 4)
     bob = pdf_factory(tmp_path / "bob.pdf", 4)
 
@@ -117,9 +115,7 @@ def test_split_and_save_numbers_after_existing_documents(tmp_path, mongo_db, pdf
     assert carol["document_index"] == 1
 
 
-def test_ignored_question_gets_no_folder_but_keeps_its_grade_slot(
-    tmp_path, storage_root, mongo_db, pdf_factory
-):
+def test_ignored_question_gets_no_folder_but_keeps_its_grade_slot(tmp_path, storage_root, mongo_db, pdf_factory):
     pages = {"Q1": 2, "Q2": 0, "Q3": 1}
     pdf = pdf_factory(tmp_path / "alice.pdf", 4)
     generated, errors = split_and_save(pages, [str(pdf)], "job")
@@ -149,9 +145,7 @@ def _zip_with(zip_path, pdfs, junk=True):
             z.writestr(".hidden.pdf", "junk")
 
 
-def test_insert_copies_reads_the_zips_and_records_the_questions(
-    tmp_path, storage_root, mongo_db, pdf_factory
-):
+def test_insert_copies_reads_the_zips_and_records_the_questions(tmp_path, storage_root, mongo_db, pdf_factory):
     alice = pdf_factory(tmp_path / "alice.pdf", 4)
     zip_path = storage_root / "zips" / "job" / "upload.zip"
     _zip_with(zip_path, [alice])
@@ -172,9 +166,7 @@ def test_insert_copies_reads_the_zips_and_records_the_questions(
     assert not (tmp_path / "tmp" / "extracted").exists()
 
 
-def test_insert_copies_raises_after_saving_the_valid_copies(
-    tmp_path, storage_root, mongo_db, pdf_factory
-):
+def test_insert_copies_raises_after_saving_the_valid_copies(tmp_path, storage_root, mongo_db, pdf_factory):
     good = pdf_factory(tmp_path / "good.pdf", 4)
     bad = pdf_factory(tmp_path / "bad.pdf", 3)
     _zip_with(storage_root / "zips" / "job" / "upload.zip", [good, bad], junk=False)
@@ -185,3 +177,21 @@ def test_insert_copies_raises_after_saving_the_valid_copies(
     assert "bad.pdf a 1 page manquante" in str(exc.value)
     assert mongo_db["job_questions"].count_documents({"job_id": "job"}) == 2
     assert (storage_root / "incorrect_files" / "job" / "bad.pdf").exists()
+
+
+def test_a_zip_that_inflates_past_the_budget_is_refused(tmp_path, storage_root, pdf_factory, monkeypatch):
+    # the archive was extracted with no budget (zip bomb on the shared storage)
+    import utils.split as split
+
+    alice = pdf_factory(tmp_path / "alice.pdf", 4)
+    _zip_with(storage_root / "zips" / "job" / "upload.zip", [alice], junk=False)
+    monkeypatch.setattr(split, "MAX_UNZIPPED_BYTES", 10)
+
+    with pytest.raises(ValueError, match="se décompresse en"):
+        insert_copies("zips/job", "job", PAGES, tmp_path / "tmp")
+    assert not (tmp_path / "tmp" / "extracted" / "alice.pdf").exists()
+
+    monkeypatch.setattr(split, "MAX_UNZIPPED_BYTES", 10**9)
+    monkeypatch.setattr(split, "MAX_ZIP_MEMBERS", 0)
+    with pytest.raises(ValueError, match="contient 1 fichiers"):
+        insert_copies("zips/job", "job", PAGES, tmp_path / "tmp")

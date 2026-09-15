@@ -185,3 +185,18 @@ def test_request_body_cap_returns_413(client, app_module_fixture, monkeypatch):
     assert resp.status_code == 413
     assert resp.mimetype == "application/json"
     assert resp.get_json()["response"].startswith("Error")
+
+
+def test_username_field_is_checked_even_with_user_id(client, user_factory, login):
+    # bob's token and user_id with alice's username used to pass: the username
+    # clause was skipped whenever user_id was present, and the profile
+    # handlers then updated the user named by the form
+    user_factory("alice")
+    user_factory("bob")
+    token = login("bob")
+    resp = client.put(
+        "/updateSaveVerifiedImages",
+        data={"user_id": "bob", "username": "alice", "token": token, "saveVerifiedImages": "1"},
+    )
+    assert resp.status_code == 401
+    assert resp.get_json(force=True)["code"] == "token_invalid"

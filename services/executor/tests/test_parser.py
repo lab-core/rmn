@@ -58,3 +58,21 @@ def test_single_path_rejects_ambiguous_globs(tmp_path):
     assert try_alternative_root_path(str(tmp_path / "a1.pdf")) == str(tmp_path / "a1.pdf")
     with pytest.raises(ValueError, match="several possible paths"):
         try_alternative_root_path(str(tmp_path / "a*.pdf"))
+
+
+def test_latex_input_does_not_accumulate_across_runs():
+    # one process handles many jobs: the course and session lines of every
+    # previous run used to stay in Latex.input_content
+    import argparse
+
+    from process_copy import config, parser
+
+    run = argparse.Namespace(course="MTH1106", session="A25", name=None, suffix=None)
+    parser.set_latex_input(run)
+    first = config.Latex.input_content
+    assert first.count("\\cours") == 1 and first.count("\\session") == 1
+    assert run.suffix == "MTH1106_A25_"
+    parser.set_latex_input(argparse.Namespace(course="MTH1106", session="A25", name=None, suffix=None))
+    assert config.Latex.input_content == first
+    parser.set_latex_input(argparse.Namespace(course=None, session=None, name=None, suffix=None))
+    assert config.Latex.input_content == config.Latex.base_input_content

@@ -1,3 +1,5 @@
+import copy
+
 # regex to find a matricule: 7 digits followed by not a number or the end of the line
 re_mat = '[1-2]\\d{6}(?=(?:\\D|$))'
 len_mat = 7
@@ -23,6 +25,11 @@ matricule_box = {
     }
 }
 
+# the boxes above are overwritten with the template of each job; a job whose
+# template has no box must fall back to these, not inherit the previous job's
+DEFAULT_GRADE_BOX = copy.deepcopy(grade_box)
+DEFAULT_MATRICULE_BOX = copy.deepcopy(matricule_box)
+
 # digit the model confuses -> digit it may actually be. The second one is added
 # to the candidates of a box with probability 0, so it is only chosen when the
 # total check needs it: a printed or handwritten 1 with a top flag reads as 7.
@@ -42,6 +49,9 @@ class Latex:
     cmd = "pdflatex"
     input_file = 'data.tex'
     input_content = "\\renewcommand{\\nom}{%s}\n\\renewcommand{\\matricule}{%s}\n"
+    # parse_run_args appends the course / session / name lines of a run to
+    # input_content; it starts again from this base each time
+    base_input_content = input_content
 
 
 # MoodleFields moved to rmn_common.moodle (shared with the server)

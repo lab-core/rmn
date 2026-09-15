@@ -14,6 +14,7 @@ from PIL import Image
 from pathlib import Path
 
 from python.process_copy.parser import parse_run_args, grade_box, matricule_box
+from python.process_copy.config import DEFAULT_GRADE_BOX, DEFAULT_MATRICULE_BOX
 from python.process_copy.recognize import get_date, write_box_contours
 from rmn_common.moodle import MoodleFields as MF
 from python.process_copy.mcc import group_label, zipdirbatch
@@ -24,6 +25,7 @@ from utils.merge import process_merge
 from rmn_common.status import Job_Status, Document_Status
 from rmn_common.questions import question_sort_key, ignored_positions
 from rmn_common.paths import safe_path_component, ensure_within
+from rmn_common.spreadsheet import defuse_csv
 from utils.storage import Storage
 from utils.stop_handler import StopHandler
 from utils.clients import redis_client, socketio_client, update_status
@@ -101,9 +103,34 @@ def save_number_images(storage, job_id, document_index, questions):
         print(e)
 
 
+def apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricule_list):
+    """Point the recogniser at the boxes of this job's templates.
+
+    The boxes are module globals of ``config``; a job whose template defines
+    no box used to keep the previous job's coordinates (one process handles
+    many jobs outside production), so it now falls back to the defaults.
+    """
+    def rounded(values, default):
+        return tuple(round(x, 2) for x in values) if values is not None else default
+
+    matricule_box['exam']['regular'] = rounded(regular_box_matricule_list, DEFAULT_MATRICULE_BOX['exam']['regular'])
+    matricule_box['exam']['front'] = rounded(box_matricule_list, DEFAULT_MATRICULE_BOX['exam']['front'])
+    grade_box['exam']['grade'] = rounded(box_grade_list, DEFAULT_GRADE_BOX['exam']['grade'])
+
+
+# job ids come from the Redis queue and name directories: server-generated
+# UUIDs, so anything else is refused before it becomes a path
+JOB_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+
+
+def valid_job_id(job_id):
+    return isinstance(job_id, str) and JOB_ID_PATTERN.fullmatch(job_id) is not None
+
+
 def check_for_idle_jobs_to_requeue(db, sleep):
     alive_times = {}
     collection_check = db.get_collection("check")
+    locked = False
     try:
         if collection_check.count_documents({}) == 0:
             collection_check.insert_one({'locked': True})
@@ -191,7 +218,11 @@ def check_for_idle_jobs_to_requeue(db, sleep):
                 print("Sleep before checking again running jobs.")
                 time.sleep(5)
     finally:
-        collection_check.update_one({'locked': True}, {'$set': {'locked': False}})
+        # only the pod that acquired the lock releases it: an executor whose
+        # conditional update matched nothing used to unlock the real holder,
+        # and two executors then requeued the same jobs concurrently
+        if locked:
+            collection_check.update_one({'locked': True}, {'$set': {'locked': False}})
 
 
 if __name__ == "__main__":
@@ -352,12 +383,15 @@ if __name__ == "__main__":
             corrected_copies = os.path.join(storage.abs_path('corrected_copies'), job_id)
 
         #
-        user = db.users_collection().find_one({"username": user_id})
-        save_verified_images = user["saveVerifiedImages"]
-        moodle_ind = bool(int(user["moodleStructureInd"]))
+        # a deleted user keeps the defaults; a job without output cannot finalize
+        user = db.users_collection().find_one({"username": user_id}) or {}
+        save_verified_images = bool(user.get("saveVerifiedImages", False))
+        moodle_ind = bool(int(user.get("moodleStructureInd", True)))
 
         #
         output = db.jobs_output_collection().find_one({"job_id": job_id})
+        if output is None or not output.get("notes_csv_file_id"):
+            raise LookupError(f"no output csv recorded for job {job_id}")
         notes_csv_file_id = output["notes_csv_file_id"]
 
         # Save file to local
@@ -422,8 +456,10 @@ if __name__ == "__main__":
                     df.loc[mat, MF.mdate] = date
                     df.loc[mat, "index"] = doc["document_index"] + 1
 
-        # save grades
+        # save grades; the file is opened in a spreadsheet by the teacher, so a
+        # roster value that reads as a formula is neutralised first
         df.to_csv(csv_file_path, mode="w+")
+        defuse_csv(csv_file_path)
 
         # update all document status
         db.documents_collection().update_many(
@@ -680,12 +716,7 @@ if __name__ == "__main__":
         box_grade_list, box_matricule_list, regular_box_matricule_list = \
             db.get_templates_info(job_params["front_template_id"],
                                   job_params["regular_template_id"])
-        if regular_box_matricule_list is not None:
-            matricule_box['exam']['regular'] = tuple([round(x, 2) for x in regular_box_matricule_list])
-        if box_matricule_list is not None:
-            matricule_box['exam']['front'] = tuple([round(x, 2) for x in box_matricule_list])
-        if box_grade_list is not None:
-            grade_box['exam']['grade'] = tuple([round(x, 2) for x in box_grade_list])
+        apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricule_list)
 
         args = [
             copies_folder,
@@ -729,8 +760,9 @@ if __name__ == "__main__":
             cleanup_deleted_job(job_id)
             return
 
-        # Save csv files in storage
+        # Save csv files in storage (downloadable from here on: formulas out)
         notes_csv_file_id = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
+        defuse_csv(os.path.join(OUTPUT_FOLDER, "notes.csv"))
         storage.move_to(os.path.join(OUTPUT_FOLDER, "notes.csv"), notes_csv_file_id)
 
         # finalize job: add job output to database if not existinf already -> first time the job is processed
@@ -882,7 +914,10 @@ if __name__ == "__main__":
 
                 if job:
                     # create tmp work dir
-                    jid = job["template_id"] if "template_id" in job else job["job_id"]
+                    jid = job["template_id"] if "template_id" in job else job.get("job_id")
+                    if not valid_job_id(jid):
+                        print(f"Refusing job with an invalid id: {jid!r}")
+                        continue
                     WORK_TMP_DIR = ROOT_DIR.joinpath(f"tmp_{jid}")
                     WORK_TMP_DIR.mkdir(exist_ok=True)
 
