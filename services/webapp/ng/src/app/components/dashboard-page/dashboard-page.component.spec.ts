@@ -293,4 +293,30 @@ describe('DashboardPageComponent', () => {
     expect(socket.socket.handlers['doc_validated']).toBeUndefined();
     expect(socket.leave).toHaveBeenCalledWith('job');
   });
+
+  it('the histogram copes with a zero maximum and out-of-range grades', async () => {
+    await create();
+    const stats = (question: any): any => ({ name: 'Q1', index: 0, bonus: false, count: 0, validatedCount: 0,
+      total: 0, average: 0, stdDev: 0, histogram: [], validatedFilenames: new Set<string>(), ...question });
+    // max 0 gave NaN bins and threw inside the socket handler
+    const zero = component['computeHistogram'](stats({ grades: [0, 0], max: 0 }));
+    expect(zero.length).toBe(1);
+    expect(zero[0]).toEqual({ value: 0, count: 2 });
+    // a negative grade indexed bins[-1]
+    // max grade 12 over 10 bins: a bin every 2 points, 7 bins from 0 to 12
+    const bins = component['computeHistogram'](stats({ grades: [-1, 3, 12], max: 10 }));
+    expect(bins.map(b => b.value)).toEqual([0, 2, 4, 6, 8, 10, 12]);
+    expect(bins.map(b => b.count)).toEqual([1, 1, 0, 0, 0, 0, 1]);
+  });
+
+  it('toggling the bonus of a single-question task does not add its max to itself', async () => {
+    await create({ ...TASK, n_max_points_per_question: [['Q1', 10]], bonus_enabled_map: [['Q1', false]], n_pages_per_question: [['Q1', 2]] });
+    await settle();
+    expect(component.questions.length).toBe(1);
+    const q1 = component.questions[0];
+    q1.bonus = true;
+    component.questionBonusChange(q1);
+    expect(q1.max).toBe(10);
+    expect(component.task.bonus_enabled_map).toEqual([['Q1', true]]);
+  });
 });
