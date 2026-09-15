@@ -182,6 +182,11 @@ def test_passwords_shorter_than_the_minimum_are_refused(client, user_factory, lo
         headers={"X-Admin-Key": "test-admin-key"},
     )
     assert resp.status_code == 400
+    too_long = "A" * (user_service.MAX_PASSWORD_LENGTH + 1)
+    resp = client.post(
+        "/signup", data={"user_id": "root", "token": root, "role": USER, "username": "bob", "password": too_long}
+    )
+    assert resp.status_code == 400 and "64 characters" in json.loads(resp.data)["response"]
     # the old password is untouched by the refused attempts
     login("alice", "pass1234")
 

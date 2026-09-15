@@ -46,12 +46,15 @@ pattern = re.compile("^[{}]+$".format(pass_characters))
 # reset included). The webapp's change dialog already asked for 8; the
 # server used to accept one character.
 MIN_PASSWORD_LENGTH = 8
+MAX_PASSWORD_LENGTH = 64  # mirrored in the webapp's utils.ts
 
 
 def password_error(password):
     """The reason a password is refused, or None when it is acceptable."""
     if len(password) < MIN_PASSWORD_LENGTH:
         return f"Error: password must be at least {MIN_PASSWORD_LENGTH} characters long."
+    if len(password) > MAX_PASSWORD_LENGTH:
+        return f"Error: password must be at most {MAX_PASSWORD_LENGTH} characters long."
     if pattern.match(password) is None:
         return (
             "Error: password contains illegal characters. You can use letters, digits and "
