@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.14
+# slim: the full image carries a compiler toolchain (about 850 MB) that a
+# service of pure-Python wheels never uses
+FROM python:3.14-slim
 
 WORKDIR /SocketIO
 
