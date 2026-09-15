@@ -5,6 +5,11 @@ function printBashUsage {
   echo "Usage:"
   echo "-h | --help: display this message"
   echo "-i | --install: install all the configurations."
+  echo "-p | --pull: pull every image of the deployment into the minikube node first."
+  echo "             The kubelet pulls one image at a time: a slow 1.5 GB executor pull"
+  echo "             blocks every other rollout (redis included) until it ends. Run it"
+  echo "             before -a or -r; with the images already on the node, the"
+  echo "             kubelet only compares digests."
   echo "-a | --apply: apply the yml files."
   echo "-r | --rollout: rollout deployments."
   echo "-d | --deployment: deployment name for rollout. Default: all deployments will be rollout."
@@ -32,6 +37,7 @@ while [ ! -z ${A[${i}]} ]; do
   case ${A[${i}]} in
     -h|--help) printBashUsage; exit 0;;
     -i | --install) INSTALL="1"; ((i+=1));;
+    -p | --pull) PULL="1"; ((i+=1));;
     -a | --apply) APPLY="1"; ((i+=1));;
     -r | --rollout) ROLLOUT="1"; ((i+=1));;
     -d | --deployment) DEPLOYMENT=${A[((i+1))]}; ((i+=2));;
@@ -65,8 +71,30 @@ if [[ ! -z $INSTALL ]]; then
   exit 0;
 fi
 
+if [[ ! -z $PULL ]]; then
+  SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  # every image the rendered manifests reference, the digest-pinned ones
+  # included; `minikube image pull` stores them in the node's runtime, outside
+  # the kubelet's serialized pull queue
+  IMAGES=$(kubectl kustomize "${SCRIPT_DIR}/deployment" | sed -n 's/^[[:space:]-]*image:[[:space:]]*//p' | tr -d '"' | sort -u)
+  PULL_FAILED=""
+  for IMAGE in $IMAGES; do
+    echo "== pulling $IMAGE"
+    if ! minikube image pull "$IMAGE"; then
+      echo "   FAILED: $IMAGE"
+      PULL_FAILED="1"
+    fi
+  done
+  echo "== images on the node"
+  minikube image ls | grep -E "rmni/|redis|mongo|alpine/k8s|nfs-server" || true
+  if [[ ! -z $PULL_FAILED ]]; then
+    echo "Some images could not be pulled; the rollout would pull them itself and block on them."
+    exit 1
+  fi
+fi
+
 if [[ ! -z $APPLY ]]; then
-  SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+  SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
   kubectl apply -k ${SCRIPT_DIR}/deployment
   kubectl get pods
 fi
