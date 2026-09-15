@@ -32,5 +32,5 @@ RUN npm run build
 # container never runs as root (the stock image needs root to bind port 80).
 FROM nginxinc/nginx-unprivileged:stable-alpine
 COPY --from=node /app/dist/rmn /usr/share/nginx/html
-COPY webapp/default.conf /etc/nginx/conf.d
+COPY webapp/default.conf webapp/security_headers.inc /etc/nginx/conf.d/
 COPY webapp/assets/* /usr/share/nginx/html/assets/
