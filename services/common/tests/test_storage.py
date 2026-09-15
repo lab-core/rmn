@@ -45,12 +45,31 @@ def test_root_comes_from_the_argument_the_environment_or_the_default(
     assert WithDefault().path == tmp_path / "default"
 
 
-def test_abs_path_joins_the_root_and_keeps_absolute_paths(tmp_path):
+def test_abs_path_joins_the_root_and_keeps_absolute_paths_under_it(tmp_path):
     storage = Storage(tmp_path)
     assert storage.abs_path("documents/j/a.pdf") == str(
         tmp_path / "documents" / "j" / "a.pdf"
     )
-    assert storage.abs_path("/elsewhere/a.pdf") == "/elsewhere/a.pdf"
+    inside = str(tmp_path / "csv" / "j.csv")
+    assert storage.abs_path(inside) == inside
+    assert storage.abs_path("") == str(tmp_path) + os.sep
+    assert storage.abs_path("output_zip/j_*.zip").endswith("j_*.zip")  # globs pass
+
+
+@pytest.mark.parametrize(
+    "path", ["/elsewhere/a.pdf", "../a.pdf", "documents/../../a.pdf", "documents/j/../../../x"]
+)
+def test_abs_path_refuses_paths_that_leave_the_root(tmp_path, path):
+    # every storage read and write resolves its path here
+    storage = Storage(tmp_path)
+    with pytest.raises(ValueError):
+        storage.abs_path(path)
+    with pytest.raises(ValueError):
+        storage.copy_from(path, tmp_path / "out")
+
+
+def test_rel_path(tmp_path):
+    storage = Storage(tmp_path)
     assert storage.rel_path(str(tmp_path / "csv" / "j.csv")) == os.path.join(
         "csv", "j.csv"
     )

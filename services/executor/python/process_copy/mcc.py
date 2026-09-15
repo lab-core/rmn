@@ -311,6 +311,7 @@ def zipdirbatch(path, archive="moodle", batch=None):
             mbs = os.path.getsize(pfile) / MB  # file size in Mb
             asize += mbs
             if batch and asize >= batch:
+                ziph.close()  # flush the central directory before moving on
                 print("\nArchive %s created." % zip_file_name)
                 j = j + 1
                 zip_file_name = "%s%d.zip" % (archive, j)
@@ -326,9 +327,10 @@ def zipdirbatch(path, archive="moodle", batch=None):
     else:
         print("\nNo file to compress for %s" % zip_file_name)
 
-    if len(ziph.namelist()) == 0:
-        print(ziph.namelist())
-        os.remove(ziph.filename)
+    empty = len(ziph.namelist()) == 0
+    ziph.close()
+    if empty:
+        os.remove(zip_file_name)
         zip_file_names.pop()
 
     return zip_file_names

@@ -14,9 +14,14 @@ def test_login_wrong_password(client, user_factory):
     assert resp.status_code == 404
 
 
-def test_login_unknown_user(client):
+def test_login_unknown_user(client, user_factory):
     resp = client.post("/login", data={"username": "ghost", "password": "x"})
     assert resp.status_code == 404
+    # same answer as a wrong password (and the same hash check behind it), so
+    # neither the body nor the timing says whether the username exists
+    user_factory("alice", "pass123")
+    wrong = client.post("/login", data={"username": "alice", "password": "x"})
+    assert wrong.status_code == 404 and wrong.data == resp.data
 
 
 def test_login_missing_password(client, user_factory):

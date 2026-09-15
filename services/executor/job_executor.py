@@ -15,12 +15,12 @@ from pathlib import Path
 
 from python.process_copy.parser import parse_run_args, grade_box, matricule_box
 from python.process_copy.config import DEFAULT_GRADE_BOX, DEFAULT_MATRICULE_BOX
-from python.process_copy.recognize import get_date, write_box_contours, imwrite_png
+from python.process_copy.recognize import get_date, write_box_contours
 from rmn_common.moodle import MoodleFields as MF
 from python.process_copy.mcc import group_label, zipdirbatch
 from python.process_copy.database import Database
 from python.process_copy.add_grades import process_writing
-from utils.stats import create_all_boxplots, create_stats_latex, remove_non_pdfs
+from utils.stats import create_all_boxplots, create_stats_latex
 from utils.merge import process_merge
 from rmn_common.status import Job_Status, Document_Status
 from rmn_common.questions import question_sort_key, ignored_positions
