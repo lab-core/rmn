@@ -2,6 +2,8 @@
 
 import shutil
 
+import pytest
+
 from PIL import Image
 
 from process_copy import add_grades as module
@@ -12,8 +14,13 @@ def test_a_failed_overlay_keeps_the_original_cover_page(mongo_db, storage_root, 
     for index, name in ((0, "a"), (1, "b")):
         pdf_factory(storage_root / "documents" / "job" / "all" / f"{name}.pdf")
         mongo_db["job_documents"].insert_one(
-            {"job_id": "job", "document_index": index, "status": "VALIDATED", "grades": [4],
-             "rel_filepath": f"documents/job/all/{name}.pdf"}
+            {
+                "job_id": "job",
+                "document_index": index,
+                "status": "VALIDATED",
+                "grades": [4],
+                "rel_filepath": f"documents/job/all/{name}.pdf",
+            }
         )
     original_b = (storage_root / "documents" / "job" / "all" / "b.pdf").read_bytes()
 
@@ -26,8 +33,12 @@ def test_a_failed_overlay_keeps_the_original_cover_page(mongo_db, storage_root, 
     monkeypatch.setattr(module, "add_grades", fake_add_grades)
     tmp_dir = storage_root / "tmp"
     tmp_dir.mkdir()
-    job = {"job_id": "job", "front_template_id": "front", "regular_template_id": None,
-           "n_pages_per_question": [["Q1", 2]]}
+    job = {
+        "job_id": "job",
+        "front_template_id": "front",
+        "regular_template_id": None,
+        "n_pages_per_question": [["Q1", 2]],
+    }
 
     failed = module.process_writing(job, tmp_dir, dpi=72)
 
@@ -37,3 +48,18 @@ def test_a_failed_overlay_keeps_the_original_cover_page(mongo_db, storage_root, 
     # copy b keeps its own cover page instead of receiving copy a's
     assert (storage_root / "documents" / "job" / "all" / "b.pdf").read_bytes() == original_b
     shutil.rmtree(tmp_dir)
+
+
+@pytest.mark.skipif(shutil.which("pdftoppm") is None, reason="poppler not installed")
+def test_add_grades_writes_nothing_when_the_boxes_are_not_found(tmp_path, pdf_factory):
+    # a blank page has no grade table: the overlay used to be written anyway
+    # (a cover page without grades) and its failure was never reported
+    from process_copy import recognize
+
+    pdf = pdf_factory(tmp_path / "blank.pdf")
+    img_path = tmp_path / "overlay.jpg"
+    ok = recognize.add_grades(
+        [1, 2], str(pdf), (0.82, 0.96, 0.15, 0.55), str(img_path), add_border=False, shape=(1275, 1650)
+    )
+    assert ok is False
+    assert not img_path.exists()

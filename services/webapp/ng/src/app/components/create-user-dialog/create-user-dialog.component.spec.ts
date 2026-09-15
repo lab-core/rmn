@@ -44,11 +44,23 @@ describe('CreateUserDialogComponent', () => {
     component.attemptCreate();
     expect(notification.showWarning).toHaveBeenCalledWith(jasmine.any(String), 'Champ Vide');
 
-    fill('bob', 'pw', 'other', 'Utilisateur');
+    fill('bob', 'S3cret!', 'S3cret!', 'Utilisateur');
+    component.attemptCreate();
+    expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('minimum 8'), 'Avertissement!');
+
+    fill('bob', 'x'.repeat(33), 'x'.repeat(33), 'Utilisateur');
+    component.attemptCreate();
+    expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('maximum 32'), 'Avertissement!');
+
+    fill('bob', 'has a space', 'has a space', 'Utilisateur');
+    component.attemptCreate();
+    expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('Caractères permis'), 'Avertissement!');
+
+    fill('bob', 'S3cret!!', 'other!!!', 'Utilisateur');
     component.attemptCreate();
     expect(notification.showError).toHaveBeenCalledWith(jasmine.any(String), 'Champs Non Égaux');
 
-    fill('bob', 'pw', 'pw', '');
+    fill('bob', 'S3cret!!', 'S3cret!!', '');
     component.attemptCreate();
     expect(notification.showWarning).toHaveBeenCalledWith(jasmine.any(String), 'Type de Compte');
 
@@ -56,16 +68,16 @@ describe('CreateUserDialogComponent', () => {
   });
 
   it('creates the account through the user service and closes', () => {
-    fill('bob', 'S3cret', 'S3cret', 'Administrateur');
+    fill('bob', 'S3cret!!', 'S3cret!!', 'Administrateur');
     component.attemptCreate();
-    expect(user.signup).toHaveBeenCalledWith('bob', 'S3cret', 'Administrateur');
+    expect(user.signup).toHaveBeenCalledWith('bob', 'S3cret!!', 'Administrateur');
     expect(notification.showSuccess).toHaveBeenCalledWith('', 'Compte Créé');
     expect(dialogRef.close).toHaveBeenCalled();
   });
 
   it('reports the server error and stays open', () => {
     user.signup.and.returnValue(throwError(() => ({ error: { response: "Nom d'utilisateur existant" } })));
-    fill('bob', 'S3cret', 'S3cret', 'Utilisateur');
+    fill('bob', 'S3cret!!', 'S3cret!!', 'Utilisateur');
     component.attemptCreate();
     expect(notification.showError).toHaveBeenCalledWith("Nom d'utilisateur existant", 'Erreur à la création du compte');
     expect(dialogRef.close).not.toHaveBeenCalled();

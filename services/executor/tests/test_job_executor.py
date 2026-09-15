@@ -121,8 +121,13 @@ def test_a_job_out_of_retries_fails_instead_of_being_requeued(mongo_db, monkeypa
     redis, sio = _fake_backends(monkeypatch)
     stale = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=job_executor.MAX_IDLE_TIME + 60)
     mongo_db["eval_jobs"].insert_one(
-        {"job_id": "stuck", "user_id": "alice", "job_status": "RUN", "alive_time": stale,
-         "retry": job_executor.MAX_RETRY}
+        {
+            "job_id": "stuck",
+            "user_id": "alice",
+            "job_status": "RUN",
+            "alive_time": stale,
+            "retry": job_executor.MAX_RETRY,
+        }
     )
 
     check_for_idle_jobs_to_requeue(Database(), sleep=False)
@@ -158,3 +163,70 @@ def test_nothing_to_do_leaves_the_queue_alone(mongo_db, monkeypatch):
     assert redis.llen("job_queue") == 0
     assert not sio.emit.called
     assert mongo_db["check"].find_one()["locked"] is False
+
+
+# ------------------------------------------------------- idle sweep lock (X16)
+
+
+def test_a_pod_that_did_not_get_the_lock_leaves_it_alone(mongo_db, monkeypatch):
+    # the finally used to unlock unconditionally, so the pod that lost the race
+    # released the holder's lock and two executors swept concurrently
+    _fake_backends(monkeypatch)
+    mongo_db["check"].insert_one({"locked": True})
+
+    check_for_idle_jobs_to_requeue(Database(), sleep=False)
+
+    assert mongo_db["check"].find_one()["locked"] is True
+
+
+# --------------------------------------------------- template boxes (X11)
+
+
+def test_template_boxes_fall_back_to_the_defaults(monkeypatch):
+    from process_copy.config import DEFAULT_GRADE_BOX, DEFAULT_MATRICULE_BOX
+
+    job_executor.apply_template_boxes([0.1, 0.9, 0.6, 0.9], [0.2, 0.8, 0.1, 0.3], None)
+    assert job_executor.grade_box["exam"]["grade"] == (0.1, 0.9, 0.6, 0.9)
+    assert job_executor.matricule_box["exam"]["front"] == (0.2, 0.8, 0.1, 0.3)
+    assert job_executor.matricule_box["exam"]["regular"] == DEFAULT_MATRICULE_BOX["exam"]["regular"]
+
+    # the next job has no boxes: it must not inherit the previous job's
+    job_executor.apply_template_boxes(None, None, None)
+    assert job_executor.grade_box["exam"]["grade"] == DEFAULT_GRADE_BOX["exam"]["grade"]
+    assert job_executor.matricule_box["exam"]["front"] == DEFAULT_MATRICULE_BOX["exam"]["front"]
+
+
+# ------------------------------------------------------------ job ids (X20)
+
+
+def test_job_ids_from_the_queue_must_look_like_ids():
+    assert job_executor.valid_job_id("6667a9b4-21b8-4450-ab6c-1e9e89537e38")
+    assert job_executor.valid_job_id("template_12")
+    for bad in ("../etc", "a/b", "", None, 12, "x" * 65, "-leading", "sp ace"):
+        assert not job_executor.valid_job_id(bad), bad
+
+
+def test_defused_grades_csv_survives_the_pandas_round_trip(tmp_path):
+    # the finalize step reads back the csv it wrote after the first run: the
+    # apostrophe must stay on the hostile name and off the grades and index
+    import pandas as pd
+    from rmn_common.moodle import MoodleFields as MF
+
+    path = tmp_path / "notes.csv"
+    df = pd.DataFrame(
+        {
+            MF.mat: ["1234567", "2345678"],
+            MF.name: ['=HYPERLINK("http://evil")', "Dupont, Marie"],
+            MF.grade: [12.5, None],
+            MF.mdate: ["-", "-"],
+        }
+    ).set_index(MF.mat)
+    df.to_csv(path)
+    assert job_executor.defuse_csv(path) == 1
+
+    back = pd.read_csv(path, index_col=MF.mat, dtype={MF.mat: str})
+    assert list(back.index) == ["1234567", "2345678"]
+    assert back[MF.name].tolist() == ["'=HYPERLINK(\"http://evil\")", "Dupont, Marie"]
+    assert back[MF.grade].fillna(0).tolist() == [12.5, 0]
+    assert (back[MF.mdate] == "-").all()
+    assert job_executor.defuse_csv(path) == 0

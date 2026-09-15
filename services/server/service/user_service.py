@@ -36,8 +36,34 @@ def token_expired(record, now=None):
     now = now or dt.datetime.now(dt.UTC)
     return now - _utc(created) >= dt.timedelta(days=TOKEN_TTL_DAYS)
 
-pass_characters = "a-zA-ZÀ-ÿ0-9.@!#%$?_-"
+# Special characters accepted in a password: the classical set (the one
+# Bitwarden generates, !@#$%^&*) plus the . ? _ - that were always accepted.
+# The regex and the error message are both built from this list.
+PASSWORD_SPECIAL_CHARACTERS = "!@#$%^&*.?_-"
+pass_characters = "a-zA-ZÀ-ÿ0-9" + re.escape(PASSWORD_SPECIAL_CHARACTERS)
 pattern = re.compile("^[{}]+$".format(pass_characters))
+# Shortest accepted password, on signup and on both change routes (the admin
+# reset included). The webapp's change dialog already asked for 8; the
+# server used to accept one character.
+MIN_PASSWORD_LENGTH = 8
+MAX_PASSWORD_LENGTH = 32  # mirrored in the webapp's utils.ts
+
+
+def password_error(password):
+    """The reason a password is refused, or None when it is acceptable."""
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return f"Error: password must be at least {MIN_PASSWORD_LENGTH} characters long."
+    if len(password) > MAX_PASSWORD_LENGTH:
+        return f"Error: password must be at most {MAX_PASSWORD_LENGTH} characters long."
+    if pattern.match(password) is None:
+        return (
+            "Error: password contains illegal characters. You can use letters, digits and "
+            + " ".join(PASSWORD_SPECIAL_CHARACTERS)
+        )
+    return None
+# the username names a directory under front_page_temp and is a key everywhere
+# else: letters, digits and . _ @ - only, 3 to 64 characters
+username_pattern = re.compile(r"^[A-Za-z0-9._@-]{3,64}$")
 
 
 class Role(Enum):
@@ -182,11 +208,15 @@ class UserService:
         password = request_form['password']
         role = request_form['role']
 
-        if pattern.match(password) is None:
+        if username_pattern.match(username) is None:
             return Response(
-                response=json.dumps({"response": f"Error: password contains illegal characters. You can use only those: %s" % pass_characters}),
+                response=json.dumps({"response": "Error: username must be 3 to 64 characters among letters, digits and . _ @ -"}),
                 status=400,
             )
+
+        error = password_error(password)
+        if error is not None:
+            return Response(response=json.dumps({"response": error}), status=400)
 
         if not Role.available(role):
             return Response(
@@ -218,19 +248,18 @@ class UserService:
             status=200
         )
 
-    def update_save_verified_images(request, database):
+    def update_save_verified_images(username, request, database):
+        """Set the saveVerifiedImages flag of ``username`` (the token's owner).
+
+        The form's ``username`` used to be trusted; ``check_token`` now refuses
+        a form naming another user and the handlers no longer read it.
+        """
         request_form = request.form
-        if "username" not in request_form:
-            return Response(
-                response=json.dumps({"response": f"Error: username not provided."}),
-                status=400,
-            )
         if "saveVerifiedImages" not in request_form:
             return Response(
                 response=json.dumps({"response": f"Error: saveVerifiedImages not provided."}),
                 status=400,
             )
-        username = request_form['username']
         save_verified_images = bool(int(request_form['saveVerifiedImages']))
 
         collection = database["users"]
@@ -243,19 +272,14 @@ class UserService:
             response=json.dumps({"response": f'Utilisateur mise-à-jour'}),
         )
 
-    def update_moodle_structure_ind(request, database):
+    def update_moodle_structure_ind(username, request, database):
+        """Set the moodleStructureInd flag of ``username`` (the token's owner)."""
         request_form = request.form
-        if "username" not in request_form:
-            return Response(
-                response=json.dumps({"response": f"Error: username not provided."}),
-                status=400,
-            )
         if "moodleStructureInd" not in request_form:
             return Response(
                 response=json.dumps({"response": f"Error: moodleStructureInd not provided."}),
                 status=400,
             )
-        username = request_form['username']
         moodle_structure_ind = bool(int(request_form['moodleStructureInd']))
 
         collection = database["users"]
@@ -279,9 +303,11 @@ class UserService:
         users = collection.find()
         return [u['username'] for u in users]
 
-    def change_password(request, database, verify_old_password):
+    def change_password(request, database, verify_old_password, username=None):
+        """Change a password. ``username`` is the token's owner on /password;
+        the admin route leaves it None and names the user in the form."""
         request_form = request.form
-        if "username" not in request_form:
+        if username is None and "username" not in request_form:
             return Response(
                 response=json.dumps({"response": f"Error: username not provided."}),
                 status=400,
@@ -298,17 +324,19 @@ class UserService:
             )
 
         new_password = request_form['new_password']
-        if pattern.match(new_password) is None:
-            return Response(
-                response=json.dumps({"response": f"Error: new_password contains illegal characters. You can use only those: %s" % pass_characters}),
-                status=400,
-            )
+        error = password_error(new_password)
+        if error is not None:
+            return Response(response=json.dumps({"response": error}), status=400)
 
-        username = request_form['username']
-        collection = database["users"]
-
+        if username is None:
+            username = request_form['username']
         collection = database["users"]
         userDB = collection.find_one({"username": username})
+        if userDB is None:
+            return Response(
+                response=json.dumps({"response": f"Error: user {username} not found."}),
+                status=404,
+            )
 
         if verify_old_password:
             old_password = request_form['old_password']
