@@ -9,20 +9,14 @@ function printBashUsage {
   echo "-r | --rollout: rollout deployments."
   echo "-d | --deployment: deployment name for rollout. Default: all deployments will be rollout."
   echo "-s | --start: start minikube."
-  echo "-m | --memory: memory in MB for minikube. Default: 24576."
+  echo "-m | --memory: memory in MB for minikube. Default: 12268."
   echo "-c | --cpus: cpus for minikube. Default: 3."
   echo "-n | --nohup: run minikube start with nohup."
   echo "-j | --cron-job: create service account for the cron jobs."
 }
 
 # load config arguments in one line
-A=()
-while [ ! -z "$1" ]; do
-    for v in "$1"; do
-        A+=("$v")
-    done
-    shift 1;
-done
+A=("$@")
 
 # parse arguments
 MEMORY="12268"
@@ -89,7 +83,8 @@ if [[ ! -z $ROLLOUT ]]; then
     if [[ -z $ADMIN_API_KEY ]]; then
       echo "ADMIN_API_KEY not set and rmn-secrets/admin-api-key not found: skipping executor pod creation" >&2
     else
-      curl -sS -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost/api/admin/executor; echo
+      # the key goes through curl's config on stdin, not the argv (ps, history)
+      printf 'header = "X-Admin-Key: %s"\n' "$ADMIN_API_KEY" | curl -sS --config - http://localhost/api/admin/executor; echo
     fi
   else
     kubectl rollout restart deployment/$DEPLOYMENT

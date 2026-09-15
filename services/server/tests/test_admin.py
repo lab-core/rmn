@@ -35,7 +35,7 @@ def test_admin_signup_creates_user(client, app_module_fixture):
     resp = client.post(
         "/admin/signup",
         headers={"X-Admin-Key": "test-admin-key"},
-        data={"username": "newuser", "password": "pass123", "role": "Utilisateur"},
+        data={"username": "newuser", "password": "pass1234", "role": "Utilisateur"},
     )
     assert resp.status_code == 200
     assert app_module_fixture.mongo["RMN"]["users"].find_one({"username": "newuser"})
@@ -44,7 +44,7 @@ def test_admin_signup_creates_user(client, app_module_fixture):
 def test_admin_signup_blocked_without_key(client, app_module_fixture):
     resp = client.post(
         "/admin/signup",
-        data={"username": "sneaky", "password": "pass123", "role": "Administrateur"},
+        data={"username": "sneaky", "password": "pass1234", "role": "Administrateur"},
     )
     assert resp.status_code == 403
     assert app_module_fixture.mongo["RMN"]["users"].find_one({"username": "sneaky"}) is None

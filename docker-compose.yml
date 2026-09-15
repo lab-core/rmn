@@ -3,10 +3,15 @@ services:
   redis:
     image: redis:8.10-alpine
     restart: always
-    # require a password from every client (secrets come from the gitignored .env)
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    # require a password from every client (secrets come from the gitignored
+    # .env). Written to a config file at start: on the command line the
+    # password showed in `docker inspect` and `ps`.
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: ["sh", "-c", "printf 'requirepass %s\\n' \"$$REDIS_PASSWORD\" > /tmp/redis.conf && exec redis-server /tmp/redis.conf"]
+    # loopback only: password-protected, but no reason to serve the LAN
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
   mongo:
     # featureCompatibilityVersion of the data is 8.0; when :latest jumps to a
     # new major that rejects it, bump FCV first (setFeatureCompatibilityVersion)
@@ -16,7 +21,7 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - ./storage/mongo:/data/db
   executor:

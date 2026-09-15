@@ -64,8 +64,10 @@ spec:
                     optional: true
               - name: MAX_RETRY
                 value: "5"
+              # below the 5G memory limit: the guard measures the container
+              # (cgroup) and must fire before the OOM-kill does
               - name: MAX_RAM_GB
-                value: "8"
+                value: "4"
               - name: MONGODB_USER
                 valueFrom:
                   secretKeyRef:

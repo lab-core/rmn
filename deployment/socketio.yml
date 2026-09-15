@@ -40,6 +40,14 @@ spec:
               ports:
                 - containerPort: 7000
                   protocol: TCP
+              # the engine.io handshake answers 200 on the polling transport
+              readinessProbe:
+                httpGet: {path: "/socket.io/?EIO=4&transport=polling", port: 7000}
+                periodSeconds: 10
+              livenessProbe:
+                httpGet: {path: "/socket.io/?EIO=4&transport=polling", port: 7000}
+                initialDelaySeconds: 15
+                periodSeconds: 20
               resources:
                 requests: {cpu: 50m, memory: 64Mi}
                 limits: {memory: 256Mi}

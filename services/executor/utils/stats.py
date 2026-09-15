@@ -7,30 +7,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
+# pdflatex is fed strings from the uploaded csv (student names). Escaped, they
+# are typeset literally; unescaped, "\\input{...}" in a cell is executed. The
+# escaper and the pdflatex flags are shared with the server's front pages.
+from rmn_common.tex import LATEX_ENV, LATEX_FLAGS, tex_escape
+
 
 latex_line = "{} & {} & {:.2f} & \\includegraphics[width=\\widthratio \\textwidth]{{{}}}"
-
-# pdflatex is fed strings from the uploaded csv (student names). Escaped, they
-# are typeset literally; unescaped, "\\input{...}" in a cell is executed.
-TEX_SPECIALS = {
-    "\\": "\\textbackslash{}",
-    "&": "\\&",
-    "%": "\\%",
-    "$": "\\$",
-    "#": "\\#",
-    "_": "\\_",
-    "{": "\\{",
-    "}": "\\}",
-    "~": "\\textasciitilde{}",
-    "^": "\\textasciicircum{}",
-}
-# no shell escape, no prompt on error (a compile error hung until the timeout)
-LATEX_FLAGS = ["-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error"]
-
-
-def tex_escape(text):
-    """Escape ``text`` so LaTeX typesets it literally."""
-    return "".join(TEX_SPECIALS.get(c, c) for c in str(text))
 n_latex_line = latex_line
 latex_line += " \\\\ \\hline"
 
@@ -58,6 +41,9 @@ def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, lat
         f.write("\\renewcommand{\\widthratio}{%.2f}\n" % width_plot_ratio)
 
     averages = np.average(all_notes, axis=1)
+    # the boxplots live in TMP_DIR: referenced relative to it, since pdflatex
+    # (openin_any=p) refuses absolute paths even inside the working directory
+    boxplots = [os.path.relpath(b, TMP_DIR) if os.path.isabs(b) else b for b in boxplots]
     with open(TMP_DIR.joinpath("stats.tex"), "w") as f:
         for i in range(n_questions):
             f.write(latex_line.format("%s (/ %d)" % (question_names[i][1:], totals[i]),
@@ -82,11 +68,17 @@ def create_tex_pdf(latex_file, tmp_dir, latex_cmd="pdflatex", timeout=5):
     after, breaking every later relative path. Shell escape is off.
     """
     tmp_dir = Path(tmp_dir)
+    latex_file = Path(latex_file)
+    # LATEX_ENV lets pdflatex read files under the working directory only, so
+    # the main file is compiled from a copy inside it
+    local_tex = tmp_dir.joinpath(latex_file.name)
+    if latex_file.is_file() and latex_file.resolve() != local_tex.resolve():
+        shutil.copy(latex_file, local_tex)
     flog = tmp_dir.joinpath("stdout.log")
     with open(flog, "w") as fstdout:
         try:
-            subprocess.run([latex_cmd, *LATEX_FLAGS, str(latex_file)], stdout=fstdout, stderr=subprocess.STDOUT,
-                           cwd=str(tmp_dir), timeout=timeout, check=True)
+            subprocess.run([latex_cmd, *LATEX_FLAGS, latex_file.name], stdout=fstdout, stderr=subprocess.STDOUT,
+                           cwd=str(tmp_dir), timeout=timeout, check=True, env={**os.environ, **LATEX_ENV})
         except subprocess.TimeoutExpired:
             print(flog.read_text())
             raise ChildProcessError(f"Subprocess latex time out after {timeout} seconds.")

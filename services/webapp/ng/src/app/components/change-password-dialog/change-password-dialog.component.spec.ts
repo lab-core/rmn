@@ -48,6 +48,14 @@ describe('ChangePasswordDialogComponent', () => {
     component.attemptSave();
     expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('champ'), 'Champ Vide');
 
+    fill('old', 'x'.repeat(33), 'x'.repeat(33));
+    component.attemptSave();
+    expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('maximum 32'), 'Avertissement!');
+
+    fill('old', 'has a space', 'has a space');
+    component.attemptSave();
+    expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('Caractères permis'), 'Avertissement!');
+
     fill('old', 'short', 'short');
     component.attemptSave();
     expect(notification.showWarning).toHaveBeenCalledWith(jasmine.stringContaining('8 caractères'), 'Avertissement!');
@@ -91,6 +99,12 @@ describe('ChangePasswordDialogComponent', () => {
     component.updateCharacters(refused);
     expect(allowed.defaultPrevented).toBeFalse();
     expect(refused.defaultPrevented).toBeTrue();
+    // the classical special characters (Bitwarden's set) all pass
+    for (const key of '!@#$%^&*.?_-') {
+      const event = new KeyboardEvent('keypress', { key, cancelable: true });
+      component.updateCharacters(event);
+      expect(event.defaultPrevented).withContext(key).toBeFalse();
+    }
   });
 
   it('toggles the password visibility from the icons', () => {

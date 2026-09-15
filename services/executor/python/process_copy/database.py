@@ -185,6 +185,8 @@ class Database:
         front_template = self.mongo_database["template"].find_one(
             {"template_id": front_template_id}
         )
+        if front_template is None:
+            raise LookupError(f"front template {front_template_id} not found")
         front_template_matricule_box = front_template.get("matricule_box", None)
         front_template_grade_box = front_template.get("grade_box", None)
 

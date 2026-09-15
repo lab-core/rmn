@@ -1,21 +1,38 @@
-import pymupdf
-import traceback
-import unidecode
-import os
-import subprocess
-import shutil
+"""Cover pages for the copies of a Moodle zip (``/front_page``).
 
+Each student folder ``Nom complet_Identifiant_Matricule_assignsubmission_file_``
+holds one PDF; a LaTeX front page with the name and matricule is compiled and
+prepended. The folder name is typeset, so it is escaped for TeX, and pdflatex
+runs in the request's working directory with shell escape off and file reads
+limited to that directory (see ``rmn_common.tex``).
+"""
+
+import os
+import shutil
+import subprocess
+import traceback
+
+import pymupdf
+import unidecode
 from colorama import Fore, Style
-from pathlib import Path
+
+from rmn_common.tex import LATEX_ENV, LATEX_FLAGS, tex_escape
 
 
 class FrontPageHandler:
     CMD = "pdflatex"
+    TIMEOUT = 60  # seconds per cover page (1 s used to fail every compile)
     INPUT_CONTENT = "\\renewcommand{\\nom}{%s}\n\\renewcommand{\\matricule}{%s}\n"
 
     def addFrontPages(
         self, work_directory, input_folder, suffix, latex_front_page, latex_input_file
     ):
+        """Prepend a front page to every copy; returns ``(done, failed)`` counts.
+
+        A copy whose front page fails is left in its folder (it used to be
+        deleted and the zip returned as if complete).
+        """
+        done = failed = 0
         for root, dirs, files in os.walk(input_folder):
             # try to split name based on: "Nom complet_Identifiant_Matricule_assignsubmission_file_"
             folder = root.rsplit(os.sep, 1)[-1]
@@ -46,39 +63,32 @@ class FrontPageHandler:
 
             # rename it
             # use folder name: "Nom complet_Identifiant_Matricule_assignsubmission_file_"
-            try:
-                # pdf file
-                file = files[0]
-                file_path = os.path.join(root, file)
-                fullname = split_folder[0]
-                matricule = split_folder[2]
-                tempname = "_".join(fullname.split(" "))
-                name = os.path.join(
-                    input_folder,
-                    f"{tempname}_{str(matricule)}{f'_{suffix}.pdf' if suffix else file}",
-                )
+            file = files[0]
+            file_path = os.path.join(root, file)
+            fullname = split_folder[0]
+            matricule = split_folder[2]
+            tempname = "_".join(fullname.split(" "))
+            name = os.path.join(
+                input_folder,
+                f"{tempname}_{str(matricule)}{f'_{suffix}.pdf' if suffix else file}",
+            )
 
-                self.copy_file_with_front_page(
-                    file_path,
-                    latex_front_page,
-                    latex_input_file,
-                    work_directory,
-                    name,
-                    name=fullname,
-                    mat=matricule,
-                )
-            except:
+            if self.copy_file_with_front_page(
+                file_path,
+                latex_front_page,
+                latex_input_file,
+                work_directory,
+                name,
+                name=fullname,
+                mat=matricule,
+            ):
+                done += 1
+                shutil.rmtree(root)
+            else:
+                failed += 1
                 print(f"Error while processing {folder}")
-                pass
 
-            # remove folder
-            shutil.rmtree(root)
-
-        root, dirs, files = next(os.walk(input_folder))
-        for d in dirs:
-            # remove any remaining folders
-            folder_path = os.path.join(root, d)
-            shutil.rmtree(folder_path)
+        return done, failed
 
     def copy_file_with_front_page(
         self,
@@ -116,24 +126,29 @@ class FrontPageHandler:
         matricule,
         tmp_dir,
     ):
-        # remove ascents
-        no_accent_name = unidecode.unidecode(name)
-        # write the input file
-        input_data = self.INPUT_CONTENT % (no_accent_name, matricule)
+        # remove accents, then escape: the values come from a folder name of
+        # the uploaded zip
+        no_accent_name = tex_escape(unidecode.unidecode(name))
+        input_data = self.INPUT_CONTENT % (no_accent_name, tex_escape(matricule))
 
         with open(latex_input_file, "w") as f:
             f.write(input_data)
 
-        current_dir = os.path.dirname(__file__)
-        os.chdir(tmp_dir)
-
-        # compile latex file
+        # compile in the request's directory (cwd=, not os.chdir: the process-wide
+        # chdir was not restored on error and left the worker in a deleted
+        # directory)
         try:
-            subprocess.check_call([self.CMD, latex_file], timeout=1)
+            subprocess.run(
+                [self.CMD, *LATEX_FLAGS, latex_file],
+                cwd=tmp_dir,
+                env={**os.environ, **LATEX_ENV},
+                timeout=self.TIMEOUT,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+            )
         except subprocess.TimeoutExpired:
-            raise ChildProcessError("Subprocess latex time out after 1 second.")
-
-        os.chdir(current_dir)
+            raise ChildProcessError(f"Subprocess latex time out after {self.TIMEOUT} seconds.")
 
         # return path to pdf
         fname = os.path.basename(latex_file)

@@ -4,14 +4,22 @@ import datetime as dt
 
 from process_copy.database import Database
 from rmn_common.status import Document_Status, Job_Status
+import pytest
 
 
 def test_insert_question_derives_the_index_from_the_key(mongo_db):
     db = Database()
     db.insert_question("job", 0, "documents/job/Q3/a_Q3.pdf", Document_Status.TO_VALIDATE, "a_Q3", "Q3", "a")
     db.insert_question(
-        "job", 1, "documents/job/Q1/a_Q1.pdf", Document_Status.VALIDATED, "a_Q1", "Q1", "a",
-        question_index=7, grade=2.5,
+        "job",
+        1,
+        "documents/job/Q1/a_Q1.pdf",
+        Document_Status.VALIDATED,
+        "a_Q1",
+        "Q1",
+        "a",
+        question_index=7,
+        grade=2.5,
     )
 
     q3, q1 = mongo_db["job_questions"].find({"job_id": "job"}).sort("document_index")
@@ -22,8 +30,9 @@ def test_insert_question_derives_the_index_from_the_key(mongo_db):
 
 def test_documents_round_trip(mongo_db):
     db = Database()
-    db.insert_document("job", 0, [None, None], "cover_pages/job/a_cover.pdf",
-                       Document_Status.NOT_READY, 1234567, 0, "a")
+    db.insert_document(
+        "job", 0, [None, None], "cover_pages/job/a_cover.pdf", Document_Status.NOT_READY, 1234567, 0, "a"
+    )
 
     doc = db.get_document("job", 0)
     assert doc["matricule"] == "1234567"  # stored as text
@@ -89,3 +98,8 @@ def test_collections_are_named_as_the_server_expects(mongo_db):
     assert db.eval_jobs_collection().name == "eval_jobs"
     assert db.jobs_output_collection().name == "jobs_output"
     assert db.users_collection().name == "users"
+
+
+def test_missing_front_template_is_an_error_not_a_none_dereference(mongo_db):
+    with pytest.raises(LookupError, match="front template nope"):
+        Database().get_templates_info("nope")

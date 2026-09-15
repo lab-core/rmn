@@ -6,10 +6,21 @@ import socketio
 from pymongo import MongoClient
 
 
-mongodb_user = os.getenv("MONGODB_USER", "adminuser")
-mongodb_pass = os.getenv("MONGODB_PASSWORD", "example")
 mongodb_host = "mongo" if os.getenv("ENVIRONMENT") == "production" else "localhost"
-mongo_url = f"mongodb://{mongodb_user}:{mongodb_pass}@{mongodb_host}:27017/?retryWrites=true&w=majority"
+
+
+def mongo_url():
+    """The MongoDB URL from MONGODB_USER / MONGODB_PASSWORD.
+
+    Fails closed: the credentials used to default to adminuser / example, so a
+    missing variable silently connected with the sample password.
+    """
+    user = os.getenv("MONGODB_USER")
+    password = os.getenv("MONGODB_PASSWORD")
+    if not user or not password:
+        raise RuntimeError("MONGODB_USER and MONGODB_PASSWORD must be set")
+    return f"mongodb://{user}:{password}@{mongodb_host}:27017/?retryWrites=true&w=majority"
+
 
 redis_host = "redis" if os.getenv("ENVIRONMENT") == "production" else "localhost"
 socketio_host = (
@@ -18,7 +29,7 @@ socketio_host = (
 
 
 def mongo_client():
-    return MongoClient(mongo_url)
+    return MongoClient(mongo_url())
 
 
 def redis_client():
