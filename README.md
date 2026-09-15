@@ -66,8 +66,8 @@ spec after 10 s.
 Use one virtualenv per Python service (their pins differ); the server and
 executor `requirements-dev.txt` also install `services/common` in editable
 mode. The executor tests
-skip nothing: the Keras model is only loaded by the recognition functions,
-which are not unit-tested.
+skip nothing: the recognition tests run the TFLite digit model on real scan
+crops (`tests/fixtures/recognition`).
 
 ## Docker builds
 
