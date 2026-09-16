@@ -4,7 +4,7 @@
     <!-- <div class="drop-zone" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
       <p>Déposez votre fichier pdf ici</p>
     </div>
-    <input #fileInput hidden="true" type="file" onclick="this.value=null" (change)="CopyFileEvent($event)" accept=".pdf"/>
+    <input #fileInput hidden="true" type="file" (click)="fileInput.value = ''" (change)="CopyFileEvent($event)" accept=".pdf"/>
     <button id="copy-input-button" class="get-document-button" (click)="fileInput.click()">Importer un modèle d'une copie</button>
     <div class="label-box">
         <label for="copy-input-button">{{copyName}}</label>
