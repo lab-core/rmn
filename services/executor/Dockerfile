@@ -1,13 +1,17 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.13
+FROM python:3.13-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# poppler for pdf2image, TeX for the stats report and the cover pages.
+# --no-install-recommends leaves out the TeX documentation (about 100 MB);
+# the Python packages all ship wheels, so no compiler or -dev headers.
 RUN apt-get update \
-    && apt-get install -y poppler-utils libhdf5-dev texlive-latex-base texlive-latex-recommended \
+    && apt-get install -y --no-install-recommends \
+        poppler-utils texlive-latex-base texlive-latex-recommended \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir --upgrade pip setuptools wheel
+    && pip install --no-cache-dir --upgrade pip
 
 # Unprivileged runtime user. UID/GID 1000 is shared with the server image
 # because both write to the same NFS share (see README "Non-root containers").

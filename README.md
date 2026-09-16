@@ -58,7 +58,7 @@ spec after 10 s.
 |----------|---------------------------|
 | common   | `pip install -e . pytest && python -m pytest` (the contracts shared by server, executor and webapp, see `services/common/README.md`; `python -m rmn_common.typescript` regenerates the webapp's enums, the webapp images do it at build time) |
 | server   | `pip install -r requirements-dev.txt && python -m pytest` |
-| executor | `pip install -r requirements-dev.txt && python -m pytest` (Python 3.13; the tested modules import the image's stack, tensorflow included, about 1.8 GB) |
+| executor | `pip install -r requirements-dev.txt && python -m pytest` (Python 3.13; the digit model runs through LiteRT, no TensorFlow needed: about 500 MB of packages) |
 | socketIO | `pip install -r requirements-dev.txt && python -m pytest` |
 | webapp   | `cd ng && npm ci && npx ng test --watch=false --browsers=ChromeHeadlessCI` (`npm test` opens Chrome and re-runs on change) |
 | nginx    | `docker build -t rmn-nginx . && docker run --rm --add-host server:127.0.0.1 --add-host socketio:127.0.0.1 --add-host webapp:127.0.0.1 rmn-nginx nginx -t` |
@@ -66,8 +66,8 @@ spec after 10 s.
 Use one virtualenv per Python service (their pins differ); the server and
 executor `requirements-dev.txt` also install `services/common` in editable
 mode. The executor tests
-skip nothing: the Keras model is only loaded by the recognition functions,
-which are not unit-tested.
+skip nothing: the recognition tests run the TFLite digit model on real scan
+crops (`tests/fixtures/recognition`).
 
 ## Docker builds
 
