@@ -485,6 +485,26 @@ curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_K
 curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "user_id=admin" http://localhost/api/admin/template
 ```
 
+##### Clean the storage share
+Report (and optionally delete) the files and folders that no row of the
+database owns any more: jobs deleted while the share was unreachable, uploads
+interrupted mid-write, and so on. `dry_run` defaults to true, so the call
+below only reports; `min_age_hours` (default 24) skips anything touched more
+recently, which is what keeps the sweep from racing an upload in progress;
+`include_strays=true` also deletes paths that sit under a job prefix without
+matching the layout. `numbers/`, the shared digit corpus, is never swept: no
+row owns it.
+```
+curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost/api/admin/storage/clean
+curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "dry_run=false" http://localhost/api/admin/storage/clean
+```
+`scripts/clean-storage.sh` wraps both calls, formats the report with `jq` and
+asks for confirmation before deleting:
+```
+scripts/clean-storage.sh                 # dry run
+scripts/clean-storage.sh --delete        # after reading the dry run
+```
+
 ##### Create an executor pod
 It will add an empty job in the redis queue to trigger the creation of an executor pod.
 ```
