@@ -179,7 +179,7 @@
                 <div class="breaker"></div>
                 <form [formGroup]="thirdFormGroup">
                     <div class="files-steps-options-container">
-                        <input #csvInput hidden="true" type="file" onclick="this.value=null"
+                        <input #csvInput hidden="true" type="file" (click)="csvInput.value = ''"
                             (change)="CsvFileEvent($event)" accept=".csv" />
                         <button id="csv-input-button" mat-flat-button background-color="green"
                             (click)="csvInput.click()" [disabled]="this.uploading">Téléverser localement</button>
