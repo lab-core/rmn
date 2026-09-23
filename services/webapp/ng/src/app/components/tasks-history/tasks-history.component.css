@@ -220,3 +220,7 @@ mat-progress-spinner {
   left: -3px;
   text-align: center;
 }
+
+.error-info-button {
+    vertical-align: middle;
+}

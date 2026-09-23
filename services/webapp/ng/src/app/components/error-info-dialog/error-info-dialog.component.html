@@ -1,0 +1,9 @@
+<h2 mat-dialog-title>Erreur : {{ data.taskName }}</h2>
+<mat-dialog-content>
+  @for (message of messages; track $index) {
+    <p class="error-message">{{ message }}</p>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-flat-button color="primary" mat-dialog-close>Fermer</button>
+</mat-dialog-actions>
