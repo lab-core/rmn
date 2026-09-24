@@ -252,6 +252,37 @@ def test_a_pass_reads_every_pending_page_and_touches_nothing_else(db, graded_que
     assert db.documents_collection().count_documents({"job_id": JOB}) == 0
 
 
+def test_a_pass_reports_each_reading_it_stored(db, graded_question):
+    # the correction screen colours a copy as soon as it is read: every stored
+    # reading is reported, with what it was read as, and nothing else is
+    import json
+
+    import pymupdf
+
+    from process_copy import auto_grade
+    from utils.storage import Storage
+
+    chosen, root = graded_question
+    # the teacher already validated the third copy
+    db.questions_collection().update_one(
+        {"job_id": JOB, "document_index": 2}, {"$set": {"status": Document_Status.VALIDATED.value}}
+    )
+    run = db.bump_auto_grade_run(JOB, 3)
+    reported = []
+
+    auto_grade.read_question(
+        db, Storage(str(root)), _job_row(db), 3, run, open_pdf=pymupdf.open,
+        on_read=lambda index, reading: reported.append((index, reading)),
+    )
+
+    assert [index for index, _ in reported] == [0, 1]
+    for index, reading in reported:
+        stored = db.questions_collection().find_one({"job_id": JOB, "document_index": index})
+        assert reading.grade == stored["auto_grade"] == chosen[index]["expected"]
+        assert round(float(reading.confidence), 4) == stored["auto_grade_confidence"]
+        json.dumps({"grade": reading.grade, "confidence": float(reading.confidence)})
+
+
 def test_a_pass_stops_when_a_newer_upload_arrives(db, graded_question):
     import pymupdf
 

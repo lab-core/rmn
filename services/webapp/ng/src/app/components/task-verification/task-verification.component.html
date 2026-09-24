@@ -38,7 +38,7 @@
               </div>
             }
             @if (exam.status != DocumentStatus.NOT_READY) {
-              <div [ngClass]="getExamClass(exam)">
+              <div [ngClass]="getExamClass(exam)" [style.background-color]="tileColour(exam)" [title]="tileTitle(exam)">
                 <strong>{{formattedIndexes[exam.document_index]}}</strong>
                 @if (exam.offline) {
                   <mat-icon class="bottom-right-icon">file_copy</mat-icon>
@@ -81,6 +81,7 @@
                 <div class="value-input-div">
                   <input id="score" type="number" [(ngModel)]="currentGrade" placeholder="Note"
                     [ngClass]="'note-input ' + gradeColor() + (currentGradeIsAuto ? ' note-auto' : '')"
+                    [style.border-color]="scoreBorderColour()"
                     [title]="autoGradeHint()"
                     (click)="selectText($event)"/>
                 </div>

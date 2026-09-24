@@ -29,13 +29,13 @@
               }
               @if (exam.status == DocumentStatus.TO_VALIDATE) {
                 <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
-                  >
+                  [style.background-color]="tileColour(exam)" [title]="tileTitle(exam)">
                   <strong>{{i + 1}}</strong>
                 </div>
               }
               @if (exam.status == DocumentStatus.HIGH_ACCURACY) {
                 <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
-                  >
+                  [style.background-color]="tileColour(exam)" [title]="tileTitle(exam)">
                   <strong>{{i + 1}}</strong>
                 </div>
               }
@@ -55,6 +55,9 @@
             <div class="check-list-container">
               <div class="sub-check-container row-container">
                 <h3>Matricule</h3>
+                @if (currentConfidence(); as confidence) {
+                  <span class="matricule-confidence" [style.color]="confidence.colour">{{confidence.label}}</span>
+                }
                 <div class="value-input-div">
                   <ng-select id="matricule" [items]="matriculeList" bindLabel="identifiant"
                     [multiple]="false" [searchable]="true" [clearable]="false" [closeOnSelect]="true"
@@ -107,6 +110,9 @@
             <div class="check-list-container">
               <div class="sub-check-container col-container">
                 <h3>Matricule</h3>
+                @if (currentConfidence(); as confidence) {
+                  <span class="matricule-confidence" [style.color]="confidence.colour">{{confidence.label}}</span>
+                }
                 <div class="value-input-div">
                   <ng-select id="matricule" [items]="matriculeList" bindLabel="identifiant"
                     [multiple]="false" [searchable]="true" [clearable]="false" [closeOnSelect]="true"
