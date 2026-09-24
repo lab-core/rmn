@@ -74,7 +74,12 @@
                   <h3>{{currentExam().question}} (/{{nMaxPointsPerQuestion.get(currentQuestionIndex)}})</h3>
                 </div>
                 <div class="value-input-div">
-                  <input id="score" type="number" [(ngModel)]="currentGrade" placeholder="Note" class="note-input"/>
+                  <input id="score" type="number" [(ngModel)]="currentGrade" placeholder="Note"
+                    [ngClass]="currentGradeIsAuto ? 'note-input note-input-auto' : 'note-input'"
+                    (click)="selectText($event)"/>
+                  @if (currentGradeIsAuto) {
+                    <span class="auto-grade-hint" id="auto-grade-hint">{{autoGradeHint()}}</span>
+                  }
                 </div>
               </div>
               @for (grade of currentGrades | keyvalue : sortNull; track trackByIndex($index, grade)) {

@@ -7,6 +7,7 @@ from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 from pathlib import Path
 from rmn_common.status import Job_Status, Output_File, Document_Status
+from rmn_common import auto_grade
 from rmn_common.questions import validate_questions, validate_bonus_map
 from rmn_common.moodle import MoodleFields as MF
 from utils.storage import Storage
@@ -1514,7 +1515,10 @@ def get_documents(validity):
                 "basename": doc["basename"],
                 "grade": doc["grade"],
                 "tag": doc.get("tag"),
-                "n_total_doc": count
+                "n_total_doc": count,
+                # what the reader made of the page, for the correction screen
+                # to offer; absent on documents older than the feature
+                **auto_grade.projection(doc),
             }
             for doc in docs if question is None or doc["question"] == question
         ]
@@ -1608,14 +1612,20 @@ def replace_document(validity):
     file.save(temp_file)
     temp_file.flush()
 
+    # a supplied grades map wins: the teacher has already said what the
+    # grades are, so there is nothing to read
+    read_grades = (
+        request_form.get("read_grades", "false").lower() == "true" and not grades
+    )
+
     thread = Thread(target=replace_thread,
-                    args=[validity, job_id, grades, temp_file])
+                    args=[validity, job_id, grades, temp_file, read_grades])
     thread.start()
 
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-def replace_thread(validity, job_id, grades, temp_file):
+def replace_thread(validity, job_id, grades, temp_file, read_grades=False):
     # the temp file is removed whatever happens: an exception in the detached
     # thread used to leak it (the 200 has already been sent)
     try:
@@ -1660,6 +1670,7 @@ def replace_documents(validity, job_id, grades, zip_path):
         if not r:
             print('Invalid filename:', job_id, q_doc["basename"])
 
+    touched_questions = set()
     with ZipFile(zip_path, 'r') as zip_file:
         for file_info in zip_file.infolist():
             if not file_info.filename.endswith(".pdf"):
@@ -1690,6 +1701,38 @@ def replace_documents(validity, job_id, grades, zip_path):
                     {"job_id": job_id, "rel_filepath": storage_path, "version": last_version + 1,
                      "version_filepath": version_filepath, "annotations": []}
                 )
+                touched_questions.add(int(question_folder[1:]))
+
+    if read_grades:
+        start_reading_grades(job_id, sorted(touched_questions))
+
+
+def start_reading_grades(job_id, question_indices):
+    """Queue a reading pass per question whose pages were just replaced.
+
+    One payload per question, because that is the unit of work: two questions
+    uploaded separately are read at the same time by the two executor pods.
+    The run number is what lets a second upload of the same question overtake
+    the first -- the executor re-checks it and abandons a pass that is no
+    longer current.
+
+    This runs after the files are in the storage tree: an executor pod picking
+    the job up earlier would read whatever was there before.
+    """
+    db = mongo["RMN"]
+    for question_index in question_indices:
+        try:
+            run = auto_grade.start_run(
+                db["eval_jobs"], db["job_questions"], job_id, question_index
+            )
+            redis.rpush("job_queue", json.dumps({
+                "job_id": job_id,
+                "read_grades": True,
+                "question_index": question_index,
+                "run": run,
+            }))
+        except Exception as e:
+            print(f"Could not queue the grade reading of Q{question_index}: {e}")
 
 
 def version_basename(filename):
@@ -1708,6 +1751,59 @@ def save_new_pdf_version(filename):
     print(f"Save new pdf version ({n_version}):", version_filepath)
     shutil.copy(filename, version_filepath)
     return version_filepath
+
+
+@app.route("/job/read_grades", methods=["POST"])
+@cross_origin()
+@verify_share_token(matricule=False, return_validity=True)
+def read_grades(validity):
+    """Re-read the grades written on a job's pages, without re-uploading.
+
+    How a teacher retries after fixing a copy, and how the reader is exercised
+    on a real job without going through an export/import cycle. Questions a
+    share link does not cover are skipped, and documents someone has already
+    validated are never re-read.
+
+    Form fields: ``job_id``, and ``question_index`` to limit the pass to one
+    question (default: every question of the job).
+    """
+    request_form = request.form
+    if "job_id" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400,
+        )
+
+    # verify_share_token has already refused a job this caller cannot see
+    job_id = str(request_form["job_id"])
+    db = mongo["RMN"]
+
+    if "question_index" in request_form:
+        try:
+            questions = [int(request_form["question_index"])]
+        except ValueError:
+            return Response(
+                response=json.dumps(
+                    {"response": "Error: question_index is not a number."}
+                ),
+                status=400,
+            )
+    else:
+        questions = sorted(db["job_questions"].distinct(
+            "question_index", {"job_id": job_id}
+        ))
+
+    allowed = [q for q in questions if question_allowed(validity, q)]
+    if not allowed:
+        return Response(
+            response=json.dumps({"response": "Error: no question to read."}),
+            status=401,
+        )
+
+    start_reading_grades(job_id, allowed)
+    return Response(
+        response=json.dumps({"response": "OK", "questions": allowed}), status=200
+    )
 
 
 @app.route("/document/tag", methods=["POST"])

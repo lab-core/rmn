@@ -319,3 +319,59 @@ describe('TaskVerificationComponent', () => {
     expect(socket.leave).toHaveBeenCalled();
   });
 });
+
+describe('TaskVerificationComponent grade reading', () => {
+  // The reader fills the score field so the teacher confirms instead of
+  // typing, but a read value is a suggestion: it must never look confirmed,
+  // and a grade a human already set always wins.
+  let component: TaskVerificationComponent;
+
+  beforeEach(() => {
+    component = Object.create(TaskVerificationComponent.prototype) as TaskVerificationComponent;
+  });
+
+  const withExam = (exam: any) => {
+    (component as any).currentExam = () => exam;
+    return component;
+  };
+
+  it('offers what the reader found when nobody has graded the copy', () => {
+    withExam({ grade: null, auto_grade: 8.5, auto_grade_confidence: 0.97 }).loadScore();
+
+    expect(component.currentGrade).toBe(8.5);
+    expect(component.currentGradeIsAuto).toBeTrue();
+    expect(component.autoGradeHint()).toContain('97');
+  });
+
+  it('prefers a grade a human has already set', () => {
+    withExam({ grade: 6, auto_grade: 8.5, auto_grade_confidence: 0.99 }).loadScore();
+
+    expect(component.currentGrade).toBe(6);
+    expect(component.currentGradeIsAuto).toBeFalse();
+    expect(component.autoGradeHint()).toBe('');
+  });
+
+  it('leaves the field empty when the page could not be read', () => {
+    withExam({ grade: null, auto_grade: null, auto_grade_reason: 'not_found' }).loadScore();
+
+    expect(component.currentGrade).toBeNull();
+    expect(component.currentGradeIsAuto).toBeFalse();
+  });
+
+  it('works on copies stored before the reader existed', () => {
+    withExam({ grade: null }).loadScore();
+
+    expect(component.currentGrade).toBeNull();
+    expect(component.currentGradeIsAuto).toBeFalse();
+  });
+
+  it('saves a suggested grade when the teacher confirms it', () => {
+    // the stored grade is still null, so the value has to be persisted rather
+    // than treated as unchanged
+    const exam: any = { grade: null, auto_grade: 8.5, auto_grade_confidence: 0.97 };
+    withExam(exam).loadScore();
+
+    expect(component.saveCurrentGrade()).toBeTrue();
+    expect(exam.grade).toBe(8.5);
+  });
+});

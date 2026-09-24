@@ -15,6 +15,13 @@
     </div>
     <button class="download-zip-button" mat-flat-button (click)="downloadAllFilesAsZip()">Tout télécharger</button>
 
+    <div class="read-grades-container form-group">
+      <label for="readGrades">
+        <input id="readGrades" type="checkbox" [(ngModel)]="readGrades" [ngModelOptions]="{standalone: true}">
+        Lire les notes annotées sur les copies
+      </label>
+    </div>
+
     <div class="upload-container">
       <button class="replace-zip-button" mat-flat-button (click)="fileInput.click()">Tout téléverser</button>
       <!-- <input #fileInput type="file" id="file-input" accept=".zip,.pdf" (change)="onFileSelected($event)"> -->
