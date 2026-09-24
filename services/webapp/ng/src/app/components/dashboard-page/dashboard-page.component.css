@@ -228,3 +228,14 @@ tbody td {
       width: 70%;
   }
 } */
+
+/* what the executor is doing, while it does it */
+.task-progress {
+  margin: 4px 0 8px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background-color: #e8f1fb;
+  color: #1976d2;
+  font-size: 12px;
+  display: inline-block;
+}

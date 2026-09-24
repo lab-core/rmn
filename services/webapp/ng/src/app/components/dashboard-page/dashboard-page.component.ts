@@ -117,10 +117,15 @@ export class DashboardPageComponent {
       this.task.job_status = resp.status;
       this.updateViewOnStatus();
       if (resp.job_infos) {
-        const message = 'Voici les nouvelles infos de la tâche: ' + resp.job_infos;
-        this.notificationService.showInfo(message, 'Infos');
+        // progress arrives here every few copies while the grades are being
+        // read, so it is shown on the page rather than as a toast per update
+        this.taskInfo = resp.job_infos;
+        if (!this.isProgress(resp.job_infos)) {
+          this.notificationService.showInfo(
+            'Voici les nouvelles infos de la tâche: ' + resp.job_infos, 'Infos');
+        }
       }
-      if (statusChanged || resp.job_infos) {
+      if (statusChanged || (resp.job_infos && !this.isProgress(resp.job_infos))) {
         this.loadTask();  // reload the counters (e.g. copies were added)
       }
     };
@@ -129,6 +134,13 @@ export class DashboardPageComponent {
 
   private onDocValidated: SocketHandler;
   private onJobStatus: SocketHandler;
+
+  // what the executor is doing right now, shown while it does it
+  taskInfo: string = '';
+
+  isProgress(info: string): boolean {
+    return typeof info === 'string' && info.includes('%');
+  }
 
   public ngOnDestroy(): void {
     // remove this page's socket listeners (only these) and leave the room so

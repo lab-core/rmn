@@ -817,10 +817,11 @@ if __name__ == "__main__":
             return
 
         def progress(done, total):
+            percent = round(100 * done / total) if total else 100
             emit_job(sio, user_id, job_id, Job_Status(job["job_status"]),
                      infos={"job_infos":
                             f"Lecture des notes de Q{question_index} :"
-                            f" {done}/{total}"})
+                            f" {done}/{total} ({percent} %)"})
 
         # say so before the first page is read: a pass over a few hundred
         # copies is otherwise silent until it is a fifth of the way through,

@@ -5,6 +5,9 @@
   <div class="task-container">
     <div class="task-header">
       <h1>{{ taskName }}</h1>
+      @if (taskInfo) {
+        <div class="task-progress" id="task-progress">{{ taskInfo }}</div>
+      }
     </div>
     @if (!disableButtons) {
 <div class="select-index-container">

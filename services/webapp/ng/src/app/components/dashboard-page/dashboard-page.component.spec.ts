@@ -342,3 +342,22 @@ describe('DashboardPageComponent', () => {
     expect(component.task.bonus_enabled_map).toEqual([['Q1', true]]);
   });
 });
+
+describe('DashboardPageComponent reading progress', () => {
+  // The executor reports every few copies while it reads the grades. That is
+  // worth showing on the page and not worth a toast each time.
+  let component: DashboardPageComponent;
+
+  beforeEach(() => {
+    component = Object.create(DashboardPageComponent.prototype) as DashboardPageComponent;
+  });
+
+  it('recognises a progress report by its percentage', () => {
+    expect(component.isProgress('Lecture des notes de Q1 : 40/57 (70 %)')).toBeTrue();
+  });
+
+  it('does not mistake a real message for progress', () => {
+    expect(component.isProgress('Échec de la finalisation : pdflatex failed')).toBeFalse();
+    expect(component.isProgress('')).toBeFalse();
+  });
+});
