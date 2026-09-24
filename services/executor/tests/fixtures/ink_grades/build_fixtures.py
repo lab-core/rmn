@@ -198,7 +198,23 @@ FIXTURES = [
 # silently absorbed.
 KNOWN_MISSES = {
     "ink_two_clusters": "the 9 is read as a 7 with high confidence",
+    "raster_circled_decimal": "the decimal point is lost once the ink is pixels",
+    "raster_two_clusters": "the 9 is read as a 7, as in the annotated page",
 }
+
+# Fixtures that are also kept flattened, to exercise the colour path: the
+# annotations are burned into the page and removed, which is what "flatten
+# annotations" on export produces. The ink is real ink, it has simply stopped
+# being vector.
+FLATTENED = {
+    "ink_circled_single": "a circled digit recovered from pixels",
+    "ink_decimal_half": "a decimal that survives flattening",
+    "ink_over_matricule": "ink crossing the band the matricule was erased from",
+    "ink_busy_page": "one small coloured mark among 58",
+    "ink_circled_decimal": "a quarter point, which the colour path loses",
+    "freetext_grade": "a typed grade flattens to black: colour cannot see it",
+}
+FLATTEN_DPI = 200
 
 
 def source_path(reference: str, roots) -> str:
@@ -317,6 +333,32 @@ def matches_source(fixture_path: str, source, page_index: int) -> float:
     return float(np.abs(as_array(reference) - as_array(rebuilt)).mean())
 
 
+def flattened_page(source_path: str):
+    """The fixture with its annotations burned in and then dropped.
+
+    The colour path has to find the grade among the pixels of a page whose
+    print is black and whose marks are not. Flattening a fixture is the only
+    way to produce that from copies that all arrived annotated, and the ink
+    stays the ink a teacher actually drew.
+    """
+    with pymupdf.open(source_path) as doc:
+        page = doc[0]
+        upright = pymupdf.open()
+        upright.insert_pdf(doc, from_page=0, to_page=0)
+        upright[0].set_rotation(0)
+        pixmap = upright[0].get_pixmap(dpi=FLATTEN_DPI, annots=True)
+
+        out = pymupdf.open()
+        new = out.new_page(width=page.mediabox.width, height=page.mediabox.height)
+        new.insert_image(
+            new.rect, stream=pixmap.tobytes("jpeg", jpg_quality=JPEG_QUALITY)
+        )
+        new.set_rotation(page.rotation)
+    out.set_metadata({})
+    out.xref_set_key(-1, "Info", "null")
+    return out
+
+
 def _classifier(model=None):
     """The shipped LiteRT model, or a Keras file when one is named.
 
@@ -397,6 +439,37 @@ def build(out_dir, roots, check_only=False, model=None) -> int:
                 "expected": value,
                 "modal": list(modal) if modal else None,
                 "known_miss": KNOWN_MISSES.get(name, False),
+                "note": note,
+            }
+        )
+
+    for source_name, note in FLATTENED.items():
+        source_file = os.path.join(out_dir, f"{source_name}.pdf")
+        if not os.path.exists(source_file):
+            continue
+        name = source_name.replace("ink_", "raster_").replace(
+            "freetext_", "raster_freetext_"
+        )
+        entry = next(
+            e for e in expected["fixtures"] if e["file"] == f"{source_name}.pdf"
+        )
+        doc = flattened_page(source_file)
+        if not check_only:
+            doc.save(os.path.join(out_dir, f"{name}.pdf"), garbage=4, deflate=True)
+        doc.close()
+        print(f"  ok   {name}: flattened from {source_name}")
+        expected["fixtures"].append(
+            {
+                "file": f"{name}.pdf",
+                "max_points": entry["max_points"],
+                # a typed annotation flattens to black text, which is the page
+                # print as far as colour is concerned: nothing to find
+                "expected": (
+                    None if source_name.startswith("freetext") else entry["expected"]
+                ),
+                "modal": entry["modal"],
+                "known_miss": KNOWN_MISSES.get(name, False),
+                "source": "raster",
                 "note": note,
             }
         )

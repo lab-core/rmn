@@ -129,6 +129,78 @@
       ],
       "known_miss": false,
       "note": "'ok' and the grade share the first page"
+    },
+    {
+      "file": "raster_circled_single.pdf",
+      "max_points": 11.0,
+      "expected": 9.0,
+      "modal": [
+        0.75,
+        0.33
+      ],
+      "known_miss": false,
+      "source": "raster",
+      "note": "a circled digit recovered from pixels"
+    },
+    {
+      "file": "raster_decimal_half.pdf",
+      "max_points": 12.0,
+      "expected": 8.5,
+      "modal": [
+        0.83,
+        0.27
+      ],
+      "known_miss": false,
+      "source": "raster",
+      "note": "a decimal that survives flattening"
+    },
+    {
+      "file": "raster_over_matricule.pdf",
+      "max_points": 9.0,
+      "expected": 6.0,
+      "modal": [
+        0.54,
+        0.13
+      ],
+      "known_miss": false,
+      "source": "raster",
+      "note": "ink crossing the band the matricule was erased from"
+    },
+    {
+      "file": "raster_busy_page.pdf",
+      "max_points": 9.0,
+      "expected": 1.0,
+      "modal": [
+        0.4,
+        0.13
+      ],
+      "known_miss": false,
+      "source": "raster",
+      "note": "one small coloured mark among 58"
+    },
+    {
+      "file": "raster_circled_decimal.pdf",
+      "max_points": 2.0,
+      "expected": 0.25,
+      "modal": [
+        0.73,
+        0.36
+      ],
+      "known_miss": "the decimal point is lost once the ink is pixels",
+      "source": "raster",
+      "note": "a quarter point, which the colour path loses"
+    },
+    {
+      "file": "raster_freetext_grade.pdf",
+      "max_points": 9.0,
+      "expected": null,
+      "modal": [
+        0.73,
+        0.28
+      ],
+      "known_miss": false,
+      "source": "raster",
+      "note": "a typed grade flattens to black: colour cannot see it"
     }
   ]
 }

@@ -27,6 +27,7 @@ def _load_expected():
 
 
 EXPECTED = _load_expected()
+ANNOTATED = [e for e in EXPECTED if e.get("source") != "raster"]
 
 
 @pytest.fixture(scope="module")
@@ -47,7 +48,7 @@ def _read(entry, classifier):
         )
 
 
-@pytest.mark.parametrize("entry", EXPECTED, ids=lambda e: e["file"][:-4])
+@pytest.mark.parametrize("entry", ANNOTATED, ids=lambda e: e["file"][:-4])
 def test_fixture_reads_the_written_grade(entry, classifier):
     reading, _ = _read(entry, classifier)
     correct = reading.grade == entry["expected"]
@@ -268,3 +269,96 @@ def test_the_learned_position_stays_in_the_top_band():
     ]
     modal = ink_grades.learn_modal_positions({"Q1": [[c] for c in low]})
     assert "Q1" not in modal
+
+
+# ------------------------------------------------- flattened, colour path --
+RASTER = [e for e in EXPECTED if e.get("source") == "raster"]
+
+
+def test_there_are_flattened_fixtures_to_read():
+    assert RASTER, "the colour path has no fixtures to exercise it"
+
+
+@pytest.mark.parametrize("entry", RASTER, ids=lambda e: e["file"][:-4])
+def test_a_flattened_page_is_read_from_its_colour(entry, classifier):
+    """No annotations left: the grade has to be found among the pixels.
+
+    The page print is black and the grader's marks are not, which is the whole
+    of the signal. A typed annotation flattens to black text and is therefore
+    invisible here -- that fixture expects nothing, on purpose.
+    """
+    reading, _ = _read(entry, classifier)
+    correct = reading.grade == entry["expected"]
+    if entry.get("known_miss"):
+        if correct:
+            pytest.fail(
+                f"{entry['file']} is read correctly now: clear its "
+                "KNOWN_MISSES entry and rebuild the fixtures"
+            )
+        pytest.xfail(f"{entry['known_miss']}: read {reading.grade}")
+    assert correct, entry["note"]
+
+
+def test_a_reading_from_pixels_is_never_confident(classifier):
+    """Measurably weaker than the annotation path, so it suggests only.
+
+    On 228 flattened pages it reads 90.8% against the annotation path's 97.8%,
+    and it has no stroke to say where a glyph ends or a decimal point sits.
+    """
+    entry = next(e for e in RASTER if e["expected"] is not None)
+    reading, _ = _read(entry, classifier)
+
+    assert reading.source == "raster"
+    assert reading.confidence <= ink_grades.RASTER_CEILING
+
+
+def test_colour_finds_the_marks_and_ignores_the_print(classifier):
+    """The mask must hold the grader's ink and almost none of the page."""
+    path = os.path.join(FIXTURE_DIR, "raster_circled_single.pdf")
+    with pymupdf.open(path) as doc:
+        page = doc[0]
+        mask, scale = ink_grades.coloured_ink(page)
+        marks = ink_grades.raster_marks(mask, scale)
+        width, height = page.rect.width, page.rect.height
+
+    assert scale == pytest.approx(ink_grades.DPI / 72.0)
+    # the page is a dense scan of printed maths; what is coloured is the
+    # grader's handful of marks, a tiny share of the ink on it
+    assert 0 < (mask > 0).mean() < 0.02
+    assert marks
+    for stroke, _ in marks:
+        x0, y0, x1, y1 = stroke.bbox
+        assert 0 <= x0 <= x1 <= width
+        assert 0 <= y0 <= y1 <= height
+
+
+def test_an_annotated_page_never_takes_the_colour_path(classifier):
+    """Vector strokes are better evidence, so they win whenever they exist."""
+    entry = next(e for e in EXPECTED if e["file"] == "ink_circled_single.pdf")
+    reading, _ = _read(entry, classifier)
+
+    assert reading.source == "ink"
+
+
+def test_a_flattened_page_without_colour_reports_nothing(classifier):
+    """A black-and-white page has nothing to offer, and must not invent one."""
+    entry = next(e for e in RASTER if e["file"].startswith("raster_freetext"))
+    reading, candidates = _read(entry, classifier)
+
+    assert candidates == []
+    assert reading.grade is None
+    assert reading.reason == "not_found"
+
+
+def test_the_circle_is_erased_from_the_pixels(classifier):
+    """Left in, the ring reads as a 0 drawn around the grade."""
+    path = os.path.join(FIXTURE_DIR, "raster_circled_single.pdf")
+    with pymupdf.open(path) as doc:
+        candidates = ink_grades.raster_candidates(doc[0], 11.0)
+
+    circled = [c for c in candidates if c.circled]
+    assert circled, "the fixture's grade is circled"
+    for candidate in circled:
+        assert candidate.image is not None
+        # what is left is the digits, far less ink than circle plus digits
+        assert 0 < (candidate.image > 0).mean() < 0.35

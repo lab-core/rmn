@@ -74,6 +74,16 @@ TEXT_GRADE = re.compile(r"^\s*(\d+(?:[.,]\d+)?)\s*(?:/\s*(\d+(?:[.,]\d+)?)\s*)?$
 PDF_ANNOT_FREE_TEXT = 2
 PDF_ANNOT_INK = 15
 
+# Flattened pages: the grader's marks are pixels, not annotations. They are
+# found by colour, because the page underneath is a black and white scan and
+# graders write in anything but. Selection is by saturation rather than hue:
+# one real job uses four different reds and there is no reason the next one
+# will not use green.
+RASTER_MIN_SATURATION = 60
+RASTER_MIN_VALUE = 40
+RASTER_OPEN_KERNEL = 3
+RASTER_MIN_BLOB_PX = 40
+
 
 @dataclass(eq=False)
 class Stroke:
@@ -123,6 +133,10 @@ class Candidate:
     circled: bool = False
     text: Optional[str] = None
     page_size: Tuple[float, float] = (612.0, 792.0)
+    source: str = "ink"
+    # the raster path carries its ink as pixels: the mark was never a polyline
+    # and redrawing its outline would hand the classifier a hollow digit
+    image: Optional[np.ndarray] = None
 
     @property
     def centre(self) -> Tuple[float, float]:
@@ -490,6 +504,148 @@ def read_number(
     return recognize.process_digits_combinations(all_digits, dot)
 
 
+# ------------------------------------------------------------------ raster --
+def coloured_ink(page: Any, dpi: int = DPI) -> Tuple[np.ndarray, float]:
+    """The grader's marks on a flattened page, as a mask.
+
+    The page underneath is a black and white scan, so the marks are whatever
+    on it has colour. The test is saturation, not hue: one job already uses
+    four different reds, and nothing says the next grader will not pick green.
+
+    Args:
+        page: A ``pymupdf`` page.
+        dpi: Rendering resolution; the rest of the pipeline assumes 300.
+
+    Returns:
+        ``(mask, scale)`` -- ``mask`` is 255 where ink was found, ``scale`` is
+        pixels per point.
+    """
+    pixmap = page.get_pixmap(dpi=dpi)
+    image = np.frombuffer(pixmap.samples, np.uint8).reshape(
+        pixmap.height, pixmap.width, pixmap.n
+    )[:, :, :3]
+    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    mask = (
+        (hsv[:, :, 1] >= RASTER_MIN_SATURATION) & (hsv[:, :, 2] >= RASTER_MIN_VALUE)
+    ).astype(np.uint8) * 255
+    # jpeg leaves coloured fringes along every printed edge; they are one or
+    # two pixels wide and would otherwise be read as punctuation
+    kernel = np.ones((RASTER_OPEN_KERNEL, RASTER_OPEN_KERNEL), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    return mask, dpi / 72.0
+
+
+def raster_marks(mask: np.ndarray, scale: float) -> List[Tuple[Stroke, int]]:
+    """The mask's blobs as strokes, so the ink and raster paths select alike.
+
+    A blob's outline is a closed polyline, which is what ``enclosing_stroke``
+    and the clustering already understand; the label is kept so the blob can
+    be erased from the mask once it turns out to be the circle.
+    """
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    marks = []
+    for label in range(1, count):
+        if stats[label, cv2.CC_STAT_AREA] < RASTER_MIN_BLOB_PX:
+            continue
+        contours, _ = cv2.findContours(
+            (labels == label).astype(np.uint8),
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+        if not contours:
+            continue
+        points = max(contours, key=cv2.contourArea).reshape(-1, 2) / scale
+        if len(points) < 2:
+            continue
+        marks.append((Stroke(points=points.astype(float)), label))
+    return marks
+
+
+def raster_candidates(page: Any, max_points: Optional[float] = None) -> List[Candidate]:
+    """Marks on a flattened page that could be the grade.
+
+    Everything above the pixels is shared with the annotation path -- the
+    clustering, the enclosing test, the size band -- because a blob's outline
+    behaves like a stroke. What differs is the recognition: the ink is already
+    pixels, so the crop goes to the scan pipeline (``get_clean_thresh`` and
+    ``find_digit_contours``), which is what that pipeline was built for.
+    """
+    page_size = (float(page.rect.width), float(page.rect.height))
+    mask, scale = coloured_ink(page)
+    marks = raster_marks(mask, scale)
+    if not marks:
+        return []
+
+    label_of = {id(stroke): label for stroke, label in marks}
+    strokes = [stroke for stroke, _ in marks]
+
+    candidates: List[Candidate] = []
+    for box, members in cluster_strokes(strokes, page_size[0]):
+        width = (box[2] - box[0]) / page_size[0]
+        if not MIN_CLUSTER_W <= width <= MAX_CLUSTER_W:
+            continue
+        circle = enclosing_stroke(members)
+        inner = [s for s in members if s is not circle] if circle else list(members)
+        if not inner:
+            continue
+        inner_box = _union([s.bbox for s in inner])
+        crop = _crop_mask(mask, inner_box, scale)
+        if crop is None:
+            continue
+        if circle is not None:
+            # the ring would be read as a 0 around the digits
+            _erase(crop, mask, label_of[id(circle)], inner_box, scale)
+        candidates.append(
+            Candidate(
+                bbox=box,
+                circled=circle is not None,
+                page_size=page_size,
+                source="raster",
+                image=crop,
+            )
+        )
+    return candidates
+
+
+def _crop_mask(mask, box, scale, pad=PAD):
+    """The mask around ``box``, in page points, with a margin."""
+    x0 = max(int(box[0] * scale) - pad, 0)
+    y0 = max(int(box[1] * scale) - pad, 0)
+    x1 = min(int(box[2] * scale) + pad, mask.shape[1])
+    y1 = min(int(box[3] * scale) + pad, mask.shape[0])
+    if x1 - x0 < 4 or y1 - y0 < 4:
+        return None
+    return mask[y0:y1, x0:x1].copy()
+
+
+def _erase(crop, mask, label, box, scale, pad=PAD):
+    """Blank one blob out of a crop, by its connected-component label."""
+    count, labels = cv2.connectedComponents(mask, connectivity=8)
+    x0 = max(int(box[0] * scale) - pad, 0)
+    y0 = max(int(box[1] * scale) - pad, 0)
+    bottom, right = y0 + crop.shape[0], x0 + crop.shape[1]
+    crop[labels[y0:bottom, x0:right] == label] = 0
+
+
+def read_raster(candidate: Candidate, classifier: Any) -> List[Tuple[float, float]]:
+    """Ranked readings of a mark that arrived as pixels.
+
+    Here the scan pipeline is the right one: there are no strokes to say where
+    the glyphs or the decimal point are, and ``get_clean_thresh``'s Otsu retry
+    earns its place on exactly this kind of input.
+    """
+    if candidate.image is None or not candidate.image.any():
+        return []
+    gray = 255 - candidate.image
+    cnts, dot, thresh = recognize.find_digit_contours(gray)
+    if not cnts:
+        return []
+    all_digits = recognize.extract_all_digits(cnts, gray, thresh, classifier)
+    if not all_digits:
+        return []
+    return recognize.process_digits_combinations(all_digits, dot)
+
+
 # --------------------------------------------------------------- candidates --
 def grade_candidates(page: Any, max_points: Optional[float] = None) -> List[Candidate]:
     """Every mark on ``page`` that could be the grade.
@@ -516,7 +672,9 @@ def grade_candidates(page: Any, max_points: Optional[float] = None) -> List[Cand
 
     strokes = page_strokes(page)
     if not strokes:
-        return []
+        # nothing was annotated: either the page was never graded, or it was
+        # flattened on export and the marks are pixels now
+        return raster_candidates(page, max_points)
 
     candidates: List[Candidate] = []
     for box, members in cluster_strokes(strokes, page_size[0]):
@@ -579,6 +737,9 @@ UNMEASURED_CEILING = 0.90
 # other mark in the margin, so such a reading is a suggestion at best: on a
 # question nobody graded it is how a correction becomes a phantom grade.
 NO_PRIOR_CEILING = 0.50
+# The flattened path recovers the mark from pixels instead of strokes; it is
+# measurably weaker, so it suggests and never prefills.
+RASTER_CEILING = 0.50
 LOW_MAX_POINTS = 3.0
 # A question that is not itself a bonus can still carry a few bonus points
 # inside it, so a grade may sit a little above the maximum -- the correction
@@ -782,7 +943,12 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
                 n_candidates=len(candidates),
             )
 
-        readings = read_number(candidate.number_strokes, candidate.dot_x, classifier)
+        if candidate.source == "raster":
+            readings = read_raster(candidate, classifier)
+        else:
+            readings = read_number(
+                candidate.number_strokes, candidate.dot_x, classifier
+            )
         if not readings:
             continue
         best = _bounded(readings, max_points)
@@ -806,6 +972,11 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
 
         if candidate.circled:
             probability = min(1.0, probability + CIRCLE_BONUS)
+        if candidate.source == "raster":
+            # measured well below the annotation path, and on a flattened page
+            # there is no stroke to say where a glyph ends or a decimal point
+            # sits, so these always go to a human
+            probability = min(probability, RASTER_CEILING)
         if ambiguous:
             probability *= 0.5
         if modal_centre is None:
@@ -817,7 +988,7 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
             grade=value,
             confidence=probability,
             reason="ambiguous" if ambiguous else "ok",
-            source="ink",
+            source=candidate.source,
             bbox=candidate.bbox,
             n_candidates=len(candidates),
         )
