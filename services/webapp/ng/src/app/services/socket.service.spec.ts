@@ -111,3 +111,76 @@ describe('SocketService', () => {
     expect(socket.emitted).toEqual([]);
   });
 });
+
+describe('SocketService connection', () => {
+  // the real socket.io client, closed before it gets anywhere: its handlers
+  // are called directly instead of waiting for a server
+  let service: SocketService;
+  let auth: any;
+  const loggedOut$ = new Subject<void>();
+
+  beforeEach(() => {
+    auth = { user_id: 'alice', token: 'tok-1' };
+    service = new SocketService({ loggedOut$, getSocketAuth: () => auth } as any);
+    spyOn(console, 'warn');
+  });
+
+  afterEach(() => service.ngOnDestroy());
+
+  const fire = (event: string, ...args: any[]) =>
+    service.getSocket().listeners(event).forEach((handler: any) => handler(...args));
+
+  it('opens a single connection that sends the current credentials', () => {
+    expect(service.socketInitiated).toBeFalse();
+    service.join('alice');
+    const socket = service.getSocket();
+    expect(service.socketInitiated).toBeTrue();
+    service.on('job_status', () => {});
+    expect(service.getSocket()).toBe(socket);
+
+    let sent: any;
+    (socket as any).auth((data: any) => sent = data);
+    expect(sent).toEqual({ user_id: 'alice', token: 'tok-1' });
+    auth = { user_id: 'bob', token: 'tok-2' };
+    (socket as any).auth((data: any) => sent = data);
+    expect(sent).toEqual({ user_id: 'bob', token: 'tok-2' });
+  });
+
+  it('rejoins its rooms on a reconnection, not on the first connection', () => {
+    service.join('alice');
+    service.join('job-1');
+    const emit = spyOn(service.getSocket(), 'emit');
+    fire('connect');
+    expect(emit).not.toHaveBeenCalled();
+    fire('connect');
+    expect(emit.calls.allArgs()).toEqual([['join', 'alice'], ['join', 'job-1']]);
+  });
+
+  it('gives up on refused credentials and reconnects at the next use', () => {
+    service.join('alice');
+    const socket = service.getSocket();
+    const disconnect = spyOn(socket, 'disconnect').and.callThrough();
+    fire('connect_error', new Error('xhr poll error'));
+    expect(console.warn).toHaveBeenCalledWith('socket connection failed:', 'xhr poll error');
+    expect(disconnect).not.toHaveBeenCalled();  // a network error: socket.io retries
+
+    fire('connect_error', new Error('Connection rejected by server'));
+    expect(disconnect).toHaveBeenCalled();
+    expect(socket.active).toBeFalse();
+
+    const connect = spyOn(socket, 'connect').and.returnValue(socket);
+    service.join('job-1');
+    expect(connect).toHaveBeenCalled();
+    expect(service.getSocket()).toBe(socket);
+  });
+
+  it('closes the connection when destroyed', () => {
+    service.join('alice');
+    service.leave('alice');
+    service.off('job_status', () => {});
+    service.ngOnDestroy();
+    expect(service.getSocket()).toBeUndefined();
+    loggedOut$.next();  // no longer listening
+    expect(service.getSocket()).toBeUndefined();
+  });
+});

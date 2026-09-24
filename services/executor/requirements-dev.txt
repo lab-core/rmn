@@ -5,5 +5,7 @@
 -e ../common
 pytest==9.1.1
 pytest-timeout==2.4.0
+# coverage in CI: the thresholds live in .coveragerc
+pytest-cov==7.1.0
 mongomock==4.3.0
 fakeredis==2.38.0

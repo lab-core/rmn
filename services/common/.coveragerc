@@ -1,0 +1,11 @@
+# Coverage of the common tests (pytest --cov, see .github/workflows/tests.yml).
+[run]
+source = rmn_common
+omit =
+    tests/*
+    venv*/*
+
+[report]
+# the CI run fails below this: raise it with the coverage, never lower it
+fail_under = 96
+skip_empty = true

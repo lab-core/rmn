@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
@@ -10,7 +10,7 @@ import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog
 import { NotificationService } from 'src/app/services/notification.service';
 import { TasksService } from 'src/app/services/tasks.service';
 import { UserService } from 'src/app/services/user.service';
-import { MATERIAL_MODULES, dialogRefSpy, notificationSpy, settle, userServiceStub } from '../../testing/helpers';
+import { MATERIAL_MODULES, dialogRefSpy, notificationSpy, settle, userServiceStub, waitUntil } from '../../testing/helpers';
 
 describe('TaskFilesDialogComponent', () => {
   let fixture: ComponentFixture<TaskFilesDialogComponent>;
@@ -129,5 +129,102 @@ describe('TaskFilesDialogComponent', () => {
     expect(dialogRef.close).toHaveBeenCalledWith('VALIDATION');
     component.cancel();
     expect(dialogRef.close).toHaveBeenCalledWith(undefined);
+  });
+
+  it('logs a share link that fails or an anchor that is missing, without a download', async () => {
+    create({});
+    const error = spyOn(console, 'error');
+    const click = spyOn(HTMLAnchorElement.prototype, 'click');
+
+    component.checkInputBox('notes_csv_file', false);
+    http.expectOne('/api/files/share').flush('no', { status: 500, statusText: 'Server Error' });
+    await settle();
+    expect(error).toHaveBeenCalled();
+
+    // no share url in the answer: nothing to open
+    component.checkInputBox('notes_csv_file', false);
+    http.expectOne('/api/files/share').flush({ response: {} });
+    await settle();
+
+    fixture.nativeElement.querySelector('#download-file').remove();
+    component.checkInputBox('notes_csv_file', false);
+    http.expectOne('/api/files/share').flush({ response: { share_url: 'https://rmn/f?x' } });
+    await settle();
+    expect(error).toHaveBeenCalledWith('download anchor missing');
+    expect(click).not.toHaveBeenCalled();
+  });
+
+  it('says nothing when the share dialog is closed without an outcome', () => {
+    create({});
+    spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of(undefined) } as any);
+    component.checkInputBox('notes_csv_file', true);
+    (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of({ success: true }) } as any);
+    component.checkInputBox('notes_csv_file', true);
+    (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of({ success: false }) } as any);
+    component.checkInputBox('notes_csv_file', true);
+    expect(notification.showSuccess).not.toHaveBeenCalled();
+    expect(notification.showError).not.toHaveBeenCalled();
+  });
+
+  describe('direct download', () => {
+    let saved: Blob[];
+    let names: string[];
+
+    beforeEach(() => {
+      saved = [];
+      names = [];
+      const createObjectURL = URL.createObjectURL.bind(URL);
+      spyOn(URL, 'createObjectURL').and.callFake((blob: Blob) => { saved.push(blob); return createObjectURL(blob); });
+      spyOn(HTMLAnchorElement.prototype, 'dispatchEvent').and.callFake(function (this: HTMLAnchorElement) {
+        names.push(this.download);
+        return true;
+      });
+    });
+
+    it('saves the file with the type of its kind and shows the progress', async () => {
+      create({});
+      component.downloadFile('copies.zip', 'zip_file', 0);
+      expect(component.downloading).toBeTrue();
+      expect(notification.showInfo).toHaveBeenCalledWith('Téléchargement...', '');
+      const req = http.expectOne('/api/files/download');
+      expect(req.request.body.get('zip_index')).toBe('0');
+      expect(req.request.body.get('file')).toBe('zip_file');
+
+      component.downloadFile('again.zip', 'zip_file', 0);
+      expect(notification.showWarning).toHaveBeenCalledWith('Un fichier est en cours de téléchargement!', 'Attention');
+
+      req.event({ type: HttpEventType.DownloadProgress, loaded: 1, total: 4 });
+      expect(component.downloadProgress).toBe(25);
+      req.event({ type: HttpEventType.DownloadProgress, loaded: 1 });
+      expect(component.downloadProgress).toBe(0);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.files-uploading-steps')).not.toBeNull();
+      req.flush(new Blob(['zip']));
+      await waitUntil(() => names.length > 0);
+      expect(names).toEqual(['copies.zip']);
+      expect(saved[0].type).toBe('application/zip');
+      expect(component.downloading).toBeFalse();
+
+      component.downloadFile('stats.pdf', 'stats_pdf_file', undefined);
+      const pdf = http.expectOne('/api/files/download');
+      expect(pdf.request.body.has('zip_index')).toBeFalse();
+      pdf.flush(new Blob(['pdf']));
+      component.downloadFile('notes.csv', 'notes_csv_file', undefined);
+      http.expectOne('/api/files/download').flush(new Blob(['csv']));
+      await waitUntil(() => names.length === 3);
+      expect(saved.map(b => b.type)).toEqual(['application/zip', 'application/pdf', 'text/csv']);
+    });
+
+    it('lets another download start after a failed one', () => {
+      create({});
+      const error = spyOn(console, 'error');
+      component.downloadProgress = 30;
+      component.downloadFile('notes.csv', 'notes_csv_file', undefined);
+      http.expectOne('/api/files/download').flush(new Blob(['x']), { status: 404, statusText: 'Not Found' });
+      expect(error).toHaveBeenCalled();
+      expect(component.downloading).toBeFalse();
+      expect(component.downloadProgress).toBe(0);
+      expect(names).toEqual([]);
+    });
   });
 });

@@ -37,8 +37,14 @@ module.exports = function (config) {
       subdir: '.',
       reporters: [
         { type: 'html' },
-        { type: 'text-summary' }
-      ]
+        { type: 'text-summary' },
+        // read by the CI job summary
+        { type: 'json-summary' }
+      ],
+      // the run fails below these: raise them with the coverage, never lower them
+      check: {
+        global: { statements: 94, branches: 89, functions: 91, lines: 94 }
+      }
     },
     reporters: ['progress', 'kjhtml'],
     port: 9876,

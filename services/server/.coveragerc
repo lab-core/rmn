@@ -1,0 +1,11 @@
+# Coverage of the server tests (pytest --cov, see .github/workflows/tests.yml).
+[run]
+source = .
+omit =
+    tests/*
+    venv*/*
+
+[report]
+# the CI run fails below this: raise it with the coverage, never lower it
+fail_under = 95
+skip_empty = true
