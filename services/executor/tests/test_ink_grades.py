@@ -350,6 +350,27 @@ def test_a_flattened_page_without_colour_reports_nothing(classifier):
     assert reading.reason == "not_found"
 
 
+def test_a_mark_inside_the_matricule_box_is_not_a_grade():
+    """The box at the top of every page holds the student's own handwriting.
+
+    It is in the same pen as the rest of their work and it sits exactly where
+    graders put the grade, so on a real ungraded copy the colour path read the
+    matricule 2140874 as a grade of 4. Containment is the test, not overlap:
+    the grader who writes the grade across that box draws something far bigger
+    than the cells, and that still counts.
+    """
+    page_size = (612.0, 792.0)
+    x0, y0, x1, y1 = ink_grades.matricule_region(page_size)
+
+    in_a_cell = (x0 + 10, y0 + 3, x0 + 50, y1 - 3)
+    across_the_box = (x0 + 10, y0 - 30, x0 + 90, y1 + 30)
+    well_below = (x0, y1 + 100, x0 + 50, y1 + 160)
+
+    assert ink_grades._inside_matricule(in_a_cell, page_size)
+    assert not ink_grades._inside_matricule(across_the_box, page_size)
+    assert not ink_grades._inside_matricule(well_below, page_size)
+
+
 def test_the_circle_is_erased_from_the_pixels(classifier):
     """Left in, the ring reads as a 0 drawn around the grade."""
     path = os.path.join(FIXTURE_DIR, "raster_circled_single.pdf")

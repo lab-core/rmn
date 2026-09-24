@@ -201,6 +201,18 @@
       "known_miss": false,
       "source": "raster",
       "note": "a typed grade flattens to black: colour cannot see it"
+    },
+    {
+      "file": "raster_matricule_only.pdf",
+      "max_points": 9.0,
+      "expected": null,
+      "modal": [
+        0.75,
+        0.1
+      ],
+      "known_miss": false,
+      "source": "raster",
+      "note": "colour can be the student's own writing, not a grade"
     }
   ]
 }

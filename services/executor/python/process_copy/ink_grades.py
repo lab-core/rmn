@@ -584,6 +584,12 @@ def raster_candidates(page: Any, max_points: Optional[float] = None) -> List[Can
         width = (box[2] - box[0]) / page_size[0]
         if not MIN_CLUSTER_W <= width <= MAX_CLUSTER_W:
             continue
+        if _inside_matricule(box, page_size):
+            # the printed box at the top of every page holds the student's own
+            # handwriting, in the same pen as everything else they wrote. It
+            # sits exactly where graders put the grade, so on a page nobody
+            # graded the colour path reads the matricule as one.
+            continue
         circle = enclosing_stroke(members)
         inner = [s for s in members if s is not circle] if circle else list(members)
         if not inner:
@@ -605,6 +611,22 @@ def raster_candidates(page: Any, max_points: Optional[float] = None) -> List[Can
             )
         )
     return candidates
+
+
+def _inside_matricule(box, page_size, pad=0.01) -> bool:
+    """True when a mark sits wholly inside the printed matricule band.
+
+    Containment, not overlap: one grader writes the grade straight across that
+    box, and such a mark is far bigger than the cells and spills out of the
+    band, so it is kept.
+    """
+    x0, y0, x1, y1 = matricule_region(page_size)
+    return (
+        box[0] >= x0 - pad * page_size[0]
+        and box[2] <= x1 + pad * page_size[0]
+        and box[1] >= y0 - pad * page_size[1]
+        and box[3] <= y1 + pad * page_size[1]
+    )
 
 
 def _crop_mask(mask, box, scale, pad=PAD):

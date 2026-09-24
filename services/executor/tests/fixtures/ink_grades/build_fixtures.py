@@ -359,6 +359,47 @@ def flattened_page(source_path: str):
     return out
 
 
+def matricule_only_page(source_path: str):
+    """A page with nothing on it but a matricule, in colour, then flattened.
+
+    The printed box at the top of every page holds the student's own
+    handwriting, in the same pen as everything else they wrote, and it sits
+    exactly where graders put the grade. Found on a real ungraded copy, whose
+    matricule the colour path read as a grade of 4. The digits here are
+    invented, drawn in the band of an otherwise unmarked page.
+    """
+    with pymupdf.open(source_path) as doc:
+        page = doc[0]
+        x0, y0, x1, y1 = [
+            v * s
+            for v, s in zip(
+                matricule_box["exam"]["regular"],
+                (page.rect.width, page.rect.width, page.rect.height, page.rect.height),
+            )
+        ]
+        derotate = page.derotation_matrix
+        step = (x1 - x0) / 7
+        for index, digit in enumerate("2140874"):
+            left = x0 + index * step + step * 0.3
+            top = y0 + (y1 - y0) * 0.25
+            bottom = y0 + (y1 - y0) * 0.75
+            strokes = [
+                [(left, top), (left + step * 0.3, top), (left, bottom)],
+                [(left, bottom), (left + step * 0.3, bottom)],
+            ]
+            annot = page.add_ink_annot(
+                [
+                    [tuple(pymupdf.Point(p) * derotate) for p in stroke]
+                    for stroke in strokes
+                ]
+            )
+            annot.set_colors(stroke=(0.1, 0.15, 0.5))
+            annot.set_border(width=2)
+            annot.update()
+        doc.save(source_path + ".tmp", garbage=4, deflate=True)
+    return flattened_page(source_path + ".tmp")
+
+
 def _classifier(model=None):
     """The shipped LiteRT model, or a Keras file when one is named.
 
@@ -471,6 +512,32 @@ def build(out_dir, roots, check_only=False, model=None) -> int:
                 "known_miss": KNOWN_MISSES.get(name, False),
                 "source": "raster",
                 "note": note,
+            }
+        )
+
+    blank = os.path.join(out_dir, "ink_no_annotation.pdf")
+    if os.path.exists(blank):
+        doc = matricule_only_page(blank)
+        if not check_only:
+            doc.save(
+                os.path.join(out_dir, "raster_matricule_only.pdf"),
+                garbage=4,
+                deflate=True,
+            )
+        doc.close()
+        os.unlink(blank + ".tmp")
+        print("  ok   raster_matricule_only: synthetic matricule, no grade")
+        expected["fixtures"].append(
+            {
+                "file": "raster_matricule_only.pdf",
+                "max_points": 9.0,
+                "expected": None,
+                "modal": [0.75, 0.10],
+                "known_miss": False,
+                "source": "raster",
+                "note": (
+                    "colour can be the student's own writing, not a grade"
+                ),
             }
         )
 
