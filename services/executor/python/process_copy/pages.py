@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from pdf2image import convert_from_path
 from PIL import Image
-from process_copy.imaging import BLACK, GREEN, ORANGE, RED, imwrite_png
+from process_copy.imaging import BLACK, GREEN, ORANGE, RED, hough_segments, imwrite_png
 
 
 
@@ -68,11 +68,11 @@ def imstraighten(gray):
     # find longuest lines -> should be horizontal or vertical
     max_dist = 0
     max_line = None
-    for l in lines:
-        d = np.square(l[0][2] - l[0][0]) + np.square(l[0][3] - l[0][1])
+    for line in hough_segments(lines):
+        d = np.square(line[2] - line[0]) + np.square(line[3] - line[1])
         if d > max_dist:
             max_dist = d
-            max_line = l[0]
+            max_line = line
     coords = np.array([max_line[0:2], max_line[2:4]])
     center, dim, angle = cv2.minAreaRect(coords)
     mangle = (180 + angle) % 90

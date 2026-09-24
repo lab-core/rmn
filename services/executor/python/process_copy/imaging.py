@@ -22,6 +22,16 @@ storage = Storage()
 
 
 
+def hough_segments(lines):
+    """The segments ``(x1, y1, x2, y2)`` found by ``cv2.HoughLinesP``.
+
+    OpenCV 4 returns them with shape (N, 1, 4), OpenCV 5 with (N, 4): indexing
+    ``line[0][2]`` raised IndexError on 5 (pinned since #159), which broke page
+    straightening, so every matricule read from a page, and template rendering.
+    """
+    return np.asarray(lines).reshape(-1, 4)
+
+
 RED = (225, 6, 0)
 
 
