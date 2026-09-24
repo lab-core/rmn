@@ -844,19 +844,34 @@ if __name__ == "__main__":
         if pending:
             progress(0, pending)
 
+        def on_read(document_index, reading):
+            # one copy, with what it was read as: the correction screen patches
+            # that tile instead of refetching every document
+            sio.emit("document_ready", json.dumps({
+                "job_id": job_id,
+                "user_id": user_id,
+                "questions": True,
+                "question_index": int(question_index),
+                "document_index": document_index,
+                "auto_grade": reading.grade,
+                "auto_grade_confidence": round(float(reading.confidence), 4),
+                "auto_grade_reason": reading.reason,
+                "auto_grade_source": reading.source,
+                **({"status": Document_Status.HIGH_ACCURACY.value} if reading.confident else {}),
+            }))
+
         result = auto_grade.read_question(
             db, storage, job, question_index, run,
-            stop=stopH.stop, progress=progress,
+            stop=stopH.stop, progress=progress, on_read=on_read,
         )
         print("read_grades: Q%s, %s/%s page(s) read%s" % (
             question_index, result["read"], result["total"],
             ", superseded" if result["superseded"] else ""))
 
         if result["read"] or pending:
-            # clears the progress line and refreshes: one emit for the whole
-            # pass, because the correction screen reloads
-            # every document on this event, so emitting per page would have it
-            # refetch hundreds of times
+            # the end of the pass: clears the progress line and refetches once
+            # (the per-copy events above carry a document_index and are
+            # patched in place, this one does not)
             sio.emit("document_ready", json.dumps(
                 {"job_id": job_id, "user_id": user_id, "questions": True}))
 
