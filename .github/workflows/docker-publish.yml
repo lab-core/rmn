@@ -47,7 +47,7 @@ jobs:
       - name: Get last successful commit
         id: last-successful-commit
         continue-on-error: true
-        uses: tylermilner/last-successful-commit-hash-action@05daa3c9de5f3074f13f6edbb7f6c0eec567cfcd  # v1: pinned, it receives github.token
+        uses: tylermilner/last-successful-commit-hash-action@e8e87e3cbbae204557ceaa13777ebca8ffc7a14e  # v1: pinned, it receives github.token
         with:
           github-token: ${{ github.token }}
           workflow-id: docker-publish-all.yml
