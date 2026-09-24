@@ -1,0 +1,134 @@
+{
+  "raster_dpi": 150,
+  "fixtures": [
+    {
+      "file": "ink_circled_single.pdf",
+      "max_points": 11.0,
+      "expected": 9.0,
+      "modal": [
+        0.75,
+        0.33
+      ],
+      "known_miss": false,
+      "note": "a circled single digit, the common case"
+    },
+    {
+      "file": "ink_circled_decimal.pdf",
+      "max_points": 2.0,
+      "expected": 0.25,
+      "modal": [
+        0.73,
+        0.36
+      ],
+      "known_miss": false,
+      "note": "quarter point on the bonus question; the page carries a second 0.25 beside the answer, which the circle and the position must beat"
+    },
+    {
+      "file": "ink_two_digit.pdf",
+      "max_points": 12.0,
+      "expected": 10.5,
+      "modal": [
+        0.78,
+        0.34
+      ],
+      "known_miss": false,
+      "note": "two digits and a decimal"
+    },
+    {
+      "file": "ink_decimal_half.pdf",
+      "max_points": 12.0,
+      "expected": 8.5,
+      "modal": [
+        0.83,
+        0.27
+      ],
+      "known_miss": false,
+      "note": "a decimal point between two digits written side by side"
+    },
+    {
+      "file": "ink_two_clusters.pdf",
+      "max_points": 12.0,
+      "expected": 9.0,
+      "modal": [
+        0.83,
+        0.27
+      ],
+      "known_miss": "the 9 is read as a 7 with high confidence",
+      "note": "two circled clusters on one page"
+    },
+    {
+      "file": "ink_busy_page.pdf",
+      "max_points": 9.0,
+      "expected": 1.0,
+      "modal": [
+        0.4,
+        0.13
+      ],
+      "known_miss": false,
+      "note": "58 annotations on the page; the grade is one small mark among them"
+    },
+    {
+      "file": "ink_left_margin.pdf",
+      "max_points": 9.0,
+      "expected": 8.5,
+      "modal": [
+        0.4,
+        0.13
+      ],
+      "known_miss": false,
+      "note": "this grader writes in the left margin, not the right"
+    },
+    {
+      "file": "ink_over_matricule.pdf",
+      "max_points": 9.0,
+      "expected": 6.0,
+      "modal": [
+        0.54,
+        0.13
+      ],
+      "known_miss": false,
+      "note": "the grade is drawn across the matricule box it is redacted from"
+    },
+    {
+      "file": "ink_no_annotation.pdf",
+      "max_points": 9.0,
+      "expected": null,
+      "modal": null,
+      "known_miss": false,
+      "note": "nothing written: must read not_found, never 0"
+    },
+    {
+      "file": "freetext_grade.pdf",
+      "max_points": 9.0,
+      "expected": 8.5,
+      "modal": [
+        0.73,
+        0.28
+      ],
+      "known_miss": false,
+      "note": "typed grade, and 'ok' comments on the same page"
+    },
+    {
+      "file": "freetext_fraction.pdf",
+      "max_points": 9.0,
+      "expected": 6.5,
+      "modal": [
+        0.73,
+        0.28
+      ],
+      "known_miss": false,
+      "note": "typed as a fraction over the question total"
+    },
+    {
+      "file": "freetext_with_comment.pdf",
+      "max_points": 9.0,
+      "expected": 9.0,
+      "modal": [
+        0.73,
+        0.28
+      ],
+      "known_miss": false,
+      "note": "'ok' and the grade share the first page"
+    }
+  ]
+}
