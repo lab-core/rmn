@@ -1,6 +1,7 @@
 """Status updates: what is written to Mongo and what is pushed over Socket.IO."""
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from process_copy.database import Database
@@ -59,3 +60,14 @@ def test_mongo_url_requires_credentials(monkeypatch):
     monkeypatch.setenv("MONGODB_USER", "u")
     monkeypatch.setenv("MONGODB_PASSWORD", "p")
     assert clients.mongo_url().startswith("mongodb://u:p@")
+
+
+def test_requests_is_a_runtime_dependency():
+    # python-engineio's client does its polling handshake through requests but
+    # does not require it; #159 dropped it with TensorFlow and every executor
+    # of the image failed with "namespaces failed to connect". Checked in the
+    # file, since the test venv may get requests from another package.
+    requirements = Path(__file__).resolve().parent.parent.joinpath("requirements.txt")
+    names = {line.split("==")[0].strip().lower() for line in requirements.read_text().splitlines()
+             if line.strip() and not line.startswith("#")}
+    assert "requests" in names

@@ -19,6 +19,9 @@ PyMuPDF==1.28.2
 pypdf==6.18.0
 python-socketio==5.16.4
 redis==8.1.0
+# python-socketio's client opens with HTTP long-polling through requests; without
+# it every executor dies at start-up ("namespaces failed to connect")
+requests==2.34.2
 seaborn==0.13.2
 Unidecode==1.4.0
 websocket-client==1.8.0
