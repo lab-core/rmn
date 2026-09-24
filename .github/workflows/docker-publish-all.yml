@@ -18,6 +18,10 @@ on:
         description: Push images to Docker Hub (uncheck to only build)
         type: boolean
         default: true
+      rebuild_all:
+        description: Rebuild every image, even those already published at this commit's content
+        type: boolean
+        default: false
   push:
     tags: [ 'v*' ]
   pull_request:
@@ -27,11 +31,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# read the repository and the workflow runs (last successful publish); the
-# registry push uses the Docker Hub secrets, not the workflow token
+# read the repository; the registry push uses the Docker Hub secrets, not the
+# workflow token
 permissions:
   contents: read
-  actions: read
 
 jobs:
   push_executor_to_dockerhub:
@@ -43,6 +46,7 @@ jobs:
       dockerfile: executor/Dockerfile
       watch: services/executor services/common
       push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.push) }}
+      rebuild_all: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_all }}
     secrets: inherit
 
   push_server_to_dockerhub:
@@ -54,6 +58,7 @@ jobs:
       dockerfile: server/Dockerfile
       watch: services/server services/common
       push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.push) }}
+      rebuild_all: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_all }}
     secrets: inherit
 
   push_webapp_to_dockerhub:
@@ -65,6 +70,7 @@ jobs:
       dockerfile: webapp/Dockerfile
       watch: services/webapp services/common
       push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.push) }}
+      rebuild_all: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_all }}
     secrets: inherit
 
   push_socketio_to_dockerhub:
@@ -74,4 +80,5 @@ jobs:
       image: rmni/socketio
       context: ./services/socketIO
       push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.push) }}
+      rebuild_all: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_all }}
     secrets: inherit

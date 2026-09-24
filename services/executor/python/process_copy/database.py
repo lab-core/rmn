@@ -6,6 +6,7 @@ from rmn_common import auto_grade
 from rmn_common.status import Document_Status, Job_Status
 from utils.storage import Storage, ROOT_DIR
 from utils.clients import mongo_client
+from pymongo import ReturnDocument
 
 
 class Database:
