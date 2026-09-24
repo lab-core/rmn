@@ -361,3 +361,36 @@ describe('DashboardPageComponent reading progress', () => {
     expect(component.isProgress('')).toBeFalse();
   });
 });
+
+describe('DashboardPageComponent per-question reading state', () => {
+  let component: DashboardPageComponent;
+
+  beforeEach(() => {
+    component = Object.create(DashboardPageComponent.prototype) as DashboardPageComponent;
+  });
+
+  it('says a question is being read, and how far', () => {
+    component.autoGradeProgress = {'3': {pending: 2, running: 1, done: 7, total: 10}};
+    expect(component.readingState({index: 3})).toContain('en cours');
+    expect(component.readingState({index: 3})).toContain('70 %');
+    expect(component.readingClass({index: 3})).toBe('reading-running');
+  });
+
+  it('says a question is still waiting to be read', () => {
+    component.autoGradeProgress = {'3': {pending: 4, running: 0, done: 0, total: 4}};
+    expect(component.readingState({index: 3})).toContain('à faire');
+    expect(component.readingClass({index: 3})).toBe('reading-waiting');
+  });
+
+  it('says a question has been read', () => {
+    component.autoGradeProgress = {'3': {pending: 0, running: 0, done: 9, total: 9}};
+    expect(component.readingState({index: 3})).toContain('9/9');
+    expect(component.readingClass({index: 3})).toBe('reading-done');
+  });
+
+  it('says nothing about a question no reading has touched', () => {
+    component.autoGradeProgress = {};
+    expect(component.readingState({index: 3})).toBe('');
+    expect(component.readingClass({index: 3})).toBe('');
+  });
+});

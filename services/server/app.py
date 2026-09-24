@@ -606,7 +606,11 @@ def get_jobs(user_id):
             "job_name": job["job_name"],
             "front_template_name": job.get("front_template_name"),
             "regular_template_name": job.get("regular_template_name"),
-            "job_infos": job.get("job_infos", "")
+            "job_infos": job.get("job_infos", ""),
+            # so the task list can say a reading is under way
+            "auto_grade_running": auto_grade.is_running(
+                db["job_questions"], job["job_id"]
+            ),
         }
         for job in jobs
     ]
@@ -669,6 +673,9 @@ def get_job():
         "statistics_for_students": job["statistics_for_students"],
         "groups": job.get("groups", [""]),
         "copies_errors": job.get("copies_errors"),
+        # how far the grade reading has got, question by question, so the
+        # dashboard and the correction screen can say what is waiting on what
+        "auto_grade_progress": auto_grade.progress(db["job_questions"], job_id),
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 

@@ -88,6 +88,23 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   currentGradeConfidence: number | null = null;
   // what the reader is doing right now, straight from the executor
   readingInfo: string = '';
+  // and where it has got to on the question being corrected, from POST /job
+  autoGradeProgress: {[q: string]: {pending: number, running: number,
+                                    done: number, total: number}} = {};
+
+  readingStateForQuestion(): string {
+    const p = this.autoGradeProgress[String(this.currentQuestionIndex)];
+    if (!p || !p.total) {
+      return '';
+    }
+    if (p.running) {
+      return `lecture des notes en cours : ${Math.round(100 * p.done / p.total)} %`;
+    }
+    if (p.pending) {
+      return `lecture des notes à faire : ${p.done}/${p.total}`;
+    }
+    return `notes lues automatiquement : ${p.done}/${p.total}`;
+  }
   currentTotal: number;
   currentGrades: Map<string, number>;
   currentStatus: string;
@@ -126,6 +143,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
     try {
       this.job = await this.tasksService.getTask();
+      this.autoGradeProgress = this.job.auto_grade_progress || {};
     } catch (err) {
       console.error(err);
     }

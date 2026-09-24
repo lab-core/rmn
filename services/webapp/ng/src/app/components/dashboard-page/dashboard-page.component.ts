@@ -137,6 +137,36 @@ export class DashboardPageComponent {
 
   // what the executor is doing right now, shown while it does it
   taskInfo: string = '';
+  // how far the grade reading has got, per question index, from POST /job
+  autoGradeProgress: {[q: string]: {pending: number, running: number,
+                                    done: number, total: number}} = {};
+
+  readingState(question: any): string {
+    // the dashboard rows are questions; the reading is tracked per question
+    const p = this.autoGradeProgress[String(question.index)];
+    if (!p || !p.total) {
+      return '';
+    }
+    const waiting = p.pending + p.running;
+    if (!waiting) {
+      return `notes lues : ${p.done}/${p.total}`;
+    }
+    if (p.running) {
+      return `lecture en cours : ${Math.round(100 * p.done / p.total)} %`;
+    }
+    return `lecture à faire : ${p.done}/${p.total}`;
+  }
+
+  readingClass(question: any): string {
+    const p = this.autoGradeProgress[String(question.index)];
+    if (!p || !p.total) {
+      return '';
+    }
+    if (p.running) {
+      return 'reading-running';
+    }
+    return p.pending ? 'reading-waiting' : 'reading-done';
+  }
 
   isProgress(info: string): boolean {
     return typeof info === 'string' && info.includes('%');
@@ -226,6 +256,7 @@ export class DashboardPageComponent {
   public async getTask() {
     this.task = await this.tasksService.getTaskById(this.taskId);
     this.taskStats = this.task.statistics_for_students;
+    this.autoGradeProgress = this.task.auto_grade_progress || {};
     if (this.task.copies_errors) {
         const cleanedInfos = this.task.copies_errors.slice(1, -1).replace(/['",]/g, '');
         this.task.copies_errors = cleanedInfos.split(/(?<=[.?!])\s+/).map(err => err.trim());

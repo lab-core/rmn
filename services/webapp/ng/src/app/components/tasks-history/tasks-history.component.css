@@ -224,3 +224,9 @@ mat-progress-spinner {
 .error-info-button {
     vertical-align: middle;
 }
+
+/* the grade reader is working on this task */
+.reading-running {
+  font-size: 11px;
+  color: #1976d2;
+}

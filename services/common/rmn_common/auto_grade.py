@@ -291,3 +291,42 @@ def queue_document(
         {"$set": {"auto_grade_status": PENDING, "auto_grade_run": run}},
     )
     return run if result.modified_count else None
+
+
+def progress(job_questions: Any, job_id: str) -> Dict[str, Dict[str, int]]:
+    """How far the reading has got, question by question.
+
+    Derived from the documents themselves rather than kept as a counter: a
+    pass can be superseded, abandoned or run by either of two pods, and a
+    counter would have to be right about all of that. The documents already
+    say.
+
+    Returns:
+        ``{question_index: {"pending": n, "running": n, "done": n, "total": n}}``
+        for the questions a reading has touched. A question with pages still
+        pending or running is one the teacher is waiting on.
+    """
+    counts: Dict[str, Dict[str, int]] = {}
+    for row in job_questions.find(
+        {"job_id": job_id, "auto_grade_status": {"$exists": True}},
+        {"question_index": 1, "auto_grade_status": 1},
+    ):
+        question = str(row.get("question_index"))
+        state = (row.get("auto_grade_status") or "").lower()
+        entry = counts.setdefault(
+            question, {"pending": 0, "running": 0, "done": 0, "total": 0}
+        )
+        entry["total"] += 1
+        if state in entry:
+            entry[state] += 1
+    return counts
+
+
+def is_running(job_questions: Any, job_id: str) -> bool:
+    """Whether any question of this job still has pages waiting to be read."""
+    return bool(
+        job_questions.find_one(
+            {"job_id": job_id, "auto_grade_status": {"$in": [PENDING, RUNNING]}},
+            {"_id": 1},
+        )
+    )

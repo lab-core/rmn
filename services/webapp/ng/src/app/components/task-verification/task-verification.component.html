@@ -70,6 +70,8 @@
             }
             @if (readingInfo) {
               <div class="reading-info" id="reading-info">{{readingInfo}}</div>
+            } @else if (readingStateForQuestion()) {
+              <div class="reading-info" id="reading-state">{{readingStateForQuestion()}}</div>
             }
             <div class="check-list-container">
               <div class="sub-check-container">

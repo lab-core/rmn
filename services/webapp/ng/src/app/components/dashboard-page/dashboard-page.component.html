@@ -51,7 +51,11 @@
                 {{ question.name }}
               </div> -->
             </td>
-            <td>{{ question.validatedCount }} / {{ question.count }}</td>
+            <td>{{ question.validatedCount }} / {{ question.count }}
+              @if (readingState(question)) {
+                <div [ngClass]="'reading-state ' + readingClass(question)">{{ readingState(question) }}</div>
+              }
+            </td>
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
             <td>{{ question.stdDev | number:'1.2-2' }}</td>
             <td>

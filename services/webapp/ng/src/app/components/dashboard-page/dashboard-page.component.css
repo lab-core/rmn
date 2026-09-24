@@ -239,3 +239,13 @@ tbody td {
   font-size: 12px;
   display: inline-block;
 }
+
+/* how far the grade reading has got on each question */
+.reading-state {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.reading-running { color: #1976d2; }
+.reading-waiting { color: #8a6d00; }
+.reading-done { color: #2e7d32; }
