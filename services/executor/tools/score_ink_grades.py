@@ -251,8 +251,20 @@ def run_copies(args, classifier):
     return accuracy
 
 
+def parse_max_points(text):
+    """``"9"`` or ``"Q1:8,Q2:12"`` into a default and a per-question map."""
+    if ":" not in text:
+        return float(text), {}
+    mapping = {}
+    for item in text.split(","):
+        key, value = item.split(":")
+        mapping[key] = float(value)
+    return None, mapping
+
+
 def run_questions(args, classifier):
     """The per-question tree, where every grade is on page 0."""
+    default_points, per_question = parse_max_points(args.max_points)
     labels = json.load(open(args.labels)) if args.labels else {}
     bonus = set(args.bonus.split(",")) if args.bonus else set()
     points = {}
@@ -264,7 +276,7 @@ def run_questions(args, classifier):
         folder = os.path.join(args.questions, question)
         if not re.fullmatch(r"Q\d+", question) or not os.path.isdir(folder):
             continue
-        points[question] = args.max_points
+        points[question] = per_question.get(question, default_points)
         for name in sorted(os.listdir(folder)):
             if not name.endswith(".pdf"):
                 continue
@@ -311,7 +323,11 @@ def main() -> int:
         help="Q<n>:<pages>:<max points>, comma separated",
     )
     parser.add_argument("--questions", help="folder holding Q1/, Q2/, ... ")
-    parser.add_argument("--max-points", type=float, default=9.0)
+    parser.add_argument(
+        "--max-points",
+        default="9",
+        help="one number for every question, or Q1:8,Q2:12,... when they differ",
+    )
     parser.add_argument("--labels", help="json labels for --questions")
     parser.add_argument("--bonus", help="comma separated bonus question keys")
     parser.add_argument("--model", help="classifier file (.tflite or .h5)")

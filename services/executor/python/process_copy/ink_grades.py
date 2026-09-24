@@ -40,7 +40,9 @@ CLUSTER_TOL = 0.035
 # A grade is a small mark: clusters outside this fraction of the page width are
 # ticks, crosses and sentences, not numbers.
 MIN_CLUSTER_W = 0.04
-MAX_CLUSTER_W = 0.16
+# wide enough for a grade written as a stacked fraction inside a drawn box,
+# which one grader does and which measured 0.19 of the page
+MAX_CLUSTER_W = 0.22
 
 # Rendering. A vector digit 300 px tall drawn with a hairline almost vanishes
 # once make_square resizes it to 28x28, so the thickness follows the size of
@@ -62,7 +64,11 @@ SLASH_STRAIGHTNESS = 0.25
 # a slash leans; the upright stroke of a handwritten "4" is straight and tall
 # too, and splitting a number on it turns "4.5" into a fraction
 SLASH_MIN_ASPECT = 0.25
-VINCULUM_MAX_HEIGHT = 0.15
+# A fraction bar is judged by its own shape, not by how tall its box is: drawn
+# by hand it slopes, and a sloped straight line has a tall bounding box. One
+# grader's bar measured 60 x 19 in a mark 68 tall, so a "flat" test against
+# the mark's height threw every stacked fraction away.
+VINCULUM_MIN_ASPECT = 2.0
 VINCULUM_MIN_WIDTH = 0.6
 
 # ``/FreeText`` contents carry an author prefix ("u:8.5"). A grade is a bare
@@ -350,7 +356,7 @@ def split_separator(members: Sequence[Stroke], box: Tuple[float, float, float, f
         straight = _straightness(stroke) < SLASH_STRAIGHTNESS
         tall = (sy1 - sy0) >= SLASH_MIN_HEIGHT * height
         leaning = (sx1 - sx0) >= SLASH_MIN_ASPECT * (sy1 - sy0)
-        flat = (sy1 - sy0) <= VINCULUM_MAX_HEIGHT * height
+        flat = (sx1 - sx0) >= VINCULUM_MIN_ASPECT * max(sy1 - sy0, 1e-6)
         wide = (sx1 - sx0) >= VINCULUM_MIN_WIDTH * width
         rest = [s for s in members if s is not stroke]
         if straight and tall and leaning and (sx1 - sx0) < 0.6 * width and rest:
@@ -359,9 +365,14 @@ def split_separator(members: Sequence[Stroke], box: Tuple[float, float, float, f
             if left and right and len(left) + len(right) == len(rest):
                 return left, right, None
         if straight and flat and wide and rest:
-            above = [s for s in rest if s.bbox[3] <= (sy0 + sy1) / 2]
-            below = [s for s in rest if s.bbox[1] >= (sy0 + sy1) / 2]
-            if above and below and len(above) + len(below) == len(rest):
+            # every stroke goes to one side or the other, by its centre: a
+            # digit drawn against a hand-drawn bar often crosses it, and
+            # demanding that each sits wholly above or below threw the whole
+            # fraction away
+            middle = (sy0 + sy1) / 2
+            above = [s for s in rest if (s.bbox[1] + s.bbox[3]) / 2 < middle]
+            below = [s for s in rest if (s.bbox[1] + s.bbox[3]) / 2 >= middle]
+            if above and below:
                 return above, below, None
 
     dot = None
