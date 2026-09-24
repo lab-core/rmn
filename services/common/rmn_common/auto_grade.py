@@ -321,7 +321,10 @@ def progress(job_questions: Any, job_id: str) -> Dict[str, Dict[str, int]]:
         )
         entry["total"] += 1
         if row.get("grade") is not None:
+            # graded by hand: not the reader's to do, whether or not it was
+            # read before the teacher got to it
             entry["graded"] += 1
+            continue
         state = (row.get("auto_grade_status") or "").lower()
         if state in ("pending", "running", "done"):
             entry[state] += 1

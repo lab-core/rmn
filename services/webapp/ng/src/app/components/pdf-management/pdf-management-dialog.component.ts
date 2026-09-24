@@ -20,7 +20,12 @@ export interface DialogData {
   nPagesPerQuestion: Map<string, number>;
   nMaxPointsPerQuestion: Map<string, number>;
   bonusEnabledMap: Map<string, boolean>;
+  // the copies of the question being corrected: what the download exports
   examsList: Array<any>;
+  // every copy of the task. A zip sent back may carry several questions --
+  // whichever ones were exported -- so matching its pages and its csv to
+  // copies cannot be limited to the question that happens to be selected.
+  allExamsList: Array<any>;
   offlineCopies: Map<number, OfflineCopy>;
 }
 
@@ -60,6 +65,43 @@ export class PdfManagementDialogComponent {
               private docService: DocumentsService,
               private notificationService: NotificationService,
               @Inject(MAT_DIALOG_DATA) public data: DialogData) {
+  }
+
+  /// Write the grades read from the csv onto the copies they belong to.
+  ///
+  /// Every copy of the task is searched, not only the question being
+  /// corrected: the csv covers whatever the zip carries. A negative grade or
+  /// one above the question's maximum goes back to validation; an unknown
+  /// maximum refuses nothing (it used to send every imported grade back with
+  /// one blanket error).
+  applyImportedGrades(grades: { [docIndex: string]: number }) {
+    const suspicious: number[] = [];
+    const unknown: string[] = [];
+    for (const docIndex of Object.keys(grades)) {
+      const docIdx = parseInt(docIndex, 10);
+      const exam = this.data.allExamsList.find((e) => {
+        return e.document_index === docIdx;
+      });
+      if (!exam) {
+        unknown.push(docIndex);
+        continue;
+      }
+      exam.grade = grades[docIndex];
+      const total = this.data.nMaxPointsPerQuestion.get(exam.question);
+      if (exam.grade < 0 || (total !== undefined && exam.grade > total + 1e-3)) {
+        suspicious.push(docIdx);
+        exam.status = DocumentStatus.TO_VALIDATE;
+      } else {
+        exam.status = DocumentStatus.VALIDATED;
+      }
+    }
+    if (unknown.length > 0) {
+      this.notificationService.showWarning(`Aucune copie pour les index ${unknown.join(', ')} du csv.`, 'Attention');
+    }
+    if (suspicious.length > 0) {
+      this.notificationService.showError(
+        `Les notes des copies ${suspicious.join(', ')} sont négatives ou dépassent le maximum: elles restent à valider.`, 'Erreur');
+    }
   }
 
   async downloadAllFilesAsZip() {
@@ -478,7 +520,7 @@ export class PdfManagementDialogComponent {
         await this.timeout();
         const mergedDoc = mergedPDFDocs[questionIndex];
         const totalPageCount = mergedDoc.getPageCount();
-        const originalDocs = this.data.examsList.filter((exam) => exam.question === questionIndex);
+        const originalDocs = this.data.allExamsList.filter((exam) => exam.question === questionIndex);
         const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
 
         let startPage = 0;
@@ -534,36 +576,7 @@ export class PdfManagementDialogComponent {
       const finalZipBlob = await zip.generateAsync({type: 'blob'});
       const finalZipFile = new File([finalZipBlob], 'split_documents.zip', {type: 'application/zip'});
 
-      // update exam grades: a negative grade or one above the question's
-      // maximum goes back to validation; an unknown maximum refuses nothing
-      // (it used to send every imported grade back with one blanket error)
-      const suspicious: number[] = [];
-      const unknown: string[] = [];
-      for (const docIndex of Object.keys(grades)) {
-        const docIdx = parseInt(docIndex, 10);
-        const exam = this.data.examsList.find((e) => {
-          return e.document_index === docIdx;
-        });
-        if (!exam) {
-          unknown.push(docIndex);
-          continue;
-        }
-        exam.grade = grades[docIndex];
-        const total = this.data.nMaxPointsPerQuestion.get(exam.question);
-        if (exam.grade < 0 || (total !== undefined && exam.grade > total + 1e-3)) {
-          suspicious.push(docIdx);
-          exam.status = DocumentStatus.TO_VALIDATE;
-        } else {
-          exam.status = DocumentStatus.VALIDATED;
-        }
-      }
-      if (unknown.length > 0) {
-        this.notificationService.showWarning(`Aucune copie pour les index ${unknown.join(', ')} du csv.`, 'Attention');
-      }
-      if (suspicious.length > 0) {
-        this.notificationService.showError(
-          `Les notes des copies ${suspicious.join(', ')} sont négatives ou dépassent le maximum: elles restent à valider.`, 'Erreur');
-      }
+      this.applyImportedGrades(grades);
 
       const uploadFormData = new FormData();
       this.userService.addTokens(uploadFormData);

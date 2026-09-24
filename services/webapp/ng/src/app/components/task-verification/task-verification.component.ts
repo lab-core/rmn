@@ -1041,6 +1041,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         nMaxPointsPerQuestion: this.nMaxPointsPerQuestion,
         bonusEnabledMap: this.bonusEnabledMap,
         examsList: this.subExamsList,
+        // the upload half works on every copy of the task: a zip may carry
+        // several questions, and the server checks the right to each one it
+        // finds before writing it
+        allExamsList: this.examsList,
         offlineCopies: this.offlineCopies
       },
     });

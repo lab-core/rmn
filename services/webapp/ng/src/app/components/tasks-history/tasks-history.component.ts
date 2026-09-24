@@ -23,6 +23,10 @@ import { firstValueFrom } from 'rxjs';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 
 
+// the opening of the progress message a grade reading emits; matching it is
+// what tells a reading apart from any other progress the executor reports
+const READING_INFOS = 'Lecture des notes';
+
 @Component({
     selector: 'app-tasks-history',
     templateUrl: './tasks-history.component.html',
@@ -99,7 +103,15 @@ export class TasksHistoryComponent implements OnInit {
     if (task !== undefined) {
       const statusChanged = task.job_status !== job_status;
       task.job_status = job_status;
-      if (resp.job_infos) task.job_infos = resp.job_infos;
+      if (resp.job_infos) {
+        task.job_infos = resp.job_infos;
+        // the flag from /jobs is only right at page load, and a pass is
+        // over in seconds, so the row learns about one from the progress the
+        // executor already sends (job_executor.read_grades_for_job)
+        if (String(resp.job_infos).startsWith(READING_INFOS)) {
+          task.auto_grade_running = true;
+        }
+      }
       this.updateTask(task);
       // progress while the grades are being read arrives every few copies and
       // shows in the infos column; only a real change of status is worth
@@ -113,6 +125,12 @@ export class TasksHistoryComponent implements OnInit {
 
   private readonly onDocumentReady = (params: any) => {
     // progress events of the running jobs: the table only re-renders
+    const resp = typeof params === 'string' ? JSON.parse(params) : params;
+    const task = this.tasksList.find(t => t.job_id === resp?.job_id);
+    if (task) {
+      // a reading pass emits this once, when it is done
+      task.auto_grade_running = false;
+    }
     this.dataSource.data = this.tasksList;
   };
 
