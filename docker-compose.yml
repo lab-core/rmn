@@ -13,9 +13,11 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
   mongo:
-    # featureCompatibilityVersion of the data is 8.0; when :latest jumps to a
-    # new major that rejects it, bump FCV first (setFeatureCompatibilityVersion)
-    image: mongo:latest
+    # same series as the cluster (deployment/mongo.yml). Not :latest: recent
+    # 8.0 and 8.3 releases refuse to start on Linux 6.19 to 7.0.13
+    # (SERVER-121912, a TCMalloc/rseq crash) and Docker Desktop's VM runs such
+    # a kernel; 8.2 has no gate. featureCompatibilityVersion of the data is 8.0.
+    image: mongo:8.2
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER}
