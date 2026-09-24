@@ -141,9 +141,14 @@ jobs:
           python-version: '3.13'
           cache: pip
           cache-dependency-path: services/executor/requirements-dev.txt
-      # opencv-python (not the headless build) links against libGL
+      # opencv-python (not the headless build) links against libGL; TeX Live as
+      # in the image, or the tests that really compile the stats are skipped
+      # (that let a ../Q1.png the image's pdflatex refuses reach production)
       - name: Install system libraries
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+            texlive-latex-base texlive-latex-recommended
       # The tested modules import the whole stack (opencv, pandas, pypdf,
       # matplotlib, ...) at module level, so the image requirements are
       # installed as they are; the pip cache keeps it to about a minute.
