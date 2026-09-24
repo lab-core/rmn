@@ -1,0 +1,47 @@
+<div class="settings-container">
+  <h3>Modifier la tâche</h3>
+
+  <label class="settings-field">
+    Nom de la tâche
+    <input id="task-name" type="text" maxlength="200" [(ngModel)]="name" [disabled]="saving">
+  </label>
+
+  @if (pointsEditable || pagesEditable) {
+    <table class="settings-questions">
+      <thead>
+        <tr>
+          <th>Question</th>
+          @if (pagesEditable) {
+            <th>Pages</th>
+          }
+          <th>Points</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of correctedRows(); track row.key) {
+          <tr>
+            <td>{{ row.key }}</td>
+            @if (pagesEditable) {
+              <td><input type="number" min="0" step="1" [attr.id]="'pages-' + row.key" [(ngModel)]="row.pages" [disabled]="saving"></td>
+            }
+            <td><input type="number" min="0" step="any" [attr.id]="'points-' + row.key" [(ngModel)]="row.points" [disabled]="saving || !pointsEditable"></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (pagesEditable) {
+      <p class="settings-hint">Les copies refusées pour leur nombre de pages seront redécoupées. Une question à 0 page est ignorée (0 point).</p>
+    }
+  } @else {
+    <p class="settings-hint">La tâche est validée : les points ne peuvent plus changer.</p>
+  }
+
+  @if (error) {
+    <p class="settings-error" id="settings-error">{{ error }}</p>
+  }
+
+  <div class="settings-buttons">
+    <button mat-flat-button (click)="cancel()" [disabled]="saving">Annuler</button>
+    <button mat-flat-button color="primary" id="save-settings" (click)="save()" [disabled]="saving || loading">Enregistrer</button>
+  </div>
+</div>

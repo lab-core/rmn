@@ -1,10 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { of } from 'rxjs';
 import JSZip from 'jszip';
 
 import { TaskRetryDialogComponent } from './task-retry-dialog.component';
+import { TaskSettingsDialogComponent } from '../task-settings/task-settings-dialog.component';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { MATERIAL_MODULES, dialogRefSpy, notificationSpy, settle, userServiceStub } from '../../testing/helpers';
@@ -42,6 +44,27 @@ describe('TaskRetryDialogComponent', () => {
   };
 
   afterEach(() => http.verify());
+
+  it('new pages per question split the refused copies again: nothing left to upload', () => {
+    create();
+    const dialog = TestBed.inject(MatDialog);
+    spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of({ nPagesPerQuestion: [['Q1', 2]], resplit: 2 }) } as any);
+
+    component.editSettings();
+
+    expect(dialog.open).toHaveBeenCalledWith(TaskSettingsDialogComponent, jasmine.objectContaining({
+      data: jasmine.objectContaining({ status: 'RETRY' }),
+    }));
+    expect(dialogRef.close).toHaveBeenCalledWith('CORRECTED');
+  });
+
+  it('closing the settings without new pages keeps the retry dialog open', () => {
+    create();
+    const dialog = TestBed.inject(MatDialog);
+    spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of({ jobName: 'renamed' }) } as any);
+    component.editSettings();
+    expect(dialogRef.close).not.toHaveBeenCalled();
+  });
 
   it('lists the rejected copies from the error messages', () => {
     create();

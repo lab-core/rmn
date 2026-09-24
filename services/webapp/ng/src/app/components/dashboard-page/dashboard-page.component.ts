@@ -14,6 +14,7 @@ import { TaskFilesDialogComponent } from '../task-files-dialog/task-files-dialog
 import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog.component';
 import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
 import { CsvUpdateDialogComponent } from '../csv-update/csv-update-dialog.component';
+import { TaskSettingsDialogComponent } from '../task-settings/task-settings-dialog.component';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 import { SELECTED_COPY_SUFFIX, selectedCopy, selectedCopyKey } from 'src/app/selected-copy';
 
@@ -633,6 +634,26 @@ export class DashboardPageComponent {
       }
     }, (error) => {
       console.error(error);
+    });
+  }
+
+  /** Rename the task, or change its points per question until it is validated. */
+  public editSettings(): void {
+    const dialogRef = this.dialog.open(TaskSettingsDialogComponent, {
+      width: '80%',
+      maxWidth: '500px',
+      data: {
+        taskId: this.taskId,
+        taskName: this.task.job_name,
+        status: this.task.job_status,
+        nPagesPerQuestion: this.task.n_pages_per_question,
+        nMaxPointsPerQuestion: this.task.n_max_points_per_question,
+      },
+    });
+    dialogRef.afterClosed().pipe(first()).subscribe(async (result) => {
+      if (result) {
+        await this.loadTask();  // new title, maxima, and the grades flagged again
+      }
     });
   }
 

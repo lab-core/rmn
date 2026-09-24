@@ -818,6 +818,133 @@ def bonus_job(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
+# once validated, the points are baked into the output (csv, stats pages)
+POINTS_LOCKED_STATUSES = (Job_Status.VALIDATED.value, Job_Status.FINALIZING.value, Job_Status.ARCHIVED.value)
+JOB_NAME_MAX_LENGTH = 200
+
+
+def _settings_error(message, status=400):
+    return Response(response=json.dumps({"response": f"Error: {message}"}), status=status)
+
+
+def _resplit_rejected_copies(job_id):
+    """Queue the copies rejected for their page count to be split again.
+
+    They wait in incorrect_files/<job_id>/ (utils/split.py); they are zipped
+    into zips/<job_id>/, where the executor looks for copies to add, like an
+    upload from the retry dialog. Returns how many there were.
+    """
+    rejected = sorted(glob.glob(storage.abs_path(os.path.join("incorrect_files", job_id, "*.pdf"))))
+    if rejected:
+        zip_path = storage.abs_path(os.path.join("zips", job_id, f"{uuid.uuid4()}.zip"))
+        os.makedirs(os.path.dirname(zip_path), exist_ok=True)
+        with ZipFile(zip_path, "w") as new_zip:
+            for pdf in rejected:
+                new_zip.write(pdf, os.path.basename(pdf))
+    storage.remove_tree(os.path.join("incorrect_files", job_id))
+    redis.rpush("job_queue", json.dumps({"job_id": job_id, "add_copies": True}))
+    return len(rejected)
+
+
+@app.route("/job/update/settings", methods=["POST"])
+@cross_origin()
+@verify_token()
+def update_job_settings(user_id):
+    """Change a task's name, points or pages per question while they can still matter.
+
+    Form fields, each optional (at least one): ``job_name``;
+    ``n_max_points_per_question`` and ``n_pages_per_question`` as JSON
+    ``[["Q1", value], ...]`` with the task's own questions.
+
+    - the name is only displayed: it can always change;
+    - the points are read by the grade reader and at finalization: they can
+      change until the task is validated. A grade now above its question's
+      maximum (bonus questions aside) goes back to "à valider";
+    - the pages decide how every copy is cut: they can only change while no
+      copy has been split, i.e. when all were rejected for their page count
+      (RETRY). The rejected copies are then split again.
+    """
+    form = request.form
+    job_id = str(form.get("job_id", ""))
+    if not job_id:
+        return _settings_error("job_id not provided.")
+    db = mongo["RMN"]
+    job = db["eval_jobs"].find_one({"job_id": job_id, "user_id": user_id})
+    if job is None:
+        return _settings_error(f"job {job_id} for user {user_id} doesn't exist.", 404)
+    status = job["job_status"]
+    updates = {}
+
+    if "job_name" in form:
+        name = form["job_name"].strip()
+        if not name or len(name) > JOB_NAME_MAX_LENGTH:
+            return _settings_error(f"le nom de la tâche doit faire de 1 à {JOB_NAME_MAX_LENGTH} caractères.")
+        updates["job_name"] = name
+
+    pages = job.get("n_pages_per_question", [])
+    points = job.get("n_max_points_per_question", [])
+    for field in ("n_max_points_per_question", "n_pages_per_question"):
+        if field not in form:
+            continue
+        try:
+            value = json.loads(form[field])
+        except ValueError:
+            return _settings_error(f"{field} is not JSON.")
+        if field == "n_max_points_per_question":
+            if status in POINTS_LOCKED_STATUSES:
+                return _settings_error("les points ne peuvent plus changer : la tâche est validée.", 409)
+            points = value
+        else:
+            if status != Job_Status.RETRY.value:
+                return _settings_error(
+                    "le nombre de pages ne peut changer que lorsque les copies ont été refusées pour leur "
+                    "nombre de pages.", 409)
+            if db["job_questions"].count_documents({"job_id": job_id}) > 0:
+                return _settings_error(
+                    "des copies ont déjà été découpées avec l'ancien nombre de pages : elles le seraient "
+                    "différemment des suivantes.", 409)
+            pages = value
+        updates[field] = value
+
+    if "n_max_points_per_question" in updates or "n_pages_per_question" in updates:
+        # the bonus map carries the task's questions: the keys cannot change
+        error = validate_questions(pages, points, job.get("bonus_enabled_map", []))
+        if error:
+            return _settings_error(error)
+    if not updates:
+        return _settings_error("rien à modifier.")
+
+    query = {"$set": updates}
+    if "n_pages_per_question" in updates:
+        query["$set"]["job_status"] = Job_Status.CORRECTED.value
+        query["$unset"] = {"copies_errors": "", "job_infos": ""}
+    # conditional on the status read above: an executor that moved the task on
+    # meanwhile wins, and the teacher is told to try again
+    result = db["eval_jobs"].update_one({"job_id": job_id, "user_id": user_id, "job_status": status}, query)
+    if result.matched_count == 0:
+        return _settings_error("la tâche a changé d'état entre-temps, réessayez.", 409)
+
+    flagged = 0
+    if "n_max_points_per_question" in updates:
+        bonus = dict(job.get("bonus_enabled_map", []))
+        for key, max_points in points:
+            if bonus.get(key):
+                continue  # a bonus question is meant to go above its points
+            flagged += db["job_questions"].update_many(
+                {
+                    "job_id": job_id,
+                    "question_index": int(key[1:]),
+                    "grade": {"$gt": max_points},
+                    "status": {"$in": [Document_Status.VALIDATED.value, Document_Status.HIGH_ACCURACY.value]},
+                },
+                {"$set": {"status": Document_Status.TO_VALIDATE.value}},
+            ).modified_count
+
+    resplit = _resplit_rejected_copies(job_id) if "n_pages_per_question" in updates else 0
+
+    return Response(response=json.dumps({"response": "OK", "flagged": flagged, "resplit": resplit}), status=200)
+
+
 @app.route("/job/update/stats", methods=["POST"])
 @cross_origin()
 @verify_token()

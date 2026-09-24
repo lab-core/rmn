@@ -37,6 +37,12 @@ app-main-menu {
 
 .task-header>h1 {
   margin-bottom: 5px;
+  display: inline-block;
+}
+
+/* the pencil beside the title: rename, change the points */
+.edit-task-button {
+  vertical-align: middle;
 }
 
 .select-index-container {
