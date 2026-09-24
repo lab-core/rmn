@@ -7,6 +7,7 @@ import numpy as np
 from process_copy.imaging import (
     fetch_box,
     get_image_from_contour,
+    hough_segments,
     imwrite_contours,
     imwrite_png,
 )
@@ -39,11 +40,11 @@ def find_edges(
         if line_on_original:
             edged = cropped.copy()
         if lines is not None:
-            for l in lines:
+            for x1, y1, x2, y2 in hough_segments(lines):
                 cv2.line(
                     edged,
-                    (l[0][0], l[0][1]),
-                    (l[0][2], l[0][3]),
+                    (int(x1), int(y1)),
+                    (int(x2), int(y2)),
                     (255, 255, 255),
                     thick,
                 )
