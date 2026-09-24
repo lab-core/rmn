@@ -158,4 +158,7 @@ def projection(document: Dict) -> Dict:
         "auto_grade_confidence": document.get("auto_grade_confidence"),
         "auto_grade_reason": document.get("auto_grade_reason"),
         "auto_grade_source": document.get("auto_grade_source"),
+        # PENDING/RUNNING/DONE, so the correction screen can say which copies
+        # the reader has not reached yet
+        "auto_grade_status": document.get("auto_grade_status"),
     }

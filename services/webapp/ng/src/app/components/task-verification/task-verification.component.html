@@ -68,6 +68,9 @@
                 <mat-icon>visibility_off</mat-icon>
               </div>
             }
+            @if (readingInfo) {
+              <div class="reading-info" id="reading-info">{{readingInfo}}</div>
+            }
             <div class="check-list-container">
               <div class="sub-check-container">
                 <div class="h3-container">
@@ -75,11 +78,9 @@
                 </div>
                 <div class="value-input-div">
                   <input id="score" type="number" [(ngModel)]="currentGrade" placeholder="Note"
-                    [ngClass]="currentGradeIsAuto ? 'note-input note-input-auto' : 'note-input'"
+                    [ngClass]="'note-input ' + gradeColor() + (currentGradeIsAuto ? ' note-auto' : '')"
+                    [title]="autoGradeHint()"
                     (click)="selectText($event)"/>
-                  @if (currentGradeIsAuto) {
-                    <span class="auto-grade-hint" id="auto-grade-hint">{{autoGradeHint()}}</span>
-                  }
                 </div>
               </div>
               @for (grade of currentGrades | keyvalue : sortNull; track trackByIndex($index, grade)) {
