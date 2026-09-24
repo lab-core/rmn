@@ -2,6 +2,7 @@ import os
 import shutil
 import datetime as dt
 import cv2
+from rmn_common import auto_grade
 from rmn_common.status import Document_Status, Job_Status
 from utils.storage import Storage, ROOT_DIR
 from utils.clients import mongo_client
@@ -205,96 +206,46 @@ class Database:
         cv2.imwrite(f"numbers/{name}", img)
 
     # ---------------------------------------------------------- auto grades --
-    # Reading the grade off a re-uploaded page is per question, not per job:
-    # questions are uploaded separately and their passes run at the same time.
-    # Each question carries a run number that the server bumps on every new
-    # upload, and every write is conditional on it, so a pass that has been
-    # superseded cannot land a value from the file it was reading.
+    # The rules live in rmn_common.auto_grade because the server starts a pass
+    # and the executor runs it: written twice, the two would drift.
 
     def bump_auto_grade_run(self, job_id, question_index):
-        """Start a new reading pass for one question and return its run number.
-
-        The documents a human has already validated are left alone: a new
-        upload must not discard a grade someone confirmed.
-        """
-        job = self.eval_jobs_collection().find_one_and_update(
-            {"job_id": job_id},
-            {"$inc": {f"auto_grade_runs.{question_index}": 1}},
-            return_document=ReturnDocument.AFTER,
+        """Start a pass for one question and queue its pages."""
+        return auto_grade.start_run(
+            self.eval_jobs_collection(),
+            self.questions_collection(),
+            job_id,
+            question_index,
         )
-        run = (job or {}).get("auto_grade_runs", {}).get(str(question_index), 1)
-        self.questions_collection().update_many(
-            {
-                "job_id": job_id,
-                "question_index": question_index,
-                "status": {"$ne": Document_Status.VALIDATED.value},
-                "grade": None,
-            },
-            {"$set": {"auto_grade_status": "PENDING", "auto_grade_run": run}},
-        )
-        return run
 
     def auto_grade_run(self, job_id, question_index):
-        """The run number currently in force for a question, or 0."""
-        job = self.eval_jobs_collection().find_one(
-            {"job_id": job_id}, {"auto_grade_runs": 1}
+        """The run number currently in force for a question."""
+        return auto_grade.current_run(
+            self.eval_jobs_collection(), job_id, question_index
         )
-        return (job or {}).get("auto_grade_runs", {}).get(str(question_index), 0)
 
     def claim_question_document(self, job_id, question_index, run):
-        """Take the next document of the question that still needs reading.
-
-        The claim is a single atomic update, so two executor pods working the
-        same question never read the same page twice.
-        """
-        return self.questions_collection().find_one_and_update(
-            {
-                "job_id": job_id,
-                "question_index": question_index,
-                "auto_grade_status": "PENDING",
-                "auto_grade_run": run,
-            },
-            {"$set": {"auto_grade_status": "RUNNING"}},
-            return_document=ReturnDocument.AFTER,
+        """Take the next page of the question that still needs reading."""
+        return auto_grade.claim_document(
+            self.questions_collection(), job_id, question_index, run
         )
 
     def save_auto_grade(self, job_id, document_index, run, reading):
-        """Store a reading, unless it has been superseded or already confirmed.
-
-        ``grade`` is deliberately not written: it stays the human's answer, and
-        ``job_documents.grades`` -- the array finalisation sums -- is not
-        touched either. The value only becomes a grade when someone validates
-        it in the correction screen.
-        """
-        result = self.questions_collection().update_one(
-            {
-                "job_id": job_id,
-                "document_index": document_index,
-                "auto_grade_run": run,
-                "status": {"$ne": Document_Status.VALIDATED.value},
-            },
-            {
-                "$set": {
-                    "auto_grade": reading.grade,
-                    "auto_grade_confidence": round(float(reading.confidence), 4),
-                    "auto_grade_reason": reading.reason,
-                    "auto_grade_source": reading.source,
-                    "auto_grade_bbox": list(reading.bbox) if reading.bbox else None,
-                    "auto_grade_status": "DONE",
-                }
-            },
+        """Store a reading unless it has been superseded or already confirmed."""
+        return auto_grade.store_reading(
+            self.questions_collection(),
+            job_id,
+            document_index,
+            run,
+            reading.grade,
+            reading.confidence,
+            reading.reason,
+            reading.source,
+            reading.bbox,
         )
-        return result.modified_count == 1
 
     def questions_to_read(self, job_id, question_index, run):
-        """Documents of a question still waiting for a reading pass."""
-        return list(
-            self.questions_collection().find(
-                {
-                    "job_id": job_id,
-                    "question_index": question_index,
-                    "auto_grade_status": "PENDING",
-                    "auto_grade_run": run,
-                }
-            )
+        """Pages of a question still waiting for a reading pass."""
+        return auto_grade.pending_documents(
+            self.questions_collection(), job_id, question_index, run
         )

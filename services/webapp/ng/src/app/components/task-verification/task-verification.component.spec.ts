@@ -4,6 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 
 import { TaskVerificationComponent } from './task-verification.component';
+import { DocumentStatus } from 'src/app/generated/rmn-contracts';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { SocketService } from 'src/app/services/socket.service';
@@ -317,5 +318,73 @@ describe('TaskVerificationComponent', () => {
     fixture.destroy();
     expect(docs.clearPdfSources).toHaveBeenCalled();
     expect(socket.leave).toHaveBeenCalled();
+  });
+});
+
+describe('TaskVerificationComponent grade reading', () => {
+  // The reader fills the score field so the teacher confirms instead of
+  // typing, but a read value is a suggestion: it must never look confirmed,
+  // and a grade a human already set always wins.
+  let component: TaskVerificationComponent;
+
+  beforeEach(() => {
+    component = Object.create(TaskVerificationComponent.prototype) as TaskVerificationComponent;
+  });
+
+  const withExam = (exam: any) => {
+    (component as any).currentExam = () => exam;
+    return component;
+  };
+
+  it('offers what the reader found when nobody has graded the copy', () => {
+    withExam({ grade: null, auto_grade: 8.5, auto_grade_confidence: 0.97 }).loadScore();
+
+    expect(component.currentGrade).toBe(8.5);
+    expect(component.currentGradeIsAuto).toBeTrue();
+    // the score box is 80px wide, so the confidence is a tooltip, not a caption
+    expect(component.autoGradeHint()).toContain('97');
+  });
+
+  it('colours the score box like the tiles and the validate button', () => {
+    component.currentStatus = DocumentStatus.VALIDATED;
+    expect(component.gradeColor()).toBe('note-green');
+
+    component.currentStatus = DocumentStatus.HIGH_ACCURACY;
+    expect(component.gradeColor()).toBe('note-blue');
+
+    component.currentStatus = DocumentStatus.TO_VALIDATE;
+    expect(component.gradeColor()).toBe('note-red');
+  });
+
+  it('prefers a grade a human has already set', () => {
+    withExam({ grade: 6, auto_grade: 8.5, auto_grade_confidence: 0.99 }).loadScore();
+
+    expect(component.currentGrade).toBe(6);
+    expect(component.currentGradeIsAuto).toBeFalse();
+    expect(component.autoGradeHint()).toBe('');
+  });
+
+  it('leaves the field empty when the page could not be read', () => {
+    withExam({ grade: null, auto_grade: null, auto_grade_reason: 'not_found' }).loadScore();
+
+    expect(component.currentGrade).toBeNull();
+    expect(component.currentGradeIsAuto).toBeFalse();
+  });
+
+  it('works on copies stored before the reader existed', () => {
+    withExam({ grade: null }).loadScore();
+
+    expect(component.currentGrade).toBeNull();
+    expect(component.currentGradeIsAuto).toBeFalse();
+  });
+
+  it('saves a suggested grade when the teacher confirms it', () => {
+    // the stored grade is still null, so the value has to be persisted rather
+    // than treated as unchanged
+    const exam: any = { grade: null, auto_grade: 8.5, auto_grade_confidence: 0.97 };
+    withExam(exam).loadScore();
+
+    expect(component.saveCurrentGrade()).toBeTrue();
+    expect(exam.grade).toBe(8.5);
   });
 });

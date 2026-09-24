@@ -68,13 +68,19 @@
                 <mat-icon>visibility_off</mat-icon>
               </div>
             }
+            @if (readingInfo) {
+              <div class="reading-info" id="reading-info">{{readingInfo}}</div>
+            }
             <div class="check-list-container">
               <div class="sub-check-container">
                 <div class="h3-container">
                   <h3>{{currentExam().question}} (/{{nMaxPointsPerQuestion.get(currentQuestionIndex)}})</h3>
                 </div>
                 <div class="value-input-div">
-                  <input id="score" type="number" [(ngModel)]="currentGrade" placeholder="Note" class="note-input"/>
+                  <input id="score" type="number" [(ngModel)]="currentGrade" placeholder="Note"
+                    [ngClass]="'note-input ' + gradeColor() + (currentGradeIsAuto ? ' note-auto' : '')"
+                    [title]="autoGradeHint()"
+                    (click)="selectText($event)"/>
                 </div>
               </div>
               @for (grade of currentGrades | keyvalue : sortNull; track trackByIndex($index, grade)) {

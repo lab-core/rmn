@@ -82,6 +82,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   currentTagModified: boolean = false;
   currentVersion: number = 0;
   currentGrade: number | null;
+  // the grade shown came from the reader, not from a human, and has not been
+  // confirmed yet
+  currentGradeIsAuto: boolean = false;
+  currentGradeConfidence: number | null = null;
+  // what the reader is doing right now, straight from the executor
+  readingInfo: string = '';
   currentTotal: number;
   currentGrades: Map<string, number>;
   currentStatus: string;
@@ -163,6 +169,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
     this.socketService.join(this.job.job_id);
     this.onDocumentReady = async (params: any) => {
+      // a reading pass emits this once, when it is done
+      this.readingInfo = '';
       await this.getDocuments();
       if (this.currentCopy < 0 || this.currentExam()['status'] === DocumentStatus.VALIDATED) {
         this.nextCopy();
@@ -177,6 +185,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         const jobId = resp.job_id;
         if (this.job.job_id === jobId) {
           this.job.job_status = resp.status;
+          // the executor reports what it is doing here; the reading pass is
+          // the only work that runs while a task is being corrected
+          if (resp.job_infos) {
+            this.readingInfo = resp.job_infos;
+          }
           this.checkValidationButton();
         }
       };
@@ -321,7 +334,39 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   loadScore(): void {
-    this.currentGrade = this.currentExam()["grade"];
+    // a confirmed grade always wins; otherwise offer what the reader made of
+    // the page, marked as a suggestion so the teacher can see it is one
+    const grade = this.currentExam()["grade"];
+    const autoGrade = this.currentExam()["auto_grade"];
+    this.currentGradeIsAuto = grade === null && autoGrade !== null && autoGrade !== undefined;
+    this.currentGradeConfidence = this.currentGradeIsAuto
+      ? this.currentExam()["auto_grade_confidence"] ?? null
+      : null;
+    this.currentGrade = this.currentGradeIsAuto ? autoGrade : grade;
+  }
+
+  autoGradeHint(): string {
+    // the score box is 80px wide: this is a tooltip, not a caption
+    if (!this.currentGradeIsAuto) {
+      return '';
+    }
+    const confidence = this.currentGradeConfidence;
+    return confidence === null
+      ? 'Note lue automatiquement, à confirmer.'
+      : `Note lue automatiquement (confiance ${Math.round(confidence * 100)} %), à confirmer.`;
+  }
+
+  gradeColor(): string {
+    // the colours the copy tiles and the validate button already use: green
+    // once a human has validated, blue when the machine is confident, red
+    // when it is not
+    if (this.currentStatus === DocumentStatus.VALIDATED) {
+      return 'note-green';
+    }
+    if (this.currentStatus === DocumentStatus.HIGH_ACCURACY) {
+      return 'note-blue';
+    }
+    return 'note-red';
   }
 
   saveCurrentGrade(): boolean {

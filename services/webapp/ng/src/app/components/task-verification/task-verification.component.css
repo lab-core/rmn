@@ -716,3 +716,34 @@ app-pdf-viewer {
 #file-input {
   display: none;
 }
+
+/* The score box carries the same colours as the copy tiles and the validate
+   button: green once a human validated, blue when the machine was confident,
+   red when it was not. Only the border, so the number stays readable. */
+.note-input.note-green {
+  border: 2px solid green;
+}
+
+.note-input.note-blue {
+  border: 2px solid rgb(65, 65, 247);
+}
+
+.note-input.note-red {
+  border: 2px solid red;
+}
+
+/* a value the reader suggested and nobody has confirmed yet */
+.note-input.note-auto {
+  border-style: dashed;
+}
+
+/* what the reader is doing, while it is doing it */
+.reading-info {
+  margin: 4px 10px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background-color: #e8f1fb;
+  color: #1976d2;
+  font-size: 12px;
+  white-space: nowrap;
+}
