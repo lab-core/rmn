@@ -57,7 +57,8 @@ def test_abs_path_joins_the_root_and_keeps_absolute_paths_under_it(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "path", ["/elsewhere/a.pdf", "../a.pdf", "documents/../../a.pdf", "documents/j/../../../x"]
+    "path",
+    ["/elsewhere/a.pdf", "../a.pdf", "documents/../../a.pdf", "documents/j/../../../x"],
 )
 def test_abs_path_refuses_paths_that_leave_the_root(tmp_path, path):
     # every storage read and write resolves its path here
@@ -131,3 +132,94 @@ def test_remove_job_deletes_all_job_paths_and_nothing_else(tmp_path):
 
     Storage(root).remove_job("job-A")  # idempotent
     Storage(root).remove_job("never-existed")
+
+
+def test_rel_path_of_a_relative_or_foreign_path(tmp_path):
+    storage = Storage(tmp_path / "store")
+    assert storage.rel_path("csv/j.csv") == "csv/j.csv"
+    # a path recorded under another mount of the tree keeps its layout part
+    assert storage.rel_path("/mnt/old/storage/csv/j.csv") == "csv/j.csv"
+    assert storage.rel_path("/elsewhere/j.csv") == "/elsewhere/j.csv"
+
+
+def test_remove_job_tolerates_a_directory_named_like_one_of_its_files(tmp_path):
+    root = str(tmp_path)
+    os.makedirs(os.path.join(root, "output_zip", "job-A_odd.zip"))
+    _touch(os.path.join(root, "output_zip", "job-A_all.zip"))
+    Storage(root).remove_job("job-A")
+    assert os.listdir(os.path.join(root, "output_zip")) == ["job-A_odd.zip"]
+
+
+def test_job_entries_name_the_owner_of_every_job_path(tmp_path):
+    root = str(tmp_path)
+    _build_job(root, "job-A")
+    _touch(os.path.join(root, "output_zip", "nounderscore.zip"))  # no job id
+    _touch(os.path.join(root, "csv", "notes.txt"))  # not a job file
+    _touch(os.path.join(root, "documents", "loose.pdf"))  # not a job directory
+
+    entries = sorted(
+        (job, os.path.relpath(path, root)) for job, path in Storage(root).job_entries()
+    )
+
+    assert entries == sorted(
+        [
+            ("job-A", os.path.join("documents", "job-A")),
+            ("job-A", os.path.join("cover_pages", "job-A")),
+            ("job-A", os.path.join("corrected_copies", "job-A")),
+            ("job-A", os.path.join("incorrect_files", "job-A")),
+            ("job-A", os.path.join("zips", "job-A")),
+            ("job-A", os.path.join("unverified_numbers", "job-A")),
+            ("job-A", os.path.join("csv", "job-A.csv")),
+            ("job-A", os.path.join("output_csv", "job-A.csv")),
+            ("job-A", os.path.join("output_stats", "job-A.pdf")),
+            ("job-A", os.path.join("output_zip", "job-A_all.zip")),
+            ("job-A", os.path.join("output_zip", "job-A_1.zip")),
+        ]
+    )
+
+
+def test_an_empty_storage_has_no_entries(tmp_path):
+    storage = Storage(tmp_path)
+    # a file where a prefix directory is expected holds nothing either
+    _touch(str(tmp_path / "template"))
+    assert list(storage.job_entries()) == []
+    assert list(storage.template_entries()) == []
+    assert list(storage.stray_entries()) == []
+
+
+def test_template_entries_are_the_files_of_the_template_folder(tmp_path):
+    root = str(tmp_path)
+    _touch(os.path.join(root, "template", "t1.png"))
+    os.makedirs(os.path.join(root, "template", "subdir"))
+    assert list(Storage(root).template_entries()) == [
+        (os.path.join("template", "t1.png"), os.path.join(root, "template", "t1.png"))
+    ]
+
+
+def test_stray_entries_are_what_the_layout_does_not_name(tmp_path):
+    root = str(tmp_path)
+    _build_job(root, "job-A")
+    _touch(os.path.join(root, "template", "t1.png"))
+    _touch(os.path.join(root, "csv", "notes.txt"))
+    _touch(os.path.join(root, "documents", "loose.pdf"))
+    # the shared digit corpus belongs to no row and is never a stray
+    _touch(os.path.join(root, "numbers", "7", "abc.png"))
+
+    strays = sorted(os.path.relpath(p, root) for p in Storage(root).stray_entries())
+
+    assert strays == [
+        os.path.join("csv", "notes.txt"),
+        os.path.join("documents", "loose.pdf"),
+    ]
+
+
+def test_remove_all_match_walks_the_whole_tree(tmp_path):
+    root = str(tmp_path)
+    _build_job(root, "job-A")
+    _build_job(root, "job-B")
+
+    Storage(root).remove_all_match("job-A")
+
+    remaining = [os.path.join(d, f) for d, _, files in os.walk(root) for f in files]
+    assert remaining and not any("job-A" in p for p in remaining)
+    assert all("job-B" in p for p in remaining)

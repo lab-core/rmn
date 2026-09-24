@@ -40,4 +40,6 @@ services/webapp/ng/dist/
 
 # test artefacts
 coverage/
+.coverage
+.coverage.*
 services/*/tests/_storage/

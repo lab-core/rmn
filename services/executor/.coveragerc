@@ -1,0 +1,21 @@
+# Coverage of the executor tests (pytest --cov, see .github/workflows/tests.yml).
+[run]
+source = .
+omit =
+    tests/*
+    venv*/*
+    # developer tools, not part of the image's work: training needs TensorFlow
+    # (requirements-train.txt), the others export the model or preview a crop
+    python/process_copy/train.py
+    python/process_copy/export_tflite.py
+    python/process_copy/preview.py
+    python/process_copy/__main__.py
+# sys.monitoring instead of a trace function: faster, and sys.gettrace()
+# stays None, so process_copy.imaging does not write its debug PNGs as it
+# does under a debugger
+core = sysmon
+
+[report]
+# the CI run fails below this: raise it with the coverage, never lower it
+fail_under = 82
+skip_empty = true

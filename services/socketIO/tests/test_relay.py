@@ -75,6 +75,7 @@ def test_only_the_service_can_push(connect, alice_job):
     bob = connect({"token": "tok-bob"})
     bob.emit("job_status", json.dumps({"user_id": "alice", "job_id": "job", "status": "ERROR"}))
     bob.emit("document_ready", json.dumps({"job_id": "job"}))
+    bob.emit("template_rendered", json.dumps({"template_id": "job"}))
     share = connect({"share_token": "unknown"})
     share.emit("doc_validated", json.dumps({"job_id": "job"}))
 

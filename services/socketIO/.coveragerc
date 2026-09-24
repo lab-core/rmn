@@ -1,0 +1,15 @@
+# Coverage of the socketIO tests (pytest --cov, see .github/workflows/tests.yml).
+[run]
+source = .
+omit =
+    tests/*
+    venv*/*
+
+[report]
+# the eventlet server launcher: the tests drive the handlers with the
+# Flask-SocketIO test client, never a listening server
+exclude_also =
+    if __name__ == .__main__.:
+# the CI run fails below this: raise it with the coverage, never lower it
+fail_under = 100
+skip_empty = true

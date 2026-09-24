@@ -1,5 +1,6 @@
 """Slack dead-man's switch: single leader per tick, tolerant deletes."""
 
+import importlib.util
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
@@ -226,3 +227,99 @@ def test_only_the_first_tick_takes_over(slack_calls, monkeypatch):
 
     scheduled = [m for m, _ in calls if m == "chat.scheduleMessage"]
     assert len(passes) == 2 and scheduled == ["chat.scheduleMessage"]
+
+
+def _one_tick(monkeypatch):
+    """End the loop after its first pass: the thread would run forever."""
+    monkeypatch.setattr(
+        hc.time, "sleep", lambda _: (_ for _ in ()).throw(StopIteration)
+    )
+
+
+def test_no_token_no_loop(monkeypatch, capsys):
+    monkeypatch.delenv("SLACK_TOKEN", raising=False)
+    assert hc.Slack().health_check(interval=900) is None
+    assert "cannot run health check" in capsys.readouterr().out
+
+
+def test_a_failed_schedule_keeps_the_previous_alerts_armed(
+    slack_calls, monkeypatch, capsys
+):
+    calls, responses = slack_calls
+    responses["chat.scheduleMessage"] = {"ok": False, "error": "ratelimited"}
+    _one_tick(monkeypatch)
+    with pytest.raises(StopIteration):
+        hc.Slack(token="t").health_check(interval=900)
+    assert [m for m, _ in calls] == ["chat.scheduleMessage"]
+    assert "keeping the previous Slack alerts armed" in capsys.readouterr().out
+
+
+def test_an_error_in_a_tick_does_not_kill_the_loop(slack_calls, monkeypatch, capsys):
+    _, responses = slack_calls
+    responses["chat.scheduleMessage"] = {"ok": True, "scheduled_message_id": "NEW"}
+    # the list method has no response: the fake raises KeyError inside the tick
+    _one_tick(monkeypatch)
+    with pytest.raises(StopIteration):  # reached sleep: the tick's error was caught
+        hc.Slack(token="t").health_check(interval=900)
+    assert "chat.scheduledMessages.list" in capsys.readouterr().out
+
+
+def test_a_failed_listing_cancels_nothing(slack_calls, capsys):
+    calls, responses = slack_calls
+    responses["chat.scheduledMessages.list"] = {"ok": False, "error": "not_authed"}
+    assert hc.Slack(token="t").cancel_old_slack_messages("MINE") is False
+    assert _deleted(calls) == []
+    assert "not received" in capsys.readouterr().out
+
+
+def test_an_alert_about_to_post_is_left_alone(slack_calls, monkeypatch, capsys):
+    calls, responses = slack_calls
+    monkeypatch.setattr(hc.time, "time", lambda: 1_000)
+    responses["chat.scheduledMessages.list"] = {
+        "ok": True,
+        "scheduled_messages": [
+            {"id": "DUE", "date_created": 10, "post_at": 1_030},
+            {"id": "OLD", "date_created": 20, "post_at": 10**12},
+            {"id": "MINE", "date_created": 100, "post_at": 10**12},
+        ],
+    }
+    responses["chat.deleteScheduledMessage"] = {"ok": True}
+    assert hc.Slack(token="t").cancel_old_slack_messages("MINE") is False
+    assert _deleted(calls) == ["OLD"]
+    assert "too late to cancel it" in capsys.readouterr().out
+
+
+def test_timeout_while_cancelling_returns_false(monkeypatch):
+    def timeout(*_, **__):
+        raise hc.requests.exceptions.Timeout()
+
+    monkeypatch.setattr(hc.requests, "post", timeout)
+    assert hc.Slack(token="t").cancel_old_slack_messages("MINE") is False
+
+
+def test_check_scheduled_messages_prints_the_delay_of_each(
+    slack_calls, monkeypatch, capsys
+):
+    _, responses = slack_calls
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    monkeypatch.setattr(hc, "local_now", lambda: now)
+    responses["chat.scheduledMessages.list"] = {
+        "ok": True,
+        "scheduled_messages": [{"id": "A", "post_at": int(now.timestamp()) + 60}],
+    }
+    hc.Slack(token="t").check_scheduled_messages()
+    assert "Message to be posted in 60 seconds" in capsys.readouterr().out
+
+
+def test_start_health_check_runs_the_loop_in_a_daemon_thread(monkeypatch):
+    # conftest disables the real start_health_check: load a fresh copy
+    spec = importlib.util.spec_from_file_location("fresh_health_check", hc.__file__)
+    fresh = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fresh)
+    monkeypatch.delenv("SLACK_TOKEN", raising=False)
+
+    thread = fresh.start_health_check(interval=900)
+
+    assert thread.daemon
+    thread.join(timeout=5)  # without a token the loop returns at once
+    assert not thread.is_alive()
