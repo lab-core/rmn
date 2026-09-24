@@ -9,7 +9,9 @@ from unittest.mock import MagicMock
 import fakeredis
 
 import job_executor
-from job_executor import Heartbeat, check_for_idle_jobs_to_requeue, save_number_images
+import runtime
+from job_executor import check_for_idle_jobs_to_requeue
+from runtime import Heartbeat, save_number_images
 from process_copy.database import Database
 from utils.storage import Storage
 
@@ -55,7 +57,7 @@ def test_heartbeat_beats_before_the_job_is_processed(mongo_db, monkeypatch):
 
 def test_heartbeat_interval_has_a_floor():
     assert Heartbeat(MagicMock(), "job", interval=1)._interval == 5
-    assert Heartbeat(MagicMock(), "job")._interval == job_executor.MAX_IDLE_TIME // 3
+    assert Heartbeat(MagicMock(), "job")._interval == runtime.MAX_IDLE_TIME // 3
 
 
 def test_heartbeat_survives_a_failing_database():
@@ -112,7 +114,7 @@ def _queue(redis):
 def test_idle_jobs_are_requeued_and_the_lock_released(mongo_db, monkeypatch):
     redis, _ = _fake_backends(monkeypatch)
     now = dt.datetime.now(dt.UTC)
-    stale = now - dt.timedelta(seconds=job_executor.MAX_IDLE_TIME + 60)
+    stale = now - dt.timedelta(seconds=runtime.MAX_IDLE_TIME + 60)
     mongo_db["eval_jobs"].insert_many(
         [
             {"job_id": "run-idle", "user_id": "alice", "job_status": "RUN", "alive_time": stale, "retry": 0},
@@ -136,14 +138,14 @@ def test_idle_jobs_are_requeued_and_the_lock_released(mongo_db, monkeypatch):
 
 def test_a_job_out_of_retries_fails_instead_of_being_requeued(mongo_db, monkeypatch):
     redis, sio = _fake_backends(monkeypatch)
-    stale = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=job_executor.MAX_IDLE_TIME + 60)
+    stale = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=runtime.MAX_IDLE_TIME + 60)
     mongo_db["eval_jobs"].insert_one(
         {
             "job_id": "stuck",
             "user_id": "alice",
             "job_status": "RUN",
             "alive_time": stale,
-            "retry": job_executor.MAX_RETRY,
+            "retry": runtime.MAX_RETRY,
         }
     )
 
@@ -151,7 +153,7 @@ def test_a_job_out_of_retries_fails_instead_of_being_requeued(mongo_db, monkeypa
 
     job = mongo_db["eval_jobs"].find_one({"job_id": "stuck"})
     assert job["job_status"] == "ERROR"
-    assert str(job_executor.MAX_RETRY) in job["job_infos"]
+    assert str(runtime.MAX_RETRY) in job["job_infos"]
     assert redis.llen("job_queue") == 0
     event, payload = sio.emit.call_args.args
     assert event == "job_status" and json.loads(payload)["status"] == "ERROR"
@@ -202,15 +204,15 @@ def test_a_pod_that_did_not_get_the_lock_leaves_it_alone(mongo_db, monkeypatch):
 def test_template_boxes_fall_back_to_the_defaults(monkeypatch):
     from process_copy.config import DEFAULT_GRADE_BOX, DEFAULT_MATRICULE_BOX
 
-    job_executor.apply_template_boxes([0.1, 0.9, 0.6, 0.9], [0.2, 0.8, 0.1, 0.3], None)
-    assert job_executor.grade_box["exam"]["grade"] == (0.1, 0.9, 0.6, 0.9)
-    assert job_executor.matricule_box["exam"]["front"] == (0.2, 0.8, 0.1, 0.3)
-    assert job_executor.matricule_box["exam"]["regular"] == DEFAULT_MATRICULE_BOX["exam"]["regular"]
+    runtime.apply_template_boxes([0.1, 0.9, 0.6, 0.9], [0.2, 0.8, 0.1, 0.3], None)
+    assert runtime.grade_box["exam"]["grade"] == (0.1, 0.9, 0.6, 0.9)
+    assert runtime.matricule_box["exam"]["front"] == (0.2, 0.8, 0.1, 0.3)
+    assert runtime.matricule_box["exam"]["regular"] == DEFAULT_MATRICULE_BOX["exam"]["regular"]
 
     # the next job has no boxes: it must not inherit the previous job's
-    job_executor.apply_template_boxes(None, None, None)
-    assert job_executor.grade_box["exam"]["grade"] == DEFAULT_GRADE_BOX["exam"]["grade"]
-    assert job_executor.matricule_box["exam"]["front"] == DEFAULT_MATRICULE_BOX["exam"]["front"]
+    runtime.apply_template_boxes(None, None, None)
+    assert runtime.grade_box["exam"]["grade"] == DEFAULT_GRADE_BOX["exam"]["grade"]
+    assert runtime.matricule_box["exam"]["front"] == DEFAULT_MATRICULE_BOX["exam"]["front"]
 
 
 # ------------------------------------------------------------ job ids (X20)
@@ -228,6 +230,7 @@ def test_defused_grades_csv_survives_the_pandas_round_trip(tmp_path):
     # apostrophe must stay on the hostile name and off the grades and index
     import pandas as pd
     from rmn_common.moodle import MoodleFields as MF
+    from rmn_common.spreadsheet import defuse_csv
 
     path = tmp_path / "notes.csv"
     df = pd.DataFrame(
@@ -239,11 +242,11 @@ def test_defused_grades_csv_survives_the_pandas_round_trip(tmp_path):
         }
     ).set_index(MF.mat)
     df.to_csv(path)
-    assert job_executor.defuse_csv(path) == 1
+    assert defuse_csv(path) == 1
 
     back = pd.read_csv(path, index_col=MF.mat, dtype={MF.mat: str})
     assert list(back.index) == ["1234567", "2345678"]
     assert back[MF.name].tolist() == ["'=HYPERLINK(\"http://evil\")", "Dupont, Marie"]
     assert back[MF.grade].fillna(0).tolist() == [12.5, 0]
     assert (back[MF.mdate] == "-").all()
-    assert job_executor.defuse_csv(path) == 0
+    assert defuse_csv(path) == 0
