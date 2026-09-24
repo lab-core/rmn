@@ -380,7 +380,8 @@ def split_separator(members: Sequence[Stroke], box: Tuple[float, float, float, f
             left = [s for s in rest if s.bbox[2] <= (sx0 + sx1) / 2]
             right = [s for s in rest if s.bbox[0] >= (sx0 + sx1) / 2]
             if left and right and len(left) + len(right) == len(rest):
-                return left, right, None
+                left, dot = _decimal_point(left, _union([s.bbox for s in left]))
+                return left, right, dot
         if straight and flat and wide and rest:
             # every stroke goes to one side or the other, by its centre: a
             # digit drawn against a hand-drawn bar often crosses it, and
@@ -390,10 +391,25 @@ def split_separator(members: Sequence[Stroke], box: Tuple[float, float, float, f
             above = [s for s in rest if (s.bbox[1] + s.bbox[3]) / 2 < middle]
             below = [s for s in rest if (s.bbox[1] + s.bbox[3]) / 2 >= middle]
             if above and below:
-                return above, below, None
+                above, dot = _decimal_point(above, _union([s.bbox for s in above]))
+                return above, below, dot
 
+    glyphs, dot = _decimal_point(members, box)
+    return glyphs, [], dot
+
+
+def _decimal_point(strokes, box):
+    """The decimal point among ``strokes``, and the rest.
+
+    A decimal point is small and sits low in the mark. Splitting a fraction
+    has to look for one inside the numerator as well: "4.5 over 8" was losing
+    its point, reading 495, being divided down to 4.95 by the maximum, and
+    then having a decimal *invented* for it by ``random_allowed_decimals``.
+    Every grade of that question came back a quarter point out.
+    """
+    height = max(box[3] - box[1], 1e-6)
     dot = None
-    for stroke in members:
+    for stroke in strokes:
         sx0, sy0, sx1, sy1 = stroke.bbox
         small = (sx1 - sx0) <= SEPARATOR_MAX * height and (
             sy1 - sy0
@@ -402,8 +418,7 @@ def split_separator(members: Sequence[Stroke], box: Tuple[float, float, float, f
         if small and low:
             dot = stroke
             break
-    glyphs = [s for s in members if s is not dot]
-    return glyphs, [], dot
+    return [s for s in strokes if s is not dot], dot
 
 
 # ---------------------------------------------------------------- rendering --
