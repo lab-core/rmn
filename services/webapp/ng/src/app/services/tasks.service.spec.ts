@@ -84,6 +84,23 @@ describe('TasksService', () => {
     await bonus;
   });
 
+  it('sends only the settings that change, and rejects with the server\'s reason', async () => {
+    const renamed = service.updateTaskSettings('job', { jobName: 'Intra', nMaxPointsPerQuestion: [['Q1', 12]] });
+    let req = http.expectOne('/api/job/update/settings');
+    const body = req.request.body as FormData;
+    expect(body.get('job_id')).toBe('job');
+    expect(body.get('job_name')).toBe('Intra');
+    expect(body.get('n_max_points_per_question')).toBe('[["Q1",12]]');
+    expect(body.has('n_pages_per_question')).toBeFalse();
+    req.flush({ response: 'OK', flagged: 2, resplit: 0 });
+    expect(await renamed).toEqual({ flagged: 2, resplit: 0 });
+
+    const refused = service.updateTaskSettings('job', { nPagesPerQuestion: [['Q1', 2]] });
+    req = http.expectOne('/api/job/update/settings');
+    req.flush({ response: 'Error: des copies ont déjà été découpées.' }, { status: 409, statusText: 'Conflict' });
+    await expectAsync(refused).toBeRejectedWithError('des copies ont déjà été découpées.');
+  });
+
   it('addTask serialises the maps, reports progress and resolves on the response', async () => {
     const pending = service.addTask(
       new File([''], 'copies.zip'), new File([''], 'notes.csv'), 'front', 'regular',

@@ -1,0 +1,46 @@
+.settings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-field input {
+  padding: 6px;
+  font-size: 1em;
+}
+
+.settings-questions {
+  border-collapse: collapse;
+}
+
+.settings-questions th,
+.settings-questions td {
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.settings-questions input {
+  width: 80px;
+}
+
+.settings-hint {
+  font-size: 0.9em;
+  color: #555;
+}
+
+.settings-error {
+  color: red;
+}
+
+.settings-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

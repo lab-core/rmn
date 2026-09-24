@@ -1,5 +1,5 @@
 import { Component, OnInit, Inject, ElementRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { HttpClient, HttpEventType } from '@angular/common/http';
@@ -9,6 +9,7 @@ import JSZip from 'jszip';
 import { forkJoin, of } from 'rxjs';
 import { catchError, first, map } from 'rxjs/operators';
 import { JobStatus } from '../../generated/rmn-contracts';
+import { TaskSettingsDialogComponent } from '../task-settings/task-settings-dialog.component';
 
 
 export interface DialogData {
@@ -42,6 +43,7 @@ export class TaskRetryDialogComponent implements OnInit {
     private notifyService: NotificationService,
     private userService: UserService,
     private http: HttpClient,
+    private dialog: MatDialog,
     @Inject(MAT_DIALOG_DATA) public data: DialogData
   ) {
     this.errorMessages = data.taskMessages;
@@ -53,6 +55,24 @@ export class TaskRetryDialogComponent implements OnInit {
 
   cancel(): void {
     this.dialogRef.close('');
+  }
+
+  /**
+   * The copies were refused for their page count: the pages per question may
+   * be what is wrong. Fixed in the settings, the refused copies are split
+   * again and this dialog has nothing left to do.
+   */
+  editSettings(): void {
+    const settings = this.dialog.open(TaskSettingsDialogComponent, {
+      width: '80%',
+      maxWidth: '500px',
+      data: { taskId: this.data.taskId, taskName: String(this.data.taskName), status: JobStatus.RETRY },
+    });
+    settings.afterClosed().pipe(first()).subscribe((result) => {
+      if (result && result.nPagesPerQuestion) {
+        this.dialogRef.close(JobStatus.CORRECTED);
+      }
+    });
   }
 
   extractFilenames(): void {

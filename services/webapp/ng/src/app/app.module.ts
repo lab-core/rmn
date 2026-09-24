@@ -31,6 +31,7 @@ import { AppComponent } from './components/app/app.component';
 import { ChangePasswordDialogComponent } from './components/change-password-dialog/change-password-dialog.component';
 import { CreateUserDialogComponent } from './components/create-user-dialog/create-user-dialog.component';
 import { CsvUpdateDialogComponent } from './components/csv-update/csv-update-dialog.component';
+import { TaskSettingsDialogComponent } from './components/task-settings/task-settings-dialog.component';
 import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
 import { LoginPageComponent } from './components/login-page/login-page.component';
 import { MainMenuComponent } from './components/main-menu/main-menu.component';
@@ -67,6 +68,7 @@ import { AuthInterceptor } from './services/auth.interceptor';
         ChangePasswordDialogComponent,
         CreateUserDialogComponent,
         CsvUpdateDialogComponent,
+        TaskSettingsDialogComponent,
         PDFViewerComponent,
         TaskVerificationComponent,
         PdfManagementDialogComponent,

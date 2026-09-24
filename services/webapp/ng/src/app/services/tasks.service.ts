@@ -4,6 +4,7 @@ import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { UserService } from './user.service';
 import { NotificationService } from './notification.service';
 import { SERVER_URL } from '../utils';
+import { firstValueFrom } from 'rxjs';
 import { first, map, tap } from 'rxjs/operators';
 
 @Injectable({
@@ -127,6 +128,37 @@ export class TasksService {
     formdata.append('job_id', jobId);
     formdata.append('bonus_enabled_map', JSON.stringify(bonusMap));
     await this.http.post<any>(`${SERVER_URL}job/update/bonus`, formdata).toPromise();
+  }
+
+  /**
+   * Change the name, points or pages per question of a task (each optional).
+   * Resolves with how many grades went back to validation and how many
+   * rejected copies are split again; rejects with the server's message.
+   */
+  async updateTaskSettings(jobId: string, changes: {
+    jobName?: string,
+    nMaxPointsPerQuestion?: Array<[string, number]>,
+    nPagesPerQuestion?: Array<[string, number]>,
+  }): Promise<{ flagged: number, resplit: number }> {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', jobId);
+    if (changes.jobName !== undefined) {
+      formdata.append('job_name', changes.jobName);
+    }
+    if (changes.nMaxPointsPerQuestion !== undefined) {
+      formdata.append('n_max_points_per_question', JSON.stringify(changes.nMaxPointsPerQuestion));
+    }
+    if (changes.nPagesPerQuestion !== undefined) {
+      formdata.append('n_pages_per_question', JSON.stringify(changes.nPagesPerQuestion));
+    }
+    try {
+      const resp = await firstValueFrom(this.http.post<any>(`${SERVER_URL}job/update/settings`, formdata));
+      return { flagged: resp.flagged ?? 0, resplit: resp.resplit ?? 0 };
+    } catch (error) {
+      const message = error?.error?.response;
+      throw new Error(typeof message === 'string' ? message.replace(/^Error: /, '') : 'la modification a échoué.');
+    }
   }
 
 }
