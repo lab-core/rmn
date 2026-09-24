@@ -89,21 +89,24 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   // what the reader is doing right now, straight from the executor
   readingInfo: string = '';
   // and where it has got to on the question being corrected, from POST /job
-  autoGradeProgress: {[q: string]: {pending: number, running: number,
-                                    done: number, total: number}} = {};
+  autoGradeProgress: {[q: string]: {pending: number, running: number, done: number,
+                                    graded: number, total: number}} = {};
 
   readingStateForQuestion(): string {
     const p = this.autoGradeProgress[String(this.currentQuestionIndex)];
     if (!p || !p.total) {
       return '';
     }
+    // copies the teacher has already graded are not read, and are said so
+    const toRead = p.total - (p.graded || 0);
     if (p.running) {
-      return `lecture des notes en cours : ${Math.round(100 * p.done / p.total)} %`;
+      const percent = toRead ? Math.round(100 * p.done / toRead) : 100;
+      return `lecture des notes en cours : ${percent} %`;
     }
     if (p.pending) {
-      return `lecture des notes à faire : ${p.done}/${p.total}`;
+      return `lecture des notes à faire : ${p.done}/${toRead}`;
     }
-    return `notes lues automatiquement : ${p.done}/${p.total}`;
+    return `notes lues automatiquement : ${p.done}/${toRead}`;
   }
   currentTotal: number;
   currentGrades: Map<string, number>;

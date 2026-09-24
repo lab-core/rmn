@@ -138,27 +138,40 @@ export class DashboardPageComponent {
   // what the executor is doing right now, shown while it does it
   taskInfo: string = '';
   // how far the grade reading has got, per question index, from POST /job
-  autoGradeProgress: {[q: string]: {pending: number, running: number,
-                                    done: number, total: number}} = {};
+  autoGradeProgress: {[q: string]: {pending: number, running: number, done: number,
+                                    graded: number, total: number}} = {};
+
+  private readingOf(question: any) {
+    // The rows carry a 0-based index while the reading is keyed by the
+    // question number the rest of the system uses, so the name is what they
+    // are matched on: it says "Q3" and means it. Keying on the index showed
+    // every question the state of the one before it, and nothing on Q1.
+    const name: string = question?.name || '';
+    const match = /^Q(\d+)$/.exec(name);
+    return match ? this.autoGradeProgress[match[1]] : undefined;
+  }
 
   readingState(question: any): string {
-    // the dashboard rows are questions; the reading is tracked per question
-    const p = this.autoGradeProgress[String(question.index)];
+    const p = this.readingOf(question);
     if (!p || !p.total) {
       return '';
     }
-    const waiting = p.pending + p.running;
-    if (!waiting) {
-      return `notes lues : ${p.done}/${p.total}`;
-    }
+    // a copy the teacher has already graded is never read, so it is counted
+    // out loud rather than left to make the total look short
+    const toRead = p.total - p.graded;
+    const skipped = p.graded ? ` (${p.graded} déjà notée${p.graded > 1 ? 's' : ''})` : '';
     if (p.running) {
-      return `lecture en cours : ${Math.round(100 * p.done / p.total)} %`;
+      const percent = toRead ? Math.round(100 * p.done / toRead) : 100;
+      return `lecture en cours : ${percent} %${skipped}`;
     }
-    return `lecture à faire : ${p.done}/${p.total}`;
+    if (p.pending) {
+      return `lecture à faire : ${p.done}/${toRead}${skipped}`;
+    }
+    return `notes lues : ${p.done}/${toRead}${skipped}`;
   }
 
   readingClass(question: any): string {
-    const p = this.autoGradeProgress[String(question.index)];
+    const p = this.readingOf(question);
     if (!p || !p.total) {
       return '';
     }

@@ -301,25 +301,36 @@ def progress(job_questions: Any, job_id: str) -> Dict[str, Dict[str, int]]:
     counter would have to be right about all of that. The documents already
     say.
 
+    ``total`` is every copy of the question, not only the ones the reader was
+    given. A copy a human has already graded is never read, so counting only
+    what was read made a question of seventeen copies report "16/16" and look
+    complete when one had simply been skipped; ``graded`` is how many.
+
     Returns:
-        ``{question_index: {"pending": n, "running": n, "done": n, "total": n}}``
-        for the questions a reading has touched. A question with pages still
-        pending or running is one the teacher is waiting on.
+        ``{question_index: {"pending", "running", "done", "graded", "total"}}``.
     """
     counts: Dict[str, Dict[str, int]] = {}
     for row in job_questions.find(
-        {"job_id": job_id, "auto_grade_status": {"$exists": True}},
-        {"question_index": 1, "auto_grade_status": 1},
+        {"job_id": job_id},
+        {"question_index": 1, "auto_grade_status": 1, "grade": 1},
     ):
         question = str(row.get("question_index"))
-        state = (row.get("auto_grade_status") or "").lower()
         entry = counts.setdefault(
-            question, {"pending": 0, "running": 0, "done": 0, "total": 0}
+            question,
+            {"pending": 0, "running": 0, "done": 0, "graded": 0, "total": 0},
         )
         entry["total"] += 1
-        if state in entry:
+        if row.get("grade") is not None:
+            entry["graded"] += 1
+        state = (row.get("auto_grade_status") or "").lower()
+        if state in ("pending", "running", "done"):
             entry[state] += 1
-    return counts
+    # a question no reading has touched and nobody has graded says nothing
+    return {
+        question: entry
+        for question, entry in counts.items()
+        if entry["pending"] or entry["running"] or entry["done"]
+    }
 
 
 def is_running(job_questions: Any, job_id: str) -> bool:

@@ -398,8 +398,13 @@ describe('TaskVerificationComponent question reading state', () => {
   });
 
   it('reports on the question being corrected', () => {
-    component.autoGradeProgress = {'3': {pending: 0, running: 2, done: 8, total: 10}};
+    component.autoGradeProgress = {'3': {pending: 0, running: 2, done: 8, graded: 0, total: 10}};
     expect(component.readingStateForQuestion()).toContain('80 %');
+  });
+
+  it('leaves out the copies already graded by hand', () => {
+    component.autoGradeProgress = {'3': {pending: 0, running: 0, done: 15, graded: 2, total: 17}};
+    expect(component.readingStateForQuestion()).toContain('15/15');
   });
 
   it('says nothing when no reading has touched it', () => {
