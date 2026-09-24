@@ -93,7 +93,7 @@ class Database:
         )
 
     def update_document(
-        self, job_id, doc_index, grades, status, matricule, time, group
+        self, job_id, doc_index, grades, status, matricule, time, group, matricule_confidence=None
     ):
         try:
             # return updated doc
@@ -106,6 +106,10 @@ class Database:
                 set["grades"] = grades
             if group is not None:
                 set["group"] = group
+            # probability that the matricule read is the right one (recognize.
+            # matricule_confidence); left unset when it was not read here
+            if matricule_confidence is not None:
+                set["matricule_confidence"] = round(float(matricule_confidence), 4)
             return (
                 self.documents_collection()
                 .update_one(

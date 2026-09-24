@@ -109,3 +109,80 @@ def test_matricule_is_found_in_the_class_list_even_when_misread(
         separate_box=True,
     )
     assert (found, index) == (case["matricule"], 0)
+
+
+# ------------------------------------------------------ matricule confidence
+
+
+def _read(digits):
+    """``possible_digits`` of a clean read of ``digits`` (one box, sure)."""
+    return [{int(d): 1.0} for d in digits]
+
+
+def test_a_clean_read_without_roster_is_certain():
+    assert recognize.matricule_confidence(_read("2012345"), "2012345") == pytest.approx(1.0)
+
+
+def test_without_roster_the_confidence_is_the_likelihood_of_the_digits():
+    digits = _read("2012345")
+    digits[6] = {5: 0.6, 6: 0.4}
+    assert recognize.matricule_confidence(digits, "2012345") == pytest.approx(0.6)
+    assert recognize.matricule_confidence(digits, "2012346") == pytest.approx(0.4)
+
+
+def test_the_roster_settles_a_digit_the_model_hesitates_on():
+    digits = _read("2012345")
+    digits[6] = {5: 0.6, 6: 0.4}
+    # 2012346 is not a student: 2012345 is the only one the read fits
+    confidence = recognize.matricule_confidence(digits, "2012345", ["2012345", "1999999"])
+    assert confidence > 0.99
+
+
+def test_a_student_missing_from_the_roster_is_not_matched_confidently():
+    # the copy says 2012345; the csv only has a student two digits away
+    confidence = recognize.matricule_confidence(_read("2012345"), "2012399", ["2012399", "1999999"])
+    assert confidence < 0.2
+
+
+def test_a_matricule_outside_the_roster_is_at_most_half_its_likelihood():
+    assert recognize.matricule_confidence(_read("2012345"), "2012345", ["1999999"]) == pytest.approx(0.5)
+
+
+def test_nothing_read_has_no_confidence():
+    assert recognize.matricule_confidence(_read("2012345"), None) == 0.0
+    assert recognize.matricule_confidence([{} for _ in range(7)], "2012345") == 0.0
+
+
+def test_the_confidence_is_a_plain_float():
+    # it goes into a json socket payload: numpy scalars are not serialisable
+    digits = [{int(d): np.float32(1.0)} for d in "2012345"]
+    assert type(recognize.matricule_confidence(digits, "2012345", ["2012345"])) is float
+
+
+@pytest.mark.parametrize("case", SPEC["matricules"], ids=lambda c: c["file"])
+def test_the_confidence_of_a_real_read_tells_a_clean_read_from_a_rescued_one(case, classifier, class_list):
+    page = page_with(case["file"], SPEC["matricule_box"])
+    args = ([page], SPEC["matricule_box"], SPEC["regular_matricule_box"], classifier)
+    found, _id_box, _index, confidence = recognize.find_matricule(
+        *args, [class_list], separate_box=True, return_confidence=True)
+    alone = recognize.find_matricule(*args, [], separate_box=True)[0]
+    assert found == case["matricule"]
+    if alone == case["matricule"]:
+        assert confidence >= 0.9
+    else:
+        # the model misreads it on its own: right thanks to the class list,
+        # but worth a look
+        assert confidence < 0.9
+
+
+@pytest.mark.parametrize("case", SPEC["matricules"], ids=lambda c: c["file"])
+def test_a_copy_whose_student_is_not_in_the_csv_gets_a_low_confidence(case, classifier, class_list):
+    others = class_list.drop(index=case["matricule"])
+    page = page_with(case["file"], SPEC["matricule_box"])
+    found, _id_box, index, confidence = recognize.find_matricule(
+        [page], SPEC["matricule_box"], SPEC["regular_matricule_box"], classifier, [others],
+        separate_box=True, return_confidence=True)
+    # no other student is made of the digits read: the read matricule is kept,
+    # outside the csv (the copy goes to validation), at most half confident
+    assert index is None
+    assert confidence <= 0.5

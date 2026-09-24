@@ -1552,7 +1552,10 @@ def get_documents(validity):
                 "status": doc["status"],
                 "exec_time": doc["execution_time"],
                 "n_total_doc": count,
-                "group": doc.get("group", "")
+                "group": doc.get("group", ""),
+                # how sure the executor is of the matricule it read (None for
+                # copies read before it was stored, or typed by hand)
+                "matricule_confidence": doc.get("matricule_confidence"),
             }
             for doc in docs
         ]

@@ -224,3 +224,22 @@ def test_delete_old_jobs_sweeps_by_age_and_owner(app_module_fixture, job_factory
 
     assert app_module_fixture.delete_old_jobs(0) == 2
     assert mongo["eval_jobs"].count_documents({}) == 0
+
+
+def test_documents_serves_the_matricule_confidence(client, app_module_fixture, login, user_factory, job_factory):
+    mongo = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    token = login("alice")
+    job_factory("j-mat", "alice")
+    base = {"job_id": "j-mat", "grades": [], "filename": "copy", "status": "VALIDATED", "execution_time": 1}
+    mongo["job_documents"].insert_many([
+        {**base, "document_index": 0, "matricule": "2345678", "matricule_confidence": 0.73},
+        # read before the confidence was stored
+        {**base, "document_index": 1, "matricule": "2345679"},
+    ])
+
+    resp = client.post("/documents", data={"job_id": "j-mat", "token": token})
+
+    assert resp.status_code == 200
+    docs = sorted(resp.get_json(force=True)["response"], key=lambda d: d["document_index"])
+    assert [d["matricule_confidence"] for d in docs] == [0.73, None]
