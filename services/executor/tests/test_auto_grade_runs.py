@@ -294,9 +294,15 @@ def test_a_pass_can_be_abandoned(db, graded_question):
 
 
 # ------------------------------------------- when the readings prove wrong --
-def test_a_question_whose_readings_keep_missing_is_dropped(db):
+def test_a_question_whose_readings_keep_missing_stops_being_trusted(db):
     """Different people grade different questions, each writing grades their
-    own way, so a question the reader has misjudged keeps misjudging it."""
+    own way, so a question the reader has misjudged keeps misjudging it.
+
+    The readings stay -- measured on a real batch, the right answer is still
+    the reader's own top answer about two thirds of the time, so discarding
+    them costs the teacher more typing than it saves. What goes is the claim
+    that they are right.
+    """
     from rmn_common import auto_grade
 
     for index in range(8):
@@ -316,17 +322,17 @@ def test_a_question_whose_readings_keep_missing_is_dropped(db):
     assert (confirmed, mismatched) == (5, 4)
     assert auto_grade.unreliable(questions, JOB, 3)
 
-    dropped = auto_grade.drop_suggestions(questions, JOB, 3)
+    distrusted = auto_grade.distrust_suggestions(questions, JOB, 3)
 
-    assert dropped == 3  # the three nobody has confirmed yet
+    assert distrusted == 3  # the three nobody has confirmed yet
     for index in range(5):
         kept = questions.find_one({"job_id": JOB, "document_index": index})
         assert kept["grade"] is not None  # the human's answers are untouched
     for index in range(5, 8):
-        cleared = questions.find_one({"job_id": JOB, "document_index": index})
-        assert cleared["auto_grade"] is None
-        assert cleared["auto_grade_reason"] == "unreliable"
-        assert cleared["status"] == Document_Status.TO_VALIDATE.value
+        doubted = questions.find_one({"job_id": JOB, "document_index": index})
+        assert doubted["auto_grade"] == 7.5  # still offered
+        assert doubted["auto_grade_reason"] == "unreliable"
+        assert doubted["status"] == Document_Status.TO_VALIDATE.value  # not blue
 
 
 def test_a_question_the_reader_gets_right_keeps_its_suggestions(db):

@@ -1910,21 +1910,22 @@ def update_document(validity):
                     return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
                                     status=404)
 
-                # The teacher has just told us what this page was really worth.
-                # Questions of one exam are graded by different people, each
-                # writing the grade their own way, so when a question's
-                # readings keep disagreeing with the human the reader has the
-                # wrong idea of that question and its remaining offers are
-                # likely wrong the same way: they are withdrawn rather than
-                # left to mislead.
+                # The teacher has just told us what this page was really
+                # worth. Questions of one exam are graded by different people,
+                # each writing the grade their own way, so when a question's
+                # readings keep disagreeing with the human, the reader has the
+                # wrong idea of that question. The readings stay -- the right
+                # answer is still usually among them -- but the copies stop
+                # being shown as confident.
                 question_index = int(request_form["question_index"])
                 if auto_grade.unreliable(db["job_questions"], job_id, question_index):
-                    dropped = auto_grade.drop_suggestions(
+                    distrusted = auto_grade.distrust_suggestions(
                         db["job_questions"], job_id, question_index
                     )
-                    if dropped:
+                    if distrusted:
                         print(f"Q{question_index} of {job_id}: readings disagreed "
-                              f"with the teacher too often, {dropped} withdrawn")
+                              f"with the teacher too often, {distrusted} no longer "
+                              "shown as confident")
         else:
             # the grades of every question of the copy, as a JSON list. This
             # branch iterated the JSON text character by character and then

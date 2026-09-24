@@ -223,17 +223,20 @@ def unreliable(job_questions: Any, job_id: str, question_index: int) -> bool:
     return confirmed >= MIN_FEEDBACK and mismatched / confirmed > MAX_MISMATCH_RATE
 
 
-def drop_suggestions(job_questions: Any, job_id: str, question_index: int) -> int:
-    """Take back the readings nobody has confirmed yet, for one question.
+def distrust_suggestions(job_questions: Any, job_id: str, question_index: int) -> int:
+    """Stop vouching for a question's readings, without discarding them.
 
-    The grades already confirmed are untouched -- they are the human's. What
-    goes is the offer on the copies still to come, so the teacher types them
-    instead of correcting a number that is probably wrong. Measured on a real
-    batch: on its worst question the reader was wrong on all five of the first
-    confirmations and would have gone on offering twelve more.
+    The readings are kept: on the batch this was measured against, the right
+    answer is still the reader's own top answer about two thirds of the time,
+    so throwing them away would cost the teacher more typing than it saves.
+    What goes is the claim that they are right -- the copies drop back to
+    TO_VALIDATE, so the screen shows them red and unconfirmed instead of blue,
+    and nothing is offered as settled.
+
+    Confirmed grades are untouched: they are the human's.
 
     Returns:
-        How many suggestions were withdrawn.
+        How many copies stopped being vouched for.
     """
     result = job_questions.update_many(
         {
@@ -241,12 +244,11 @@ def drop_suggestions(job_questions: Any, job_id: str, question_index: int) -> in
             "question_index": int(question_index),
             "grade": None,
             "auto_grade": {"$ne": None},
+            "status": Document_Status.HIGH_ACCURACY.value,
         },
         {
             "$set": {
-                "auto_grade": None,
                 "auto_grade_reason": "unreliable",
-                # the copy is back to being one a human has to work out
                 "status": Document_Status.TO_VALIDATE.value,
             }
         },
