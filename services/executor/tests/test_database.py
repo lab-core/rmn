@@ -56,6 +56,18 @@ def test_documents_round_trip(mongo_db):
     assert db.update_document_grades("job", 9, [1, 1]) is False
 
 
+def test_the_matricule_confidence_is_stored_when_it_was_read(mongo_db):
+    db = Database()
+    db.insert_document("job", 0, [], "", Document_Status.NOT_READY, "", 0, "copy.pdf")
+    assert db.update_document("job", 0, None, Document_Status.VALIDATED, "2345678", 1, None,
+                              matricule_confidence=0.987654321)
+    assert mongo_db["job_documents"].find_one({"job_id": "job"})["matricule_confidence"] == 0.9877
+
+    # a later update that did not read the matricule keeps it
+    assert db.update_document("job", 0, [1], Document_Status.VALIDATED, "2345678", 1, None)
+    assert mongo_db["job_documents"].find_one({"job_id": "job"})["matricule_confidence"] == 0.9877
+
+
 def test_job_max_questions_and_run_status(mongo_db):
     mongo_db["eval_jobs"].insert_one({"job_id": "job", "job_status": "QUEUED"})
     db = Database()

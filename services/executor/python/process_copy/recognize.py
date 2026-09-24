@@ -485,8 +485,9 @@ def grade_files(
             # Start timer
             start_time = time.time()
 
-            is_matricule_valid, m = find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_dfs,
-                                                        box_matricule, matricules_data, n_questions)
+            is_matricule_valid, m, confidence = find_file_matricule(
+                job_id, doc_index, file, db, classifier, shape, grades_dfs, box_matricule, matricules_data,
+                n_questions)
 
             # if doc already processed
             if is_matricule_valid and m is None:
@@ -615,7 +616,8 @@ def grade_files(
                 doc_status,
                 m,
                 exec_time,
-                group
+                group,
+                matricule_confidence=confidence,
                 ):
                 raise KeyError(f"Document {filename} was not found.")
 
@@ -629,6 +631,8 @@ def grade_files(
                         "execution_time": exec_time,
                         "status": doc_status.value,
                         "n_total_doc": doc_index + 1,
+                        "matricule": str(m),
+                        "matricule_confidence": confidence,
                     }
                 ),
             )
@@ -730,8 +734,9 @@ def find_matricules(
             print(f"[{datetime.now()}] Processing file:", filename, f"({job_id}, {doc_index})")
 
             try:
-                is_matricule_valid, m = find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_dfs,
-                                                            box_matricule, matricules_data, n_questions)
+                is_matricule_valid, m, confidence = find_file_matricule(
+                    job_id, doc_index, file, db, classifier, shape, grades_dfs, box_matricule, matricules_data,
+                    n_questions)
 
                 # if doc already processed
                 if is_matricule_valid and m is None:
@@ -768,7 +773,8 @@ def find_matricules(
                         doc_status,
                         m,
                         exec_time,
-                        group
+                        group,
+                        matricule_confidence=confidence,
                 ):
                     raise KeyError(f"Document {filename} was not found.")
 
@@ -782,6 +788,8 @@ def find_matricules(
                             "execution_time": exec_time,
                             "status": doc_status.value,
                             "n_total_doc": doc_index + 1,
+                            "matricule": str(m),
+                            "matricule_confidence": confidence,
                         }
                     ),
                 )
@@ -794,7 +802,7 @@ def find_matricules(
                 print(Fore.RED + f"{filename}: matricule recognition failed: {e}" + Style.RESET_ALL)
                 try:
                     db.update_document(job_id, doc_index, None, Document_Status.TO_VALIDATE,
-                                       "", time.time() - start_time, "")
+                                       "", time.time() - start_time, "", matricule_confidence=0.0)
                 except Exception as e2:
                     print(e2)
 
@@ -828,11 +836,13 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
             matricules_data[m] = [file]
         else:
             matricules_data[m].append(file)
-        return True, None
+        return True, None, None
 
     # search matricule in filename
     m = re.search(re_mat, doc['filename'])
     is_matricule_valid = True
+    # a matricule written in the file or folder name is taken as is
+    confidence = 1.0
 
     # search matricule in forlder name
     # use folder name: "Nom complet_Identifiant_Matricule_assignsubmission_file_"
@@ -855,13 +865,14 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
         grays = gray_images(file, shape=shape)
         if box_matricule is None:
             raise Exception
-        m, id_box, id_csv = find_matricule(
+        m, id_box, id_csv, confidence = find_matricule(
             grays,
             box_matricule["front"],
             box_matricule.get("regular"),
             classifier,
             grades_dfs,
             separate_box=box_matricule["separate_box"],
+            return_confidence=True,
         )
 
         m = m if m else "NA"
@@ -874,7 +885,7 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
     else:
         m = m.group()
 
-    return is_matricule_valid, m
+    return is_matricule_valid, m, confidence
 
 
 def format_grade_text(number):
@@ -1031,9 +1042,63 @@ def compare_all(paths, grades_csv, box, dpi=300, shape=(8.5, 11)):
     )
 
 
+def matricule_confidence(possible_digits, mat, roster=None, floor=1e-3):
+    """Probability that ``mat`` is the matricule written on the copy.
+
+    ``possible_digits[i]`` maps each candidate digit of position ``i`` to its
+    probability summed over every box read (``find_matricule``); normalised,
+    each position is a distribution, and a matricule's likelihood is the
+    product over its digits (a digit never proposed counts ``floor``, so one
+    unread digit does not zero a candidate).
+
+    Without a roster the confidence is that likelihood. With one, the answer
+    has to be one of its matricules: ``mat``'s share of the likelihood of all
+    of them, times how well its digits fit what was read (geometric mean over
+    the positions of the chosen digit's probability relative to the most
+    probable one). The share alone is confidently wrong when the student is
+    missing from the csv and another one's matricule is made of digits the
+    model hesitated on: it is then the best of a bad lot, while its digits fit
+    poorly. A matricule outside the roster (the regex fallback) is at most
+    half its likelihood.
+    """
+    if not mat or len(mat) != len(possible_digits):
+        return 0.0
+    dists = []
+    for distri in possible_digits:
+        total = sum(distri.values())
+        if total <= 0:
+            return 0.0
+        dists.append({int(d): p / total for d, p in distri.items()})
+
+    def likelihood(m):
+        prob = 1.0
+        for dist, c in zip(dists, m):
+            prob *= max(dist.get(int(c), 0.0), floor)
+        return prob
+
+    # float(): the probabilities are numpy float32, which json cannot encode
+    p = likelihood(mat)
+    if not roster:
+        return float(p)
+    candidates = {m for m in roster if len(m) == len(mat) and m.isdigit()}
+    if mat not in candidates:
+        return float(0.5 * p)
+    share = p / sum(likelihood(m) for m in candidates)
+    fit = 1.0
+    for dist, c in zip(dists, mat):
+        fit *= max(dist.get(int(c), 0.0), floor) / max(dist.values())
+    return float(share * fit ** (1 / len(mat)))
+
+
 def find_matricule(
-    grays, front_box, regular_box, classifier, grades_dfs=[], separate_box=True, min_confidence=0.85, min_img=5
+    grays, front_box, regular_box, classifier, grades_dfs=[], separate_box=True, min_confidence=0.85, min_img=5,
+    return_confidence=False
 ):
+    """Read the matricule of a copy: ``(matricule, id_box, csv index)``.
+
+    With ``return_confidence`` a fourth value is returned, the
+    ``matricule_confidence`` of the matricule found (0 when none).
+    """
     possible_digits = [{} for i in range(len_mat)]
     id_box = None
 
@@ -1155,6 +1220,9 @@ def find_matricule(
     # biggest_c is None when the box had no contour (blank / unreadable)
     id_box = get_image_from_contour(cropped, biggest_c) if biggest_c is not None else None
 
+    if return_confidence:
+        roster = [str(m) for g in grades_dfs for m in g.index]
+        return mat, id_box, index, matricule_confidence(possible_digits, mat, roster)
     return mat, id_box, index
 
 
