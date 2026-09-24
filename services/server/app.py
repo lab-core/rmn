@@ -15,6 +15,7 @@ import datetime as dt
 from io import FileIO
 from service.front_page_service import FrontPageHandler
 from service.health_check import start_health_check
+from service import storage_cleanup
 from threading import Thread
 from zipfile import ZipFile
 import pandas as pd
@@ -2304,6 +2305,50 @@ def admin_change_password():
 def create_default_template():
     db = mongo["RMN"]
     return TemplateService.add_default_templates(request.form.get('user_id'), db, storage)
+
+
+@app.route("/admin/storage/clean", methods=["POST"])
+@cross_origin()
+@verify_admin
+def admin_clean_storage():
+    """Report, and optionally delete, storage no database row owns any more.
+
+    Form fields: ``dry_run`` (default true -- the sweep only reports),
+    ``min_age_hours`` (default 24, paths touched more recently are skipped so
+    the sweep cannot race an upload) and ``include_strays`` (default false --
+    also delete paths under a known prefix that match no layout rule).
+    """
+    request_form = request.form
+    dry_run = request_form.get("dry_run", "true").lower() != "false"
+    include_strays = request_form.get("include_strays", "false").lower() == "true"
+    try:
+        min_age_hours = float(request_form.get("min_age_hours", "24"))
+    except ValueError:
+        return Response(
+            response=json.dumps({"response": "Error: min_age_hours is not a number."}),
+            status=400,
+        )
+    if min_age_hours < 0:
+        return Response(
+            response=json.dumps({"response": "Error: min_age_hours must be >= 0."}),
+            status=400,
+        )
+
+    db = mongo["RMN"]
+    min_age_seconds = int(min_age_hours * 3600)
+    if dry_run:
+        report = storage_cleanup.scan(storage, db, min_age_seconds)
+    else:
+        report = storage_cleanup.clean(storage, db, min_age_seconds, include_strays)
+    report["dry_run"] = dry_run
+    print(
+        "Storage sweep:", len(report["orphans"]), "orphan(s),",
+        report["bytes"], "bytes,", "dry run" if dry_run else "deleted",
+    )
+    return Response(
+        response=json.dumps({"response": "OK", **report}), status=200
+    )
+
 
 @app.route("/admin/executor", methods=["GET"])
 @cross_origin()

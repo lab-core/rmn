@@ -159,3 +159,30 @@ def test_a_hostile_name_compiles_to_a_pdf_that_reads_nothing(tmp_path):
     assert (tmp_dir / "main.pdf").exists()
     assert "secret.txt" not in log.replace("secret.txt}", "")  # never opened as a file
     assert "(./secret.txt" not in log
+
+
+def test_boxplots_outside_the_tmp_dir_are_copied_in(tmp_path, monkeypatch):
+    # job a119c7b2: boxplots in TMP_DIR, stats compiled in TMP_DIR/tex, and
+    # pdflatex (openin_any=p) refused ../Q1.png
+    monkeypatch.setattr(stats, "create_tex_pdf", lambda *a, **k: "main.pdf")
+    plots = stats.create_all_boxplots(np.array([[1.0, 2.0, 3.0]]), tmp_dir=str(tmp_path))
+    tmp_dir = tmp_path / "tex"
+    stats.create_stats_latex(
+        "Statistiques", None, 1, np.array([[1.0, 2.0, 3.0]]), [3, 3], [str(p) for p in plots],
+        latex_dir=str(tmp_path), TMP_DIR=str(tmp_dir),
+    )
+    stats_tex = (tmp_dir / "stats.tex").read_text()
+    assert "../" not in stats_tex
+    assert "{Q1.png}" in stats_tex and "{Total.png}" in stats_tex
+    assert (tmp_dir / "Q1.png").is_file() and (tmp_dir / "Total.png").is_file()
+
+
+@pytest.mark.skipif(shutil.which("pdflatex") is None, reason="pdflatex not installed")
+def test_stats_compile_with_boxplots_made_in_the_parent_dir(tmp_path):
+    tex_dir = Path(__file__).resolve().parent.parent / "tex"
+    plots = stats.create_all_boxplots(np.array([[1.0, 2.0, 3.0]]), tmp_dir=str(tmp_path))
+    out = stats.create_stats_latex(
+        "Statistiques", None, 1, np.array([[1.0, 2.0, 3.0]]), [3, 3], [str(p) for p in plots],
+        latex_dir=str(tex_dir), TMP_DIR=str(tmp_path / "tex"),
+    )
+    assert out.is_file()

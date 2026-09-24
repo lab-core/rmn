@@ -9,6 +9,7 @@ import { TasksHistoryComponent } from './tasks-history.component';
 import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog.component';
 import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
 import { WarningDialogComponent } from '../warning-dialog/warning-dialog.component';
+import { ErrorInfoDialogComponent } from '../error-info-dialog/error-info-dialog.component';
 import { NotificationService } from 'src/app/services/notification.service';
 import { SocketService } from 'src/app/services/socket.service';
 import { UserService } from 'src/app/services/user.service';
@@ -116,6 +117,14 @@ describe('TasksHistoryComponent', () => {
     (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of(false) } as any);
     component.retryJob(task);
     expect(notification.showError).toHaveBeenCalledWith(jasmine.any(String), 'Erreur!');
+  });
+
+  it('shows the stored error of a failed task', () => {
+    spyOn(dialog, 'open');
+    component.openErrorInfoDialog({ job_name: 'Failed', job_infos: 'Échec de la finalisation : pdflatex failed' });
+    expect(dialog.open).toHaveBeenCalledWith(ErrorInfoDialogComponent, jasmine.objectContaining({
+      data: { taskName: 'Failed', infos: 'Échec de la finalisation : pdflatex failed' },
+    }));
   });
 
   it('deletes after confirmation, dropping the row before the server answers', () => {

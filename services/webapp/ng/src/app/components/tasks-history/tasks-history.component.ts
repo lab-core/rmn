@@ -7,6 +7,7 @@ import { TaskFilesDialogComponent } from '../task-files-dialog/task-files-dialog
 import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
 import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog.component';
 import { WarningDialogComponent } from 'src/app/components/warning-dialog/warning-dialog.component';
+import { ErrorInfoDialogComponent } from 'src/app/components/error-info-dialog/error-info-dialog.component';
 import { NavigationStart, Router } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
@@ -177,6 +178,14 @@ export class TasksHistoryComponent implements OnInit {
         const cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
         task.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
     }
+  }
+
+  openErrorInfoDialog(task): void {
+    this.dialog.open(ErrorInfoDialogComponent, {
+      width: '80%',
+      maxWidth: '700px',
+      data: {taskName: task.job_name, infos: task.job_infos},
+    });
   }
 
   openDeleteDialog(jobId: string): void {

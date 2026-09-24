@@ -12,7 +12,9 @@ would try to delete the others' messages, the second delete failing with
 worker do the tick; if Redis is unreachable every worker proceeds (duplicate
 alerts are preferable to no alert). The caller must hand over a client with
 short socket timeouts, otherwise a down Redis blocks the tick instead of
-failing open.
+failing open. A starting process always runs its first tick, stealing the
+lock a process it replaced left behind (see ``acquire_lock``), so a restart
+disarms the alert that was armed before it.
 """
 
 import os
@@ -125,8 +127,9 @@ class Slack:
         if self.token is None:
             print("SLACK_TOKEN is not set in environment, cannot run health check")
             return
+        first_tick = True
         while True:
-            if self.acquire_lock(interval):
+            if self.acquire_lock(interval, takeover=first_tick):
                 print(f"Run health check on {format_time(local_now())}")
                 try:
                     message_id = self.send_slack_message()
@@ -138,9 +141,10 @@ class Slack:
                         self.cancel_old_slack_messages(message_id)
                 except Exception as e:  # keep the loop alive
                     print(e)
+            first_tick = False
             time.sleep(interval)
 
-    def acquire_lock(self, interval: int) -> bool:
+    def acquire_lock(self, interval: int, takeover: bool = False) -> bool:
         """Elect the worker that runs this tick.
 
         The lock expires a minute before the next tick so that whichever
@@ -150,8 +154,20 @@ class Slack:
         armed either way. The goal is roughly one tick per interval, not a
         stable leader.
 
+        A dying process leaves its lock behind: nothing releases it, it only
+        expires. A process that starts inside that window would skip its first
+        tick and wait a whole ``interval`` before running one, long enough for
+        the alert armed by the process it replaced to post. ``takeover`` is
+        how a starting process says it must tick now: it overwrites the stale
+        lock instead of yielding to it. Two gunicorn workers starting together
+        both take over and both schedule an alert; the younger one cancels the
+        older (``cancel_old_slack_messages``), so the switch is back to one
+        armed alert right away.
+
         Args:
             interval: Seconds between two ticks.
+            takeover: Tick even if the lock is held, stealing it. Reserved for
+                the first tick of a process.
 
         Returns:
             True if this process should run the tick.
@@ -160,6 +176,9 @@ class Slack:
             return True
         try:
             ttl = max(interval - 60, 1)
+            if takeover:
+                self.redis.set(LOCK_KEY, os.getpid(), ex=ttl)
+                return True
             return bool(self.redis.set(LOCK_KEY, os.getpid(), nx=True, ex=ttl))
         except Exception as e:
             print(f"health check: Redis lock unavailable ({e}), running anyway")

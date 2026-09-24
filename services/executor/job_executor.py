@@ -480,8 +480,9 @@ if __name__ == "__main__":
                 for i in range(n_questions):
                     all_grades[i].append(grades[i])
             all_grades = np.array(all_grades)
-            f_boxplots = create_all_boxplots(all_grades, str(TMP_DIR), question_names=question_names)
+            # made where pdflatex compiles the stats: it cannot read ../Q1.png
             TEX_FOLDER.mkdir(exist_ok=True)
+            f_boxplots = create_all_boxplots(all_grades, str(TEX_FOLDER), question_names=question_names)
         else:
             all_grades = [[]]
             f_boxplots = []

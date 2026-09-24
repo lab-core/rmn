@@ -173,3 +173,56 @@ def test_lock_fails_open_on_redis_timeout():
     redis = MagicMock()
     redis.set.side_effect = TimeoutError("socket timeout")
     assert hc.Slack(token="t", redis=redis).acquire_lock(interval=900) is True
+
+
+def test_takeover_steals_a_lock_left_by_a_dead_process():
+    """A restarted pod must tick now, not an interval after the one it replaced."""
+    redis = fakeredis.FakeStrictRedis()
+    dead = hc.Slack(token="t", redis=redis)
+    assert dead.acquire_lock(interval=900) is True
+    restarted = hc.Slack(token="t", redis=redis)
+    assert restarted.acquire_lock(interval=900) is False
+    assert restarted.acquire_lock(interval=900, takeover=True) is True
+    assert 0 < redis.ttl(hc.LOCK_KEY) <= 840
+
+
+def test_first_tick_runs_under_a_stale_lock(slack_calls, monkeypatch):
+    """The daily rollout: the alert armed before the restart is cancelled."""
+    calls, responses = slack_calls
+    redis = fakeredis.FakeStrictRedis()
+    # the pod being replaced ticked 14 minutes ago and left its lock behind
+    hc.Slack(token="t", redis=redis).acquire_lock(interval=900)
+    responses["chat.scheduleMessage"] = {"ok": True, "scheduled_message_id": "NEW"}
+    responses["chat.scheduledMessages.list"] = _pending(("ARMED", 10), ("NEW", 100))
+    responses["chat.deleteScheduledMessage"] = {"ok": True}
+
+    # one pass of the loop: sleep ends it, as the thread would run forever
+    monkeypatch.setattr(
+        hc.time, "sleep", lambda _: (_ for _ in ()).throw(StopIteration)
+    )
+    with pytest.raises(StopIteration):
+        hc.Slack(token="t", redis=redis).health_check(interval=900)
+
+    assert _deleted(calls) == ["ARMED"]
+
+
+def test_only_the_first_tick_takes_over(slack_calls, monkeypatch):
+    """Take-over is for start-up only: later ticks go back through the lock."""
+    calls, responses = slack_calls
+    redis = fakeredis.FakeStrictRedis()
+    responses["chat.scheduleMessage"] = {"ok": True, "scheduled_message_id": "NEW"}
+    responses["chat.scheduledMessages.list"] = _pending(("NEW", 100))
+
+    passes = []
+
+    def stop_after_two(_):
+        passes.append(1)
+        if len(passes) == 2:
+            raise StopIteration
+
+    monkeypatch.setattr(hc.time, "sleep", stop_after_two)
+    with pytest.raises(StopIteration):
+        hc.Slack(token="t", redis=redis).health_check(interval=900)
+
+    scheduled = [m for m, _ in calls if m == "chat.scheduleMessage"]
+    assert len(passes) == 2 and scheduled == ["chat.scheduleMessage"]

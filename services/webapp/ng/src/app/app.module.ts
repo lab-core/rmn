@@ -50,6 +50,7 @@ import { TemplatesPageComponent } from './components/templates-page/templates-pa
 import { UserGuideComponent } from './components/user-guide/user-guide.component';
 import { UserProfileComponent } from './components/user-profile/user-profile.component';
 import { WarningDialogComponent } from './components/warning-dialog/warning-dialog.component';
+import { ErrorInfoDialogComponent } from './components/error-info-dialog/error-info-dialog.component';
 
 // providers
 import { ErrorInterceptor, FreshHttpInterceptor } from './services/interceptor.service';
@@ -79,6 +80,7 @@ import { AuthInterceptor } from './services/auth.interceptor';
         DashboardPageComponent,
         MatriculeVerificationComponent,
         WarningDialogComponent,
+        ErrorInfoDialogComponent,
     ],
     bootstrap: [AppComponent], imports: [BrowserModule,
         AppRoutingModule,
