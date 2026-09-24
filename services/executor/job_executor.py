@@ -19,6 +19,7 @@ from python.process_copy.recognize import get_date, write_box_contours
 from rmn_common.moodle import MoodleFields as MF
 from python.process_copy.mcc import group_label, zipdirbatch
 from python.process_copy.database import Database
+from python.process_copy import auto_grade
 from python.process_copy.add_grades import process_writing
 from utils.stats import create_all_boxplots, create_stats_latex
 from utils.merge import process_merge
@@ -28,7 +29,7 @@ from rmn_common.paths import safe_path_component, ensure_within
 from rmn_common.spreadsheet import defuse_csv
 from utils.storage import Storage
 from utils.stop_handler import StopHandler
-from utils.clients import redis_client, socketio_client, update_status
+from utils.clients import redis_client, socketio_client, update_status, emit_job
 from utils.split import insert_copies
 
 
@@ -810,6 +811,39 @@ if __name__ == "__main__":
             # Set Job status to ERROR
             update_status(db, sio, user_id, job_id, Job_Status.ERROR, infos={"job_infos": str(e)})
 
+    def read_grades_for_job(job, question_index, run, stopH):
+        """Read the grades of one re-uploaded question.
+
+        A thin wrapper: the pass itself lives in ``process_copy.auto_grade``,
+        where it can be tested without a redis or a socket. The job status is
+        deliberately not touched -- the teacher is correcting and the job stays
+        in VALIDATION.
+        """
+        job_id = job["job_id"]
+        user_id = job["user_id"]
+        if question_index is None:
+            print("read_grades: no question_index in the payload")
+            return
+
+        def progress(done, total):
+            emit_job(sio, user_id, job_id, Job_Status(job["job_status"]),
+                     infos={"job_infos": f"Lecture des notes : {done}/{total}"})
+
+        result = auto_grade.read_question(
+            db, storage, job, question_index, run,
+            stop=stopH.stop, progress=progress,
+        )
+        print("read_grades: Q%s, %s/%s page(s) read%s" % (
+            question_index, result["read"], result["total"],
+            ", superseded" if result["superseded"] else ""))
+
+        if result["read"]:
+            # one refresh for the whole pass: the correction screen reloads
+            # every document on this event, so emitting per page would have it
+            # refetch hundreds of times
+            sio.emit("document_ready", json.dumps(
+                {"job_id": job_id, "user_id": user_id, "questions": True}))
+
     def add_copies_to_job(job, TMP_DIR, status_for_error=None):
         job_id = job["job_id"]
         user_id = job["user_id"]
@@ -885,6 +919,12 @@ if __name__ == "__main__":
                     print("Error while finalizing job", job_id, ":", e)
                     update_status(db, sio, job["user_id"], job_id, Job_Status.ERROR,
                                   infos={"job_infos": f"Échec de la finalisation : {e}"})
+
+            elif p_job.get("read_grades") and job["job_status"] in [
+                    Job_Status.QUEUED.value, Job_Status.RUN.value,
+                    Job_Status.VALIDATION.value]:
+                read_grades_for_job(job, p_job.get("question_index"),
+                                    p_job.get("run"), stopH)
 
             elif (p_job.get("add_copies") and
                   job["job_status"] in [Job_Status.QUEUED.value, Job_Status.RUN.value, Job_Status.VALIDATION.value]):
