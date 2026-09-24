@@ -101,12 +101,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     const toRead = p.total - (p.graded || 0);
     if (p.running) {
       const percent = toRead ? Math.round(100 * p.done / toRead) : 100;
-      return `lecture des notes en cours : ${percent} %`;
+      return `Lecture des notes en cours : ${percent} %`;
     }
     if (p.pending) {
-      return `lecture des notes à faire : ${p.done}/${toRead}`;
+      return `Lecture des notes à faire : ${p.done}/${toRead}`;
     }
-    return `notes lues automatiquement : ${p.done}/${toRead}`;
+    return `Notes lues automatiquement : ${p.done}/${toRead}`;
   }
   currentTotal: number;
   currentGrades: Map<string, number>;

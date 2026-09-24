@@ -227,6 +227,7 @@ mat-progress-spinner {
 
 /* the grade reader is working on this task */
 .reading-running {
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 500;
   color: #1976d2;
 }

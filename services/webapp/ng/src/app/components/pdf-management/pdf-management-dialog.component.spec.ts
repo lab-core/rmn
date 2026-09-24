@@ -151,4 +151,16 @@ describe('PdfManagementDialogComponent', () => {
     expect(notification.showWarning).toHaveBeenCalledWith(
       jasmine.stringContaining('7'), 'Attention');
   });
+
+  it('names the questions the server refused to replace', () => {
+    component.reportSkippedQuestions({ response: 'OK', skipped_questions: ['Q2', 'Q3'] });
+    expect(notification.showWarning).toHaveBeenCalledWith(
+      jasmine.stringContaining('Q2, Q3'), 'Attention');
+
+    notification.showWarning.calls.reset();
+    // an upload that wrote everything it carried says nothing
+    component.reportSkippedQuestions({ response: 'OK', skipped_questions: [] });
+    component.reportSkippedQuestions({ response: 'OK' });
+    expect(notification.showWarning).not.toHaveBeenCalled();
+  });
 });

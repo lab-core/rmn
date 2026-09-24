@@ -744,6 +744,7 @@ app-pdf-viewer {
   border-radius: 4px;
   background-color: #e8f1fb;
   color: #1976d2;
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 500;
   white-space: nowrap;
 }

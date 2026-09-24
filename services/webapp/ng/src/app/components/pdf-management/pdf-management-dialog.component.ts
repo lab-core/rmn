@@ -104,6 +104,22 @@ export class PdfManagementDialogComponent {
     }
   }
 
+  /// Tell the teacher which questions of the upload were not written.
+  ///
+  /// A link scoped to one question may carry copies of others -- the export
+  /// puts the whole task in one zip -- and the server drops them. It used to
+  /// do so in silence, so the upload looked as if it had worked in full.
+  reportSkippedQuestions(body: any) {
+    const skipped: string[] = body?.skipped_questions || [];
+    if (skipped.length > 0) {
+      this.notificationService.showWarning(
+        `${skipped.join(', ')} n'${skipped.length > 1 ? 'ont' : 'a'} pas été `
+        + `remplacée${skipped.length > 1 ? 's' : ''} : vous n'avez pas accès `
+        + `à ${skipped.length > 1 ? 'ces questions' : 'cette question'}.`,
+        'Attention');
+    }
+  }
+
   async downloadAllFilesAsZip() {
     this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
     const zip = new JSZip();
@@ -598,6 +614,7 @@ export class PdfManagementDialogComponent {
               this.percentageDone = data.total ? Math.round(100 * data.loaded / data.total) : 0
             } else if (data.type === HttpEventType.Response) {
               if (data.ok) {
+                this.reportSkippedQuestions(data.body);
                 this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succès');
                 this.dialogRef.close({hasUploadedZip: true});
               } else {

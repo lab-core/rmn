@@ -236,13 +236,15 @@ tbody td {
   border-radius: 4px;
   background-color: #e8f1fb;
   color: #1976d2;
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 500;
   display: inline-block;
 }
 
 /* how far the grade reading has got on each question */
 .reading-state {
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 500;
   margin-top: 2px;
 }
 

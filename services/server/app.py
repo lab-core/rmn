@@ -1627,11 +1627,61 @@ def replace_document(validity):
     # reading for the whole upload, silently.
     read_grades = request_form.get("read_grades", "true").lower() == "true"
 
+    # before the thread: it is the one that drops them, and its answer has
+    # already gone by the time it does
+    skipped = skipped_questions(validity, job_id, temp_file.name, grades)
+
     thread = Thread(target=replace_thread,
                     args=[validity, job_id, grades, temp_file, read_grades])
     thread.start()
 
-    return Response(response=json.dumps({"response": "OK"}), status=200)
+    return Response(
+        response=json.dumps({"response": "OK", "skipped_questions": skipped}),
+        status=200,
+    )
+
+
+def skipped_questions(validity, job_id, zip_path, grades):
+    """The questions of an upload this caller may not modify.
+
+    The pdfs and the csv rows of a question outside the caller's scope are
+    dropped, one by one, deep inside a thread whose answer has already been
+    sent -- so the upload looked like it had worked in full. This is read
+    before the thread starts, so the answer can name what will not be
+    written.
+
+    Args:
+        validity: The share-token scope, None for the job owner.
+        job_id: The job the upload belongs to.
+        zip_path: The uploaded archive; a broken one names no question here
+            and fails in the thread as it did before.
+        grades: The csv grades, keyed by document index.
+
+    Returns:
+        The refused questions, as the labels the teacher sees ("Q2"), sorted.
+    """
+    questions = set()
+    try:
+        with ZipFile(zip_path, "r") as zip_file:
+            for name in zip_file.namelist():
+                found = re.search(r"Q(\d+)(?=\.pdf$)", name)
+                if found:
+                    questions.add(int(found.group(1)))
+    except Exception as e:
+        print(f"{job_id}: cannot list the uploaded zip ({e})")
+    if grades:
+        # the csv covers copies, which carry their own question
+        questions.update(mongo["RMN"]["job_questions"].distinct(
+            "question_index",
+            {"job_id": job_id,
+             "document_index": {"$in": [int(i) for i in grades]}},
+        ))
+    # a copy with no question (a whole-copy upload) has nothing to name
+    refused = [
+        q for q in questions
+        if q is not None and not question_allowed(validity, q)
+    ]
+    return [f"Q{q}" for q in sorted(refused)]
 
 
 def replace_thread(validity, job_id, grades, temp_file, read_grades=False):

@@ -162,12 +162,12 @@ export class DashboardPageComponent {
     const skipped = p.graded ? ` (${p.graded} déjà notée${p.graded > 1 ? 's' : ''})` : '';
     if (p.running) {
       const percent = toRead ? Math.round(100 * p.done / toRead) : 100;
-      return `lecture en cours : ${percent} %${skipped}`;
+      return `Lecture en cours : ${percent} %${skipped}`;
     }
     if (p.pending) {
-      return `lecture à faire : ${p.done}/${toRead}${skipped}`;
+      return `Lecture à faire : ${p.done}/${toRead}${skipped}`;
     }
-    return `notes lues : ${p.done}/${toRead}${skipped}`;
+    return `Notes lues : ${p.done}/${toRead}${skipped}`;
   }
 
   readingClass(question: any): string {
