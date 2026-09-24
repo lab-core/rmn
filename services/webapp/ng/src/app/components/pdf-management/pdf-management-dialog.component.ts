@@ -34,8 +34,9 @@ export interface DialogData {
 export class PdfManagementDialogComponent {
 
   processing: boolean = false;
-  // read the grades off the annotated pages instead of importing a csv
-  readGrades: boolean = false;
+  // Reading the grades off the pages is the point of sending them back, so it
+  // is on by default; a grade supplied in the csv still wins for its own copy.
+  readGrades: boolean = true;
 
   percentageDone: number = 0;
   info: string = "";
@@ -570,11 +571,9 @@ export class PdfManagementDialogComponent {
       uploadFormData.append('file', finalZipFile);
       uploadFormData.append('grades', JSON.stringify(grades));
       uploadFormData.append('questions', 'true');
-      // with no csv there is nothing to fill the grades with, so ask the
-      // server to read what was written on the pages instead
-      if (this.readGrades) {
-        uploadFormData.append('read_grades', 'true');
-      }
+      // the server reads the grades off the pages it was sent, for every copy
+      // the csv did not already give a grade for
+      uploadFormData.append('read_grades', this.readGrades ? 'true' : 'false');
 
       this.percentageDone = 0;
       this.info = 'Uploading (4/4)';

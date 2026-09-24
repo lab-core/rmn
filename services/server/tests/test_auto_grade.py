@@ -194,3 +194,29 @@ def test_read_grades_rejects_an_unreachable_job_and_a_bad_question(
     assert missing.status_code == 401
     assert none.status_code == 401
     assert bad.status_code == 400
+
+
+def test_a_grade_in_the_csv_does_not_call_off_the_whole_reading(
+    client, app_module_fixture
+):
+    """A grade supplied for one copy used to cancel the reading for all of them.
+
+    start_run only queues documents that have no grade, so the two mechanisms
+    already coexist: the csv wins for the copies it covers, the reader takes
+    the rest.
+    """
+    mongo = app_module_fixture.mongo["RMN"]
+    make_reading_job(mongo)
+    add_question(mongo, 1)
+    add_question(mongo, 2)
+    # the upload carried a grade for one of the three copies
+    mongo["job_questions"].update_one(
+        {"job_id": JOB, "document_index": 0},
+        {"$set": {"grade": 7.0, "status": Document_Status.VALIDATED.value}},
+    )
+
+    app_module_fixture.start_reading_grades(JOB, [3])
+
+    run = auto_grade.current_run(mongo["eval_jobs"], JOB, 3)
+    queued = auto_grade.pending_documents(mongo["job_questions"], JOB, 3, run)
+    assert [d["document_index"] for d in queued] == [1, 2]

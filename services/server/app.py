@@ -1612,11 +1612,10 @@ def replace_document(validity):
     file.save(temp_file)
     temp_file.flush()
 
-    # a supplied grades map wins: the teacher has already said what the
-    # grades are, so there is nothing to read
-    read_grades = (
-        request_form.get("read_grades", "false").lower() == "true" and not grades
-    )
+    # A supplied grade wins for the copy it covers -- start_run only queues
+    # documents that have none -- but one grade in the map used to call off the
+    # reading for the whole upload, silently.
+    read_grades = request_form.get("read_grades", "true").lower() == "true"
 
     thread = Thread(target=replace_thread,
                     args=[validity, job_id, grades, temp_file, read_grades])
@@ -1703,8 +1702,10 @@ def replace_documents(validity, job_id, grades, zip_path):
                 )
                 touched_questions.add(int(question_folder[1:]))
 
-    if read_grades:
+    if read_grades and touched_questions:
         start_reading_grades(job_id, sorted(touched_questions))
+    elif read_grades:
+        print(f"{job_id}: nothing to read, the upload carried no question pdf")
 
 
 def start_reading_grades(job_id, question_indices):
