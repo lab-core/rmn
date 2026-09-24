@@ -6,6 +6,7 @@ import time
 import pytest
 
 from service import storage_cleanup
+from routes import admin as admin_routes
 
 HEADERS = {"X-Admin-Key": "test-admin-key"}
 
@@ -19,7 +20,7 @@ def tree(tmp_path, monkeypatch, app_module_fixture):
     cannot show up in the report.
     """
     storage = type(app_module_fixture.storage)(tmp_path)
-    monkeypatch.setattr(app_module_fixture, "storage", storage)
+    monkeypatch.setattr(admin_routes, "storage", storage)
     db = app_module_fixture.mongo["RMN"]
 
     def write(relative, age_seconds=48 * 3600):

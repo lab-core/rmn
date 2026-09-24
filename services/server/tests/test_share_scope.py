@@ -11,6 +11,7 @@ import os
 import zipfile
 
 import pytest
+from routes import documents as documents_routes
 
 
 def _questions(mongo, job_id):
@@ -148,7 +149,7 @@ class _SyncThread:
 def test_replace_checks_the_scope_before_writing_the_grade(
     client, shared_job, monkeypatch
 ):
-    monkeypatch.setattr(shared_job, "Thread", _SyncThread)
+    monkeypatch.setattr(documents_routes, "Thread", _SyncThread)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w"):
         pass
@@ -205,7 +206,7 @@ def test_replace_names_the_questions_of_the_zip_it_refuses(
     client, shared_job, monkeypatch
 ):
     """The export puts the whole task in one zip, so a Q1 link sends Q7 too."""
-    monkeypatch.setattr(shared_job, "Thread", _SyncThread)
+    monkeypatch.setattr(documents_routes, "Thread", _SyncThread)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as archive:
         archive.writestr("copy1_Q1.pdf", b"%PDF-1.4 one")
@@ -228,7 +229,7 @@ def test_replace_reports_nothing_when_the_whole_upload_is_written(
     client, app_module_fixture, monkeypatch, login, user_factory, job_factory
 ):
     """The owner may touch every question, so there is nothing to warn about."""
-    monkeypatch.setattr(app_module_fixture, "Thread", _SyncThread)
+    monkeypatch.setattr(documents_routes, "Thread", _SyncThread)
     user_factory("alice")
     token = login("alice")
     job_factory("j2", "alice")

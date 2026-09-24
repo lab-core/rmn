@@ -1,5 +1,7 @@
 """Admin endpoints are guarded by the shared ADMIN_API_KEY secret."""
 
+import auth
+
 ADMIN_USERS = "/admin/users"
 
 
@@ -25,7 +27,7 @@ def test_admin_accepts_form_key_fallback(client):
 
 
 def test_admin_fails_closed_when_secret_unset(client, monkeypatch, app_module_fixture):
-    monkeypatch.setattr(app_module_fixture, "ADMIN_API_KEY", None)
+    monkeypatch.setattr(auth, "ADMIN_API_KEY", None)
     resp = client.post(ADMIN_USERS, headers={"X-Admin-Key": "test-admin-key"})
     assert resp.status_code == 403
     assert "disabled" in resp.get_json(force=True)["response"]

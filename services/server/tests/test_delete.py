@@ -7,6 +7,8 @@ inline (unless the queue is unreachable).
 
 import json
 import os
+from routes import jobs as jobs_routes
+from service import job_cleanup
 
 
 def _queue(app_module):
@@ -69,13 +71,13 @@ def test_delete_falls_back_to_background_thread_when_queue_unreachable(monkeypat
             if self._target:
                 self._target(*self._args)
 
-    monkeypatch.setattr(app_module_fixture, "Thread", _SyncThread)
+    monkeypatch.setattr(jobs_routes, "Thread", _SyncThread)
 
     resp = client.post("/job/delete", data={"user_id": "alice", "token": token, "job_id": "job1"})
     assert resp.status_code == 200
     # queue was unreachable -> cleanup handed to a background thread (not inline,
     # not left undone); the record is still removed synchronously
-    assert spawned and spawned[0][0] is app_module_fixture.delete_job
+    assert spawned and spawned[0][0] is job_cleanup.delete_job
     assert spawned[0][1] == ["job1"]
     db = app_module_fixture.mongo["RMN"]
     for coll in ("eval_jobs", "job_documents", "job_questions", "jobs_output", "versions"):

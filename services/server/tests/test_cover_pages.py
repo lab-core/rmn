@@ -14,6 +14,8 @@ import pymupdf
 import pytest
 
 from service.front_page_service import FrontPageHandler
+from routes import front_page as front_page_routes
+from utils import uploads
 
 FAKE_PDFLATEX = textwrap.dedent(
     """\
@@ -42,7 +44,7 @@ def fake_pdflatex(tmp_path, monkeypatch):
 @pytest.fixture
 def temp_root(tmp_path, monkeypatch, app_module_fixture):
     root = tmp_path / "front_page_temp"
-    monkeypatch.setattr(app_module_fixture, "FRONT_PAGE_TEMP_FOLDER", root)
+    monkeypatch.setattr(front_page_routes, "FRONT_PAGE_TEMP_FOLDER", root)
     return root
 
 
@@ -122,7 +124,7 @@ def test_a_failed_front_page_is_reported_not_hidden(
 def test_zip_inflating_past_the_budget_is_refused(
     client, token, temp_root, fake_pdflatex, monkeypatch, app_module_fixture
 ):
-    monkeypatch.setattr(app_module_fixture, "FRONT_PAGE_MAX_UNZIPPED_BYTES", 100)
+    monkeypatch.setattr(uploads, "FRONT_PAGE_MAX_UNZIPPED_BYTES", 100)
     resp = _post(client, token, ["Alice Martin"])
     assert resp.status_code == 413
     assert os.listdir(temp_root) == []
