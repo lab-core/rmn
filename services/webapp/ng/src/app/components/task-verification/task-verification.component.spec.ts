@@ -199,6 +199,68 @@ describe('TaskVerificationComponent', () => {
     expect(component.colorChosen).toBe('green');
   });
 
+  it('shades a copy read by the machine by its confidence, between the red and the blue', async () => {
+    await create();
+    const read = { status: 'HIGH ACCURACY', grade: null, auto_grade: 8, auto_grade_confidence: 1, document_index: 99 };
+    expect(component.tileColour(read)).toBe('rgb(65, 65, 247)');
+    expect(component.tileTitle(read)).toBe('confiance 100 %');
+    expect(component.tileColour({ ...read, status: 'TO VALIDATE', auto_grade_confidence: 0 })).toBe('rgb(255, 0, 0)');
+    // graded by the teacher, tagged by the teacher, or never read: the usual colours
+    expect(component.tileColour({ ...read, grade: 8 })).toBeNull();
+    expect(component.tileColour({ ...read, status: 'TO VALIDATE', tag: '1' })).toBeNull();
+    expect(component.tileColour({ ...read, auto_grade_confidence: undefined })).toBeNull();
+  });
+
+  it('a copy the reader just read is patched in place, without refetching', async () => {
+    await create();
+    const current = component.currentExam();
+    current.question_index = 1;
+    docs.getDocuments.calls.reset();
+
+    await socket.socket.fire('document_ready', JSON.stringify({
+      job_id: 'job', questions: true, question_index: 1, document_index: current.document_index,
+      auto_grade: 6, auto_grade_confidence: 0.95, auto_grade_reason: 'ok', auto_grade_source: 'ink',
+      status: 'HIGH ACCURACY',
+    }));
+
+    expect(docs.getDocuments).not.toHaveBeenCalled();
+    expect(current.status).toBe('HIGH ACCURACY');
+    expect(current.auto_grade_confidence).toBe(0.95);
+    // the open copy shows the suggestion at once, framed in its colour
+    expect(component.currentGrade).toBe(6);
+    expect(component.currentGradeIsAuto).toBeTrue();
+    expect(component.scoreBorderColour()).toBe('rgb(75, 62, 235)');
+  });
+
+  it('a live reading never replaces a grade being typed, nor touches a validated copy', async () => {
+    await create();
+    const current = component.currentExam();
+    current.question_index = 1;
+    component.currentGrade = 4;  // typed, not saved yet
+    component.currentGradeIsAuto = false;
+    const validated = component.examsList.find(e => e.status === 'VALIDATED');
+    validated.question_index = 1;
+
+    for (const exam of [current, validated]) {
+      await socket.socket.fire('document_ready', JSON.stringify({
+        job_id: 'job', questions: true, question_index: 1, document_index: exam.document_index,
+        auto_grade: 9, auto_grade_confidence: 0.5, auto_grade_reason: 'ok', auto_grade_source: 'ink',
+      }));
+    }
+
+    expect(component.currentGrade).toBe(4);
+    expect(current.auto_grade).toBe(9);
+    expect(validated.auto_grade).toBeUndefined();
+    expect(validated.grade).toBe(7);
+  });
+
+  it('the event that ends a reading pass still refetches every copy', async () => {
+    await create();
+    docs.getDocuments.calls.reset();
+    await socket.socket.fire('document_ready', JSON.stringify({ job_id: 'job', questions: true }));
+    expect(docs.getDocuments).toHaveBeenCalled();
+  });
+
   it('the tag filter decides which copies the hidden-sidebar flow visits', async () => {
     await create();
     expect(component.isRespectingTagFilter({ status: 'VALIDATED' })).toBeTrue();

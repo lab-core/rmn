@@ -16,6 +16,7 @@ import { first } from 'rxjs/operators';
 import { db, OfflineCopy } from 'src/app/services/offline-db';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 import { selectedCopyIndex } from 'src/app/selected-copy';
+import { confidenceColour, confidenceLabel } from 'src/app/confidence';
 
 
 @Component({
@@ -190,7 +191,13 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
     this.socketService.join(this.job.job_id);
     this.onDocumentReady = async (params: any) => {
-      // a reading pass emits this once, when it is done
+      // a reading pass emits one event per copy it read, with the reading:
+      // that copy is patched in place; the event that ends the pass (or any
+      // other) has no document_index and refetches everything
+      const resp = typeof params === 'string' ? JSON.parse(params) : params;
+      if (resp && resp.questions && resp.document_index !== undefined && this.applyReading(resp)) {
+        return;
+      }
       this.readingInfo = '';
       await this.getDocuments();
       if (this.currentCopy < 0 || this.currentExam()['status'] === DocumentStatus.VALIDATED) {
@@ -352,6 +359,59 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
 
     return examClass;
+  }
+
+  /**
+   * Show a reading the executor just stored, without refetching. Returns
+   * false when the copy is not in the list (a refetch is then needed).
+   */
+  applyReading(reading: any): boolean {
+    const exam = (this.examsList || []).find((e) =>
+      e.document_index === reading.document_index &&
+      (reading.question_index === undefined || e.question_index === reading.question_index));
+    if (!exam) {
+      return false;
+    }
+    if (exam.status === DocumentStatus.VALIDATED) {
+      return true;  // the executor does not write over a validated copy either
+    }
+    exam.auto_grade = reading.auto_grade;
+    exam.auto_grade_confidence = reading.auto_grade_confidence;
+    exam.auto_grade_reason = reading.auto_grade_reason;
+    exam.auto_grade_source = reading.auto_grade_source;
+    exam.auto_grade_status = 'DONE';
+    if (reading.status) {
+      exam.status = reading.status;
+    }
+    if (this.currentCopy >= 0 && exam === this.currentExam()) {
+      this.currentStatus = exam.status;
+      // never replace what the teacher is typing
+      const untouched = this.currentGradeIsAuto || this.currentGrade === null || this.currentGrade === undefined;
+      if (exam.grade === null && untouched) {
+        this.loadScore();
+      }
+    }
+    return true;
+  }
+
+  /** The tile colour of a copy the reader read and nobody has graded yet. */
+  tileColour(exam: any): string | null {
+    if (exam.grade !== null && exam.grade !== undefined) {
+      return null;
+    }
+    if (exam.status === DocumentStatus.TO_VALIDATE && this.availableTags.includes(exam.tag)) {
+      return null;  // the teacher's own tag colour wins
+    }
+    return confidenceColour(exam.auto_grade_confidence, exam.status);
+  }
+
+  tileTitle(exam: any): string {
+    return exam.grade === null || exam.grade === undefined ? confidenceLabel(exam.auto_grade_confidence) : '';
+  }
+
+  /** The score box border follows the tile while the value is a suggestion. */
+  scoreBorderColour(): string | null {
+    return this.currentGradeIsAuto ? confidenceColour(this.currentGradeConfidence, this.currentStatus) : null;
   }
 
   loadScore(): void {

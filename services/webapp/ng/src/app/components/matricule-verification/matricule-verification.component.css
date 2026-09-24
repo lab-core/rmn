@@ -546,3 +546,10 @@ input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
+
+/* how sure the executor was of the matricule it read, in the tile's colour */
+.matricule-confidence {
+  font-size: 0.85em;
+  font-weight: bold;
+  white-space: nowrap;
+}

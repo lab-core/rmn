@@ -171,6 +171,25 @@ describe('MatriculeVerificationComponent', () => {
     expect(component.nextCopyIndex()).toBe(4);
   });
 
+  it('shades a matricule read by the executor by its confidence and says how sure it was', async () => {
+    await create();
+    const read = component.examsList.find(e => e.status === 'HIGH ACCURACY');
+    read.matricule_confidence = 1;
+    expect(component.tileColour(read)).toBe('rgb(65, 65, 247)');
+    expect(component.tileTitle(read)).toBe('confiance 100 %');
+    component.currentCopy = read.document_index;
+    expect(component.currentConfidence()).toEqual({ label: 'confiance 100 %', colour: 'rgb(65, 65, 247)' });
+
+    // validated by a human, or read before the confidence existed: no shade, no label
+    const validated = component.examsList.find(e => e.status === 'VALIDATED');
+    validated.matricule_confidence = 0.2;
+    expect(component.tileColour(validated)).toBeNull();
+    component.currentCopy = validated.document_index;
+    expect(component.currentConfidence()).toBeNull();
+    const older = component.examsList.find(e => e.status === 'TO VALIDATE');
+    expect(component.tileColour(older)).toBeNull();
+  });
+
   it('warns when the matricule is already used by other copies', async () => {
     await create();
     component.examsList[1].matricule = '1234567';

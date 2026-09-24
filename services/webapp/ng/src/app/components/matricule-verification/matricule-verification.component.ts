@@ -15,6 +15,7 @@ import { WarningDialogComponent } from 'src/app/components/warning-dialog/warnin
 import { first } from 'rxjs/operators';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 import { selectedCopyIndex } from 'src/app/selected-copy';
+import { confidenceColour, confidenceLabel } from 'src/app/confidence';
 
 
 @Component({
@@ -360,6 +361,25 @@ export class MatriculeVerificationComponent implements OnInit {
     return exam != undefined;
   }
 
+
+  /** The tile colour of a copy whose matricule the executor read. */
+  tileColour(exam: any): string | null {
+    return confidenceColour(exam.matricule_confidence, exam.status);
+  }
+
+  tileTitle(exam: any): string {
+    return exam.status === DocumentStatus.VALIDATED ? '' : confidenceLabel(exam.matricule_confidence);
+  }
+
+  /** How sure the executor was of the current copy's matricule, until a human validates it. */
+  currentConfidence(): { label: string, colour: string | null } | null {
+    const exam = (this.examsList || []).find((e) => e.document_index === this.currentCopy);
+    if (!exam || exam.status === DocumentStatus.VALIDATED) {
+      return null;
+    }
+    const label = confidenceLabel(exam.matricule_confidence);
+    return label ? { label, colour: confidenceColour(exam.matricule_confidence, exam.status) } : null;
+  }
   getMatriculeList() {
     let tempList = this.job["students_list"];
     tempList = tempList.map(x => {

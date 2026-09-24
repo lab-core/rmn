@@ -49,6 +49,7 @@ def read_question(
     open_pdf: Optional[Callable] = None,
     stop: Optional[Callable[[], bool]] = None,
     progress: Optional[Callable[[int, int], None]] = None,
+    on_read: Optional[Callable[[int, Any], None]] = None,
 ) -> Dict[str, int]:
     """Read the grade off every page of one question that is waiting for it.
 
@@ -63,6 +64,9 @@ def read_question(
         open_pdf: How to open a file, injected by the tests.
         stop: Called between documents; returning True abandons the pass.
         progress: Called with ``(done, total)`` every few documents.
+        on_read: Called with ``(document_index, reading)`` for each reading
+            that was stored (not superseded, not a validated document), so the
+            correction screen can show it as soon as it is known.
 
     Returns:
         ``{"read": n, "total": n, "superseded": 0 or 1}``.
@@ -134,8 +138,10 @@ def read_question(
             reading = ink_grades.pick(
                 candidates[index], modal, max_points, classifier, bonus
             )
-            db.save_auto_grade(job_id, index, run, reading)
+            stored = db.save_auto_grade(job_id, index, run, reading)
             read += 1
+            if stored and on_read is not None:
+                on_read(index, reading)
             if progress is not None and read % step == 0:
                 progress(read, len(pending))
     finally:
