@@ -38,7 +38,7 @@ def test_listing_merges_own_and_default_templates(client, alice, app_module_fixt
     _template(mongo, "t2", "bob", "Bobs")
     _template(mongo, "d1", "root", "Example: Exam", locked=True, src="/srv/default/exam.tex")
 
-    resp = client.post("/user/template", data=_auth(alice))
+    resp = client.post("/templates/user", data=_auth(alice))
 
     assert resp.status_code == 200
     templates = resp.get_json(force=True)["response"]
@@ -51,7 +51,7 @@ def test_own_copy_of_a_default_template_is_shown_unlocked(client, alice, app_mod
     mongo = app_module_fixture.mongo
     _template(mongo, "d1", "root", "Example: Exam", locked=True, src="/srv/default/exam.tex")
     _template(mongo, "t1", "alice", "Example: Exam")
-    templates = client.post("/user/template", data=_auth(alice)).get_json(force=True)["response"]
+    templates = client.post("/templates/user", data=_auth(alice)).get_json(force=True)["response"]
     assert len(templates) == 1
     assert templates[0]["template_id"] == "t1" and templates[0]["locked"] is False
     assert templates[0]["src_name"] == "exam.tex"
@@ -63,19 +63,19 @@ def test_template_info_converts_boxes_and_lock(client, alice, app_module_fixture
     _template(mongo, "d1", "root", "Default", locked=True)
     _template(mongo, "l1", "alice", "My locked", locked=True)
 
-    info = client.post("/template/info", data=_auth(alice, template_id="t1")).get_json(force=True)["response"]
+    info = client.post("/templates/info", data=_auth(alice, template_id="t1")).get_json(force=True)["response"]
     assert info["grade_box"] == pytest.approx({"x1": 10.0, "x2": 90.0, "y1": 60.0, "y2": 90.0})
     assert info["matricule_box"] is None
     assert info["n_questions"] == 3
     assert not info["locked"]
 
-    info = client.post("/template/info", data=_auth(alice, template_id="d1")).get_json(force=True)["response"]
+    info = client.post("/templates/info", data=_auth(alice, template_id="d1")).get_json(force=True)["response"]
     assert info["locked"] is True
-    info = client.post("/template/info", data=_auth(alice, template_id="l1")).get_json(force=True)["response"]
+    info = client.post("/templates/info", data=_auth(alice, template_id="l1")).get_json(force=True)["response"]
     assert not info["locked"]  # locked, but mine
 
-    assert client.post("/template/info", data=_auth(alice, template_id="nope")).status_code == 404
-    assert client.post("/template/info", data=_auth(alice)).status_code == 400
+    assert client.post("/templates/info", data=_auth(alice, template_id="nope")).status_code == 404
+    assert client.post("/templates/info", data=_auth(alice)).status_code == 400
 
 
 def test_modify_updates_name_and_boxes_and_requeues_the_render(client, alice, app_module_fixture):
@@ -83,7 +83,7 @@ def test_modify_updates_name_and_boxes_and_requeues_the_render(client, alice, ap
     _template(mongo, "t1", "alice", "Mine")
 
     resp = client.post(
-        "/template/modify",
+        "/templates/modify",
         data=_auth(
             alice,
             template_id="t1",
@@ -102,13 +102,13 @@ def test_modify_updates_name_and_boxes_and_requeues_the_render(client, alice, ap
     queue = [json.loads(p) for p in template_service.redis.lrange("job_queue", 0, -1)]
     assert queue == [{"template_id": "t1"}]
 
-    assert client.post("/template/modify", data=_auth(alice, template_id="t1")).status_code == 400
+    assert client.post("/templates/modify", data=_auth(alice, template_id="t1")).status_code == 400
 
 
 def test_modify_cannot_touch_another_users_template(client, alice, app_module_fixture):
     mongo = app_module_fixture.mongo
     _template(mongo, "t2", "bob", "Bobs")
-    client.post("/template/modify", data=_auth(alice, template_id="t2", template_name="Hijacked"))
+    client.post("/templates/modify", data=_auth(alice, template_id="t2", template_name="Hijacked"))
     assert mongo["RMN"]["template"].find_one({"template_id": "t2"})["template_name"] == "Bobs"
 
 
@@ -121,7 +121,7 @@ def test_delete_removes_the_files_and_the_record(client, alice, app_module_fixtu
         os.makedirs(os.path.dirname(path), exist_ok=True)
         open(path, "w").close()
 
-    resp = client.post("/template/delete", data=_auth(alice, template_id="t1"))
+    resp = client.post("/templates/delete", data=_auth(alice, template_id="t1"))
 
     assert resp.status_code == 200
     assert mongo["RMN"]["template"].find_one({"template_id": "t1"}) is None
@@ -130,8 +130,8 @@ def test_delete_removes_the_files_and_the_record(client, alice, app_module_fixtu
     assert os.path.exists(storage.abs_path("templates/t2.pdf"))
     os.remove(storage.abs_path("templates/t2.pdf"))
 
-    assert client.post("/template/delete", data=_auth(alice, template_id="t1")).status_code == 404
-    assert client.post("/template/delete", data=_auth(alice)).status_code == 400
+    assert client.post("/templates/delete", data=_auth(alice, template_id="t1")).status_code == 404
+    assert client.post("/templates/delete", data=_auth(alice)).status_code == 400
 
 
 def test_delete_cannot_touch_another_users_template(client, alice, app_module_fixture):
@@ -142,7 +142,7 @@ def test_delete_cannot_touch_another_users_template(client, alice, app_module_fi
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path, "w").close()
 
-    resp = client.post("/template/delete", data=_auth(alice, template_id="t2"))
+    resp = client.post("/templates/delete", data=_auth(alice, template_id="t2"))
 
     assert resp.status_code == 404
     assert mongo["RMN"]["template"].find_one({"template_id": "t2"})["template_name"] == "Bobs"
@@ -153,7 +153,7 @@ def test_delete_cannot_touch_another_users_template(client, alice, app_module_fi
 def test_delete_cannot_remove_a_default_template(client, alice, app_module_fixture):
     mongo = app_module_fixture.mongo
     _template(mongo, "d1", "alice", "Example: Exam", locked=True)
-    assert client.post("/template/delete", data=_auth(alice, template_id="d1")).status_code == 404
+    assert client.post("/templates/delete", data=_auth(alice, template_id="d1")).status_code == 404
     assert mongo["RMN"]["template"].find_one({"template_id": "d1"}) is not None
 
 
@@ -162,7 +162,7 @@ def test_another_users_template_cannot_be_read(client, alice, app_module_fixture
     # from /template/info and travel in share links
     mongo = app_module_fixture.mongo
     _template(mongo, "t2", "bob", "Bobs", src="/nonexistent/src.tex")
-    for route in ("/template/info", "/template/download", "/template/download/src"):
+    for route in ("/templates/info", "/templates/download", "/templates/download/src"):
         assert client.post(route, data=_auth(alice, template_id="t2")).status_code == 404, route
 
 
@@ -175,8 +175,8 @@ def test_locked_default_template_is_readable_by_everyone(client, alice, app_modu
     with open(path, "wb") as f:
         f.write(b"%PDF-1.4 default")
     try:
-        assert client.post("/template/info", data=_auth(alice, template_id="d1")).status_code == 200
-        resp = client.post("/template/download", data=_auth(alice, template_id="d1"))
+        assert client.post("/templates/info", data=_auth(alice, template_id="d1")).status_code == 200
+        resp = client.post("/templates/download", data=_auth(alice, template_id="d1"))
         assert resp.status_code == 200
         assert resp.data == b"%PDF-1.4 default"
     finally:
@@ -184,5 +184,5 @@ def test_locked_default_template_is_readable_by_everyone(client, alice, app_modu
 
 
 def test_unknown_template_download_is_a_404_not_a_500(client, alice):
-    assert client.post("/template/download", data=_auth(alice, template_id="nope")).status_code == 404
-    assert client.post("/template/download/src", data=_auth(alice, template_id="nope")).status_code == 404
+    assert client.post("/templates/download", data=_auth(alice, template_id="nope")).status_code == 404
+    assert client.post("/templates/download/src", data=_auth(alice, template_id="nope")).status_code == 404

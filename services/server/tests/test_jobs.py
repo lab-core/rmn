@@ -52,7 +52,7 @@ def test_job_returns_the_full_record_to_its_owner(client, user_factory, job_fact
         n_pages_per_question=[["Q1", 2]], groups=["A", "B"], copies_errors=["x.pdf"],
     )
 
-    resp = client.post("/job", data=_auth(token, job_id="j1"))
+    resp = client.post("/jobs/info", data=_auth(token, job_id="j1"))
 
     assert resp.status_code == 200
     job = resp.get_json(force=True)["response"]
@@ -66,9 +66,9 @@ def test_job_returns_the_full_record_to_its_owner(client, user_factory, job_fact
 def test_job_is_readable_with_a_share_token_only(client, job_factory):
     job_factory("j1", "alice", queued_time=_now(), statistics_for_students=False,
                 share_token={"questions": "s1"})
-    assert client.post("/job", data={"job_id": "j1", "share_token": "s1"}).status_code == 200
-    assert client.post("/job", data={"job_id": "j1", "share_token": "wrong"}).status_code == 401
-    assert client.post("/job", data={"share_token": "s1"}).status_code == 401
+    assert client.post("/jobs/info", data={"job_id": "j1", "share_token": "s1"}).status_code == 200
+    assert client.post("/jobs/info", data={"job_id": "j1", "share_token": "wrong"}).status_code == 401
+    assert client.post("/jobs/info", data={"share_token": "s1"}).status_code == 401
 
 
 def test_job_of_another_user_is_refused(client, user_factory, job_factory, login):
@@ -76,8 +76,8 @@ def test_job_of_another_user_is_refused(client, user_factory, job_factory, login
     user_factory("bob")
     job_factory("j1", "alice", queued_time=_now())
     token = login("bob")
-    assert client.post("/job", data=_auth(token, user="bob", job_id="j1")).status_code == 401
-    assert client.post("/job", data=_auth(token, user="bob", job_id="nope")).status_code == 401
+    assert client.post("/jobs/info", data=_auth(token, user="bob", job_id="j1")).status_code == 401
+    assert client.post("/jobs/info", data=_auth(token, user="bob", job_id="nope")).status_code == 401
 
 
 def test_share_job_creates_one_token_per_scope(client, user_factory, job_factory, login, app_module_fixture):
@@ -86,7 +86,7 @@ def test_share_job_creates_one_token_per_scope(client, user_factory, job_factory
     job_factory("j1", "alice", queued_time=_now())
     headers = {"Host": "rmn.example.ca"}
 
-    resp = client.post("/job/share", data=_auth(token, job_id="j1"), headers=headers)
+    resp = client.post("/jobs/share", data=_auth(token, job_id="j1"), headers=headers)
     assert resp.status_code == 200
     url = resp.get_json(force=True)["response"]["share_url"]
     job = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_id": "j1"})
@@ -94,22 +94,22 @@ def test_share_job_creates_one_token_per_scope(client, user_factory, job_factory
     assert url == f"https://rmn.example.ca/task-validation/?job_id=j1&token={questions_token}"
 
     # same scope again: same token
-    resp = client.post("/job/share", data=_auth(token, job_id="j1"), headers=headers)
+    resp = client.post("/jobs/share", data=_auth(token, job_id="j1"), headers=headers)
     assert resp.get_json(force=True)["response"]["share_url"] == url
 
-    resp = client.post("/job/share", data=_auth(token, job_id="j1", all="1"), headers=headers)
+    resp = client.post("/jobs/share", data=_auth(token, job_id="j1", all="1"), headers=headers)
     url = resp.get_json(force=True)["response"]["share_url"]
     job = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_id": "j1"})
     assert url == f"https://rmn.example.ca/dashboard/?job_id=j1&token={job['share_token']['all']}"
 
-    resp = client.post("/job/share", data=_auth(token, job_id="j1", question_index="Q2"), headers=headers)
+    resp = client.post("/jobs/share", data=_auth(token, job_id="j1", question_index="Q2"), headers=headers)
     url = resp.get_json(force=True)["response"]["share_url"]
     job = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_id": "j1"})
     assert url.endswith(f"&token={job['share_token']['Q2']}&question_index=Q2")
     assert len({questions_token, job["share_token"]["all"], job["share_token"]["Q2"]}) == 3
 
     # localhost is served over http
-    resp = client.post("/job/share", data=_auth(token, job_id="j1"), headers={"Host": "localhost"})
+    resp = client.post("/jobs/share", data=_auth(token, job_id="j1"), headers={"Host": "localhost"})
     assert resp.get_json(force=True)["response"]["share_url"].startswith("http://localhost/")
 
 
@@ -118,8 +118,8 @@ def test_share_job_errors(client, user_factory, job_factory, login):
     user_factory("bob")
     token = login("bob")
     job_factory("j1", "alice", queued_time=_now())
-    assert client.post("/job/share", data=_auth(token, user="bob", job_id="j1")).status_code == 404
-    assert client.post("/job/share", data=_auth(token, user="bob")).status_code == 400
+    assert client.post("/jobs/share", data=_auth(token, user="bob", job_id="j1")).status_code == 404
+    assert client.post("/jobs/share", data=_auth(token, user="bob")).status_code == 400
 
 
 def test_unshare_removes_one_scope_at_a_time(client, user_factory, job_factory, login, app_module_fixture):
@@ -129,15 +129,15 @@ def test_unshare_removes_one_scope_at_a_time(client, user_factory, job_factory, 
     job_factory("j1", "alice", queued_time=_now(), share_token={"questions": "a", "all": "b", "Q2": "c"})
     eval_jobs = app_module_fixture.mongo["RMN"]["eval_jobs"]
 
-    assert client.post("/job/unshare", data=_auth(token, job_id="j1")).status_code == 200
+    assert client.post("/jobs/unshare", data=_auth(token, job_id="j1")).status_code == 200
     assert eval_jobs.find_one({"job_id": "j1"})["share_token"] == {"all": "b", "Q2": "c"}
-    assert client.post("/job/unshare", data=_auth(token, job_id="j1", question_index="Q2")).status_code == 200
-    assert client.post("/job/unshare", data=_auth(token, job_id="j1", all="1")).status_code == 200
+    assert client.post("/jobs/unshare", data=_auth(token, job_id="j1", question_index="Q2")).status_code == 200
+    assert client.post("/jobs/unshare", data=_auth(token, job_id="j1", all="1")).status_code == 200
     assert eval_jobs.find_one({"job_id": "j1"})["share_token"] == {}
 
     bob = login("bob")
-    assert client.post("/job/unshare", data=_auth(bob, user="bob", job_id="j1")).status_code == 404
-    assert client.post("/job/unshare", data=_auth(token)).status_code == 400
+    assert client.post("/jobs/unshare", data=_auth(bob, user="bob", job_id="j1")).status_code == 404
+    assert client.post("/jobs/unshare", data=_auth(token)).status_code == 400
 
 
 def test_status_update_validates_the_status(client, user_factory, job_factory, login, app_module_fixture):
@@ -145,12 +145,12 @@ def test_status_update_validates_the_status(client, user_factory, job_factory, l
     token = login("alice")
     job_factory("j1", "alice", status="VALIDATION")
 
-    resp = client.post("/job/update/status", data=_auth(token, job_id="j1", job_status="nonsense"))
+    resp = client.post("/jobs/update/status", data=_auth(token, job_id="j1", job_status="nonsense"))
     assert resp.status_code == 400
-    resp = client.post("/job/update/status", data=_auth(token, job_id="j1", job_status="archived"))
+    resp = client.post("/jobs/update/status", data=_auth(token, job_id="j1", job_status="archived"))
     assert resp.status_code == 200
     assert app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_id": "j1"})["job_status"] == "ARCHIVED"
-    assert client.post("/job/update/status", data=_auth(token, job_id="j1")).status_code == 400
+    assert client.post("/jobs/update/status", data=_auth(token, job_id="j1")).status_code == 400
 
 
 def test_stats_and_bonus_updates_are_stored(client, user_factory, job_factory, login, app_module_fixture):
@@ -159,14 +159,14 @@ def test_stats_and_bonus_updates_are_stored(client, user_factory, job_factory, l
     job_factory("j1", "alice")
     eval_jobs = app_module_fixture.mongo["RMN"]["eval_jobs"]
 
-    client.post("/job/update/stats", data=_auth(token, job_id="j1", statistics_for_students="True"))
+    client.post("/jobs/update/stats", data=_auth(token, job_id="j1", statistics_for_students="True"))
     assert eval_jobs.find_one({"job_id": "j1"})["statistics_for_students"] is True
-    client.post("/job/update/stats", data=_auth(token, job_id="j1", statistics_for_students="false"))
+    client.post("/jobs/update/stats", data=_auth(token, job_id="j1", statistics_for_students="false"))
     assert eval_jobs.find_one({"job_id": "j1"})["statistics_for_students"] is False
 
-    client.post("/job/update/bonus", data=_auth(token, job_id="j1", bonus_enabled_map='[["Q1", true]]'))
+    client.post("/jobs/update/bonus", data=_auth(token, job_id="j1", bonus_enabled_map='[["Q1", true]]'))
     assert eval_jobs.find_one({"job_id": "j1"})["bonus_enabled_map"] == [["Q1", True]]
-    assert client.post("/job/update/bonus", data=_auth(token, job_id="j1")).status_code == 400
+    assert client.post("/jobs/update/bonus", data=_auth(token, job_id="j1")).status_code == 400
 
 
 def test_ignore_resets_a_retry_job_and_requeues_it(
@@ -180,7 +180,7 @@ def test_ignore_resets_a_retry_job_and_requeues_it(
     os.makedirs(os.path.dirname(bad), exist_ok=True)
     open(bad, "w").close()
 
-    resp = client.post("/job/ignore", data=_auth(token, job_id="j1"))
+    resp = client.post("/jobs/ignore", data=_auth(token, job_id="j1"))
 
     assert resp.status_code == 200
     job = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_id": "j1"})
@@ -196,7 +196,7 @@ def test_ignore_keeps_the_status_of_a_job_that_is_not_retrying(
     user_factory("alice")
     token = login("alice")
     job_factory("j1", "alice", status="VALIDATION", job_infos="note")
-    assert client.post("/job/ignore", data=_auth(token, job_id="j1")).status_code == 200
+    assert client.post("/jobs/ignore", data=_auth(token, job_id="j1")).status_code == 200
     job = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_id": "j1"})
     assert job["job_status"] == "VALIDATION" and "job_infos" not in job
 

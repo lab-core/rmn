@@ -446,7 +446,7 @@ export class MatriculeVerificationComponent implements OnInit {
     formdata.append('matricule', this.currentMatricule.toString());
     this.userService.addTokens(formdata);
     try {
-      const response = await this.http.post(`${SERVER_URL}matricule/update`, formdata).toPromise();
+      const response = await this.http.post(`${SERVER_URL}matricules/update`, formdata).toPromise();
       if (response['response'] === 'OK') {
         this.setValidatedStatus();
         this.nextCopy(true);
@@ -537,7 +537,7 @@ export class MatriculeVerificationComponent implements OnInit {
     formdata.append('status', examStatus);
     this.userService.addTokens(formdata);
     try {
-      await this.http.post(`${SERVER_URL}matricule/status/update`, formdata).toPromise();
+      await this.http.post(`${SERVER_URL}matricules/status/update`, formdata).toPromise();
       if (copy === this.currentCopy) {
         this.currentExam().status = examStatus;
         this.getCurrentMatricule();

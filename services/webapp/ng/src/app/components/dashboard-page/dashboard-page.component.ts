@@ -536,7 +536,7 @@ export class DashboardPageComponent {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
-    this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).pipe(first()).subscribe(
+    this.http.post<any>(`${SERVER_URL}jobs/batch/info`, formdata).pipe(first()).subscribe(
       (data) => {
         const dialogRef = this.dialog.open(TaskFilesDialogComponent, {
           width: '80%',

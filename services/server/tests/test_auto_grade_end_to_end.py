@@ -265,7 +265,7 @@ def test_grading_a_copy_in_the_app_asks_for_its_mark_to_be_read(
     make_job(mongo)
 
     response = client.post(
-        "/document/update",
+        "/documents/update",
         data={
             "job_id": JOB,
             "document_index": 1,
@@ -298,7 +298,7 @@ def test_typing_a_grade_in_the_app_asks_for_nothing(
     make_job(mongo)
 
     client.post(
-        "/document/update",
+        "/documents/update",
         data={
             "job_id": JOB,
             "document_index": 1,

@@ -93,7 +93,7 @@ export class UserService {
     const formdata: FormData = new FormData();
     formdata.append('username', username);
     formdata.append('password', password);
-    const url = SERVER_URL + "login"
+    const url = SERVER_URL + "users/login"
     const resp = await this.http.post(url, formdata).toPromise();
     //Insert loading bar condition
     const response = resp['response']
@@ -130,7 +130,7 @@ export class UserService {
     formdata.append('role', role);
     if (this.saveVerifiedImages) formdata.append('saveVerifiedImages', "on");
     if (this.moodleStructureInd) formdata.append('moodleStructureInd', "on");
-    const url = SERVER_URL + "signup"
+    const url = SERVER_URL + "users/signup"
 
     return this.http.post(url, formdata)
   }
@@ -140,7 +140,7 @@ export class UserService {
     const formdata: FormData = new FormData();
     formdata.append('username', this.currentUsername);
     formdata.append('saveVerifiedImages', (+saveVerifiedImages).toString());
-    const url = SERVER_URL + 'updateSaveVerifiedImages';
+    const url = SERVER_URL + 'users/updateSaveVerifiedImages';
 
     return this.http.put(url, formdata);
   }
@@ -150,7 +150,7 @@ export class UserService {
     const formdata: FormData = new FormData();
     formdata.append('username', this.currentUsername);
     formdata.append('moodleStructureInd', (+moodleStructureInd).toString());
-    const url = SERVER_URL + 'updateMoodleStructureInd';
+    const url = SERVER_URL + 'users/updateMoodleStructureInd';
 
     return this.http.put(url, formdata);
   }

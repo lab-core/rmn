@@ -9,10 +9,10 @@ from auth import verify_share_token, verify_token
 from context import mongo, sio
 
 
-bp = Blueprint("matricule", __name__)
+bp = Blueprint("matricules", __name__, url_prefix="/matricules")
 
 
-@bp.route("/matricule/update", methods=["POST"])
+@bp.route("/update", methods=["POST"])
 @cross_origin()
 @verify_share_token(question=False)
 def update_matricule():
@@ -51,7 +51,7 @@ def update_matricule():
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/matricule/status/update", methods=["POST"])
+@bp.route("/status/update", methods=["POST"])
 @cross_origin()
 @verify_share_token(question=False)
 def update_matricule_status():
@@ -95,7 +95,7 @@ def update_matricule_status():
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/matricule/share", methods=["POST"])
+@bp.route("/share", methods=["POST"])
 @cross_origin()
 @verify_token()
 def share_matricule_verification(user_id):
@@ -152,7 +152,7 @@ def share_matricule_verification(user_id):
     return Response(response=json.dumps({"response": resp}), status=200)
 
 
-@bp.route("/matricule/unshare", methods=["POST"])
+@bp.route("/unshare", methods=["POST"])
 @cross_origin()
 @verify_token()
 def unshare_matricule(user_id):

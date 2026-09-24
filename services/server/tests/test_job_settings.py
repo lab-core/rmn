@@ -23,7 +23,7 @@ def alice(client, user_factory, login):
     token = login("alice")
 
     def post(**form):
-        return client.post("/job/update/settings", data={"user_id": "alice", "token": token, **form})
+        return client.post("/jobs/update/settings", data={"user_id": "alice", "token": token, **form})
 
     return post
 
@@ -159,7 +159,7 @@ def test_only_the_owner_can_edit_and_something_must_change(client, alice, user_f
     user_factory("bob")
     bob = login("bob")
 
-    resp = client.post("/job/update/settings", data={"user_id": "bob", "token": bob, "job_id": "j1",
+    resp = client.post("/jobs/update/settings", data={"user_id": "bob", "token": bob, "job_id": "j1",
                                                     "job_name": "mine"})
     assert resp.status_code == 404
     assert _job(app_module_fixture)["job_name"] == "test job"

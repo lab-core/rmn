@@ -55,7 +55,7 @@ describe('TasksService', () => {
 
     service.setvalidatingTaskId('job-1');
     const pending = service.getTask();
-    const req = http.expectOne('/api/job');
+    const req = http.expectOne('/api/jobs/info');
     const form = req.request.body as FormData;
     expect(form.get('job_id')).toBe('job-1');
     expect(form.get('user_id')).toBe('alice');
@@ -65,20 +65,20 @@ describe('TasksService', () => {
 
   it('sends the status, stats and bonus updates with the credentials', async () => {
     const status = service.updateTaskStatus('job', 'ARCHIVED');
-    let req = http.expectOne('/api/job/update/status');
+    let req = http.expectOne('/api/jobs/update/status');
     expect((req.request.body as FormData).get('job_status')).toBe('ARCHIVED');
     expect((req.request.body as FormData).get('user_id')).toBe('alice');
     req.flush({ response: 'OK' });
     await status;
 
     const stats = service.updateTaskStats('job', 'true');
-    req = http.expectOne('/api/job/update/stats');
+    req = http.expectOne('/api/jobs/update/stats');
     expect((req.request.body as FormData).get('statistics_for_students')).toBe('true');
     req.flush({ response: 'OK' });
     await stats;
 
     const bonus = service.updateTaskBonus('job', [['Q1', true]]);
-    req = http.expectOne('/api/job/update/bonus');
+    req = http.expectOne('/api/jobs/update/bonus');
     expect((req.request.body as FormData).get('bonus_enabled_map')).toBe('[["Q1",true]]');
     req.flush({ response: 'OK' });
     await bonus;
@@ -86,7 +86,7 @@ describe('TasksService', () => {
 
   it('sends only the settings that change, and rejects with the server\'s reason', async () => {
     const renamed = service.updateTaskSettings('job', { jobName: 'Intra', nMaxPointsPerQuestion: [['Q1', 12]] });
-    let req = http.expectOne('/api/job/update/settings');
+    let req = http.expectOne('/api/jobs/update/settings');
     const body = req.request.body as FormData;
     expect(body.get('job_id')).toBe('job');
     expect(body.get('job_name')).toBe('Intra');
@@ -96,7 +96,7 @@ describe('TasksService', () => {
     expect(await renamed).toEqual({ flagged: 2, resplit: 0 });
 
     const refused = service.updateTaskSettings('job', { nPagesPerQuestion: [['Q1', 2]] });
-    req = http.expectOne('/api/job/update/settings');
+    req = http.expectOne('/api/jobs/update/settings');
     req.flush({ response: 'Error: des copies ont déjà été découpées.' }, { status: 409, statusText: 'Conflict' });
     await expectAsync(refused).toBeRejectedWithError('des copies ont déjà été découpées.');
   });
@@ -107,7 +107,7 @@ describe('TasksService', () => {
       new Map([['Q1', 2], ['Q2', 1]]), new Map([['Q1', 10], ['Q2', 5]]), new Map([['Q1', false], ['Q2', true]]),
       'Exam', 'Front', 'Regular', 'true', true);
 
-    const req = http.expectOne('/api/evaluate');
+    const req = http.expectOne('/api/jobs/evaluate');
     const form = req.request.body as FormData;
     expect(form.get('n_pages_per_question')).toBe('[["Q1",2],["Q2",1]]');
     expect(form.get('n_max_points_per_question')).toBe('[["Q1",10],["Q2",5]]');
@@ -134,7 +134,7 @@ describe('TasksService', () => {
     const pending = service.addTask(
       new File([''], 'copies.zip'), new File([''], 'notes.csv'), 'front', 'regular',
       new Map(), new Map(), new Map(), 'Exam', 'Front', 'Regular', 'false', false);
-    http.expectOne('/api/evaluate').flush({ response: 'bad' }, { status: 400, statusText: 'Bad Request' });
+    http.expectOne('/api/jobs/evaluate').flush({ response: 'bad' }, { status: 400, statusText: 'Bad Request' });
     await expectAsync(pending).toBeRejected();
     expect(notification.showInfo).not.toHaveBeenCalled();
   });

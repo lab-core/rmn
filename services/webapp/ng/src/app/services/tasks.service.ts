@@ -45,7 +45,7 @@ export class TasksService {
     const formdata: FormData = new FormData();
     formdata.append('job_id', jobId);
     this.userService.addTokens(formdata);
-    const data = await this.http.post<any>(`${SERVER_URL}job`, formdata).toPromise();
+    const data = await this.http.post<any>(`${SERVER_URL}jobs/info`, formdata).toPromise();
     return data['response'];
   }
 
@@ -84,7 +84,7 @@ export class TasksService {
 
     this.percentDone = 0;
     return new Promise((resolve, reject) => {
-      const sub = this.http.post<any>(`${SERVER_URL}evaluate`, formdata, {reportProgress: true, observe: "events"}).subscribe(
+      const sub = this.http.post<any>(`${SERVER_URL}jobs/evaluate`, formdata, {reportProgress: true, observe: "events"}).subscribe(
         (data) => {
           this.uploadPart1 = true;
           if (data.type == HttpEventType.UploadProgress) {
@@ -111,7 +111,7 @@ export class TasksService {
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     formdata.append('statistics_for_students', taskStats);
-    await this.http.post<any>(`${SERVER_URL}job/update/stats`, formdata).toPromise();
+    await this.http.post<any>(`${SERVER_URL}jobs/update/stats`, formdata).toPromise();
   }
 
   async updateTaskStatus(jobId: string, jobStatus: string): Promise<void> {
@@ -119,7 +119,7 @@ export class TasksService {
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     formdata.append('job_status', jobStatus);
-    await this.http.post<any>(`${SERVER_URL}job/update/status`, formdata).toPromise();
+    await this.http.post<any>(`${SERVER_URL}jobs/update/status`, formdata).toPromise();
   }
 
   async updateTaskBonus(jobId: string, bonusMap): Promise<void> {
@@ -127,7 +127,7 @@ export class TasksService {
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     formdata.append('bonus_enabled_map', JSON.stringify(bonusMap));
-    await this.http.post<any>(`${SERVER_URL}job/update/bonus`, formdata).toPromise();
+    await this.http.post<any>(`${SERVER_URL}jobs/update/bonus`, formdata).toPromise();
   }
 
   /**
@@ -153,7 +153,7 @@ export class TasksService {
       formdata.append('n_pages_per_question', JSON.stringify(changes.nPagesPerQuestion));
     }
     try {
-      const resp = await firstValueFrom(this.http.post<any>(`${SERVER_URL}job/update/settings`, formdata));
+      const resp = await firstValueFrom(this.http.post<any>(`${SERVER_URL}jobs/update/settings`, formdata));
       return { flagged: resp.flagged ?? 0, resplit: resp.resplit ?? 0 };
     } catch (error) {
       const message = error?.error?.response;

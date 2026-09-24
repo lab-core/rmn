@@ -15,10 +15,10 @@ from service.front_page_service import FrontPageHandler
 from utils.uploads import extract_bounded
 
 
-bp = Blueprint("front_page", __name__)
+bp = Blueprint("frontpage", __name__, url_prefix="/frontpage")
 
 
-# limits of the moodle zip sent to /front_page: the archive was extracted with
+# limits of the moodle zip sent to /frontpage: the archive was extracted with
 # no budget (a small zip can inflate to fill the disk)
 
 
@@ -26,7 +26,7 @@ FRONT_PAGE_TEMP_FOLDER = ROOT_DIR.joinpath("front_page_temp")
 LATEX_INPUT_FILE = ROOT_DIR.joinpath("data.tex")
 
 
-@bp.route("/front_page", methods=["POST"])
+@bp.route("", methods=["POST"])
 @cross_origin()
 @verify_token()
 def front_page(user_id):

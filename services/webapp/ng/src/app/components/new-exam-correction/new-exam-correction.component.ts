@@ -352,7 +352,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   async getTemplates() {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
-    this.http.post<any>(`${SERVER_URL}user/template`, formdata).pipe(first()).subscribe(
+    this.http.post<any>(`${SERVER_URL}templates/user`, formdata).pipe(first()).subscribe(
       (data) => {
         this.templates = data['response'].filter((temp) => { return !temp.locked; });
         if (this.templates.length === 0) {
@@ -550,7 +550,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       formdata.append('suffix', this.suffix);
       formdata.append('moodle_zip', this.presentationCopies);
       formdata.append('latex_front_page', this.latexFrontPage);
-      this.http.post(`${SERVER_URL}front_page`, formdata, { responseType: 'blob' }).pipe(first()).subscribe(
+      this.http.post(`${SERVER_URL}frontpage`, formdata, { responseType: 'blob' }).pipe(first()).subscribe(
         (data) => {
           // moodle.zip in data
           saveAs(data, this.presentationCopiesName);

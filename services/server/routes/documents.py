@@ -20,10 +20,10 @@ from service.documents import (
 from service.versions import get_last_version, save_new_pdf_version
 
 
-bp = Blueprint("documents", __name__)
+bp = Blueprint("documents", __name__, url_prefix="/documents")
 
 
-@bp.route("/documents", methods=["POST"])
+@bp.route("", methods=["POST"])
 @cross_origin()
 @verify_share_token(return_validity=True)
 def get_documents(validity):
@@ -130,7 +130,7 @@ def get_documents(validity):
 #
 #     return Response(response=json.dumps({"response": "OK"}), status=200)
 
-@bp.route("/documents/replace", methods=["POST"])
+@bp.route("/replace", methods=["POST"])
 @cross_origin()
 @verify_share_token(matricule=False, return_validity=True)
 def replace_document(validity):
@@ -177,7 +177,7 @@ def replace_document(validity):
     )
 
 
-@bp.route("/job/read_grades", methods=["POST"])
+@bp.route("/read_grades", methods=["POST"])
 @cross_origin()
 @verify_share_token(matricule=False, return_validity=True)
 def read_grades(validity):
@@ -230,7 +230,7 @@ def read_grades(validity):
     )
 
 
-@bp.route("/document/tag", methods=["POST"])
+@bp.route("/tag", methods=["POST"])
 @cross_origin()
 @verify_share_token(matricule=False, return_validity=True)
 def tag_document(validity):
@@ -256,7 +256,7 @@ def tag_document(validity):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/document/update", methods=["POST"])
+@bp.route("/update", methods=["POST"])
 @cross_origin()
 @verify_share_token(matricule=False, return_validity=True)
 def update_document(validity):
@@ -459,7 +459,7 @@ def update_document(validity):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/document/download", methods=["POST"])
+@bp.route("/download", methods=["POST"])
 @cross_origin()
 @verify_share_token(return_validity=True)
 def download_document(validity):
@@ -524,7 +524,7 @@ def download_document(validity):
     return send_file(storage.abs_path(file_path))
 
 
-@bp.route("/document/last_version", methods=["POST"])
+@bp.route("/last_version", methods=["POST"])
 @cross_origin()
 @verify_share_token()
 def last_version_document():
@@ -552,7 +552,7 @@ def last_version_document():
     return Response(response=json.dumps({"last_version": last_version}), status=200)
 
 
-@bp.route("/document/annotations", methods=["POST"])
+@bp.route("/annotations", methods=["POST"])
 @cross_origin()
 @verify_share_token(return_validity=True)
 def document_annotations(validity):

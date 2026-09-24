@@ -9,10 +9,20 @@ import { SERVER_URL } from 'src/app/utils';
 import { first } from 'rxjs/operators';
 
 
+export type ShareType = 'job' | 'file' | 'matricule';
+
+// where each kind of share is created and revoked
+const SHARE_ROUTES: Record<ShareType, string> = {
+  job: 'jobs', file: 'files', matricule: 'matricules',
+};
+
 export interface DialogData {
   taskId: string;
   taskName: string;
-  shareType: 'job' | 'matricule';
+  // what is being shared -- also how the dialog decides what to show. The
+  // route it posts to comes from SHARE_ROUTES below, because the two stopped
+  // being the same word when the api was grouped by blueprint.
+  shareType: ShareType;
   questionIndex?: number;
   file?: string;
   zip_index?: number;
@@ -62,7 +72,7 @@ export class TaskShareDialogComponent implements OnInit {
       formdata.append('zip_index', this.data.zip_index.toString());
     }
 
-    await this.http.post<any>(`${SERVER_URL}${this.data.shareType}/share`, formdata)
+    await this.http.post<any>(`${SERVER_URL}${SHARE_ROUTES[this.data.shareType]}/share`, formdata)
     .toPromise()
     .then(async (data: any) => {
         const resp = data['response'];
@@ -101,7 +111,7 @@ export class TaskShareDialogComponent implements OnInit {
     if (this.data.all) {
       formdata.append('all', 'true');
     }
-    this.http.post<any>(`${SERVER_URL}${this.data.shareType}/unshare`, formdata).pipe(first()).subscribe(
+    this.http.post<any>(`${SERVER_URL}${SHARE_ROUTES[this.data.shareType]}/unshare`, formdata).pipe(first()).subscribe(
       (data) => {
         const resp = {success: data['response'] === "OK"};
         if (resp.success) {

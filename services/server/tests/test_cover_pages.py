@@ -1,4 +1,4 @@
-"""``/front_page``: a LaTeX cover page prepended to every copy of a Moodle zip.
+"""``/frontpage``: a LaTeX cover page prepended to every copy of a Moodle zip.
 
 pdflatex is replaced by a small script (the server image has none): it turns
 ``data.tex`` into a one-page PDF and fails for a student called "Broken".
@@ -14,7 +14,7 @@ import pymupdf
 import pytest
 
 from service.front_page_service import FrontPageHandler
-from routes import front_page as front_page_routes
+from routes import frontpage as frontpage_routes
 from utils import uploads
 
 FAKE_PDFLATEX = textwrap.dedent(
@@ -44,7 +44,7 @@ def fake_pdflatex(tmp_path, monkeypatch):
 @pytest.fixture
 def temp_root(tmp_path, monkeypatch, app_module_fixture):
     root = tmp_path / "front_page_temp"
-    monkeypatch.setattr(front_page_routes, "FRONT_PAGE_TEMP_FOLDER", root)
+    monkeypatch.setattr(frontpage_routes, "FRONT_PAGE_TEMP_FOLDER", root)
     return root
 
 
@@ -68,7 +68,7 @@ def _moodle_zip(names):
 
 def _post(client, token, names, suffix="S"):
     return client.post(
-        "/front_page",
+        "/frontpage",
         data={
             "user_id": "alice",
             "token": token,

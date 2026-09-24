@@ -11,10 +11,10 @@ from context import TEMP_FOLDER, mongo, storage
 from utils.uploads import temp_upload_path
 
 
-bp = Blueprint("files", __name__)
+bp = Blueprint("files", __name__, url_prefix="/files")
 
 
-@bp.route("/file/share", methods=["POST"])
+@bp.route("/share", methods=["POST"])
 @cross_origin()
 @verify_share_token(question=False, matricule=False)  # just token all
 def share_archive():
@@ -83,7 +83,7 @@ def share_archive():
     return Response(response=json.dumps({"response": resp}), status=200)
 
 
-@bp.route("/file/unshare", methods=["POST"])
+@bp.route("/unshare", methods=["POST"])
 @cross_origin()
 @verify_token()
 def unshare_file(user_id):
@@ -110,7 +110,7 @@ def unshare_file(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/file/download", methods=["GET", "POST"])
+@bp.route("/download", methods=["GET", "POST"])
 @cross_origin()
 @verify_share_token()
 def download_file():

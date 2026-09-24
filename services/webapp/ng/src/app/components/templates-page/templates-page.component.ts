@@ -57,7 +57,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   getTemplates() {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
-    this.http.post<any>(`${SERVER_URL}user/template`, formdata).pipe(first()).subscribe(
+    this.http.post<any>(`${SERVER_URL}templates/user`, formdata).pipe(first()).subscribe(
       (data) => {
         // "template_name"
         // "template_id"
@@ -98,7 +98,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('template_id', template["template_id"]);
-    this.http.post<any>(`${SERVER_URL}template/info`, formdata).pipe(first()).subscribe(
+    this.http.post<any>(`${SERVER_URL}templates/info`, formdata).pipe(first()).subscribe(
       (data) => {
         this.rectangleService.setIdentificationRectCoords(data["response"]["matricule_box"]);
         this.rectangleService.setquestionsRectCoords(data["response"]["grade_box"]);
@@ -111,7 +111,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
         const formdata: FormData = new FormData();
         this.userService.addTokens(formdata);
         formdata.append('template_id', template["template_id"]);
-         this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
+         this.http.post(`${SERVER_URL}templates/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
             const file = new File([data], this.templateService.getName());
             this.templateService.setFile(file);
             await this.templateService.createNewTemplate(file);
@@ -124,7 +124,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('template_id', template["template_id"]);
-    this.http.post(`${SERVER_URL}template/download/src`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(
+    this.http.post(`${SERVER_URL}templates/download/src`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(
       (data) => {
         saveAs(data, template["src_name"]);
       },
@@ -155,7 +155,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
         const formdata: FormData = new FormData();
         this.userService.addTokens(formdata);
         formdata.append('template_id', template["template_id"]);
-        this.http.post<any>(`${SERVER_URL}template/delete`, formdata).pipe(first()).subscribe(
+        this.http.post<any>(`${SERVER_URL}templates/delete`, formdata).pipe(first()).subscribe(
           (data) => {
             this.getTemplates();
           });

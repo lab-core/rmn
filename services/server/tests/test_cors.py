@@ -18,7 +18,7 @@ def test_cors_origins_syntax():
 
 
 def test_default_allows_every_origin(client):
-    resp = client.post("/login", data={}, headers={"Origin": "https://evil.example"})
+    resp = client.post("/users/login", data={}, headers={"Origin": "https://evil.example"})
     assert resp.headers.get("Access-Control-Allow-Origin") == "https://evil.example"
 
 
@@ -37,12 +37,12 @@ def test_pinned_origins(client, app_module_fixture, monkeypatch, origin, allowed
     monkeypatch.setitem(
         app_module_fixture.app.config, "CORS_ORIGINS", cors_origins("rmn.example.org")
     )
-    resp = client.post("/login", data={}, headers={"Origin": origin})
+    resp = client.post("/users/login", data={}, headers={"Origin": origin})
     header = resp.headers.get("Access-Control-Allow-Origin")
     assert (header == origin) if allowed else (header is None)
     # the preflight of a cross-site POST gets the same answer
     resp = client.options(
-        "/login", headers={"Origin": origin, "Access-Control-Request-Method": "POST"}
+        "/users/login", headers={"Origin": origin, "Access-Control-Request-Method": "POST"}
     )
     assert (
         (resp.headers.get("Access-Control-Allow-Origin") == origin)

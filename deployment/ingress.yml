@@ -44,7 +44,8 @@ spec:
                 port:
                   number: 7000
 ---
-# Separate Ingress so the rate-limit annotations apply only to /api/login
+# Separate Ingress so the rate-limit annotations apply only to
+# /api/users/login
 # (they are per-Ingress). This more specific path is matched before the
 # general /api/(.*) rule above, throttling login brute-force attempts.
 apiVersion: networking.k8s.io/v1
@@ -66,7 +67,7 @@ spec:
     - host: RMN_HOST
       http:
         paths:
-          - path: /api/(login)
+          - path: /api/(users/login)
             pathType: Prefix
             backend:
               service:

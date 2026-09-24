@@ -123,7 +123,7 @@ describe('TemplateEditorComponent', () => {
     component.templateName = '   ';
     component.confirm();
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('nom'), 'Erreur');
-    http.expectNone('/api/template/modify');
+    http.expectNone('/api/templates/modify');
   });
 
   it('confirm sends the name and boxes, the grade box only when drawn', () => {
@@ -131,7 +131,7 @@ describe('TemplateEditorComponent', () => {
     component.templateName = 'Exam v2';
     component.confirm();
 
-    let req = http.expectOne('/api/template/modify');
+    let req = http.expectOne('/api/templates/modify');
     let form = req.request.body as FormData;
     expect(form.get('template_id')).toBe('t1');
     expect(form.get('template_name')).toBe('Exam v2');
@@ -143,7 +143,7 @@ describe('TemplateEditorComponent', () => {
 
     rectangles.setquestionsRectCoords({ x1: 82, x2: 96, y1: 15, y2: 55 });
     component.confirm();
-    req = http.expectOne('/api/template/modify');
+    req = http.expectOne('/api/templates/modify');
     form = req.request.body as FormData;
     expect(JSON.parse(form.get('grade_box') as string)).toEqual({ x1: 82, x2: 96, y1: 15, y2: 55 });
     req.flush({ response: 'OK' });
@@ -155,7 +155,7 @@ describe('TemplateEditorComponent', () => {
     component.disabled = true;
 
     socket.socket.fire('template_rendered', JSON.stringify({ template_id: 't1', n_questions: 5 }));
-    const req = http.expectOne('/api/template/download');
+    const req = http.expectOne('/api/templates/download');
     expect((req.request.body as FormData).get('template_id')).toBe('t1');
     req.flush(new Blob(['%PDF']));
     await settle();

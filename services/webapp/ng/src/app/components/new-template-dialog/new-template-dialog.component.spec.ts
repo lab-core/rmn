@@ -86,7 +86,7 @@ describe('NewTemplateDialogComponent', () => {
 
     component.confirm();
 
-    const create = http.expectOne('/api/template');
+    const create = http.expectOne('/api/templates');
     const form = create.request.body as FormData;
     expect(form.get('user_id')).toBe('alice');
     expect((form.get('template_file') as File).name).toBe('exam.pdf');
@@ -94,7 +94,7 @@ describe('NewTemplateDialogComponent', () => {
     expect(form.get('template_name')).toBe('New template');
     create.flush({ response: { template_name: 'New template', template_id: 't1' } });
 
-    const download = http.expectOne('/api/template/download');
+    const download = http.expectOne('/api/templates/download');
     expect((download.request.body as FormData).get('template_id')).toBe('t1');
     expect(download.request.responseType).toBe('blob');
     download.flush(new Blob(['%PDF']));

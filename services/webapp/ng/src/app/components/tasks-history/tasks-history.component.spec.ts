@@ -135,7 +135,7 @@ describe('TasksHistoryComponent', () => {
     }));
     expect(component.tasksList.map(t => t.job_id)).toEqual(['j2']);
 
-    const del = http.expectOne('/api/job/delete');
+    const del = http.expectOne('/api/jobs/delete');
     expect((del.request.body as FormData).get('job_id')).toBe('j1');
     del.flush({ response: 'OK' });
     http.expectOne('/api/jobs').flush({ response: [JOBS[1]] });
@@ -146,7 +146,7 @@ describe('TasksHistoryComponent', () => {
   it('does not delete when the confirmation is refused', () => {
     spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of(false) } as any);
     component.openDeleteDialog('j1');
-    http.expectNone('/api/job/delete');
+    http.expectNone('/api/jobs/delete');
     expect(component.tasksList.length).toBe(2);
   });
 

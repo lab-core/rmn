@@ -186,7 +186,7 @@ def verify_share_token(question=True, matricule=True, return_validity=False):
             keys = ['all']
             validity = None
             # print(request.path)
-            if request.path.startswith('/file/'):
+            if request.path.startswith('/files/'):
                 job = db["jobs_output"].find_one({"job_id": job_id})
                 if job and job.get("share_token") == token:
                     validity = 'file'

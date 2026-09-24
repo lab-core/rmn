@@ -52,7 +52,7 @@ export class ChangePasswordDialogComponent implements OnInit {
       this.userService.addTokens(formdata);
       formdata.append('new_password', this.newPass);
       formdata.append('old_password', this.currentPass)
-      const url = SERVER_URL + 'password';
+      const url = SERVER_URL + 'users/password';
 
       this.http.post<any>(url, formdata).pipe(first()).subscribe(
         (data) => {

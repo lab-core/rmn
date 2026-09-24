@@ -48,7 +48,7 @@ describe('NewExamCorrectionComponent', () => {
     fixture = TestBed.createComponent(NewExamCorrectionComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
-    http.expectOne('/api/user/template').flush({ response: templates });
+    http.expectOne('/api/templates/user').flush({ response: templates });
     await settle();
     fixture.detectChanges();
   };

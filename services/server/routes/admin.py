@@ -11,10 +11,10 @@ from service.template_service import TemplateService
 from service.user_service import UserService
 
 
-bp = Blueprint("admin", __name__)
+bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
-@bp.route("/admin/delete/jobs", methods=["POST"])
+@bp.route("/delete/jobs", methods=["POST"])
 @cross_origin()
 @verify_admin
 def admin_delete_jobs():
@@ -41,7 +41,7 @@ def admin_delete_jobs():
     return Response(response=json.dumps({"response": "OK", "n_deleted_jobs": n}), status=200)
 
 
-@bp.route("/admin/signup", methods=["POST"])
+@bp.route("/signup", methods=["POST"])
 @cross_origin()
 @verify_admin
 def admin_signup():
@@ -49,7 +49,7 @@ def admin_signup():
     return UserService.signup(request, db)
 
 
-@bp.route("/admin/delete/tokens", methods=["POST"])
+@bp.route("/delete/tokens", methods=["POST"])
 @cross_origin()
 @verify_admin
 def admin_delete_tokens():
@@ -68,7 +68,7 @@ def admin_delete_tokens():
     )
 
 
-@bp.route("/admin/delete/user", methods=["POST"])
+@bp.route("/delete/user", methods=["POST"])
 @cross_origin()
 @verify_admin
 def admin_delete_user():
@@ -97,7 +97,7 @@ def admin_delete_user():
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/admin/users", methods=["POST"])
+@bp.route("/users", methods=["POST"])
 @cross_origin()
 @verify_admin
 def admin_users():
@@ -106,7 +106,7 @@ def admin_users():
     return Response(response=json.dumps({"response": "OK", "users": all_users}), status=200)
 
 
-@bp.route("/admin/change_password", methods=["POST"])
+@bp.route("/change_password", methods=["POST"])
 @cross_origin()
 @verify_admin
 def admin_change_password():
@@ -114,7 +114,7 @@ def admin_change_password():
     return UserService.change_password(request, db, False)
 
 
-@bp.route("/admin/template", methods=["POST"])
+@bp.route("/template", methods=["POST"])
 @cross_origin()
 @verify_admin
 def create_default_template():
@@ -122,7 +122,7 @@ def create_default_template():
     return TemplateService.add_default_templates(request.form.get('user_id'), db, storage)
 
 
-@bp.route("/admin/storage/clean", methods=["POST"])
+@bp.route("/storage/clean", methods=["POST"])
 @cross_origin()
 @verify_admin
 def admin_clean_storage():
@@ -165,7 +165,7 @@ def admin_clean_storage():
     )
 
 
-@bp.route("/admin/executor", methods=["GET"])
+@bp.route("/executor", methods=["GET"])
 @cross_origin()
 @verify_admin
 def admin_executor():

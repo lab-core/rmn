@@ -13,9 +13,9 @@ from flask_cors import CORS
 from routes.admin import bp as admin_bp
 from routes.documents import bp as documents_bp
 from routes.files import bp as files_bp
-from routes.front_page import bp as front_page_bp
+from routes.frontpage import bp as frontpage_bp
 from routes.jobs import bp as jobs_bp
-from routes.matricule import bp as matricule_bp
+from routes.matricules import bp as matricules_bp
 from routes.templates import bp as templates_bp
 from routes.users import bp as users_bp
 # The clients live in context.py so that the routes can import them without
@@ -70,8 +70,8 @@ start_health_check(redis=redis_client(socket_connect_timeout=2, socket_timeout=2
 
 # One blueprint per part of the API. No url_prefix anywhere: the paths are
 # the ones the webapp has always called.
-for blueprint in (users_bp, templates_bp, jobs_bp, files_bp, matricule_bp,
-                  documents_bp, admin_bp, front_page_bp):
+for blueprint in (users_bp, templates_bp, jobs_bp, files_bp, matricules_bp,
+                  documents_bp, admin_bp, frontpage_bp):
     app.register_blueprint(blueprint)
 
 

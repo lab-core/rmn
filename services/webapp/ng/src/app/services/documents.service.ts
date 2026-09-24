@@ -78,7 +78,7 @@ export class DocumentsService {
     }
 
     try {
-      const data = await this.http.post(`${SERVER_URL}document/download`, formdata, { responseType: 'blob' }).toPromise();
+      const data = await this.http.post(`${SERVER_URL}documents/download`, formdata, { responseType: 'blob' }).toPromise();
       if (data) {
         const url = window.URL.createObjectURL(data);
         const pdfSource = new PDFSource(index, url, version);
@@ -108,7 +108,7 @@ export class DocumentsService {
       formdata.append('questions', 'true');
     }
 
-    await this.http.post(`${SERVER_URL}document/annotations`, formdata)
+    await this.http.post(`${SERVER_URL}documents/annotations`, formdata)
       .toPromise()
       .then(async (data: any) => {
         pdfSource.setLastVersion(data["last_version"]);

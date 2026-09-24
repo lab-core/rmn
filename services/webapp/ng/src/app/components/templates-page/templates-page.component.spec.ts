@@ -55,7 +55,7 @@ describe('TemplatesPageComponent', () => {
     fixture = TestBed.createComponent(TemplatesPageComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
-    http.expectOne('/api/user/template').flush({ response: TEMPLATES });
+    http.expectOne('/api/templates/user').flush({ response: TEMPLATES });
     fixture.detectChanges();
   };
 
@@ -94,10 +94,10 @@ describe('TemplatesPageComponent', () => {
     spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of(true) } as any);
     (rows()[1].querySelector('.delete-icon') as HTMLElement).click();
     expect(dialog.open).toHaveBeenCalledWith(WarningDialogComponent, jasmine.any(Object));
-    const del = http.expectOne('/api/template/delete');
+    const del = http.expectOne('/api/templates/delete');
     expect((del.request.body as FormData).get('template_id')).toBe('t1');
     del.flush({ response: 'OK' });
-    http.expectOne('/api/user/template').flush({ response: TEMPLATES.slice(0, 1) });
+    http.expectOne('/api/templates/user').flush({ response: TEMPLATES.slice(0, 1) });
     fixture.detectChanges();
     expect(rows().length).toBe(1);
   });
@@ -106,7 +106,7 @@ describe('TemplatesPageComponent', () => {
     init();
     spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of(false) } as any);
     component.openDeleteDialog(TEMPLATES[1] as any);
-    http.expectNone('/api/template/delete');
+    http.expectNone('/api/templates/delete');
     expect(component.templatesList.length).toBe(3);
   });
 
@@ -115,13 +115,13 @@ describe('TemplatesPageComponent', () => {
     spyOn(URL, 'createObjectURL').and.returnValue('blob:tpl');
     (rows()[1].querySelector('.edit-icon') as HTMLElement).click();
 
-    const info = http.expectOne('/api/template/info');
+    const info = http.expectOne('/api/templates/info');
     expect((info.request.body as FormData).get('template_id')).toBe('t1');
     info.flush({ response: {
       template_name: 'Mine', template_id: 't1', locked: false, n_questions: 3,
       matricule_box: { x1: 5, x2: 85, y1: 15, y2: 35 }, grade_box: { x1: 82, x2: 96, y1: 15, y2: 55 },
     } });
-    const download = http.expectOne('/api/template/download');
+    const download = http.expectOne('/api/templates/download');
     expect(download.request.responseType).toBe('blob');
     download.flush(new Blob(['%PDF']));
     await settle();
@@ -139,9 +139,9 @@ describe('TemplatesPageComponent', () => {
   it('reopens the template remembered from a previous visit', () => {
     templates.setId('t2');
     init();
-    const info = http.expectOne('/api/template/info');
+    const info = http.expectOne('/api/templates/info');
     expect((info.request.body as FormData).get('template_id')).toBe('t2');
     info.flush({ response: { template_name: 'Midterm', template_id: 't2', locked: false, n_questions: 2 } });
-    http.expectOne('/api/template/download').flush(new Blob());
+    http.expectOne('/api/templates/download').flush(new Blob());
   });
 });

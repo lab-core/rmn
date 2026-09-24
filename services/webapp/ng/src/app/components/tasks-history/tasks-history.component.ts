@@ -238,7 +238,7 @@ export class TasksHistoryComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
-    this.http.post<any>(`${SERVER_URL}job/delete`, formdata).pipe(first()).subscribe(
+    this.http.post<any>(`${SERVER_URL}jobs/delete`, formdata).pipe(first()).subscribe(
       (data) => {
         this.getTasks();
       }, (error) => {
@@ -320,7 +320,7 @@ export class TasksHistoryComponent implements OnInit {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', task.job_id);
-    this.http.post<any>(`${SERVER_URL}job/batch/info`, formdata).pipe(first()).subscribe(
+    this.http.post<any>(`${SERVER_URL}jobs/batch/info`, formdata).pipe(first()).subscribe(
       (data) => {
         const dialogRef = this.dialog.open(TaskFilesDialogComponent, {
           width: '80%',

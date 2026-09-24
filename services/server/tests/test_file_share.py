@@ -5,7 +5,7 @@ import pytest
 
 def _share(client, token, host):
     return client.post(
-        "/file/share",
+        "/files/share",
         data={"user_id": "alice", "token": token, "job_id": "job1", "file": "csv"},
         headers={"Host": host},
     )
