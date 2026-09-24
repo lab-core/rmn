@@ -92,6 +92,11 @@ updates:
     cooldown: {default-days: 14}
     groups:
       docker-compose: {patterns: ["*"]}
+    ignore:
+      # 8.3 refuses to start on Docker Desktop's kernel (SERVER-121912, see
+      # docker-compose.yml). Lift when Docker Desktop ships Linux 7.0.14+.
+      - dependency-name: mongo
+        versions: [">=8.3"]
   - package-ecosystem: github-actions
     directory: /
     schedule: {interval: monthly}
