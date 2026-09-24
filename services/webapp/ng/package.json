@@ -24,7 +24,7 @@
     "@ng-select/ng-select": "^24.1.1",
     "dexie": "^4.4.5",
     "file-saver": "^2.0.5",
-    "jszip": "^3.10.1",
+    "jszip": "^3.10.2",
     "ngx-extended-pdf-viewer": "^21.4.6",
     "ngx-toastr": "^20.0.5",
     "pdf-lib": "^1.17.1",
