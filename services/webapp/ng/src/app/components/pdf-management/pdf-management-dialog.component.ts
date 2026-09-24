@@ -34,6 +34,9 @@ export interface DialogData {
 export class PdfManagementDialogComponent {
 
   processing: boolean = false;
+  // read the grades off the annotated pages instead of importing a csv
+  readGrades: boolean = false;
+
   percentageDone: number = 0;
   info: string = "";
 
@@ -567,6 +570,11 @@ export class PdfManagementDialogComponent {
       uploadFormData.append('file', finalZipFile);
       uploadFormData.append('grades', JSON.stringify(grades));
       uploadFormData.append('questions', 'true');
+      // with no csv there is nothing to fill the grades with, so ask the
+      // server to read what was written on the pages instead
+      if (this.readGrades) {
+        uploadFormData.append('read_grades', 'true');
+      }
 
       this.percentageDone = 0;
       this.info = 'Uploading (4/4)';

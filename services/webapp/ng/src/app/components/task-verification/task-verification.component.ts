@@ -82,6 +82,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   currentTagModified: boolean = false;
   currentVersion: number = 0;
   currentGrade: number | null;
+  // the grade shown came from the reader, not from a human, and has not been
+  // confirmed yet
+  currentGradeIsAuto: boolean = false;
+  currentGradeConfidence: number | null = null;
   currentTotal: number;
   currentGrades: Map<string, number>;
   currentStatus: string;
@@ -321,7 +325,25 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   loadScore(): void {
-    this.currentGrade = this.currentExam()["grade"];
+    // a confirmed grade always wins; otherwise offer what the reader made of
+    // the page, marked as a suggestion so the teacher can see it is one
+    const grade = this.currentExam()["grade"];
+    const autoGrade = this.currentExam()["auto_grade"];
+    this.currentGradeIsAuto = grade === null && autoGrade !== null && autoGrade !== undefined;
+    this.currentGradeConfidence = this.currentGradeIsAuto
+      ? this.currentExam()["auto_grade_confidence"] ?? null
+      : null;
+    this.currentGrade = this.currentGradeIsAuto ? autoGrade : grade;
+  }
+
+  autoGradeHint(): string {
+    if (!this.currentGradeIsAuto) {
+      return '';
+    }
+    const confidence = this.currentGradeConfidence;
+    return confidence === null
+      ? 'note lue automatiquement'
+      : `note lue automatiquement (confiance ${Math.round(confidence * 100)} %)`;
   }
 
   saveCurrentGrade(): boolean {
