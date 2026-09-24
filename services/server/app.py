@@ -1628,14 +1628,17 @@ def replace_thread(validity, job_id, grades, temp_file, read_grades=False):
     # the temp file is removed whatever happens: an exception in the detached
     # thread used to leak it (the 200 has already been sent)
     try:
-        replace_documents(validity, job_id, grades, temp_file.name)
+        replace_documents(validity, job_id, grades, temp_file.name, read_grades)
     finally:
         temp_file.close()
         if os.path.exists(temp_file.name):
             os.remove(temp_file.name)
 
 
-def replace_documents(validity, job_id, grades, zip_path):
+def replace_documents(validity, job_id, grades, zip_path, read_grades=False):
+    # read_grades has to be a parameter: without one the name resolved to the
+    # /job/read_grades view function, which is always truthy, so the flag was
+    # never actually read and no test could tell
     db = mongo["RMN"]
 
     for doc_index, grade in grades.items():
@@ -1744,6 +1747,10 @@ def version_basename(filename):
 
 def save_new_pdf_version(filename):
     version_base = version_basename(filename)
+    # the split step makes this directory, but a copy that arrives without one
+    # used to fail inside the upload thread, after the 200 had been sent: the
+    # teacher saw a successful upload and the file was gone
+    os.makedirs(os.path.dirname(version_base), exist_ok=True)
     all_versions = glob.glob(version_base+"-*.pdf")
     n_version = len(all_versions)
 
