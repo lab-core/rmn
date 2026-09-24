@@ -24,11 +24,15 @@ on:
         required: false
         type: boolean
         default: true
+      rebuild_all:
+        description: Build even when the published image already has this content.
+        required: false
+        type: boolean
+        default: false
 
 # least privilege for the workflow token (the caller's permissions apply too)
 permissions:
   contents: read
-  actions: read
 
 jobs:
   check_diff:
@@ -41,20 +45,22 @@ jobs:
       - uses: actions/checkout@v7
         with:
             # Full history: the diff below needs the PR base branch or the
-            # last successfully published commit.
+            # commit the published image was built from.
             fetch-depth: 0
 
-      - name: Get last successful commit
-        id: last-successful-commit
-        continue-on-error: true
-        uses: tylermilner/last-successful-commit-hash-action@e8e87e3cbbae204557ceaa13777ebca8ffc7a14e  # v1: pinned, it receives github.token
-        with:
-          github-token: ${{ github.token }}
-          workflow-id: docker-publish-all.yml
-          branch: main
-
+      # The reference is the image on Docker Hub itself: the commit in its
+      # org.opencontainers.image.revision label (docker/metadata-action sets
+      # it). "The last successful run of this workflow" was not: a check-only
+      # run (Push images unchecked) counts as successful and pushes nothing,
+      # and on a manual run github.event.after, the other end of the diff, is
+      # empty, so every manual publish rebuilt all four images.
       - name: Get changed files
         id: changed-files
+        env:
+          IMAGE: ${{ inputs.image }}
+          # the tag the build pushes (type=ref,event=branch: "/" becomes "-")
+          TAG: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
         run: |
             # Fail loudly if git cannot compute the diff: an unreadable commit
             # used to make this silently report "same" and skip the build.
@@ -64,26 +70,29 @@ jobs:
             # directory and the shared package)
             watch="${{ inputs.watch }}"
             [ -z "$watch" ] && watch="${{ inputs.context }}"
-            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-                # manual run: build/push every image regardless of diff
-                echo "status=changed" >> "$GITHUB_OUTPUT"
-            elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
                 # `build-images` label: build only if the PR touches this image's context
                 # shellcheck disable=SC2086  # $watch is a list of paths
                 changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- $watch)
                 [ -z "${changed_files}" ] && echo "status=same" >> "$GITHUB_OUTPUT" || echo "status=changed" >> "$GITHUB_OUTPUT"
-            else
-                last_commit="${{ steps.last-successful-commit.outputs.commit-hash }}"
-                if [ -z "${last_commit}" ]; then
-                    # No previous successful publish found (first run or API
-                    # error): build everything rather than silently skipping.
-                    echo "status=changed" >> "$GITHUB_OUTPUT"
-                else
-                    # shellcheck disable=SC2086
-                    changed_files=$(git diff --name-only "${last_commit}" "${{ github.event.after }}" -- $watch)
-                    [ -z "${changed_files}" ] && echo "status=same" >> "$GITHUB_OUTPUT" || echo "status=changed" >> "$GITHUB_OUTPUT"
-                fi
+                exit 0
             fi
+            if [ "${{ inputs.rebuild_all }}" = "true" ] || [[ "$REF" == refs/tags/* ]]; then
+                echo "status=changed" >> "$GITHUB_OUTPUT"
+                exit 0
+            fi
+            # no image yet, or not readable: build rather than silently skip
+            published=$(docker buildx imagetools inspect "${IMAGE}:${TAG//\//-}" --format '{{ json .Image }}' 2>/dev/null \
+                | jq -r '(."linux/amd64" // .).config.Labels["org.opencontainers.image.revision"] // empty' || true)
+            echo "Published ${IMAGE}:${TAG//\//-} was built from '${published}'"
+            if [ -z "${published}" ] || ! git cat-file -e "${published}^{commit}" 2>/dev/null; then
+                echo "status=changed" >> "$GITHUB_OUTPUT"
+                exit 0
+            fi
+            # shellcheck disable=SC2086
+            changed_files=$(git diff --name-only "${published}" "${{ github.sha }}" -- $watch)
+            echo "Changed since then: ${changed_files:-nothing}"
+            [ -z "${changed_files}" ] && echo "status=same" >> "$GITHUB_OUTPUT" || echo "status=changed" >> "$GITHUB_OUTPUT"
 
   push_images_to_dockerhub:
     name: Publish docker image

@@ -36,6 +36,23 @@ def test_heartbeat_refreshes_alive_time_until_stopped(mongo_db):
     assert not heartbeat._thread.is_alive()
 
 
+def test_heartbeat_beats_before_the_job_is_processed(mongo_db, monkeypatch):
+    # a job left with the alive_time of an old run and set to FINALIZING must
+    # not look idle to another executor's sweep while the first interval runs
+    stale = dt.datetime(2000, 1, 1)
+    mongo_db["eval_jobs"].insert_one({"job_id": "job", "user_id": "u", "job_status": "FINALIZING",
+                                      "alive_time": stale})
+    redis, _ = _fake_backends(monkeypatch)
+
+    with Heartbeat(Database(), "job"):  # 40 s interval: only the first beat runs
+        check_for_idle_jobs_to_requeue(Database(), sleep=False)
+
+    job = mongo_db["eval_jobs"].find_one({"job_id": "job"})
+    assert job["job_status"] == "FINALIZING"
+    assert job.get("retry", 0) == 0
+    assert _queue(redis) == []
+
+
 def test_heartbeat_interval_has_a_floor():
     assert Heartbeat(MagicMock(), "job", interval=1)._interval == 5
     assert Heartbeat(MagicMock(), "job")._interval == job_executor.MAX_IDLE_TIME // 3
