@@ -10,6 +10,10 @@ import os
 import shutil
 from pathlib import Path
 
+# Template images live outside the per-job layout: they are owned by a row of
+# the ``template`` collection, not by a job, and outlive the jobs using them.
+TEMPLATE_DIR = "template"
+
 
 def create_tree(file_path):
     """Create the parent directories of ``file_path``."""
@@ -50,6 +54,8 @@ class Storage:
     )
     # files whose name starts with the job id (e.g. output_zip/<job_id>_all.zip)
     _JOB_GLOBS = (("output_zip", "{job_id}_*.zip"),)
+    # every prefix the two tables above reach into, directories aside
+    _JOB_PREFIXES = frozenset(prefix for prefix, _ in _JOB_FILES + _JOB_GLOBS)
 
     def __init__(self, storage_path=None):
         if storage_path:
@@ -142,6 +148,72 @@ class Storage:
                     os.remove(f)
                 except OSError:
                     pass
+
+    def job_entries(self):
+        """Every stored path owned by a job, with the job it belongs to.
+
+        The layout tables above are the only description of that ownership,
+        so this is what a storage sweep must use to tell whose files it is
+        looking at (``service.storage_cleanup`` on the server side).
+
+        Yields:
+            ``(job_id, absolute path)`` pairs, in no particular order.
+        """
+        for prefix in self._JOB_DIRS:
+            for entry in self._listdir(prefix):
+                if os.path.isdir(entry.path):
+                    yield entry.name, entry.path
+
+        for prefix, name in self._JOB_FILES:
+            # "{job_id}.csv" formatted with an empty id is the bare suffix
+            suffix = name.format(job_id="")
+            for entry in self._listdir(prefix):
+                if entry.is_file() and entry.name.endswith(suffix):
+                    yield entry.name[: -len(suffix)], entry.path
+
+        for prefix, pattern in self._JOB_GLOBS:
+            # "{job_id}_*.zip" -> the id ends at the first "_"
+            separator, suffix = pattern.format(job_id="").split("*")
+            for entry in self._listdir(prefix):
+                head, sep, _ = entry.name.partition(separator)
+                if entry.is_file() and sep and entry.name.endswith(suffix):
+                    yield head, entry.path
+
+    def template_entries(self):
+        """Every stored template image, by its storage-relative path.
+
+        Yields:
+            ``(relative path, absolute path)`` pairs; the relative path is
+            what a template document holds in ``template_file_id``.
+        """
+        for entry in self._listdir(TEMPLATE_DIR):
+            if entry.is_file():
+                yield os.path.join(TEMPLATE_DIR, entry.name), entry.path
+
+    def stray_entries(self):
+        """Paths under a job or template prefix that the layout does not name.
+
+        Anything else in the tree is left out on purpose: ``numbers/`` is the
+        shared digit corpus, which no database row owns and which a sweep
+        must never touch.
+
+        Yields:
+            Absolute paths.
+        """
+        owned = {path for _, path in self.job_entries()}
+        owned.update(path for _, path in self.template_entries())
+        for prefix in sorted(set(self._JOB_DIRS) | self._JOB_PREFIXES | {TEMPLATE_DIR}):
+            for entry in self._listdir(prefix):
+                if entry.path not in owned:
+                    yield entry.path
+
+    def _listdir(self, prefix):
+        """Entries directly under ``prefix``; an absent prefix yields nothing."""
+        try:
+            with os.scandir(self.abs_path(prefix)) as entries:
+                return list(entries)
+        except (FileNotFoundError, NotADirectoryError):
+            return []
 
     def remove_all_match(self, key):
         """Remove every file or directory whose name contains ``key``.

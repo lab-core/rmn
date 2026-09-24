@@ -8,6 +8,7 @@ import uuid
 import os
 import json
 
+from rmn_common.storage import TEMPLATE_DIR
 from utils.box_converter import convert_box_to_dict, convert_box_to_list
 from utils.clients import redis_client
 
@@ -76,7 +77,7 @@ class TemplateService():
             print("save image to", img_filepath)
             img.save(img_filepath)
             # move png to storage
-            template_file_id = os.path.join("template", f'{template_id}.png')
+            template_file_id = os.path.join(TEMPLATE_DIR, f'{template_id}.png')
             storage.move_to(img_filepath, template_file_id)
 
         except Exception as e:
