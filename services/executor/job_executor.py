@@ -818,7 +818,21 @@ if __name__ == "__main__":
 
         def progress(done, total):
             emit_job(sio, user_id, job_id, Job_Status(job["job_status"]),
-                     infos={"job_infos": f"Lecture des notes : {done}/{total}"})
+                     infos={"job_infos":
+                            f"Lecture des notes de Q{question_index} :"
+                            f" {done}/{total}"})
+
+        # say so before the first page is read: a pass over a few hundred
+        # copies is otherwise silent until it is a fifth of the way through,
+        # and the teacher has no way to tell it started
+        current = db.auto_grade_run(job_id, int(question_index))
+        pending = len(
+            db.questions_to_read(
+                job_id, int(question_index), current if run is None else run
+            )
+        )
+        if pending:
+            progress(0, pending)
 
         result = auto_grade.read_question(
             db, storage, job, question_index, run,
@@ -828,8 +842,9 @@ if __name__ == "__main__":
             question_index, result["read"], result["total"],
             ", superseded" if result["superseded"] else ""))
 
-        if result["read"]:
-            # one refresh for the whole pass: the correction screen reloads
+        if result["read"] or pending:
+            # clears the progress line and refreshes: one emit for the whole
+            # pass, because the correction screen reloads
             # every document on this event, so emitting per page would have it
             # refetch hundreds of times
             sio.emit("document_ready", json.dumps(

@@ -4,6 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 
 import { TaskVerificationComponent } from './task-verification.component';
+import { DocumentStatus } from 'src/app/generated/rmn-contracts';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { SocketService } from 'src/app/services/socket.service';
@@ -340,7 +341,19 @@ describe('TaskVerificationComponent grade reading', () => {
 
     expect(component.currentGrade).toBe(8.5);
     expect(component.currentGradeIsAuto).toBeTrue();
+    // the score box is 80px wide, so the confidence is a tooltip, not a caption
     expect(component.autoGradeHint()).toContain('97');
+  });
+
+  it('colours the score box like the tiles and the validate button', () => {
+    component.currentStatus = DocumentStatus.VALIDATED;
+    expect(component.gradeColor()).toBe('note-green');
+
+    component.currentStatus = DocumentStatus.HIGH_ACCURACY;
+    expect(component.gradeColor()).toBe('note-blue');
+
+    component.currentStatus = DocumentStatus.TO_VALIDATE;
+    expect(component.gradeColor()).toBe('note-red');
   });
 
   it('prefers a grade a human has already set', () => {
