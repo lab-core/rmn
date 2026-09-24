@@ -163,4 +163,22 @@ describe('PdfManagementDialogComponent', () => {
     component.reportSkippedQuestions({ response: 'OK' });
     expect(notification.showWarning).not.toHaveBeenCalled();
   });
+
+  // A Q3 share link lists Q3's copies and nothing else, so the pages of the
+  // other questions in the zip have nowhere to be split back to. They were
+  // dropped here, before the upload -- which is why the server, which only
+  // ever saw Q3, had nothing to refuse.
+  it('says a question of the zip has no copies reachable from this link', () => {
+    component.data.allExamsList = [
+      { document_index: 0, question: 'Q3' },
+      { document_index: 1, question: 'Q3' },
+    ];
+
+    expect(component.copiesOfQuestion('Q3').length).toBe(2);
+    expect(notification.showWarning).not.toHaveBeenCalled();
+
+    expect(component.copiesOfQuestion('Q1')).toEqual([]);
+    expect(notification.showWarning).toHaveBeenCalledWith(
+      jasmine.stringContaining('Q1'), 'Attention');
+  });
 });

@@ -120,6 +120,22 @@ export class PdfManagementDialogComponent {
     }
   }
 
+  /// The copies a question's pages are split back into.
+  ///
+  /// A link scoped to one question only ever lists that question's copies,
+  /// so another question in the zip has nowhere to go. Its pages used to be
+  /// dropped here without a word -- and since they never reached the server,
+  /// the server had nothing to refuse and said nothing either.
+  copiesOfQuestion(questionIndex: string): Array<any> {
+    const copies = this.data.allExamsList.filter((exam) => exam.question === questionIndex);
+    if (copies.length === 0) {
+      this.notificationService.showWarning(
+        `${questionIndex} a été ignorée : aucune copie de cette question n'est `
+        + `accessible depuis ce lien.`, 'Attention');
+    }
+    return copies;
+  }
+
   async downloadAllFilesAsZip() {
     this.notificationService.showInfo('Téléchargement des copies en cours...', 'Information');
     const zip = new JSZip();
@@ -536,7 +552,7 @@ export class PdfManagementDialogComponent {
         await this.timeout();
         const mergedDoc = mergedPDFDocs[questionIndex];
         const totalPageCount = mergedDoc.getPageCount();
-        const originalDocs = this.data.allExamsList.filter((exam) => exam.question === questionIndex);
+        const originalDocs = this.copiesOfQuestion(questionIndex);
         const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
 
         let startPage = 0;
