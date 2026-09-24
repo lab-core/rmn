@@ -88,6 +88,26 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   currentGradeConfidence: number | null = null;
   // what the reader is doing right now, straight from the executor
   readingInfo: string = '';
+  // and where it has got to on the question being corrected, from POST /job
+  autoGradeProgress: {[q: string]: {pending: number, running: number, done: number,
+                                    graded: number, total: number}} = {};
+
+  readingStateForQuestion(): string {
+    const p = this.autoGradeProgress[String(this.currentQuestionIndex)];
+    if (!p || !p.total) {
+      return '';
+    }
+    // copies the teacher has already graded are not read, and are said so
+    const toRead = p.total - (p.graded || 0);
+    if (p.running) {
+      const percent = toRead ? Math.round(100 * p.done / toRead) : 100;
+      return `Lecture des notes en cours : ${percent} %`;
+    }
+    if (p.pending) {
+      return `Lecture des notes à faire : ${p.done}/${toRead}`;
+    }
+    return `Notes lues automatiquement : ${p.done}/${toRead}`;
+  }
   currentTotal: number;
   currentGrades: Map<string, number>;
   currentStatus: string;
@@ -126,6 +146,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
     try {
       this.job = await this.tasksService.getTask();
+      this.autoGradeProgress = this.job.auto_grade_progress || {};
     } catch (err) {
       console.error(err);
     }
@@ -1020,6 +1041,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         nMaxPointsPerQuestion: this.nMaxPointsPerQuestion,
         bonusEnabledMap: this.bonusEnabledMap,
         examsList: this.subExamsList,
+        // the upload half works on every copy of the task: a zip may carry
+        // several questions, and the server checks the right to each one it
+        // finds before writing it
+        allExamsList: this.examsList,
         offlineCopies: this.offlineCopies
       },
     });

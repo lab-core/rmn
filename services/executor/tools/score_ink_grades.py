@@ -49,7 +49,8 @@ from process_copy import ink_grades  # noqa: E402
 from utils.split import calculate_pages  # noqa: E402
 
 MATRICULE_IN_NAME = re.compile(r"_(\d{7})\.pdf$")
-THRESHOLDS = (0.0, 0.80, 0.90, 0.95, 0.99)
+FLATTEN_DPI = 300
+THRESHOLDS = (0.0, 0.25, 0.50, 0.80, 0.90, 0.95, 0.99)
 
 
 def parse_layout(text: str) -> Tuple[Dict[str, int], Dict[str, float]]:
@@ -77,6 +78,26 @@ def load_notes(path: str) -> Dict[str, Dict[str, float]]:
             if grades:
                 notes[matricule] = grades
     return notes
+
+
+def flatten(page):
+    """The page with its annotations burned into the raster, as a new page.
+
+    What "flatten annotations" on export produces, and the only way to measure
+    the colour path without a natively flattened corpus: the ink is real ink,
+    it has simply stopped being vector. The rotation is applied to the rebuilt
+    page rather than to its raster, so the marks stay where they were.
+    """
+    upright = pymupdf.open()
+    upright.insert_pdf(page.parent, from_page=page.number, to_page=page.number)
+    upright[0].set_rotation(0)
+    pixmap = upright[0].get_pixmap(dpi=FLATTEN_DPI, annots=True)
+
+    out = pymupdf.open()
+    new = out.new_page(width=page.mediabox.width, height=page.mediabox.height)
+    new.insert_image(new.rect, pixmap=pixmap)
+    new.set_rotation(page.rotation)
+    return out
 
 
 @contextlib.contextmanager
@@ -213,7 +234,12 @@ def run_copies(args, classifier):
             first = page_numbers[0]
             if first >= doc.page_count:
                 continue
-            pages_by_question[question].append((matricule, doc[first]))
+            page = doc[first]
+            if args.flatten:
+                flattened = flatten(page)
+                docs.append(flattened)
+                page = flattened[0]
+            pages_by_question[question].append((matricule, page))
             expected = notes.get(matricule, {}).get(question)
             if expected is not None:
                 truth[(question, matricule)] = expected
@@ -225,8 +251,20 @@ def run_copies(args, classifier):
     return accuracy
 
 
+def parse_max_points(text):
+    """``"9"`` or ``"Q1:8,Q2:12"`` into a default and a per-question map."""
+    if ":" not in text:
+        return float(text), {}
+    mapping = {}
+    for item in text.split(","):
+        key, value = item.split(":")
+        mapping[key] = float(value)
+    return None, mapping
+
+
 def run_questions(args, classifier):
     """The per-question tree, where every grade is on page 0."""
+    default_points, per_question = parse_max_points(args.max_points)
     labels = json.load(open(args.labels)) if args.labels else {}
     bonus = set(args.bonus.split(",")) if args.bonus else set()
     points = {}
@@ -238,14 +276,19 @@ def run_questions(args, classifier):
         folder = os.path.join(args.questions, question)
         if not re.fullmatch(r"Q\d+", question) or not os.path.isdir(folder):
             continue
-        points[question] = args.max_points
+        points[question] = per_question.get(question, default_points)
         for name in sorted(os.listdir(folder)):
             if not name.endswith(".pdf"):
                 continue
             stem = name[: -len(".pdf")]
             doc = pymupdf.open(os.path.join(folder, name))
             docs.append(doc)
-            pages_by_question[question].append((stem, doc[0]))
+            page = doc[0]
+            if args.flatten:
+                flattened = flatten(page)
+                docs.append(flattened)
+                page = flattened[0]
+            pages_by_question[question].append((stem, page))
             if stem in labels.get(question, {}):
                 value = labels[question][stem]
                 truth[(question, stem)] = None if value is None else float(value)
@@ -280,11 +323,20 @@ def main() -> int:
         help="Q<n>:<pages>:<max points>, comma separated",
     )
     parser.add_argument("--questions", help="folder holding Q1/, Q2/, ... ")
-    parser.add_argument("--max-points", type=float, default=9.0)
+    parser.add_argument(
+        "--max-points",
+        default="9",
+        help="one number for every question, or Q1:8,Q2:12,... when they differ",
+    )
     parser.add_argument("--labels", help="json labels for --questions")
     parser.add_argument("--bonus", help="comma separated bonus question keys")
     parser.add_argument("--model", help="classifier file (.tflite or .h5)")
     parser.add_argument("--dump-failures", action="store_true")
+    parser.add_argument(
+        "--flatten",
+        action="store_true",
+        help="burn the annotations into the page first, to score the colour path",
+    )
     parser.add_argument("--min-accuracy", type=float, default=0.0)
     args = parser.parse_args()
 

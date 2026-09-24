@@ -606,7 +606,11 @@ def get_jobs(user_id):
             "job_name": job["job_name"],
             "front_template_name": job.get("front_template_name"),
             "regular_template_name": job.get("regular_template_name"),
-            "job_infos": job.get("job_infos", "")
+            "job_infos": job.get("job_infos", ""),
+            # so the task list can say a reading is under way
+            "auto_grade_running": auto_grade.is_running(
+                db["job_questions"], job["job_id"]
+            ),
         }
         for job in jobs
     ]
@@ -669,6 +673,9 @@ def get_job():
         "statistics_for_students": job["statistics_for_students"],
         "groups": job.get("groups", [""]),
         "copies_errors": job.get("copies_errors"),
+        # how far the grade reading has got, question by question, so the
+        # dashboard and the correction screen can say what is waiting on what
+        "auto_grade_progress": auto_grade.progress(db["job_questions"], job_id),
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
@@ -1341,6 +1348,9 @@ def update_matricule():
         {"$set": {"matricule": matricule, "status": Document_Status.VALIDATED.value}}
     )
 
+    # The teacher annotated the copy in the app and saved it without typing a
+    # grade: the mark they drew is on the page now, so read it. Only this copy
+    # is queued -- a save is one copy, not a question.
     user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
 
     sio.emit(
@@ -1612,31 +1622,83 @@ def replace_document(validity):
     file.save(temp_file)
     temp_file.flush()
 
-    # a supplied grades map wins: the teacher has already said what the
-    # grades are, so there is nothing to read
-    read_grades = (
-        request_form.get("read_grades", "false").lower() == "true" and not grades
-    )
+    # A supplied grade wins for the copy it covers -- start_run only queues
+    # documents that have none -- but one grade in the map used to call off the
+    # reading for the whole upload, silently.
+    read_grades = request_form.get("read_grades", "true").lower() == "true"
+
+    # before the thread: it is the one that drops them, and its answer has
+    # already gone by the time it does
+    skipped = skipped_questions(validity, job_id, temp_file.name, grades)
 
     thread = Thread(target=replace_thread,
                     args=[validity, job_id, grades, temp_file, read_grades])
     thread.start()
 
-    return Response(response=json.dumps({"response": "OK"}), status=200)
+    return Response(
+        response=json.dumps({"response": "OK", "skipped_questions": skipped}),
+        status=200,
+    )
+
+
+def skipped_questions(validity, job_id, zip_path, grades):
+    """The questions of an upload this caller may not modify.
+
+    The pdfs and the csv rows of a question outside the caller's scope are
+    dropped, one by one, deep inside a thread whose answer has already been
+    sent -- so the upload looked like it had worked in full. This is read
+    before the thread starts, so the answer can name what will not be
+    written.
+
+    Args:
+        validity: The share-token scope, None for the job owner.
+        job_id: The job the upload belongs to.
+        zip_path: The uploaded archive; a broken one names no question here
+            and fails in the thread as it did before.
+        grades: The csv grades, keyed by document index.
+
+    Returns:
+        The refused questions, as the labels the teacher sees ("Q2"), sorted.
+    """
+    questions = set()
+    try:
+        with ZipFile(zip_path, "r") as zip_file:
+            for name in zip_file.namelist():
+                found = re.search(r"Q(\d+)(?=\.pdf$)", name)
+                if found:
+                    questions.add(int(found.group(1)))
+    except Exception as e:
+        print(f"{job_id}: cannot list the uploaded zip ({e})")
+    if grades:
+        # the csv covers copies, which carry their own question
+        questions.update(mongo["RMN"]["job_questions"].distinct(
+            "question_index",
+            {"job_id": job_id,
+             "document_index": {"$in": [int(i) for i in grades]}},
+        ))
+    # a copy with no question (a whole-copy upload) has nothing to name
+    refused = [
+        q for q in questions
+        if q is not None and not question_allowed(validity, q)
+    ]
+    return [f"Q{q}" for q in sorted(refused)]
 
 
 def replace_thread(validity, job_id, grades, temp_file, read_grades=False):
     # the temp file is removed whatever happens: an exception in the detached
     # thread used to leak it (the 200 has already been sent)
     try:
-        replace_documents(validity, job_id, grades, temp_file.name)
+        replace_documents(validity, job_id, grades, temp_file.name, read_grades)
     finally:
         temp_file.close()
         if os.path.exists(temp_file.name):
             os.remove(temp_file.name)
 
 
-def replace_documents(validity, job_id, grades, zip_path):
+def replace_documents(validity, job_id, grades, zip_path, read_grades=False):
+    # read_grades has to be a parameter: without one the name resolved to the
+    # /job/read_grades view function, which is always truthy, so the flag was
+    # never actually read and no test could tell
     db = mongo["RMN"]
 
     for doc_index, grade in grades.items():
@@ -1703,8 +1765,10 @@ def replace_documents(validity, job_id, grades, zip_path):
                 )
                 touched_questions.add(int(question_folder[1:]))
 
-    if read_grades:
+    if read_grades and touched_questions:
         start_reading_grades(job_id, sorted(touched_questions))
+    elif read_grades:
+        print(f"{job_id}: nothing to read, the upload carried no question pdf")
 
 
 def start_reading_grades(job_id, question_indices):
@@ -1743,6 +1807,10 @@ def version_basename(filename):
 
 def save_new_pdf_version(filename):
     version_base = version_basename(filename)
+    # the split step makes this directory, but a copy that arrives without one
+    # used to fail inside the upload thread, after the 200 had been sent: the
+    # teacher saw a successful upload and the file was gone
+    os.makedirs(os.path.dirname(version_base), exist_ok=True)
     all_versions = glob.glob(version_base+"-*.pdf")
     n_version = len(all_versions)
 
@@ -1909,6 +1977,23 @@ def update_document(validity):
                 if not r:
                     return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
                                     status=404)
+
+                # The teacher has just told us what this page was really
+                # worth. Questions of one exam are graded by different people,
+                # each writing the grade their own way, so when a question's
+                # readings keep disagreeing with the human, the reader has the
+                # wrong idea of that question. The readings stay -- the right
+                # answer is still usually among them -- but the copies stop
+                # being shown as confident.
+                question_index = int(request_form["question_index"])
+                if auto_grade.unreliable(db["job_questions"], job_id, question_index):
+                    distrusted = auto_grade.distrust_suggestions(
+                        db["job_questions"], job_id, question_index
+                    )
+                    if distrusted:
+                        print(f"Q{question_index} of {job_id}: readings disagreed "
+                              f"with the teacher too often, {distrusted} no longer "
+                              "shown as confident")
         else:
             # the grades of every question of the copy, as a JSON list. This
             # branch iterated the JSON text character by character and then
@@ -1978,6 +2063,32 @@ def update_document(validity):
               {"job_id": job_id, "rel_filepath": rel_filepath,
               "version_filepath": version_filepath, "version": version},
               "with %d annotation layers" % len(annotations))
+
+    # The teacher annotated the copy in the app and saved it without typing a
+    # grade: the mark they drew is on the page now, so read it. Only this copy
+    # is queued -- a save is one copy, not a question. The form is read
+    # directly because `grade` above is only bound when the request carried
+    # grades or a tag.
+    # the form is read directly: `grade` above is only bound when the request
+    # carried grades or a tag, and a name that may not exist in this scope is
+    # exactly what hid the last of these bugs
+    if (
+        "file" in request.files
+        and not request_form.get("grades")
+        and "question_index" in request_form
+        and doc_status != Document_Status.VALIDATED
+    ):
+        queued_run = auto_grade.queue_document(
+            db["eval_jobs"], db["job_questions"], job_id,
+            int(request_form["question_index"]), document_index,
+        )
+        if queued_run:
+            redis.rpush("job_queue", json.dumps({
+                "job_id": job_id,
+                "read_grades": True,
+                "question_index": int(request_form["question_index"]),
+                "run": queued_run,
+            }))
 
     user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
 

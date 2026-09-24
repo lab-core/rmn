@@ -170,6 +170,9 @@ def test_replace_checks_the_scope_before_writing_the_grade(
         shared_job.mongo["RMN"]["job_documents"].find_one({"job_id": "j1"})["grades"][0]
         == 5
     )
+    # and the answer says so: the drop used to happen in silence, inside a
+    # thread whose 200 had already been sent
+    assert resp.get_json(force=True)["skipped_questions"] == ["Q7"]
 
 
 def test_q1_link_cannot_tag_another_question(client, shared_job):
@@ -196,3 +199,58 @@ def test_owner_can_save_the_grades_of_a_whole_copy(client, shared_job, user_fact
 
     assert client.post("/document/update", data={**base, "grades": "not json"}).status_code == 400
     assert client.post("/document/update", data={**base, "document_index": "9", "grades": "[1]"}).status_code == 404
+
+
+def test_replace_names_the_questions_of_the_zip_it_refuses(
+    client, shared_job, monkeypatch
+):
+    """The export puts the whole task in one zip, so a Q1 link sends Q7 too."""
+    monkeypatch.setattr(shared_job, "Thread", _SyncThread)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        archive.writestr("copy1_Q1.pdf", b"%PDF-1.4 one")
+        archive.writestr("copy1_Q7.pdf", b"%PDF-1.4 seven")
+    buf.seek(0)
+
+    resp = client.post(
+        "/documents/replace",
+        data=_q1(grades=json.dumps({}), file=(buf, "copies.zip")),
+        content_type="multipart/form-data",
+    )
+
+    assert resp.get_json(force=True)["skipped_questions"] == ["Q7"]
+    storage = shared_job.storage
+    assert os.path.exists(storage.abs_path("documents/j1/Q1/copy1_Q1.pdf"))
+    assert not os.path.exists(storage.abs_path("documents/j1/Q7"))
+
+
+def test_replace_reports_nothing_when_the_whole_upload_is_written(
+    client, app_module_fixture, monkeypatch, login, user_factory, job_factory
+):
+    """The owner may touch every question, so there is nothing to warn about."""
+    monkeypatch.setattr(app_module_fixture, "Thread", _SyncThread)
+    user_factory("alice")
+    token = login("alice")
+    job_factory("j2", "alice")
+    _questions(app_module_fixture.mongo, "j2")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        archive.writestr("copy1_Q1.pdf", b"%PDF-1.4 one")
+        archive.writestr("copy1_Q7.pdf", b"%PDF-1.4 seven")
+    buf.seek(0)
+
+    resp = client.post(
+        "/documents/replace",
+        data={
+            "job_id": "j2",
+            "token": token,
+            "grades": json.dumps({"0": 5, "1": 6}),
+            "read_grades": "false",
+            "file": (buf, "copies.zip"),
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert resp.get_json(force=True)["skipped_questions"] == []
+    storage = app_module_fixture.storage
+    assert os.path.exists(storage.abs_path("documents/j2/Q7/copy1_Q7.pdf"))

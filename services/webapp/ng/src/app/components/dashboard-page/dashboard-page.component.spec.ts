@@ -342,3 +342,98 @@ describe('DashboardPageComponent', () => {
     expect(component.task.bonus_enabled_map).toEqual([['Q1', true]]);
   });
 });
+
+describe('DashboardPageComponent reading progress', () => {
+  // The executor reports every few copies while it reads the grades. That is
+  // worth showing on the page and not worth a toast each time.
+  let component: DashboardPageComponent;
+
+  beforeEach(() => {
+    component = Object.create(DashboardPageComponent.prototype) as DashboardPageComponent;
+  });
+
+  it('recognises a progress report by its percentage', () => {
+    expect(component.isProgress('Lecture des notes de Q1 : 40/57 (70 %)')).toBeTrue();
+  });
+
+  it('does not mistake a real message for progress', () => {
+    expect(component.isProgress('Échec de la finalisation : pdflatex failed')).toBeFalse();
+    expect(component.isProgress('')).toBeFalse();
+  });
+});
+
+describe('DashboardPageComponent per-question reading state', () => {
+  let component: DashboardPageComponent;
+
+  beforeEach(() => {
+    component = Object.create(DashboardPageComponent.prototype) as DashboardPageComponent;
+  });
+
+  it('says a question is being read, and how far', () => {
+    component.autoGradeProgress = {'3': {pending: 2, running: 1, done: 7, graded: 0, total: 10}};
+    expect(component.readingState({name: 'Q3', index: 2})).toContain('en cours');
+    expect(component.readingState({name: 'Q3', index: 2})).toContain('70 %');
+    expect(component.readingClass({name: 'Q3', index: 2})).toBe('reading-running');
+  });
+
+  it('matches the row to its own question, not the one before it', () => {
+    // the rows are 0-based and the reading is keyed by question number: Q1
+    // showed nothing and every other row showed its predecessor's state
+    component.autoGradeProgress = {
+      '1': {pending: 0, running: 0, done: 4, graded: 0, total: 4},
+      '2': {pending: 3, running: 0, done: 0, graded: 0, total: 3},
+    };
+    expect(component.readingState({name: 'Q1', index: 0})).toContain('4/4');
+    expect(component.readingClass({name: 'Q1', index: 0})).toBe('reading-done');
+    expect(component.readingState({name: 'Q2', index: 1})).toContain('à faire');
+  });
+
+  it('says nothing on the total row', () => {
+    component.autoGradeProgress = {'1': {pending: 0, running: 0, done: 4, graded: 0, total: 4}};
+    expect(component.readingState({name: 'Total', index: 5})).toBe('');
+  });
+
+  it('says a question is still waiting to be read', () => {
+    component.autoGradeProgress = {'3': {pending: 4, running: 0, done: 0, graded: 0, total: 4}};
+    expect(component.readingState({name: 'Q3', index: 2})).toContain('à faire');
+    expect(component.readingClass({name: 'Q3', index: 2})).toBe('reading-waiting');
+  });
+
+  it('says a question has been read', () => {
+    component.autoGradeProgress = {'3': {pending: 0, running: 0, done: 9, graded: 0, total: 9}};
+    expect(component.readingState({name: 'Q3', index: 2})).toContain('9/9');
+    expect(component.readingClass({name: 'Q3', index: 2})).toBe('reading-done');
+  });
+
+  it('says nothing about a question no reading has touched', () => {
+    component.autoGradeProgress = {};
+    expect(component.readingState({name: 'Q3', index: 2})).toBe('');
+    expect(component.readingClass({name: 'Q3', index: 2})).toBe('');
+  });
+});
+
+describe('DashboardPageComponent copies already graded', () => {
+  let component: DashboardPageComponent;
+
+  beforeEach(() => {
+    component = Object.create(DashboardPageComponent.prototype) as DashboardPageComponent;
+  });
+
+  it('counts out the copies it was never given, rather than shrinking the total', () => {
+    // 17 copies, one already graded by hand: reporting "16/16" read as if the
+    // question only had sixteen
+    component.autoGradeProgress = {
+      '1': {pending: 0, running: 0, done: 16, graded: 1, total: 17},
+    };
+    const state = component.readingState({name: 'Q1', index: 0});
+    expect(state).toContain('16/16');
+    expect(state).toContain('1 déjà notée');
+  });
+
+  it('pluralises when several were graded by hand', () => {
+    component.autoGradeProgress = {
+      '2': {pending: 0, running: 0, done: 15, graded: 2, total: 17},
+    };
+    expect(component.readingState({name: 'Q2', index: 1})).toContain('2 déjà notées');
+  });
+});

@@ -20,7 +20,12 @@ export interface DialogData {
   nPagesPerQuestion: Map<string, number>;
   nMaxPointsPerQuestion: Map<string, number>;
   bonusEnabledMap: Map<string, boolean>;
+  // the copies of the question being corrected: what the download exports
   examsList: Array<any>;
+  // every copy of the task. A zip sent back may carry several questions --
+  // whichever ones were exported -- so matching its pages and its csv to
+  // copies cannot be limited to the question that happens to be selected.
+  allExamsList: Array<any>;
   offlineCopies: Map<number, OfflineCopy>;
 }
 
@@ -34,8 +39,9 @@ export interface DialogData {
 export class PdfManagementDialogComponent {
 
   processing: boolean = false;
-  // read the grades off the annotated pages instead of importing a csv
-  readGrades: boolean = false;
+  // Reading the grades off the pages is the point of sending them back, so it
+  // is on by default; a grade supplied in the csv still wins for its own copy.
+  readGrades: boolean = true;
 
   percentageDone: number = 0;
   info: string = "";
@@ -59,6 +65,75 @@ export class PdfManagementDialogComponent {
               private docService: DocumentsService,
               private notificationService: NotificationService,
               @Inject(MAT_DIALOG_DATA) public data: DialogData) {
+  }
+
+  /// Write the grades read from the csv onto the copies they belong to.
+  ///
+  /// Every copy of the task is searched, not only the question being
+  /// corrected: the csv covers whatever the zip carries. A negative grade or
+  /// one above the question's maximum goes back to validation; an unknown
+  /// maximum refuses nothing (it used to send every imported grade back with
+  /// one blanket error).
+  applyImportedGrades(grades: { [docIndex: string]: number }) {
+    const suspicious: number[] = [];
+    const unknown: string[] = [];
+    for (const docIndex of Object.keys(grades)) {
+      const docIdx = parseInt(docIndex, 10);
+      const exam = this.data.allExamsList.find((e) => {
+        return e.document_index === docIdx;
+      });
+      if (!exam) {
+        unknown.push(docIndex);
+        continue;
+      }
+      exam.grade = grades[docIndex];
+      const total = this.data.nMaxPointsPerQuestion.get(exam.question);
+      if (exam.grade < 0 || (total !== undefined && exam.grade > total + 1e-3)) {
+        suspicious.push(docIdx);
+        exam.status = DocumentStatus.TO_VALIDATE;
+      } else {
+        exam.status = DocumentStatus.VALIDATED;
+      }
+    }
+    if (unknown.length > 0) {
+      this.notificationService.showWarning(`Aucune copie pour les index ${unknown.join(', ')} du csv.`, 'Attention');
+    }
+    if (suspicious.length > 0) {
+      this.notificationService.showError(
+        `Les notes des copies ${suspicious.join(', ')} sont négatives ou dépassent le maximum: elles restent à valider.`, 'Erreur');
+    }
+  }
+
+  /// Tell the teacher which questions of the upload were not written.
+  ///
+  /// A link scoped to one question may carry copies of others -- the export
+  /// puts the whole task in one zip -- and the server drops them. It used to
+  /// do so in silence, so the upload looked as if it had worked in full.
+  reportSkippedQuestions(body: any) {
+    const skipped: string[] = body?.skipped_questions || [];
+    if (skipped.length > 0) {
+      this.notificationService.showWarning(
+        `${skipped.join(', ')} n'${skipped.length > 1 ? 'ont' : 'a'} pas été `
+        + `remplacée${skipped.length > 1 ? 's' : ''} : vous n'avez pas accès `
+        + `à ${skipped.length > 1 ? 'ces questions' : 'cette question'}.`,
+        'Attention');
+    }
+  }
+
+  /// The copies a question's pages are split back into.
+  ///
+  /// A link scoped to one question only ever lists that question's copies,
+  /// so another question in the zip has nowhere to go. Its pages used to be
+  /// dropped here without a word -- and since they never reached the server,
+  /// the server had nothing to refuse and said nothing either.
+  copiesOfQuestion(questionIndex: string): Array<any> {
+    const copies = this.data.allExamsList.filter((exam) => exam.question === questionIndex);
+    if (copies.length === 0) {
+      this.notificationService.showWarning(
+        `${questionIndex} a été ignorée : aucune copie de cette question n'est `
+        + `accessible depuis ce lien.`, 'Attention');
+    }
+    return copies;
   }
 
   async downloadAllFilesAsZip() {
@@ -477,7 +552,7 @@ export class PdfManagementDialogComponent {
         await this.timeout();
         const mergedDoc = mergedPDFDocs[questionIndex];
         const totalPageCount = mergedDoc.getPageCount();
-        const originalDocs = this.data.examsList.filter((exam) => exam.question === questionIndex);
+        const originalDocs = this.copiesOfQuestion(questionIndex);
         const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
 
         let startPage = 0;
@@ -533,36 +608,7 @@ export class PdfManagementDialogComponent {
       const finalZipBlob = await zip.generateAsync({type: 'blob'});
       const finalZipFile = new File([finalZipBlob], 'split_documents.zip', {type: 'application/zip'});
 
-      // update exam grades: a negative grade or one above the question's
-      // maximum goes back to validation; an unknown maximum refuses nothing
-      // (it used to send every imported grade back with one blanket error)
-      const suspicious: number[] = [];
-      const unknown: string[] = [];
-      for (const docIndex of Object.keys(grades)) {
-        const docIdx = parseInt(docIndex, 10);
-        const exam = this.data.examsList.find((e) => {
-          return e.document_index === docIdx;
-        });
-        if (!exam) {
-          unknown.push(docIndex);
-          continue;
-        }
-        exam.grade = grades[docIndex];
-        const total = this.data.nMaxPointsPerQuestion.get(exam.question);
-        if (exam.grade < 0 || (total !== undefined && exam.grade > total + 1e-3)) {
-          suspicious.push(docIdx);
-          exam.status = DocumentStatus.TO_VALIDATE;
-        } else {
-          exam.status = DocumentStatus.VALIDATED;
-        }
-      }
-      if (unknown.length > 0) {
-        this.notificationService.showWarning(`Aucune copie pour les index ${unknown.join(', ')} du csv.`, 'Attention');
-      }
-      if (suspicious.length > 0) {
-        this.notificationService.showError(
-          `Les notes des copies ${suspicious.join(', ')} sont négatives ou dépassent le maximum: elles restent à valider.`, 'Erreur');
-      }
+      this.applyImportedGrades(grades);
 
       const uploadFormData = new FormData();
       this.userService.addTokens(uploadFormData);
@@ -570,11 +616,9 @@ export class PdfManagementDialogComponent {
       uploadFormData.append('file', finalZipFile);
       uploadFormData.append('grades', JSON.stringify(grades));
       uploadFormData.append('questions', 'true');
-      // with no csv there is nothing to fill the grades with, so ask the
-      // server to read what was written on the pages instead
-      if (this.readGrades) {
-        uploadFormData.append('read_grades', 'true');
-      }
+      // the server reads the grades off the pages it was sent, for every copy
+      // the csv did not already give a grade for
+      uploadFormData.append('read_grades', this.readGrades ? 'true' : 'false');
 
       this.percentageDone = 0;
       this.info = 'Uploading (4/4)';
@@ -586,6 +630,7 @@ export class PdfManagementDialogComponent {
               this.percentageDone = data.total ? Math.round(100 * data.loaded / data.total) : 0
             } else if (data.type === HttpEventType.Response) {
               if (data.ok) {
+                this.reportSkippedQuestions(data.body);
                 this.notificationService.showSuccess('Fichiers remplacés avec succès!', 'Succès');
                 this.dialogRef.close({hasUploadedZip: true});
               } else {

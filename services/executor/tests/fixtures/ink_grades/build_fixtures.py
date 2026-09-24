@@ -198,7 +198,23 @@ FIXTURES = [
 # silently absorbed.
 KNOWN_MISSES = {
     "ink_two_clusters": "the 9 is read as a 7 with high confidence",
+    "raster_circled_decimal": "the decimal point is lost once the ink is pixels",
+    "raster_two_clusters": "the 9 is read as a 7, as in the annotated page",
 }
+
+# Fixtures that are also kept flattened, to exercise the colour path: the
+# annotations are burned into the page and removed, which is what "flatten
+# annotations" on export produces. The ink is real ink, it has simply stopped
+# being vector.
+FLATTENED = {
+    "ink_circled_single": "a circled digit recovered from pixels",
+    "ink_decimal_half": "a decimal that survives flattening",
+    "ink_over_matricule": "ink crossing the band the matricule was erased from",
+    "ink_busy_page": "one small coloured mark among 58",
+    "ink_circled_decimal": "a quarter point, which the colour path loses",
+    "freetext_grade": "a typed grade flattens to black: colour cannot see it",
+}
+FLATTEN_DPI = 200
 
 
 def source_path(reference: str, roots) -> str:
@@ -317,6 +333,73 @@ def matches_source(fixture_path: str, source, page_index: int) -> float:
     return float(np.abs(as_array(reference) - as_array(rebuilt)).mean())
 
 
+def flattened_page(source_path: str):
+    """The fixture with its annotations burned in and then dropped.
+
+    The colour path has to find the grade among the pixels of a page whose
+    print is black and whose marks are not. Flattening a fixture is the only
+    way to produce that from copies that all arrived annotated, and the ink
+    stays the ink a teacher actually drew.
+    """
+    with pymupdf.open(source_path) as doc:
+        page = doc[0]
+        upright = pymupdf.open()
+        upright.insert_pdf(doc, from_page=0, to_page=0)
+        upright[0].set_rotation(0)
+        pixmap = upright[0].get_pixmap(dpi=FLATTEN_DPI, annots=True)
+
+        out = pymupdf.open()
+        new = out.new_page(width=page.mediabox.width, height=page.mediabox.height)
+        new.insert_image(
+            new.rect, stream=pixmap.tobytes("jpeg", jpg_quality=JPEG_QUALITY)
+        )
+        new.set_rotation(page.rotation)
+    out.set_metadata({})
+    out.xref_set_key(-1, "Info", "null")
+    return out
+
+
+def matricule_only_page(source_path: str):
+    """A page with nothing on it but a matricule, in colour, then flattened.
+
+    The printed box at the top of every page holds the student's own
+    handwriting, in the same pen as everything else they wrote, and it sits
+    exactly where graders put the grade. Found on a real ungraded copy, whose
+    matricule the colour path read as a grade of 4. The digits here are
+    invented, drawn in the band of an otherwise unmarked page.
+    """
+    with pymupdf.open(source_path) as doc:
+        page = doc[0]
+        x0, y0, x1, y1 = [
+            v * s
+            for v, s in zip(
+                matricule_box["exam"]["regular"],
+                (page.rect.width, page.rect.width, page.rect.height, page.rect.height),
+            )
+        ]
+        derotate = page.derotation_matrix
+        step = (x1 - x0) / 7
+        for index, digit in enumerate("2140874"):
+            left = x0 + index * step + step * 0.3
+            top = y0 + (y1 - y0) * 0.25
+            bottom = y0 + (y1 - y0) * 0.75
+            strokes = [
+                [(left, top), (left + step * 0.3, top), (left, bottom)],
+                [(left, bottom), (left + step * 0.3, bottom)],
+            ]
+            annot = page.add_ink_annot(
+                [
+                    [tuple(pymupdf.Point(p) * derotate) for p in stroke]
+                    for stroke in strokes
+                ]
+            )
+            annot.set_colors(stroke=(0.1, 0.15, 0.5))
+            annot.set_border(width=2)
+            annot.update()
+        doc.save(source_path + ".tmp", garbage=4, deflate=True)
+    return flattened_page(source_path + ".tmp")
+
+
 def _classifier(model=None):
     """The shipped LiteRT model, or a Keras file when one is named.
 
@@ -398,6 +481,63 @@ def build(out_dir, roots, check_only=False, model=None) -> int:
                 "modal": list(modal) if modal else None,
                 "known_miss": KNOWN_MISSES.get(name, False),
                 "note": note,
+            }
+        )
+
+    for source_name, note in FLATTENED.items():
+        source_file = os.path.join(out_dir, f"{source_name}.pdf")
+        if not os.path.exists(source_file):
+            continue
+        name = source_name.replace("ink_", "raster_").replace(
+            "freetext_", "raster_freetext_"
+        )
+        entry = next(
+            e for e in expected["fixtures"] if e["file"] == f"{source_name}.pdf"
+        )
+        doc = flattened_page(source_file)
+        if not check_only:
+            doc.save(os.path.join(out_dir, f"{name}.pdf"), garbage=4, deflate=True)
+        doc.close()
+        print(f"  ok   {name}: flattened from {source_name}")
+        expected["fixtures"].append(
+            {
+                "file": f"{name}.pdf",
+                "max_points": entry["max_points"],
+                # a typed annotation flattens to black text, which is the page
+                # print as far as colour is concerned: nothing to find
+                "expected": (
+                    None if source_name.startswith("freetext") else entry["expected"]
+                ),
+                "modal": entry["modal"],
+                "known_miss": KNOWN_MISSES.get(name, False),
+                "source": "raster",
+                "note": note,
+            }
+        )
+
+    blank = os.path.join(out_dir, "ink_no_annotation.pdf")
+    if os.path.exists(blank):
+        doc = matricule_only_page(blank)
+        if not check_only:
+            doc.save(
+                os.path.join(out_dir, "raster_matricule_only.pdf"),
+                garbage=4,
+                deflate=True,
+            )
+        doc.close()
+        os.unlink(blank + ".tmp")
+        print("  ok   raster_matricule_only: synthetic matricule, no grade")
+        expected["fixtures"].append(
+            {
+                "file": "raster_matricule_only.pdf",
+                "max_points": 9.0,
+                "expected": None,
+                "modal": [0.75, 0.10],
+                "known_miss": False,
+                "source": "raster",
+                "note": (
+                    "colour can be the student's own writing, not a grade"
+                ),
             }
         )
 

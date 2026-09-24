@@ -68,6 +68,11 @@
                 <div>{{ row.job_infos }}</div>
               </div>
             }
+            @if (row.auto_grade_running) {
+              <div class="reading-running" title="Le lecteur de notes travaille sur cette tâche">
+                Lecture des notes en cours
+              </div>
+            }
           </td>
         </ng-container>
 

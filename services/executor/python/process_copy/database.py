@@ -6,7 +6,6 @@ from rmn_common import auto_grade
 from rmn_common.status import Document_Status, Job_Status
 from utils.storage import Storage, ROOT_DIR
 from utils.clients import mongo_client
-from pymongo import ReturnDocument
 
 
 class Database:
@@ -46,7 +45,7 @@ class Database:
         question,
         basename,
         question_index=None,
-        grade=None
+        grade=None,
     ):
         if question_index is None:
             question_index = int(question[1:])  # 'Q1' -> index of 1
@@ -60,7 +59,7 @@ class Database:
                 "question": question,
                 "question_index": question_index,
                 "basename": basename,
-                "grade": grade
+                "grade": grade,
             }
         )
 
@@ -89,19 +88,12 @@ class Database:
         )
 
     def get_document(self, job_id, doc_index):
-        return self.documents_collection().find_one({
-            "job_id": job_id, "document_index": doc_index
-        })
+        return self.documents_collection().find_one(
+            {"job_id": job_id, "document_index": doc_index}
+        )
 
     def update_document(
-        self,
-        job_id,
-        doc_index,
-        grades,
-        status,
-        matricule,
-        time,
-        group
+        self, job_id, doc_index, grades, status, matricule, time, group
     ):
         try:
             # return updated doc
@@ -114,29 +106,30 @@ class Database:
                 set["grades"] = grades
             if group is not None:
                 set["group"] = group
-            return self.documents_collection().update_one(
-                {"job_id": job_id, "document_index": doc_index},
-                {"$set": set},
-            ).matched_count > 0
+            return (
+                self.documents_collection()
+                .update_one(
+                    {"job_id": job_id, "document_index": doc_index},
+                    {"$set": set},
+                )
+                .matched_count
+                > 0
+            )
         except Exception as e:
             print(f"An error occurred: {e}")
             raise
 
-    def update_document_grades(
-        self,
-        job_id,
-        doc_index,
-        grades
-    ):
+    def update_document_grades(self, job_id, doc_index, grades):
         # return updated doc
-        return self.documents_collection().update_one(
-            {"job_id": job_id, "document_index": doc_index},
-            {
-                "$set": {
-                    "grades": grades
-                }
-            },
-        ).matched_count > 0
+        return (
+            self.documents_collection()
+            .update_one(
+                {"job_id": job_id, "document_index": doc_index},
+                {"$set": {"grades": grades}},
+            )
+            .matched_count
+            > 0
+        )
 
     def get_job_max_questions(self, job_id):
         doc = self.eval_jobs_collection().find_one({"job_id": job_id})
@@ -148,10 +141,12 @@ class Database:
         # update alive time stamp
         self.eval_jobs_collection().update_one(
             {"job_id": job_id},
-            {"$set": {
-                "alive_time": dt.datetime.now(dt.UTC),
-                "max_questions": max_nb_question
-            }}
+            {
+                "$set": {
+                    "alive_time": dt.datetime.now(dt.UTC),
+                    "max_questions": max_nb_question,
+                }
+            },
         )
 
     def update_job_status_to_run(self, job_id, students_list, groups=None):
@@ -159,14 +154,11 @@ class Database:
         new_values = {
             "job_status": Job_Status.RUN.value,
             "alive_time": dt.datetime.now(dt.UTC),
-            "students_list": students_list
+            "students_list": students_list,
         }
         if groups is not None:
             new_values["groups"] = groups
-        self.eval_jobs_collection().update_one(
-            {"job_id": job_id},
-            {"$set": new_values}
-        )
+        self.eval_jobs_collection().update_one({"job_id": job_id}, {"$set": new_values})
         return self.eval_jobs_collection().find_one({"job_id": job_id})
 
     # def save_preview_image(self, src, job_id, document_index):
@@ -195,10 +187,15 @@ class Database:
         regular_template = self.mongo_database["template"].find_one(
             {"template_id": regular_template_id}
         )
-        regular_template_matricule_box = regular_template.get("matricule_box", None) if regular_template else None
+        regular_template_matricule_box = (
+            regular_template.get("matricule_box", None) if regular_template else None
+        )
 
-        return front_template_grade_box, front_template_matricule_box, regular_template_matricule_box
-
+        return (
+            front_template_grade_box,
+            front_template_matricule_box,
+            regular_template_matricule_box,
+        )
 
     def imwrite_png(self, name, img):
         if not os.path.exists("numbers"):
@@ -242,6 +239,7 @@ class Database:
             reading.reason,
             reading.source,
             reading.bbox,
+            confident=reading.confident,
         )
 
     def questions_to_read(self, job_id, question_index, run):

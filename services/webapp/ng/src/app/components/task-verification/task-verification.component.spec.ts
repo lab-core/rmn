@@ -388,3 +388,27 @@ describe('TaskVerificationComponent grade reading', () => {
     expect(exam.grade).toBe(8.5);
   });
 });
+
+describe('TaskVerificationComponent question reading state', () => {
+  let component: TaskVerificationComponent;
+
+  beforeEach(() => {
+    component = Object.create(TaskVerificationComponent.prototype) as TaskVerificationComponent;
+    component.currentQuestionIndex = '3';
+  });
+
+  it('reports on the question being corrected', () => {
+    component.autoGradeProgress = {'3': {pending: 0, running: 2, done: 8, graded: 0, total: 10}};
+    expect(component.readingStateForQuestion()).toContain('80 %');
+  });
+
+  it('leaves out the copies already graded by hand', () => {
+    component.autoGradeProgress = {'3': {pending: 0, running: 0, done: 15, graded: 2, total: 17}};
+    expect(component.readingStateForQuestion()).toContain('15/15');
+  });
+
+  it('says nothing when no reading has touched it', () => {
+    component.autoGradeProgress = {};
+    expect(component.readingStateForQuestion()).toBe('');
+  });
+});

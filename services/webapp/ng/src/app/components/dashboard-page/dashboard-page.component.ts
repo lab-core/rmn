@@ -117,10 +117,15 @@ export class DashboardPageComponent {
       this.task.job_status = resp.status;
       this.updateViewOnStatus();
       if (resp.job_infos) {
-        const message = 'Voici les nouvelles infos de la tâche: ' + resp.job_infos;
-        this.notificationService.showInfo(message, 'Infos');
+        // progress arrives here every few copies while the grades are being
+        // read, so it is shown on the page rather than as a toast per update
+        this.taskInfo = resp.job_infos;
+        if (!this.isProgress(resp.job_infos)) {
+          this.notificationService.showInfo(
+            'Voici les nouvelles infos de la tâche: ' + resp.job_infos, 'Infos');
+        }
       }
-      if (statusChanged || resp.job_infos) {
+      if (statusChanged || (resp.job_infos && !this.isProgress(resp.job_infos))) {
         this.loadTask();  // reload the counters (e.g. copies were added)
       }
     };
@@ -129,6 +134,56 @@ export class DashboardPageComponent {
 
   private onDocValidated: SocketHandler;
   private onJobStatus: SocketHandler;
+
+  // what the executor is doing right now, shown while it does it
+  taskInfo: string = '';
+  // how far the grade reading has got, per question index, from POST /job
+  autoGradeProgress: {[q: string]: {pending: number, running: number, done: number,
+                                    graded: number, total: number}} = {};
+
+  private readingOf(question: any) {
+    // The rows carry a 0-based index while the reading is keyed by the
+    // question number the rest of the system uses, so the name is what they
+    // are matched on: it says "Q3" and means it. Keying on the index showed
+    // every question the state of the one before it, and nothing on Q1.
+    const name: string = question?.name || '';
+    const match = /^Q(\d+)$/.exec(name);
+    return match ? this.autoGradeProgress[match[1]] : undefined;
+  }
+
+  readingState(question: any): string {
+    const p = this.readingOf(question);
+    if (!p || !p.total) {
+      return '';
+    }
+    // a copy the teacher has already graded is never read, so it is counted
+    // out loud rather than left to make the total look short
+    const toRead = p.total - p.graded;
+    const skipped = p.graded ? ` (${p.graded} déjà notée${p.graded > 1 ? 's' : ''})` : '';
+    if (p.running) {
+      const percent = toRead ? Math.round(100 * p.done / toRead) : 100;
+      return `Lecture en cours : ${percent} %${skipped}`;
+    }
+    if (p.pending) {
+      return `Lecture à faire : ${p.done}/${toRead}${skipped}`;
+    }
+    return `Notes lues : ${p.done}/${toRead}${skipped}`;
+  }
+
+  readingClass(question: any): string {
+    const p = this.readingOf(question);
+    if (!p || !p.total) {
+      return '';
+    }
+    if (p.running) {
+      return 'reading-running';
+    }
+    return p.pending ? 'reading-waiting' : 'reading-done';
+  }
+
+  isProgress(info: string): boolean {
+    return typeof info === 'string' && info.includes('%');
+  }
 
   public ngOnDestroy(): void {
     // remove this page's socket listeners (only these) and leave the room so
@@ -214,6 +269,7 @@ export class DashboardPageComponent {
   public async getTask() {
     this.task = await this.tasksService.getTaskById(this.taskId);
     this.taskStats = this.task.statistics_for_students;
+    this.autoGradeProgress = this.task.auto_grade_progress || {};
     if (this.task.copies_errors) {
         const cleanedInfos = this.task.copies_errors.slice(1, -1).replace(/['",]/g, '');
         this.task.copies_errors = cleanedInfos.split(/(?<=[.?!])\s+/).map(err => err.trim());

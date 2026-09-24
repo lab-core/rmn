@@ -30,7 +30,8 @@ describe('PdfManagementDialogComponent', () => {
         { provide: DocumentsService, useValue: {} },
         { provide: MAT_DIALOG_DATA, useValue: {
           jobId: 'job', index: '1', jobName: 'Exam', nPagesPerQuestion: [['Q1', 2]],
-          nMaxPointsPerQuestion: new Map([['Q1', 10]]), bonusEnabledMap: new Map(), examsList: [], offlineCopies: new Map(),
+          nMaxPointsPerQuestion: new Map([['Q1', 10], ['Q2', 12]]), bonusEnabledMap: new Map(),
+          examsList: [], allExamsList: [], offlineCopies: new Map(),
         } },
       ],
     });
@@ -114,5 +115,70 @@ describe('PdfManagementDialogComponent', () => {
     expect(doc.getPageCount()).toBe(1);
     const bytes = await doc.save();
     expect(bytes.length).toBeGreaterThan(500);
+  });
+
+  // The dialog is opened from the correction screen of one question, but the
+  // zip sent back carries whatever was exported -- often every question -- and
+  // so does its csv. Matching only the selected question dropped the rest on
+  // the floor and warned about the indices it could not place.
+  it('grades copies of every question of the task, not only the selected one', () => {
+    const q1: any = { document_index: 0, question: 'Q1', status: 'TO VALIDATE' };
+    const q2: any = { document_index: 1, question: 'Q2', status: 'TO VALIDATE' };
+    component.data.examsList = [q1];            // the question being corrected
+    component.data.allExamsList = [q1, q2];     // the whole task
+
+    component.applyImportedGrades({ 0: 8.5, 1: 11 });
+
+    expect(q1.grade).toBe(8.5);
+    expect(q1.status).toBe('VALIDATED');
+    expect(q2.grade).toBe(11);
+    expect(q2.status).toBe('VALIDATED');
+    expect(notification.showWarning).not.toHaveBeenCalled();
+  });
+
+  it('holds back a grade that is negative or above its question maximum', () => {
+    const q1: any = { document_index: 0, question: 'Q1', status: 'TO VALIDATE' };
+    const q2: any = { document_index: 1, question: 'Q2', status: 'TO VALIDATE' };
+    component.data.allExamsList = [q1, q2];
+
+    component.applyImportedGrades({ 0: 12, 1: -1, 7: 5 });
+
+    // Q1 is out of 10, Q2 out of 12
+    expect(q1.status).toBe('TO VALIDATE');
+    expect(q2.status).toBe('TO VALIDATE');
+    expect(notification.showError).toHaveBeenCalledWith(
+      jasmine.stringContaining('0, 1'), 'Erreur');
+    expect(notification.showWarning).toHaveBeenCalledWith(
+      jasmine.stringContaining('7'), 'Attention');
+  });
+
+  it('names the questions the server refused to replace', () => {
+    component.reportSkippedQuestions({ response: 'OK', skipped_questions: ['Q2', 'Q3'] });
+    expect(notification.showWarning).toHaveBeenCalledWith(
+      jasmine.stringContaining('Q2, Q3'), 'Attention');
+
+    notification.showWarning.calls.reset();
+    // an upload that wrote everything it carried says nothing
+    component.reportSkippedQuestions({ response: 'OK', skipped_questions: [] });
+    component.reportSkippedQuestions({ response: 'OK' });
+    expect(notification.showWarning).not.toHaveBeenCalled();
+  });
+
+  // A Q3 share link lists Q3's copies and nothing else, so the pages of the
+  // other questions in the zip have nowhere to be split back to. They were
+  // dropped here, before the upload -- which is why the server, which only
+  // ever saw Q3, had nothing to refuse.
+  it('says a question of the zip has no copies reachable from this link', () => {
+    component.data.allExamsList = [
+      { document_index: 0, question: 'Q3' },
+      { document_index: 1, question: 'Q3' },
+    ];
+
+    expect(component.copiesOfQuestion('Q3').length).toBe(2);
+    expect(notification.showWarning).not.toHaveBeenCalled();
+
+    expect(component.copiesOfQuestion('Q1')).toEqual([]);
+    expect(notification.showWarning).toHaveBeenCalledWith(
+      jasmine.stringContaining('Q1'), 'Attention');
   });
 });

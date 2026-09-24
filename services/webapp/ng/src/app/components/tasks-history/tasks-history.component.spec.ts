@@ -164,4 +164,39 @@ describe('TasksHistoryComponent', () => {
     expect(socket.socket.handlers['job_status']).toBeUndefined();
     expect(socket.leave).toHaveBeenCalled();
   });
+
+  // /jobs is only read when the page loads, and a reading is over in seconds,
+  // so the row has to learn about one from the events it already receives.
+  // The handlers are instance properties, so a real component is needed.
+  it('marks a task while its grades are being read, and clears it after', () => {
+    const task: any = { job_id: 'j1', job_name: 'T', job_status: 'VALIDATION' };
+    component.tasksList = [task] as any;
+
+    (component as any).onJobStatus(JSON.stringify({
+      job_id: 'j1', status: 'VALIDATION',
+      job_infos: 'Lecture des notes de Q1 : 40/57 (70 %)',
+    }));
+    expect(task.auto_grade_running).toBeTrue();
+
+    (component as any).onDocumentReady(JSON.stringify({ job_id: 'j1' }));
+    expect(task.auto_grade_running).toBeFalse();
+  });
+
+  it('does not mark a task for progress that is not a reading', () => {
+    const task: any = { job_id: 'j2', job_name: 'T', job_status: 'RETRY' };
+    component.tasksList = [task] as any;
+
+    (component as any).onJobStatus(JSON.stringify({
+      job_id: 'j2', status: 'RETRY', job_infos: 'Erreur: a.pdf a 1 page manquante.',
+    }));
+    expect(task.auto_grade_running).toBeFalsy();
+
+    // a percentage alone says "something is working", not "grades are being
+    // read": any other long step could report one the same way
+    (component as any).onJobStatus(JSON.stringify({
+      job_id: 'j2', status: 'RETRY', job_infos: 'Découpage des copies : 3/8 (38 %)',
+    }));
+    expect(task.auto_grade_running).toBeFalsy();
+  });
+
 });

@@ -5,10 +5,12 @@ __pycache__/
 venv*/
 *.egg-info/
 
-# real graded copies used to measure the grade reader: student names,
-# matricules, e-mail addresses and grades. Only the redacted fixtures under
-# services/executor/tests/fixtures/ink_grades belong in the repository.
+# real graded copies and their notes, used to measure the grade reader:
+# student names, matricules, e-mail addresses and grades. Only the redacted
+# fixtures under services/executor/tests/fixtures/ink_grades belong in the
+# repository.
 examples/
+notes*.csv
 
 # Local secrets — never commit
 .env

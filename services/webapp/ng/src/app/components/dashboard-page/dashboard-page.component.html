@@ -5,6 +5,9 @@
   <div class="task-container">
     <div class="task-header">
       <h1>{{ taskName }}</h1>
+      @if (taskInfo) {
+        <div class="task-progress" id="task-progress">{{ taskInfo }}</div>
+      }
     </div>
     @if (!disableButtons) {
 <div class="select-index-container">
@@ -48,7 +51,11 @@
                 {{ question.name }}
               </div> -->
             </td>
-            <td>{{ question.validatedCount }} / {{ question.count }}</td>
+            <td>{{ question.validatedCount }} / {{ question.count }}
+              @if (readingState(question)) {
+                <div [ngClass]="'reading-state ' + readingClass(question)">{{ readingState(question) }}</div>
+              }
+            </td>
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
             <td>{{ question.stdDev | number:'1.2-2' }}</td>
             <td>
