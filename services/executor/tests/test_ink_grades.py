@@ -9,6 +9,8 @@ reproduces them.
 import json
 import os
 
+import cv2
+import numpy as np
 import pymupdf
 import pytest
 
@@ -76,13 +78,29 @@ def test_a_page_without_annotations_reports_nothing_not_zero(classifier):
     assert reading.confidence == 0.0
 
 
+def _gray_page(path, dpi=300, shape=(2550, 3300)):
+    """The page as the recogniser wants it, rendered without poppler.
+
+    ``recognize.gray_images`` goes through pdf2image, which needs poppler in
+    the PATH; CI has none, and this guard is the one test that must not be
+    skipped there.
+    """
+    with pymupdf.open(path) as doc:
+        pixmap = doc[0].get_pixmap(dpi=dpi)
+    image = np.frombuffer(pixmap.samples, np.uint8).reshape(
+        pixmap.height, pixmap.width, pixmap.n
+    )
+    gray = cv2.cvtColor(image[:, :, :3], cv2.COLOR_RGB2GRAY)
+    if gray.shape != (shape[1], shape[0]):
+        gray = cv2.resize(gray, shape)
+    return gray
+
+
 def test_the_fixtures_carry_no_readable_matricule(classifier):
     """Guards the redaction: a rebuilt fixture must not leak a student id."""
     for entry in EXPECTED:
         path = os.path.join(FIXTURE_DIR, entry["file"])
-        grays = recognize.gray_images(
-            path, pages=[0], dpi=300, straighten=False, shape=(2550, 3300)
-        )
+        grays = [_gray_page(path)]
         found, _, _ = recognize.find_matricule(
             grays,
             matricule_box["exam"]["regular"],
