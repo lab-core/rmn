@@ -580,6 +580,14 @@ UNMEASURED_CEILING = 0.90
 # question nobody graded it is how a correction becomes a phantom grade.
 NO_PRIOR_CEILING = 0.50
 LOW_MAX_POINTS = 3.0
+# A question that is not itself a bonus can still carry a few bonus points
+# inside it, so a grade may sit a little above the maximum -- the correction
+# screen already accepts that and warns about it. The allowance stays small:
+# its job is to keep rejecting a misread, and doubling the maximum would let
+# "85" through on a question out of 12.
+BONUS_HEADROOM_RATIO = 0.25
+BONUS_HEADROOM_MIN = 1.0
+BONUS_HEADROOM_MAX = 3.0
 
 
 def _median_centre(centres):
@@ -649,25 +657,54 @@ def learn_modal_positions(candidates_by_question, rounds: int = 3):
     return modal
 
 
+def grade_ceiling(max_points: Optional[float]) -> Optional[float]:
+    """The highest grade a question can plausibly carry.
+
+    Bonus points inside an ordinary question mean the maximum is not a hard
+    ceiling; the allowance is deliberately a fraction of it rather than a
+    multiple, because the same bound is what rejects a misread.
+    """
+    if max_points is None:
+        return None
+    headroom = min(
+        max(BONUS_HEADROOM_MIN, BONUS_HEADROOM_RATIO * max_points),
+        BONUS_HEADROOM_MAX,
+    )
+    return max_points + headroom
+
+
 def _bounded(readings, max_points):
     """The best reading that fits the question, repairing a misplaced dot.
 
-    Mirrors what ``recognize.grade`` does for the cover-page table: a number
-    above the maximum usually means the decimal point was missed, so it is
-    divided down and its decimals re-fitted before being given up on.
+    A value above the maximum but within the bonus allowance is kept and
+    reported, so that a genuine bonus is not thrown away; ``over`` says so, and
+    the caller lowers its confidence because the same shape of value is what a
+    misread produces.
+
+    Beyond that, the number usually means the decimal point was missed, so it
+    is divided down and its decimals re-fitted before being given up on --
+    what ``recognize.grade`` does for the cover-page table.
+
+    Returns:
+        ``(probability, value, over)`` or ``None``.
     """
     if max_points is None:
-        return readings[0] if readings else None
+        return (readings[0][0], readings[0][1], False) if readings else None
+
+    ceiling = grade_ceiling(max_points)
     for probability, value in readings:
         if value <= max_points + 1e-6:
-            return probability, value
+            return probability, value, False
+    for probability, value in readings:
+        if value <= ceiling + 1e-6:
+            return probability, value, True
     for probability, value in readings:
         repaired = value
-        while repaired > max_points + 1e-6:
+        while repaired > ceiling + 1e-6:
             repaired = repaired / 10
         repaired = recognize.correct_decimals(repaired)
-        if 0 <= repaired <= max_points + 1e-6:
-            return probability * 0.5, repaired
+        if 0 <= repaired <= ceiling + 1e-6:
+            return probability * 0.5, repaired, repaired > max_points + 1e-6
     return None
 
 
@@ -719,13 +756,18 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
             if parsed is None:
                 continue
             value, denominator = parsed
-            if max_points is not None and value > max_points + 1e-6:
+            ceiling = grade_ceiling(max_points)
+            if ceiling is not None and value > ceiling + 1e-6:
                 continue
+            over_max = max_points is not None and value > max_points + 1e-6
             if denominator is not None and max_points is not None:
                 if abs(denominator - max_points) > 1e-6:
                     continue  # a sub-question mark, not the grade
             confidence = 1.0
             reason = "ok"
+            if over_max:
+                # a bonus inside the question, or a misread that looks like one
+                confidence = min(confidence, UNMEASURED_CEILING)
             if ambiguous or bonus:
                 confidence = min(confidence, UNMEASURED_CEILING)
                 reason = "ambiguous" if ambiguous else "ok"
@@ -746,10 +788,12 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
         best = _bounded(readings, max_points)
         if best is None:
             continue
-        probability, value = best
+        probability, value, over_max = best
         # the truncated-fraction bonus of process_digits_combinations can push
         # the sum above 1; a confidence gate needs a real probability
         probability = min(1.0, max(0.0, probability))
+        if over_max:
+            probability = min(probability, UNMEASURED_CEILING)
 
         if candidate.denominator_strokes:
             den = read_number(

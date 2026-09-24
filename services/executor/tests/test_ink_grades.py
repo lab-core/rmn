@@ -204,7 +204,7 @@ def test_the_enclosing_circle_is_told_from_the_digits():
             assert ink_grades._contains(circle.bbox, stroke.bbox)
 
 
-def test_a_grade_above_the_maximum_is_refused(classifier):
+def test_a_grade_far_above_the_maximum_is_refused(classifier):
     """A reading the question cannot yield is dropped, not clamped."""
     entry = next(e for e in EXPECTED if e["file"] == "ink_circled_single.pdf")
     path = os.path.join(FIXTURE_DIR, entry["file"])
@@ -212,7 +212,42 @@ def test_a_grade_above_the_maximum_is_refused(classifier):
         page = doc[0]
         candidates = ink_grades.grade_candidates(page, 1.0)
         reading = ink_grades.pick(candidates, tuple(entry["modal"]), 1.0, classifier)
-    assert reading.grade is None or reading.grade <= 1.0
+    ceiling = ink_grades.grade_ceiling(1.0)
+    assert reading.grade is None or reading.grade <= ceiling
+
+
+@pytest.mark.parametrize(
+    "max_points, ceiling",
+    [(11.0, 13.75), (12.0, 15.0), (9.0, 11.25), (4.0, 5.0), (2.0, 3.0)],
+)
+def test_the_bonus_allowance_is_a_fraction_of_the_maximum(max_points, ceiling):
+    """A question can carry bonus points without being a bonus question.
+
+    The allowance has to be small: the same bound is what rejects a misread,
+    and doubling the maximum would let "85" through on a question out of 12.
+    """
+    assert ink_grades.grade_ceiling(max_points) == pytest.approx(ceiling)
+    assert ink_grades.grade_ceiling(None) is None
+
+
+def test_a_grade_just_over_the_maximum_is_kept_but_never_confident(classifier):
+    """12.5 out of 11 is a bonus; it is offered, and it is sent to review."""
+    candidate = ink_grades.Candidate(
+        bbox=(400, 60, 460, 90), text="u:12.5", page_size=(612.0, 792.0)
+    )
+    reading = ink_grades.pick([candidate], (0.7, 0.1), 11.0, classifier)
+
+    assert reading.grade == 12.5
+    assert reading.confidence <= ink_grades.UNMEASURED_CEILING
+
+
+def test_a_grade_beyond_the_allowance_is_still_refused(classifier):
+    candidate = ink_grades.Candidate(
+        bbox=(400, 60, 460, 90), text="u:85", page_size=(612.0, 792.0)
+    )
+    reading = ink_grades.pick([candidate], (0.7, 0.1), 12.0, classifier)
+
+    assert reading.grade is None
 
 
 def test_a_reading_without_a_learned_position_is_never_confident(classifier):
