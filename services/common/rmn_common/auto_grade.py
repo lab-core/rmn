@@ -254,3 +254,40 @@ def distrust_suggestions(job_questions: Any, job_id: str, question_index: int) -
         },
     )
     return result.modified_count
+
+
+def queue_document(
+    eval_jobs: Any,
+    job_questions: Any,
+    job_id: str,
+    question_index: int,
+    document_index: int,
+) -> Optional[int]:
+    """Ask for one page to be read, without touching the rest of its question.
+
+    Grading inside the app saves one copy at a time, and re-reading a whole
+    question on every save would be absurd. The run is left where it is: this
+    joins the pass that is current rather than starting a new one.
+
+    Returns:
+        The run it was queued under, or ``None`` if the copy already has a
+        grade and there is nothing to read.
+    """
+    question_index = int(question_index)
+    run = current_run(eval_jobs, job_id, question_index)
+    if not run:
+        run = 1
+        eval_jobs.update_one(
+            {"job_id": job_id},
+            {"$set": {f"auto_grade_runs.{question_index}": run}},
+        )
+    result = job_questions.update_one(
+        {
+            "job_id": job_id,
+            "document_index": document_index,
+            "grade": None,
+            "status": {"$ne": Document_Status.VALIDATED.value},
+        },
+        {"$set": {"auto_grade_status": PENDING, "auto_grade_run": run}},
+    )
+    return run if result.modified_count else None

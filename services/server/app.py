@@ -1341,6 +1341,9 @@ def update_matricule():
         {"$set": {"matricule": matricule, "status": Document_Status.VALIDATED.value}}
     )
 
+    # The teacher annotated the copy in the app and saved it without typing a
+    # grade: the mark they drew is on the page now, so read it. Only this copy
+    # is queued -- a save is one copy, not a question.
     user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
 
     sio.emit(
@@ -2003,6 +2006,32 @@ def update_document(validity):
               {"job_id": job_id, "rel_filepath": rel_filepath,
               "version_filepath": version_filepath, "version": version},
               "with %d annotation layers" % len(annotations))
+
+    # The teacher annotated the copy in the app and saved it without typing a
+    # grade: the mark they drew is on the page now, so read it. Only this copy
+    # is queued -- a save is one copy, not a question. The form is read
+    # directly because `grade` above is only bound when the request carried
+    # grades or a tag.
+    # the form is read directly: `grade` above is only bound when the request
+    # carried grades or a tag, and a name that may not exist in this scope is
+    # exactly what hid the last of these bugs
+    if (
+        "file" in request.files
+        and not request_form.get("grades")
+        and "question_index" in request_form
+        and doc_status != Document_Status.VALIDATED
+    ):
+        queued_run = auto_grade.queue_document(
+            db["eval_jobs"], db["job_questions"], job_id,
+            int(request_form["question_index"]), document_index,
+        )
+        if queued_run:
+            redis.rpush("job_queue", json.dumps({
+                "job_id": job_id,
+                "read_grades": True,
+                "question_index": int(request_form["question_index"]),
+                "run": queued_run,
+            }))
 
     user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
 

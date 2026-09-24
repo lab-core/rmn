@@ -108,6 +108,9 @@ def read_question(
 
     read = 0
     superseded = 0
+    # report about ten times whatever the size: every twentieth copy meant a
+    # fifteen-copy pass said nothing at all between starting and finishing
+    step = max(1, len(pending) // 10)
     try:
         while True:
             if stop is not None and stop():
@@ -133,7 +136,7 @@ def read_question(
             )
             db.save_auto_grade(job_id, index, run, reading)
             read += 1
-            if progress is not None and read % 20 == 0:
+            if progress is not None and read % step == 0:
                 progress(read, len(pending))
     finally:
         for doc in opened:

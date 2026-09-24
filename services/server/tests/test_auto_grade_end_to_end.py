@@ -247,3 +247,71 @@ def test_a_grade_sent_for_one_copy_leaves_the_others_to_be_read(
     pending = auto_grade.pending_documents(mongo["job_questions"], JOB, 3, run)
     # the copy the csv graded is left alone, the other two are read
     assert sorted(d["document_index"] for d in pending) == [1, 2]
+
+
+def test_grading_a_copy_in_the_app_asks_for_its_mark_to_be_read(
+    client, app_module_fixture, login, user_factory
+):
+    """Annotating in the viewer and saving without typing a grade.
+
+    The mark is on the page by then, so it is read -- and only that copy is
+    queued, because a save is one copy and re-reading the whole question on
+    every save would be absurd.
+    """
+    mongo = app_module_fixture.mongo["RMN"]
+    redis = app_module_fixture.redis
+    user_factory("alice")
+    token = login("alice")
+    make_job(mongo)
+
+    response = client.post(
+        "/document/update",
+        data={
+            "job_id": JOB,
+            "document_index": 1,
+            "question_index": 3,
+            "status": Document_Status.TO_VALIDATE.value,
+            "token": token,
+            "file": (io.BytesIO(PDF_BYTES), "Bob_7654321_Q3.pdf"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 200
+
+    queued = [json.loads(i) for i in redis.lrange("job_queue", 0, -1)]
+    reading = [item for item in queued if item.get("read_grades")]
+    assert len(reading) == 1
+    assert reading[0]["question_index"] == 3
+
+    run = auto_grade.current_run(mongo["eval_jobs"], JOB, 3)
+    pending = auto_grade.pending_documents(mongo["job_questions"], JOB, 3, run)
+    assert [d["document_index"] for d in pending] == [1], "only the saved copy"
+
+
+def test_typing_a_grade_in_the_app_asks_for_nothing(
+    client, app_module_fixture, login, user_factory
+):
+    """The teacher has said what it is worth; there is nothing left to read."""
+    mongo = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    token = login("alice")
+    make_job(mongo)
+
+    client.post(
+        "/document/update",
+        data={
+            "job_id": JOB,
+            "document_index": 1,
+            "question_index": 3,
+            "grades": "8.5",
+            "status": Document_Status.VALIDATED.value,
+            "token": token,
+            "file": (io.BytesIO(PDF_BYTES), "Bob_7654321_Q3.pdf"),
+        },
+        content_type="multipart/form-data",
+    )
+
+    queued = [
+        json.loads(i) for i in app_module_fixture.redis.lrange("job_queue", 0, -1)
+    ]
+    assert not [item for item in queued if item.get("read_grades")]
