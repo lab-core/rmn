@@ -69,7 +69,7 @@ def test_box_candidates_are_tried_by_probability_then_drawn():
     digits = [(None, [(0.9, 7)]), (None, [(0.9, 3), (0.1, 4)])]
     assert [n for _, n in recognize.process_digits_combinations(digits, dot=1)] == [7.5]
     digits = [(None, [(0.9, 7)]), (None, [(0.9, 3)]), (None, [(0.9, 3)])]
-    recognize.random.seed(3)
+    random.seed(3)
     assert recognize.process_digits_combinations(digits, dot=1)[0][1] in (7.25, 7.75)
     # no dot: whole numbers pass through, best first
     digits = [(None, [(0.6, 1), (0.4, 7)]), (None, [(0.9, 0)])]

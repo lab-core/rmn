@@ -1,6 +1,9 @@
 __pycache__/
 .DS_Store
-**front_page**
+# the generated cover page and the directory the server builds it in --
+# not the source that builds them, which this used to swallow whole
+templates/front_page.pdf
+services/server/front_page_temp/
 .idea/**
 venv*/
 *.egg-info/

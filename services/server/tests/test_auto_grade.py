@@ -10,6 +10,7 @@ import datetime
 import json
 
 from rmn_common import auto_grade
+from service.documents import start_reading_grades
 from rmn_common.status import Document_Status
 
 HEADERS = {"X-Admin-Key": "test-admin-key"}
@@ -108,7 +109,7 @@ def test_a_pass_is_queued_per_question_with_its_run(client, app_module_fixture):
     redis = app_module_fixture.redis
     make_reading_job(mongo, questions=(3, 5))
 
-    app_module_fixture.start_reading_grades(JOB, [3, 5])
+    start_reading_grades(JOB, [3, 5])
 
     queued = [json.loads(item) for item in redis.lrange("job_queue", 0, -1)]
     assert [item["question_index"] for item in queued] == [3, 5]
@@ -124,8 +125,8 @@ def test_a_second_upload_of_a_question_overtakes_the_first(client, app_module_fi
     redis = app_module_fixture.redis
     make_reading_job(mongo)
 
-    app_module_fixture.start_reading_grades(JOB, [3])
-    app_module_fixture.start_reading_grades(JOB, [3])
+    start_reading_grades(JOB, [3])
+    start_reading_grades(JOB, [3])
 
     queued = [json.loads(item) for item in redis.lrange("job_queue", 0, -1)]
     assert [item["run"] for item in queued] == [1, 2]
@@ -137,7 +138,7 @@ def test_a_confirmed_grade_is_not_queued_for_re_reading(client, app_module_fixtu
     make_reading_job(mongo)
     add_question(mongo, 1, status=Document_Status.VALIDATED, grade=8.0)
 
-    app_module_fixture.start_reading_grades(JOB, [3])
+    start_reading_grades(JOB, [3])
 
     run = auto_grade.current_run(mongo["eval_jobs"], JOB, 3)
     pending = auto_grade.pending_documents(mongo["job_questions"], JOB, 3, run)
@@ -221,7 +222,7 @@ def test_a_grade_in_the_csv_does_not_call_off_the_whole_reading(
         {"$set": {"grade": 7.0, "status": Document_Status.VALIDATED.value}},
     )
 
-    app_module_fixture.start_reading_grades(JOB, [3])
+    start_reading_grades(JOB, [3])
 
     run = auto_grade.current_run(mongo["eval_jobs"], JOB, 3)
     queued = auto_grade.pending_documents(mongo["job_questions"], JOB, 3, run)

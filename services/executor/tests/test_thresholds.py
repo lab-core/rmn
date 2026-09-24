@@ -4,7 +4,7 @@ to the model and the known confusions."""
 import cv2
 import numpy as np
 
-from process_copy import recognize
+from process_copy import digits, recognize
 
 
 def two_digits(bridge=None):
@@ -88,7 +88,7 @@ class FramingClassifier:
 
 
 def test_digit_probabilities_are_averaged_over_the_framing_margins(monkeypatch):
-    monkeypatch.setattr(recognize, "digit_margins", [0.1, 0.25])
+    monkeypatch.setattr(digits, "digit_margins", [0.1, 0.25])
     gray = np.full((60, 40), 255, np.uint8)
     gray[10:50, 15:25] = 0
     thresh = recognize.get_clean_thresh(gray)

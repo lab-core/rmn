@@ -3,6 +3,7 @@
 import datetime as dt
 import json
 import os
+from service import job_cleanup
 
 
 def _now():
@@ -214,7 +215,7 @@ def test_delete_old_jobs_sweeps_by_age_and_owner(app_module_fixture, job_factory
     open(csv, "w").close()
     app_module_fixture.redis.lpush("job_queue", json.dumps({"job_id": "old-a"}))
 
-    assert app_module_fixture.delete_old_jobs(30, user_id="alice") == 1
+    assert job_cleanup.delete_old_jobs(30, user_id="alice") == 1
 
     assert sorted(j["job_id"] for j in mongo["eval_jobs"].find()) == ["new-a", "old-b"]
     assert mongo["job_documents"].count_documents({"job_id": "old-a"}) == 0
@@ -222,7 +223,7 @@ def test_delete_old_jobs_sweeps_by_age_and_owner(app_module_fixture, job_factory
     assert not os.path.exists(csv)
     assert _queue(app_module_fixture) == []
 
-    assert app_module_fixture.delete_old_jobs(0) == 2
+    assert job_cleanup.delete_old_jobs(0) == 2
     assert mongo["eval_jobs"].count_documents({}) == 0
 
 
