@@ -36,6 +36,12 @@
             <th mat-header-cell *matHeaderCellDef mat-sort-header> Statut de la tâche </th>
             <td mat-cell *matCellDef="let row">
               {{row.info}} <span class="dot" [ngStyle]="{'background-color': statusColors[row.job_status]}"></span>
+              @if (row.job_status === JobStatus.ERROR && row.job_infos?.length) {
+                <button mat-icon-button class="error-info-button" color="warn" title="Voir l'erreur"
+                        aria-label="Voir l'erreur" (click)="openErrorInfoDialog(row)">
+                  <mat-icon>info</mat-icon>
+                </button>
+              }
             </td>
           </ng-container>
 

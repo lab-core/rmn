@@ -41,9 +41,9 @@ def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, lat
         f.write("\\renewcommand{\\widthratio}{%.2f}\n" % width_plot_ratio)
 
     averages = np.average(all_notes, axis=1)
-    # the boxplots live in TMP_DIR: referenced relative to it, since pdflatex
-    # (openin_any=p) refuses absolute paths even inside the working directory
-    boxplots = [os.path.relpath(b, TMP_DIR) if os.path.isabs(b) else b for b in boxplots]
+    # pdflatex (openin_any=p) only reads files below its working directory, by
+    # a relative path without "..": boxplots made elsewhere are copied in
+    boxplots = [local_copy(b, TMP_DIR) for b in boxplots]
     with open(TMP_DIR.joinpath("stats.tex"), "w") as f:
         for i in range(n_questions):
             f.write(latex_line.format("%s (/ %d)" % (question_names[i][1:], totals[i]),
@@ -58,6 +58,17 @@ def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, lat
     TEX_DIR = Path(latex_dir).resolve()
     fpdf = create_tex_pdf(TEX_DIR.joinpath("main.tex"), TMP_DIR)
     return TMP_DIR.joinpath(fpdf)
+
+
+def local_copy(path, tmp_dir):
+    """Return ``path`` relative to ``tmp_dir``, copying the file in when it lives outside."""
+    if not os.path.isabs(path):
+        return path
+    path = Path(path).resolve()
+    if not path.is_relative_to(tmp_dir):
+        shutil.copy(path, tmp_dir.joinpath(path.name))
+        path = tmp_dir.joinpath(path.name)
+    return os.path.relpath(path, tmp_dir)
 
 
 def create_tex_pdf(latex_file, tmp_dir, latex_cmd="pdflatex", timeout=5):
