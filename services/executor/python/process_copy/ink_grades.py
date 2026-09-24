@@ -77,6 +77,13 @@ VINCULUM_MIN_WIDTH = 0.6
 TEXT_PREFIX = re.compile(r"^\s*[A-Za-z]{1,3}\s*:\s*")
 TEXT_GRADE = re.compile(r"^\s*(\d+(?:[.,]\d+)?)\s*(?:/\s*(\d+(?:[.,]\d+)?)\s*)?$")
 
+# Above this, a reading is good enough to offer as a prefilled value; below,
+# it goes to the teacher unfilled. Measured over 257 real graded pages: at 0.90
+# the reader fills 95% of them with 98.6% precision on the batch it was tuned
+# on and 100% on the other one, while 0.95 buys 0.3 points of precision for 18
+# points of coverage.
+AUTO_GRADE_MIN_CONFIDENCE = 0.90
+
 PDF_ANNOT_FREE_TEXT = 2
 PDF_ANNOT_INK = 15
 
@@ -164,6 +171,16 @@ class Reading:
     source: str = "none"
     bbox: Optional[Tuple[float, float, float, float]] = None
     n_candidates: int = 0
+
+    @property
+    def confident(self) -> bool:
+        """Good enough to offer as more than a guess.
+
+        The reading carries this rather than the database asking, so that the
+        threshold stays with the reader and ``database`` need not import it --
+        that import closed a cycle through ``recognize``.
+        """
+        return self.reason == "ok" and self.confidence >= AUTO_GRADE_MIN_CONFIDENCE
 
 
 # --------------------------------------------------------------- page input --
@@ -754,12 +771,6 @@ def matricule_region(page_size: Tuple[float, float]) -> Tuple[float, ...]:
 
 
 # ---------------------------------------------------------------- selection --
-# Above this, a reading is good enough to offer as a prefilled value; below,
-# it goes to the teacher unfilled. Measured over 257 real graded pages: at 0.90
-# the reader fills 95% of them with 98.6% precision on the batch it was tuned
-# on and 100% on the other one, while 0.95 buys 0.3 points of precision for 18
-# points of coverage.
-AUTO_GRADE_MIN_CONFIDENCE = 0.90
 MIN_UNAMBIGUOUS = 5
 # grades live in the margin at the top or the right of the page
 TOP_BAND = 0.6

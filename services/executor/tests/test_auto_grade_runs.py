@@ -122,7 +122,28 @@ def test_a_reading_is_stored_beside_the_grade_not_in_it(db):
     assert stored["auto_grade_source"] == "ink"
     assert stored["auto_grade_status"] == "DONE"
     assert stored["grade"] is None
-    assert stored["status"] == Document_Status.TO_VALIDATE.value
+
+
+def test_a_confident_reading_shows_as_high_accuracy(db):
+    """The status is how the confidence reaches the screen.
+
+    The tiles, the validate button and the score box all colour HIGH_ACCURACY
+    blue and TO_VALIDATE red. Writing only the auto_grade fields left every
+    copy red however sure the reader was.
+    """
+    add_question(db, 0)
+    add_question(db, 1)
+    run = db.bump_auto_grade_run(JOB, 3)
+
+    db.save_auto_grade(JOB, 0, run, reading(confidence=0.97))
+    db.save_auto_grade(JOB, 1, run, reading(confidence=0.4))
+
+    sure = db.questions_collection().find_one({"job_id": JOB, "document_index": 0})
+    unsure = db.questions_collection().find_one({"job_id": JOB, "document_index": 1})
+    assert sure["status"] == Document_Status.HIGH_ACCURACY.value
+    assert unsure["status"] == Document_Status.TO_VALIDATE.value
+    # neither is a grade until a human says so
+    assert sure["grade"] is None and unsure["grade"] is None
 
 
 def test_nothing_found_is_recorded_as_nothing(db):
@@ -270,3 +291,77 @@ def test_a_pass_can_be_abandoned(db, graded_question):
     )
 
     assert result["read"] == 0
+
+
+# ------------------------------------------- when the readings prove wrong --
+def test_a_question_whose_readings_keep_missing_is_dropped(db):
+    """Different people grade different questions, each writing grades their
+    own way, so a question the reader has misjudged keeps misjudging it."""
+    from rmn_common import auto_grade
+
+    for index in range(8):
+        add_question(db, index)
+    run = db.bump_auto_grade_run(JOB, 3)
+    for index in range(8):
+        db.save_auto_grade(JOB, index, run, reading(grade=7.5))
+
+    questions = db.questions_collection()
+    # five copies confirmed, four of them not what the reader said
+    for index, human in enumerate([2.0, 3.0, 4.0, 5.0, 7.5]):
+        questions.update_one(
+            {"job_id": JOB, "document_index": index}, {"$set": {"grade": human}}
+        )
+
+    confirmed, mismatched = auto_grade.feedback(questions, JOB, 3)
+    assert (confirmed, mismatched) == (5, 4)
+    assert auto_grade.unreliable(questions, JOB, 3)
+
+    dropped = auto_grade.drop_suggestions(questions, JOB, 3)
+
+    assert dropped == 3  # the three nobody has confirmed yet
+    for index in range(5):
+        kept = questions.find_one({"job_id": JOB, "document_index": index})
+        assert kept["grade"] is not None  # the human's answers are untouched
+    for index in range(5, 8):
+        cleared = questions.find_one({"job_id": JOB, "document_index": index})
+        assert cleared["auto_grade"] is None
+        assert cleared["auto_grade_reason"] == "unreliable"
+        assert cleared["status"] == Document_Status.TO_VALIDATE.value
+
+
+def test_a_question_the_reader_gets_right_keeps_its_suggestions(db):
+    from rmn_common import auto_grade
+
+    for index in range(6):
+        add_question(db, index)
+    run = db.bump_auto_grade_run(JOB, 3)
+    for index in range(6):
+        db.save_auto_grade(JOB, index, run, reading(grade=7.5))
+    questions = db.questions_collection()
+    for index in range(5):
+        questions.update_one(
+            {"job_id": JOB, "document_index": index}, {"$set": {"grade": 7.5}}
+        )
+
+    assert auto_grade.feedback(questions, JOB, 3) == (5, 0)
+    assert not auto_grade.unreliable(questions, JOB, 3)
+
+
+def test_a_couple_of_disagreements_are_not_enough(db):
+    """A teacher overriding a grade is ordinary; only a pattern counts."""
+    from rmn_common import auto_grade
+
+    for index in range(3):
+        add_question(db, index)
+    run = db.bump_auto_grade_run(JOB, 3)
+    for index in range(3):
+        db.save_auto_grade(JOB, index, run, reading(grade=7.5))
+    questions = db.questions_collection()
+    for index in range(3):
+        questions.update_one(
+            {"job_id": JOB, "document_index": index}, {"$set": {"grade": 1.0}}
+        )
+
+    # all three disagree, but three is below the minimum to judge on
+    assert auto_grade.feedback(questions, JOB, 3) == (3, 3)
+    assert not auto_grade.unreliable(questions, JOB, 3)

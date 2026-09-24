@@ -21,6 +21,12 @@ from pymongo import ReturnDocument
 
 from rmn_common.status import Document_Status
 
+# How a question's readings are judged once a human starts confirming them.
+# Questions of one exam are often graded by different people, each with their
+# own way of writing a grade, so this is per question and never per job.
+MIN_FEEDBACK = 5
+MAX_MISMATCH_RATE = 0.4
+
 PENDING = "PENDING"
 RUNNING = "RUNNING"
 DONE = "DONE"
@@ -119,8 +125,20 @@ def store_reading(
     reason: str,
     source: str,
     bbox: Optional[List[float]] = None,
+    confident: bool = False,
 ) -> bool:
     """Record what a page was read as, if the pass may still speak for it.
+
+    A confident reading also moves the document to ``HIGH_ACCURACY``, which is
+    what the rest of the app already means by "the machine read this and the
+    teacher should glance at it" -- the copy tiles, the validate button and the
+    score box all colour it blue, against red for one still to be worked out.
+    Without it every copy stayed ``TO_VALIDATE`` and the confidence was
+    invisible.
+
+    Args:
+        confident: Whether the caller considers the reading good enough to
+            offer as more than a guess; the threshold lives with the reader.
 
     Returns:
         True when the reading was stored; False when the pass has been
@@ -141,6 +159,9 @@ def store_reading(
                 "auto_grade_source": source,
                 "auto_grade_bbox": list(bbox) if bbox else None,
                 "auto_grade_status": DONE,
+                **(
+                    {"status": Document_Status.HIGH_ACCURACY.value} if confident else {}
+                ),
             }
         },
     )
@@ -162,3 +183,72 @@ def projection(document: Dict) -> Dict:
         # the reader has not reached yet
         "auto_grade_status": document.get("auto_grade_status"),
     }
+
+
+def feedback(job_questions: Any, job_id: str, question_index: int):
+    """How the readings of one question compare with the grades humans gave.
+
+    Only documents a human has already validated count, and only those the
+    reader had offered a value for: everything else says nothing either way.
+
+    Returns:
+        ``(confirmed, mismatched)``.
+    """
+    judged = list(
+        job_questions.find(
+            {
+                "job_id": job_id,
+                "question_index": int(question_index),
+                "grade": {"$ne": None},
+                "auto_grade": {"$ne": None},
+            },
+            {"grade": 1, "auto_grade": 1},
+        )
+    )
+    mismatched = sum(
+        1 for d in judged if abs(float(d["grade"]) - float(d["auto_grade"])) > 1e-6
+    )
+    return len(judged), mismatched
+
+
+def unreliable(job_questions: Any, job_id: str, question_index: int) -> bool:
+    """True when this question's readings have been wrong too often.
+
+    A few disagreements are ordinary -- a teacher overrides a grade, a digit is
+    genuinely ambiguous. A steady stream of them means the reader has the wrong
+    idea of how this question was graded, and every remaining suggestion is
+    likely wrong in the same way.
+    """
+    confirmed, mismatched = feedback(job_questions, job_id, question_index)
+    return confirmed >= MIN_FEEDBACK and mismatched / confirmed > MAX_MISMATCH_RATE
+
+
+def drop_suggestions(job_questions: Any, job_id: str, question_index: int) -> int:
+    """Take back the readings nobody has confirmed yet, for one question.
+
+    The grades already confirmed are untouched -- they are the human's. What
+    goes is the offer on the copies still to come, so the teacher types them
+    instead of correcting a number that is probably wrong. Measured on a real
+    batch: on its worst question the reader was wrong on all five of the first
+    confirmations and would have gone on offering twelve more.
+
+    Returns:
+        How many suggestions were withdrawn.
+    """
+    result = job_questions.update_many(
+        {
+            "job_id": job_id,
+            "question_index": int(question_index),
+            "grade": None,
+            "auto_grade": {"$ne": None},
+        },
+        {
+            "$set": {
+                "auto_grade": None,
+                "auto_grade_reason": "unreliable",
+                # the copy is back to being one a human has to work out
+                "status": Document_Status.TO_VALIDATE.value,
+            }
+        },
+    )
+    return result.modified_count
