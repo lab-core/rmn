@@ -43,7 +43,7 @@ describe('CsvUpdateDialogComponent', () => {
   it('uploads the selected file for the job and closes on OK', async () => {
     component.onFileSelected({ target: { files: [csv] } });
 
-    const req = http.expectOne('/api/job/update/csv');
+    const req = http.expectOne('/api/jobs/update/csv');
     const form = req.request.body as FormData;
     expect(form.get('job_id')).toBe('job-1');
     expect(form.get('user_id')).toBe('alice');
@@ -57,13 +57,13 @@ describe('CsvUpdateDialogComponent', () => {
 
   it('reports a refused csv and keeps the dialog open', async () => {
     component.onFileSelected({ target: { files: [csv] } });
-    http.expectOne('/api/job/update/csv').flush({ response: 'Error: bad csv' });
+    http.expectOne('/api/jobs/update/csv').flush({ response: 'Error: bad csv' });
     await fixture.whenStable();
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('Erreur'), 'Erreur');
     expect(dialogRef.close).not.toHaveBeenCalled();
 
     component.onFileSelected({ target: { files: [csv] } });
-    http.expectOne('/api/job/update/csv').flush('boom', { status: 500, statusText: 'Error' });
+    http.expectOne('/api/jobs/update/csv').flush('boom', { status: 500, statusText: 'Error' });
     await fixture.whenStable();
     expect(notification.showError).toHaveBeenCalledTimes(2);
   });
@@ -73,10 +73,10 @@ describe('CsvUpdateDialogComponent', () => {
     Object.defineProperty(drop, 'dataTransfer', { value: { files: [csv] } });
     component.onDrop(drop);
     expect(drop.defaultPrevented).toBeTrue();
-    http.expectOne('/api/job/update/csv').flush({ response: 'OK' });
+    http.expectOne('/api/jobs/update/csv').flush({ response: 'OK' });
 
     component.onFileSelected({ target: { files: [] } });
-    http.expectNone('/api/job/update/csv');
+    http.expectNone('/api/jobs/update/csv');
 
     const over = new DragEvent('dragover', { cancelable: true });
     component.onDragOver(over);

@@ -7,7 +7,7 @@ from context import mongo
 from service.user_service import Role, UserService
 
 
-bp = Blueprint("users", __name__)
+bp = Blueprint("users", __name__, url_prefix="/users")
 
 
 @bp.route("/login", methods=["POST"])

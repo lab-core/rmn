@@ -123,7 +123,7 @@ describe('DocumentsService', () => {
   it('reuses a fresh pdf source and refetches a stale or different version', async () => {
     spyOn(URL, 'createObjectURL').and.returnValue('blob:1');
     const pending = service.getPdfSource('job', 0, false);
-    const req = http.expectOne('/api/document/download');
+    const req = http.expectOne('/api/documents/download');
     expect(req.request.responseType).toBe('blob');
     expect((req.request.body as FormData).get('document_index')).toBe('0');
     req.flush(new Blob(['%PDF']));
@@ -132,7 +132,7 @@ describe('DocumentsService', () => {
     expect(source.index).toBe(0);
 
     expect(await service.getPdfSource('job', 0, false)).toBe(source);
-    http.expectNone('/api/document/download');
+    http.expectNone('/api/documents/download');
 
     expect(service.getAvailablePdfSource('job', 0, 2)).toBeUndefined();
     source.timestamp_min -= 60;
@@ -147,9 +147,9 @@ describe('DocumentsService', () => {
     local.save('job');  // what the browser kept from an earlier session
 
     const pending = service.downloadPdf('job', 1, true, 3);
-    http.expectOne('/api/document/download').flush(new Blob(['%PDF']));
+    http.expectOne('/api/documents/download').flush(new Blob(['%PDF']));
     await new Promise(resolve => setTimeout(resolve)); // the annotations request follows the download
-    const annotations = http.expectOne('/api/document/annotations');
+    const annotations = http.expectOne('/api/documents/annotations');
     expect((annotations.request.body as FormData).get('version')).toBe('3');
     annotations.flush({ last_version: 4, annotations: [{ id: 'server' }] });
 
@@ -164,7 +164,7 @@ describe('DocumentsService', () => {
   it('a negative version is requested as version 0', async () => {
     spyOn(URL, 'createObjectURL').and.returnValue('blob:3');
     const pending = service.downloadPdf('job', 1, false, -2);
-    const req = http.expectOne('/api/document/download');
+    const req = http.expectOne('/api/documents/download');
     expect((req.request.body as FormData).get('version')).toBe('0');
     expect((req.request.body as FormData).get('with_annotations')).toBe('true');
     req.flush(new Blob(['%PDF']));
@@ -174,7 +174,7 @@ describe('DocumentsService', () => {
   it('returns null when the download fails', async () => {
     spyOn(console, 'error');
     const pending = service.downloadPdf('job', 0, false);
-    http.expectOne('/api/document/download').flush(new Blob(), { status: 404, statusText: 'Not Found' });
+    http.expectOne('/api/documents/download').flush(new Blob(), { status: 404, statusText: 'Not Found' });
     expect(await pending).toBeNull();
   });
 
@@ -182,18 +182,18 @@ describe('DocumentsService', () => {
     spyOn(URL, 'createObjectURL').and.returnValues('blob:a', 'blob:b', 'blob:c');
     const revoke = spyOn(URL, 'revokeObjectURL');
     const first = service.getPdfSource('job-a', 7, false);
-    http.expectOne('/api/document/download').flush(new Blob(['a']));
+    http.expectOne('/api/documents/download').flush(new Blob(['a']));
     await first;
     // job B's document 7 is not job A's
     expect(service.getAvailablePdfSource('job-b', 7)).toBeUndefined();
     const second = service.getPdfSource('job-b', 7, false);
-    http.expectOne('/api/document/download').flush(new Blob(['b']));
+    http.expectOne('/api/documents/download').flush(new Blob(['b']));
     await second;
     expect(service.getAvailablePdfSource('job-a', 7).url).toBe('blob:a');
     expect(service.getAvailablePdfSource('job-b', 7).url).toBe('blob:b');
     // a refresh of job A's document 7 revokes the previous object URL
     const third = service.getPdfSource('job-a', 7, false, undefined, -1);  // older than -1 min: always refetched
-    http.expectOne('/api/document/download').flush(new Blob(['c']));
+    http.expectOne('/api/documents/download').flush(new Blob(['c']));
     await third;
     expect(revoke).toHaveBeenCalledWith('blob:a');
     expect(service.getAvailablePdfSource('job-a', 7).url).toBe('blob:c');
@@ -204,7 +204,7 @@ describe('DocumentsService', () => {
     spyOn(URL, 'revokeObjectURL');
     for (const index of [0, 1]) {
       const pending = service.downloadPdf('job', index, false);
-      http.expectOne('/api/document/download').flush(new Blob(['%PDF']));
+      http.expectOne('/api/documents/download').flush(new Blob(['%PDF']));
       await pending;
     }
 

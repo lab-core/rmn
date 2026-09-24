@@ -42,7 +42,7 @@ export class ValidationService {
 
     let response;
     try {
-        const promise = await this.http.post<any>(`${SERVER_URL}document/update`, formData).toPromise();
+        const promise = await this.http.post<any>(`${SERVER_URL}documents/update`, formData).toPromise();
         response = promise['response'];
     } catch (error) {
         console.error(error);
@@ -57,7 +57,7 @@ export class ValidationService {
     formdata.append('moodle_ind', (Number(moodle_ind)).toString());
     let response;
     try {
-      const promise = await this.http.post<any>(`${SERVER_URL}job/validate`, formdata).toPromise();
+      const promise = await this.http.post<any>(`${SERVER_URL}jobs/validate`, formdata).toPromise();
       response = promise['response'];
     } catch (error) {
       console.error(error);

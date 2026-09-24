@@ -76,7 +76,7 @@ def _touch(storage, rel):
 def test_q1_link_cannot_upload_a_file_for_another_question(client, shared_job):
     storage = shared_job.storage
     resp = client.post(
-        "/document/update",
+        "/documents/update",
         data=_q1(document_index="1", status="VALIDATED", file=_pdf("copy1_Q7.pdf")),
         content_type="multipart/form-data",
     )
@@ -91,7 +91,7 @@ def test_q1_link_can_upload_its_own_question(client, shared_job):
     os.makedirs(storage.abs_path("documents/j1/Q1/versions"), exist_ok=True)
 
     resp = client.post(
-        "/document/update",
+        "/documents/update",
         data=_q1(document_index="0", status="VALIDATED", file=_pdf("copy1_Q1.pdf")),
         content_type="multipart/form-data",
     )
@@ -106,7 +106,7 @@ def test_q1_link_can_upload_its_own_question(client, shared_job):
 
 def test_q1_link_cannot_grade_another_question(client, shared_job):
     resp = client.post(
-        "/document/update", data=_q1(document_index="1", status="VALIDATED", grades="3")
+        "/documents/update", data=_q1(document_index="1", status="VALIDATED", grades="3")
     )
     assert resp.status_code == 401
     q7 = shared_job.mongo["RMN"]["job_questions"].find_one(
@@ -121,7 +121,7 @@ def test_owner_cannot_escape_the_question_folder_through_the_filename(
     user_factory("alice")
     token = login("alice")
     resp = client.post(
-        "/document/update",
+        "/documents/update",
         data={
             "user_id": "alice",
             "token": token,
@@ -179,11 +179,11 @@ def test_replace_checks_the_scope_before_writing_the_grade(
 def test_q1_link_cannot_tag_another_question(client, shared_job):
     # /document/tag ignored the share-token scope
     questions = shared_job.mongo["RMN"]["job_questions"]
-    assert client.post("/document/tag", data=_q1(document_index="1", tag="doubt")).status_code == 401
+    assert client.post("/documents/tag", data=_q1(document_index="1", tag="doubt")).status_code == 401
     assert questions.find_one({"job_id": "j1", "document_index": 1}).get("tag") is None
-    assert client.post("/document/tag", data=_q1(document_index="0", tag="doubt")).status_code == 200
+    assert client.post("/documents/tag", data=_q1(document_index="0", tag="doubt")).status_code == 200
     assert questions.find_one({"job_id": "j1", "document_index": 0})["tag"] == "doubt"
-    assert client.post("/document/tag", data=_q1(document_index="9", tag="doubt")).status_code == 404
+    assert client.post("/documents/tag", data=_q1(document_index="9", tag="doubt")).status_code == 404
 
 
 def test_owner_can_save_the_grades_of_a_whole_copy(client, shared_job, user_factory, login):
@@ -192,14 +192,14 @@ def test_owner_can_save_the_grades_of_a_whole_copy(client, shared_job, user_fact
     user_factory("alice")
     token = login("alice")
     base = {"job_id": "j1", "user_id": "alice", "token": token, "document_index": "0", "status": "VALIDATED"}
-    resp = client.post("/document/update", data={**base, "grades": json.dumps([1, 2.5, 0, 0, 0, 0, 3])})
+    resp = client.post("/documents/update", data={**base, "grades": json.dumps([1, 2.5, 0, 0, 0, 0, 3])})
     assert resp.status_code == 200, resp.data
     doc = shared_job.mongo["RMN"]["job_documents"].find_one({"job_id": "j1", "document_index": 0})
     assert doc["grades"] == [1.0, 2.5, 0.0, 0.0, 0.0, 0.0, 3.0]
     assert doc["status"] == "VALIDATED"
 
-    assert client.post("/document/update", data={**base, "grades": "not json"}).status_code == 400
-    assert client.post("/document/update", data={**base, "document_index": "9", "grades": "[1]"}).status_code == 404
+    assert client.post("/documents/update", data={**base, "grades": "not json"}).status_code == 400
+    assert client.post("/documents/update", data={**base, "document_index": "9", "grades": "[1]"}).status_code == 404
 
 
 def test_replace_names_the_questions_of_the_zip_it_refuses(

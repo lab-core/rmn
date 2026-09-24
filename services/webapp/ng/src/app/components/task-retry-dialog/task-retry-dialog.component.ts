@@ -174,7 +174,7 @@ export class TaskRetryDialogComponent implements OnInit {
     this.userService.addTokens(formData);
     formData.append('job_id', job_id);
 
-    const requestURL = `${SERVER_URL}job/ignore`;
+    const requestURL = `${SERVER_URL}jobs/ignore`;
     this.http.post(requestURL, formData).pipe(first()).subscribe(
         (data) => {
             this.notifyService.showSuccess('Reprise de la tâche', 'SUCCÈS');
@@ -202,7 +202,7 @@ export class TaskRetryDialogComponent implements OnInit {
     this.uploading = true;
     this.uploadProgress = 0;
 
-    const sub = this.http.post(`${SERVER_URL}job/continue`, formData, {
+    const sub = this.http.post(`${SERVER_URL}jobs/continue`, formData, {
       reportProgress: true,
       observe: 'events'
     }).subscribe(event => {
@@ -231,7 +231,7 @@ export class TaskRetryDialogComponent implements OnInit {
     formData.append('job_id', job_id);
     formData.append('file', filename);
 
-    const requestURL = `${SERVER_URL}incorrect/download`;
+    const requestURL = `${SERVER_URL}jobs/incorrect/download`;
 
     const sub = this.http.post(requestURL, formData, { responseType: 'blob', reportProgress: true, observe: "events" }).subscribe(
         (data) => {
@@ -267,7 +267,7 @@ export class TaskRetryDialogComponent implements OnInit {
       this.userService.addTokens(formData);
       formData.append('job_id', job_id);
       formData.append('file', filename);
-      return this.http.post(`${SERVER_URL}incorrect/download`, formData, { responseType: 'blob' }).pipe(
+      return this.http.post(`${SERVER_URL}jobs/incorrect/download`, formData, { responseType: 'blob' }).pipe(
         first(),
         map((data: Blob) => ({ filename, data })),
         catchError(() => of({ filename, data: undefined as Blob | undefined })),

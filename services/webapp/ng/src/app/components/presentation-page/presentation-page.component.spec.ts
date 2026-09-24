@@ -57,7 +57,7 @@ describe('PresentationPageComponent', () => {
   it('refuses to start with a missing file', () => {
     component.createPresentation();
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('toutes les étapes'), 'ERREUR');
-    http.expectNone('/api/front_page');
+    http.expectNone('/api/frontpage');
   });
 
   it('posts the files and suffix, and recovers from a server error', () => {
@@ -68,7 +68,7 @@ describe('PresentationPageComponent', () => {
     component.createPresentation();
     expect(component.disabled).toBeTrue();
 
-    const req = http.expectOne('/api/front_page');
+    const req = http.expectOne('/api/frontpage');
     const form = req.request.body as FormData;
     expect(form.get('suffix')).toBe('H26');
     expect((form.get('moodle_zip') as File).name).toBe('moodle.zip');

@@ -114,7 +114,7 @@ describe('TaskRetryDialogComponent', () => {
   it('ignore and continue asks the server to resume and closes with IGNORED', () => {
     create();
     component.ignoreAndContinue();
-    const req = http.expectOne('/api/job/ignore');
+    const req = http.expectOne('/api/jobs/ignore');
     expect((req.request.body as FormData).get('job_id')).toBe('job');
     req.flush({ response: 'OK' });
     expect(notification.showSuccess).toHaveBeenCalled();
@@ -127,7 +127,7 @@ describe('TaskRetryDialogComponent', () => {
     component.retryJob();
     expect(component.uploading).toBeTrue();
 
-    const req = http.expectOne('/api/job/continue');
+    const req = http.expectOne('/api/jobs/continue');
     const form = req.request.body as FormData;
     expect((form.get('file0') as File).name).toBe('a.pdf');
     expect((form.get('file1') as File).name).toBe('b.pdf');
@@ -145,7 +145,7 @@ describe('TaskRetryDialogComponent', () => {
     create();
     component.selectedFiles = [pdf('a.pdf')];
     component.retryJob();
-    http.expectOne('/api/job/continue').flush('boom', { status: 500, statusText: 'Error' });
+    http.expectOne('/api/jobs/continue').flush('boom', { status: 500, statusText: 'Error' });
     expect(component.uploading).toBeFalse();
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('téléversement'), 'ERREUR');
     expect(dialogRef.close).not.toHaveBeenCalled();
@@ -154,7 +154,7 @@ describe('TaskRetryDialogComponent', () => {
   it('downloading a rejected copy requests it as a blob', () => {
     create();
     component.downloadFile('a.pdf');
-    const req = http.expectOne('/api/incorrect/download');
+    const req = http.expectOne('/api/jobs/incorrect/download');
     expect((req.request.body as FormData).get('file')).toBe('a.pdf');
     expect(req.request.responseType).toBe('blob');
     req.flush(new Blob(), { status: 404, statusText: 'Not Found' });
@@ -165,7 +165,7 @@ describe('TaskRetryDialogComponent', () => {
     create();
     component.filenames = ['a.pdf', 'b.pdf'];
     component.downloadAllAsZip();
-    const reqs = http.match('/api/incorrect/download');
+    const reqs = http.match('/api/jobs/incorrect/download');
     expect(reqs.length).toBe(2);
     reqs[0].flush(new Blob(['%PDF-a']));
     reqs[1].flush(new Blob(), { status: 404, statusText: 'Not Found' });

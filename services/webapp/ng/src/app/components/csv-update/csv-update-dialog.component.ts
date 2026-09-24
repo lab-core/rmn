@@ -64,7 +64,7 @@ export class CsvUpdateDialogComponent implements OnInit {
     formdata.append('csv', file);
 
     try {
-      const promise = await this.http.post(`${SERVER_URL}job/update/csv`, formdata).toPromise();
+      const promise = await this.http.post(`${SERVER_URL}jobs/update/csv`, formdata).toPromise();
       if (promise['response'] === 'OK') {
         this.notificationService.showSuccess('Fichier csv remplacé avec succès!', 'Succès');
         this.dialogRef.close();

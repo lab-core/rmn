@@ -20,7 +20,7 @@ def test_incorrect_download_blocks_traversal(client, user_factory, job_factory, 
         f.write("TOP SECRET")
 
     resp = client.post(
-        "/incorrect/download",
+        "/jobs/incorrect/download",
         data={"user_id": "alice", "token": token, "job_id": "job1", "file": "../../secret.txt"},
     )
     assert resp.status_code == 404
@@ -38,7 +38,7 @@ def test_incorrect_download_owner_gets_real_file(client, user_factory, job_facto
         f.write(b"REAL PDF BYTES")
 
     resp = client.post(
-        "/incorrect/download",
+        "/jobs/incorrect/download",
         data={"user_id": "alice", "token": token, "job_id": "job1", "file": "Etudiant_1.pdf"},
     )
     assert resp.status_code == 200
@@ -57,7 +57,7 @@ def test_incorrect_download_foreign_user_blocked(client, user_factory, job_facto
 
     bob_token = login("bob")
     resp = client.post(
-        "/incorrect/download",
+        "/jobs/incorrect/download",
         data={"user_id": "bob", "token": bob_token, "job_id": "job1", "file": "Etudiant_1.pdf"},
     )
     assert resp.status_code == 404
@@ -72,7 +72,7 @@ def test_continue_sanitizes_uploaded_filename(client, user_factory, job_factory,
     os.makedirs(_abs(app_module_fixture, "zips", "job1"), exist_ok=True)
 
     resp = client.post(
-        "/job/continue",
+        "/jobs/continue",
         data={
             "user_id": "alice",
             "token": token,

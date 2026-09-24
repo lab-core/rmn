@@ -216,7 +216,7 @@ describe('MatriculeVerificationComponent', () => {
     await create();
     component.updateMatricule();
     await settle();  // the request follows the duplicate check
-    const req = http.expectOne('/api/matricule/update');
+    const req = http.expectOne('/api/matricules/update');
     const form = req.request.body as FormData;
     expect(form.get('job_id')).toBe('job');
     expect(form.get('document_index')).toBe('0');
@@ -230,14 +230,14 @@ describe('MatriculeVerificationComponent', () => {
     component.currentMatriculeSelection = undefined;
     await component.updateMatricule();
     expect(notification.showWarning).toHaveBeenCalledWith(jasmine.any(String), 'Matricule manquante');
-    http.expectNone('/api/matricule/update');
+    http.expectNone('/api/matricules/update');
   });
 
   it('a failed update is reported and keeps the copy', async () => {
     await create();
     component.updateMatricule();
     await settle();
-    http.expectOne('/api/matricule/update').flush('boom', { status: 500, statusText: 'Error' });
+    http.expectOne('/api/matricules/update').flush('boom', { status: 500, statusText: 'Error' });
     await settle();
     expect(notification.showError).toHaveBeenCalledWith(jasmine.any(String), 'Erreur de validation');
     expect(component.currentCopy).toBe(0);
@@ -247,7 +247,7 @@ describe('MatriculeVerificationComponent', () => {
   it('deleting and restoring a copy updates its status on the server', async () => {
     await create();
     component.deletePdf();
-    let req = http.expectOne('/api/matricule/status/update');
+    let req = http.expectOne('/api/matricules/status/update');
     expect((req.request.body as FormData).get('status')).toBe('DELETED');
     req.flush({ response: 'OK' });
     await settle();
@@ -255,7 +255,7 @@ describe('MatriculeVerificationComponent', () => {
     expect(component.currentCopy).toBe(1);  // moved on
 
     component.restorePdf();
-    req = http.expectOne('/api/matricule/status/update');
+    req = http.expectOne('/api/matricules/status/update');
     expect((req.request.body as FormData).get('document_index')).toBe('1');
     expect((req.request.body as FormData).get('status')).toBe('TO VALIDATE');
     req.flush({ response: 'OK' });
@@ -301,7 +301,7 @@ describe('MatriculeVerificationComponent', () => {
     component.examsList[3].matricule = '2345678';  // same as copy 1, which is already TO VALIDATE
     const pending = component.updateStatusOfAllDuplicatedMatricules(2345678 as any);
     await settle();
-    const req = http.expectOne('/api/matricule/status/update');
+    const req = http.expectOne('/api/matricules/status/update');
     expect((req.request.body as FormData).get('document_index')).toBe('3');
     expect((req.request.body as FormData).get('status')).toBe('TO VALIDATE');
     req.flush({ response: 'OK' });

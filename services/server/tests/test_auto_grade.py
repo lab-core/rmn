@@ -153,7 +153,7 @@ def test_read_grades_queues_every_question_of_the_job(
     token = login("alice")
     make_reading_job(mongo, questions=(3, 5))
 
-    resp = client.post("/job/read_grades", data={"job_id": JOB, "token": token})
+    resp = client.post("/documents/read_grades", data={"job_id": JOB, "token": token})
 
     assert resp.status_code == 200
     assert resp.get_json(force=True)["questions"] == [3, 5]
@@ -172,7 +172,7 @@ def test_read_grades_can_be_limited_to_one_question(
     make_reading_job(mongo, questions=(3, 5))
 
     resp = client.post(
-        "/job/read_grades",
+        "/documents/read_grades",
         data={"job_id": JOB, "question_index": "5", "token": token},
     )
 
@@ -191,12 +191,12 @@ def test_read_grades_rejects_an_unreachable_job_and_a_bad_question(
     # the share-token guard runs first and answers 401 for anything it cannot
     # resolve to a job of this user, a missing job_id included; the handler's
     # own checks are the ones it lets through
-    missing = client.post("/job/read_grades", data={"job_id": "nope", "token": token})
+    missing = client.post("/documents/read_grades", data={"job_id": "nope", "token": token})
     bad = client.post(
-        "/job/read_grades",
+        "/documents/read_grades",
         data={"job_id": JOB, "question_index": "soon", "token": token},
     )
-    none = client.post("/job/read_grades", data={"token": token})
+    none = client.post("/documents/read_grades", data={"token": token})
 
     assert missing.status_code == 401
     assert none.status_code == 401
@@ -259,7 +259,7 @@ def test_progress_counts_a_copy_the_teacher_graded_as_done_not_as_owing(
         {"$set": {"auto_grade_status": auto_grade.RUNNING, "auto_grade_run": 1}},
     )
 
-    resp = client.post("/job", data={"job_id": JOB, "token": token})
+    resp = client.post("/jobs/info", data={"job_id": JOB, "token": token})
 
     progress = resp.get_json(force=True)["response"]["auto_grade_progress"]["3"]
     assert progress == {
@@ -291,7 +291,7 @@ def test_progress_says_nothing_about_a_question_no_reading_has_touched(
         {"$set": {"auto_grade_status": auto_grade.DONE, "auto_grade_run": 1}},
     )
 
-    resp = client.post("/job", data={"job_id": JOB, "token": token})
+    resp = client.post("/jobs/info", data={"job_id": JOB, "token": token})
 
     progress = resp.get_json(force=True)["response"]["auto_grade_progress"]
     assert list(progress) == ["3"]

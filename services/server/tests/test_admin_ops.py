@@ -57,7 +57,7 @@ def test_admin_change_password_needs_no_old_password(client, user_factory, login
     )
     assert resp.status_code == 200
     login("alice", "Reset123")
-    assert client.post("/login", data={"username": "alice", "password": "pass123"}).status_code == 404
+    assert client.post("/users/login", data={"username": "alice", "password": "pass123"}).status_code == 404
 
 
 def test_admin_delete_tokens(client, user_factory, login, app_module_fixture):

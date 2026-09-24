@@ -10,15 +10,15 @@ import pytest
 
 # (route, extra form fields) for the simple eval_jobs mutations
 SIMPLE_MUTATIONS = [
-    ("/job/update/bonus", {"bonus_enabled_map": '[["Q1", true]]'}),
-    ("/job/update/stats", {"statistics_for_students": "false"}),
-    ("/job/update/status", {"job_status": "ARCHIVED"}),
+    ("/jobs/update/bonus", {"bonus_enabled_map": '[["Q1", true]]'}),
+    ("/jobs/update/stats", {"statistics_for_students": "false"}),
+    ("/jobs/update/status", {"job_status": "ARCHIVED"}),
 ]
 
 # routes with side effects; we only assert the security (foreign -> 404) here
 SIDE_EFFECT_MUTATIONS = [
-    ("/job/ignore", {}),
-    ("/job/validate", {}),
+    ("/jobs/ignore", {}),
+    ("/jobs/validate", {}),
 ]
 
 
@@ -64,7 +64,7 @@ def test_foreign_user_cannot_update_csv(client, user_factory, job_factory, login
         "job_id": "job1",
         "csv": (io.BytesIO(b"Matricule,Nom complet\n1,A B\n"), "notes.csv"),
     }
-    resp = client.post("/job/update/csv", data=data, content_type="multipart/form-data")
+    resp = client.post("/jobs/update/csv", data=data, content_type="multipart/form-data")
     assert resp.status_code == 404
 
 
@@ -79,5 +79,5 @@ def test_foreign_user_cannot_add_copies(client, user_factory, job_factory, login
         "job_id": "job1",
         "file": (io.BytesIO(b"%PDF-1.4\n"), "copie.pdf"),
     }
-    resp = client.post("/job/continue", data=data, content_type="multipart/form-data")
+    resp = client.post("/jobs/continue", data=data, content_type="multipart/form-data")
     assert resp.status_code == 404

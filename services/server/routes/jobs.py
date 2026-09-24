@@ -23,7 +23,7 @@ from service.job_cleanup import delete_job
 from utils.uploads import save_csv, temp_upload_path
 
 
-bp = Blueprint("jobs", __name__)
+bp = Blueprint("jobs", __name__, url_prefix="/jobs")
 
 
 @bp.route("/evaluate", methods=["POST"])
@@ -170,7 +170,7 @@ def evaluate(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/jobs", methods=["POST"])
+@bp.route("", methods=["POST"])
 @cross_origin()
 @verify_token()
 def get_jobs(user_id):
@@ -222,7 +222,7 @@ def get_jobs(user_id):
     return Response(response=json.dumps({"response": resp}), status=200)
 
 
-@bp.route("/job", methods=["POST"])
+@bp.route("/info", methods=["POST"])
 @cross_origin()
 @verify_share_token()
 def get_job():
@@ -266,7 +266,7 @@ def get_job():
     return Response(response=json.dumps({"response": resp}), status=200)
 
 
-@bp.route("/job/share", methods=["POST"])
+@bp.route("/share", methods=["POST"])
 @cross_origin()
 @verify_token()
 def share_job(user_id):
@@ -329,7 +329,7 @@ def share_job(user_id):
     return Response(response=json.dumps({"response": resp}), status=200)
 
 
-@bp.route("/job/unshare", methods=["POST"])
+@bp.route("/unshare", methods=["POST"])
 @cross_origin()
 @verify_token()
 def unshare_job(user_id):
@@ -360,7 +360,7 @@ def unshare_job(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/job/update/bonus", methods=["POST"])
+@bp.route("/update/bonus", methods=["POST"])
 @cross_origin()
 @verify_token()
 def bonus_job(user_id):
@@ -434,7 +434,7 @@ def _resplit_rejected_copies(job_id):
     return len(rejected)
 
 
-@bp.route("/job/update/settings", methods=["POST"])
+@bp.route("/update/settings", methods=["POST"])
 @cross_origin()
 @verify_token()
 def update_job_settings(user_id):
@@ -533,7 +533,7 @@ def update_job_settings(user_id):
     return Response(response=json.dumps({"response": "OK", "flagged": flagged, "resplit": resplit}), status=200)
 
 
-@bp.route("/job/update/stats", methods=["POST"])
+@bp.route("/update/stats", methods=["POST"])
 @cross_origin()
 @verify_token()
 def stats_job(user_id):
@@ -570,7 +570,7 @@ def stats_job(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/job/update/csv", methods=["POST"])
+@bp.route("/update/csv", methods=["POST"])
 @cross_origin()
 @verify_token()
 def csv_job(user_id):
@@ -621,7 +621,7 @@ def csv_job(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/job/update/status", methods=["POST"])
+@bp.route("/update/status", methods=["POST"])
 @cross_origin()
 @verify_token()
 def status_job(user_id):
@@ -667,7 +667,7 @@ def status_job(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/job/ignore", methods=["POST"])
+@bp.route("/ignore", methods=["POST"])
 @cross_origin()
 @verify_token()
 def ignore_job(user_id):
@@ -706,7 +706,7 @@ def ignore_job(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/job/continue", methods=["POST"])
+@bp.route("/continue", methods=["POST"])
 @cross_origin()
 @verify_token()
 def continue_job(user_id):
@@ -777,7 +777,7 @@ def continue_job(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/job/validate", methods=["POST"])
+@bp.route("/validate", methods=["POST"])
 @cross_origin()
 @verify_token()
 def validate(user_id):
@@ -839,7 +839,7 @@ def validate(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/job/delete", methods=["POST"])
+@bp.route("/delete", methods=["POST"])
 @cross_origin()
 @verify_token()
 def delete(user_id):
@@ -879,7 +879,7 @@ def delete(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
-@bp.route("/job/batch/info", methods=["POST"])
+@bp.route("/batch/info", methods=["POST"])
 @cross_origin()
 @verify_share_token(question=False, matricule=False)  # just token all
 def get_info_zip():

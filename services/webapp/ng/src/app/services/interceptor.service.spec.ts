@@ -83,8 +83,8 @@ describe('ErrorInterceptor', () => {
 
   it('does not redirect a share-link visitor on 404', async () => {
     user.loggued = () => false;
-    const pending = firstValueFrom(http.get('/api/job')).catch(e => e);
-    backend.expectOne('/api/job').flush({ response: 'not here' }, { status: 404, statusText: 'Not Found' });
+    const pending = firstValueFrom(http.get('/api/jobs/info')).catch(e => e);
+    backend.expectOne('/api/jobs/info').flush({ response: 'not here' }, { status: 404, statusText: 'Not Found' });
 
     expect((await pending).status).toBe(404);
     expect(toastr.error).toHaveBeenCalledWith('not here', 'Erreur !', {});
@@ -93,8 +93,8 @@ describe('ErrorInterceptor', () => {
 
   it('reads the message out of a Blob error body', async () => {
     const body = new Blob([JSON.stringify({ Error: 'Fichier introuvable' })], { type: 'application/json' });
-    const pending = firstValueFrom(http.get('/api/file/download', { responseType: 'blob' })).catch(e => e);
-    backend.expectOne('/api/file/download').flush(body, { status: 404, statusText: 'Not Found' });
+    const pending = firstValueFrom(http.get('/api/files/download', { responseType: 'blob' })).catch(e => e);
+    backend.expectOne('/api/files/download').flush(body, { status: 404, statusText: 'Not Found' });
     await pending;
     // Blob.text() resolves a few tasks later than the error itself
     for (let i = 0; i < 50 && toastr.error.calls.count() === 0; i++) {
@@ -186,8 +186,8 @@ describe('FreshHttpInterceptor', () => {
 
   it('never retries a POST that changes state, even on a network error', fakeAsync(() => {
     let error: any;
-    const toEvaluate = (r: any) => r.url === '/api/evaluate';
-    http.post('/api/evaluate', new FormData()).subscribe({ error: e => error = e });
+    const toEvaluate = (r: any) => r.url === '/api/jobs/evaluate';
+    http.post('/api/jobs/evaluate', new FormData()).subscribe({ error: e => error = e });
     backend.expectOne(toEvaluate).error(new ProgressEvent('error'), { status: 0 });
     tick(interceptor.delayMs);
     backend.expectNone(toEvaluate);
@@ -198,9 +198,9 @@ describe('FreshHttpInterceptor', () => {
     const post = (url: string) => new HttpRequest('POST', url, new FormData());
     expect(FreshHttpInterceptor.isRetryable(post('/api/jobs'))).toBeTrue();
     expect(FreshHttpInterceptor.isRetryable(post('/api//documents'))).toBeTrue();
-    expect(FreshHttpInterceptor.isRetryable(post('/api/document/update'))).toBeFalse();
+    expect(FreshHttpInterceptor.isRetryable(post('/api/documents/update'))).toBeFalse();
     expect(FreshHttpInterceptor.isRetryable(post('/api//documents/replace'))).toBeFalse();
-    expect(FreshHttpInterceptor.isRetryable(new HttpRequest('PUT', '/api/updateSaveVerifiedImages', {}))).toBeFalse();
+    expect(FreshHttpInterceptor.isRetryable(new HttpRequest('PUT', '/api/users/updateSaveVerifiedImages', {}))).toBeFalse();
     expect(FreshHttpInterceptor.isRetryable(new HttpRequest('GET', '/api/admin/executor'))).toBeTrue();
   });
 });

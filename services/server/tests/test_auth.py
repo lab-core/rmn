@@ -3,36 +3,36 @@
 
 def test_login_success_returns_token(client, user_factory):
     user_factory("alice", "pass123")
-    resp = client.post("/login", data={"username": "alice", "password": "pass123"})
+    resp = client.post("/users/login", data={"username": "alice", "password": "pass123"})
     assert resp.status_code == 200
     assert resp.get_json(force=True)["response"]["token"]
 
 
 def test_login_wrong_password(client, user_factory):
     user_factory("alice", "pass123")
-    resp = client.post("/login", data={"username": "alice", "password": "nope"})
+    resp = client.post("/users/login", data={"username": "alice", "password": "nope"})
     assert resp.status_code == 404
 
 
 def test_login_unknown_user(client, user_factory):
-    resp = client.post("/login", data={"username": "ghost", "password": "x"})
+    resp = client.post("/users/login", data={"username": "ghost", "password": "x"})
     assert resp.status_code == 404
     # same answer as a wrong password (and the same hash check behind it), so
     # neither the body nor the timing says whether the username exists
     user_factory("alice", "pass123")
-    wrong = client.post("/login", data={"username": "alice", "password": "x"})
+    wrong = client.post("/users/login", data={"username": "alice", "password": "x"})
     assert wrong.status_code == 404 and wrong.data == resp.data
 
 
 def test_login_missing_password(client, user_factory):
     user_factory("alice")
-    resp = client.post("/login", data={"username": "alice"})
+    resp = client.post("/users/login", data={"username": "alice"})
     assert resp.status_code == 400
 
 
 def test_protected_route_requires_token(client):
     resp = client.post(
-        "/job/update/stats",
+        "/jobs/update/stats",
         data={"job_id": "j", "statistics_for_students": "true"},
     )
     assert resp.status_code == 401
@@ -41,7 +41,7 @@ def test_protected_route_requires_token(client):
 def test_protected_route_rejects_invalid_token(client, user_factory):
     user_factory("alice")
     resp = client.post(
-        "/job/update/stats",
+        "/jobs/update/stats",
         data={
             "user_id": "alice",
             "token": "not-a-real-token",
@@ -65,7 +65,7 @@ def test_token_must_match_claimed_user(client, user_factory, login):
     alice_token = login("alice")
     # present alice's token but claim to be bob -> rejected
     resp = client.post(
-        "/job/update/stats",
+        "/jobs/update/stats",
         data={
             "user_id": "bob",
             "token": alice_token,
@@ -92,7 +92,7 @@ def test_fresh_token_accepted(client, user_factory, login, app_module_fixture):
     token = login("alice")
     _age_token(app_module_fixture, token, days=1)
     resp = client.post(
-        "/job/update/stats",
+        "/jobs/update/stats",
         data={"user_id": "alice", "token": token, "job_id": "j",
               "statistics_for_students": "true"},
     )
@@ -108,7 +108,7 @@ def test_expired_token_rejected_and_deleted(
     token = login("alice")
     _age_token(app_module_fixture, token, days=user_service.TOKEN_TTL_DAYS + 1)
     resp = client.post(
-        "/job/update/stats",
+        "/jobs/update/stats",
         data={"user_id": "alice", "token": token, "job_id": "j",
               "statistics_for_students": "true"},
     )
@@ -122,7 +122,7 @@ def test_token_without_timestamp_rejected(client, user_factory, app_module_fixtu
         {"token": "legacy", "username": "alice", "role": "Utilisateur"}
     )
     resp = client.post(
-        "/job/update/stats",
+        "/jobs/update/stats",
         data={"user_id": "alice", "token": "legacy", "job_id": "j",
               "statistics_for_students": "true"},
     )
@@ -181,7 +181,7 @@ def test_request_body_cap_returns_413(client, app_module_fixture, monkeypatch):
     app = app_module_fixture.app
     assert app.config["MAX_CONTENT_LENGTH"] == 5 * 1024**3  # default 5 GiB
     monkeypatch.setitem(app.config, "MAX_CONTENT_LENGTH", 1024)
-    resp = client.post("/login", data={"username": "a", "password": "x" * 4096})
+    resp = client.post("/users/login", data={"username": "a", "password": "x" * 4096})
     assert resp.status_code == 413
     assert resp.mimetype == "application/json"
     assert resp.get_json()["response"].startswith("Error")
@@ -201,7 +201,7 @@ def test_username_field_is_checked_even_with_user_id(client, user_factory, login
     user_factory("bob")
     token = login("bob")
     resp = client.put(
-        "/updateSaveVerifiedImages",
+        "/users/updateSaveVerifiedImages",
         data={"user_id": "bob", "username": "alice", "token": token, "saveVerifiedImages": "1"},
     )
     assert resp.status_code == 401

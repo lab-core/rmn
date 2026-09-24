@@ -75,7 +75,7 @@ describe('UserService', () => {
   it('login stores the session and logout clears it', async () => {
     const service = fresh();
     const pending = service.login('alice', 'pw');
-    const req = http.expectOne('/api/login');
+    const req = http.expectOne('/api/users/login');
     expect(req.request.method).toBe('POST');
     expect((req.request.body as FormData).get('username')).toBe('alice');
     expect((req.request.body as FormData).get('password')).toBe('pw');
@@ -143,7 +143,7 @@ describe('UserService', () => {
     const service = fresh();
 
     service.updateSaveVerifiedImagesValue(true).subscribe();
-    let req = http.expectOne('/api/updateSaveVerifiedImages');
+    let req = http.expectOne('/api/users/updateSaveVerifiedImages');
     expect(req.request.method).toBe('PUT');
     expect((req.request.body as FormData).get('saveVerifiedImages')).toBe('1');
     expect((req.request.body as FormData).get('username')).toBe('alice');
@@ -152,7 +152,7 @@ describe('UserService', () => {
     expect(service.saveVerifiedImages).toBeTrue();
 
     service.updateMoodleStructureInd(false).subscribe();
-    req = http.expectOne('/api/updateMoodleStructureInd');
+    req = http.expectOne('/api/users/updateMoodleStructureInd');
     expect((req.request.body as FormData).get('moodleStructureInd')).toBe('0');
     req.flush({ response: 'ok' });
     expect(service.moodleStructureInd).toBeFalse();
@@ -162,7 +162,7 @@ describe('UserService', () => {
     session();
     const service = fresh();
     service.signup('bob', 'S3cret', 'Utilisateur').subscribe();
-    const req = http.expectOne('/api/signup');
+    const req = http.expectOne('/api/users/signup');
     const form = req.request.body as FormData;
     expect(form.get('user_id')).toBe('alice');
     expect(form.get('username')).toBe('bob');

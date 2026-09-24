@@ -83,7 +83,7 @@ export class PresentationPageComponent implements OnInit {
       formdata.append('suffix', this.suffix);
       formdata.append('moodle_zip', this.copies);
       formdata.append('latex_front_page', this.latexFrontPage);
-      this.http.post(`${SERVER_URL}front_page`, formdata, { responseType: 'blob' }).pipe(first()).subscribe(
+      this.http.post(`${SERVER_URL}frontpage`, formdata, { responseType: 'blob' }).pipe(first()).subscribe(
         (data) => {
           // moodle.zip in data
           saveAs(data, this.copiesName);

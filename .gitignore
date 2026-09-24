@@ -6,6 +6,11 @@ templates/front_page.pdf
 services/server/front_page_temp/
 .idea/**
 venv*/
+
+# debug crops the recogniser writes beside itself when imaging.ignoreWrite is
+# false -- which a coverage run makes it, because that sets a trace function
+images/
+numbers/
 *.egg-info/
 
 # real graded copies and their notes, used to measure the grade reader:

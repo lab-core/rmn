@@ -38,7 +38,7 @@ describe('ValidationService', () => {
     const pending = service.validateDocument(
       'job', 3, file, 'Q2', 7.5, 10, 'VALIDATED', 2, [{ id: 1 }], 'ok');
 
-    const req = http.expectOne('/api/document/update');
+    const req = http.expectOne('/api/documents/update');
     expect(req.request.method).toBe('POST');
     const form = req.request.body as FormData;
     expect(form.get('user_id')).toBe('alice');
@@ -61,7 +61,7 @@ describe('ValidationService', () => {
     const pending = service.validateDocument(
       'job', 0, new File([''], 'c.pdf'), undefined, 0, 10, 'TO VALIDATE', undefined, undefined, undefined);
 
-    const req = http.expectOne('/api/document/update');
+    const req = http.expectOne('/api/documents/update');
     const form = req.request.body as FormData;
     expect(form.get('grades')).toBe('0');
     expect(form.has('question_index')).toBeFalse();
@@ -78,7 +78,7 @@ describe('ValidationService', () => {
     const pending = service.validateDocument(
       'job', 0, new File([''], 'c.pdf'), undefined, undefined, 10, 'VALIDATED', undefined, undefined, undefined);
 
-    http.expectOne('/api/document/update').flush({ response: 'nope' }, { status: 500, statusText: 'Error' });
+    http.expectOne('/api/documents/update').flush({ response: 'nope' }, { status: 500, statusText: 'Error' });
 
     expect(await pending).toBeUndefined();
     expect(console.error).toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe('ValidationService', () => {
 
   it('validateJob sends the moodle flag as 0/1', async () => {
     const pending = service.validateJob('job', true);
-    const req = http.expectOne('/api/job/validate');
+    const req = http.expectOne('/api/jobs/validate');
     const form = req.request.body as FormData;
     expect(form.get('job_id')).toBe('job');
     expect(form.get('moodle_ind')).toBe('1');
@@ -95,7 +95,7 @@ describe('ValidationService', () => {
     expect(await pending).toBe('OK');
 
     const again = service.validateJob('job', false);
-    const second = http.expectOne('/api/job/validate');
+    const second = http.expectOne('/api/jobs/validate');
     expect((second.request.body as FormData).get('moodle_ind')).toBe('0');
     second.flush({ response: 'OK' });
     await again;

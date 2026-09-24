@@ -7,10 +7,10 @@ from context import mongo, storage
 from service.template_service import TemplateService
 
 
-bp = Blueprint("templates", __name__)
+bp = Blueprint("templates", __name__, url_prefix="/templates")
 
 
-@bp.route("/template", methods=["POST"])
+@bp.route("", methods=["POST"])
 @cross_origin()
 @verify_token()
 def create_template(user_id):
@@ -18,7 +18,7 @@ def create_template(user_id):
     return TemplateService.create_user_template(request, db, storage)
 
 
-@bp.route("/user/template", methods=["POST"])
+@bp.route("/user", methods=["POST"])
 @cross_origin()
 @verify_token()
 def get_all_template_info(user_id):
@@ -26,7 +26,7 @@ def get_all_template_info(user_id):
     return TemplateService.get_all_template_info(request, db)
 
 
-@bp.route("/template/delete", methods=["POST"])
+@bp.route("/delete", methods=["POST"])
 @cross_origin()
 @verify_token()
 def delete_template(user_id):
@@ -34,7 +34,7 @@ def delete_template(user_id):
     return TemplateService.delete_template(user_id, request, db, storage)
 
 
-@bp.route("/template/info", methods=["POST"])
+@bp.route("/info", methods=["POST"])
 @cross_origin()
 @verify_token()
 def get_template_info(user_id):
@@ -42,7 +42,7 @@ def get_template_info(user_id):
     return TemplateService.get_template_info(user_id, request, db)
 
 
-@bp.route("/template/download", methods=["POST"])
+@bp.route("/download", methods=["POST"])
 @cross_origin()
 @verify_token()
 def download_template(user_id):
@@ -50,7 +50,7 @@ def download_template(user_id):
     return TemplateService.download_template_file(user_id, request, db, storage)
 
 
-@bp.route("/template/download/src", methods=["post"])
+@bp.route("/download/src", methods=["post"])
 @cross_origin()
 @verify_token()
 def download_template_source(user_id):
@@ -58,7 +58,7 @@ def download_template_source(user_id):
     return TemplateService.download_template_source(user_id, request, db)
 
 
-@bp.route("/template/modify", methods=["POST"])
+@bp.route("/modify", methods=["POST"])
 @cross_origin()
 @verify_token()
 def modify_template(user_id):

@@ -93,7 +93,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
       const formdata: FormData = new FormData();
       this.userService.addTokens(formdata);
       formdata.append('template_id', this.templateService.getId());
-       this.http.post(`${SERVER_URL}template/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
+       this.http.post(`${SERVER_URL}templates/download`, formdata, {responseType: 'blob'}).pipe(first()).subscribe(async data => {
           const file = new File([data], this.templateService.getName());
           this.templateService.setFile(file);
           await this.templateService.createNewTemplate(file);
@@ -193,7 +193,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
         }
 
         formdata.append('template_id', this.templateService.getId());
-        this.http.post<any>(`${SERVER_URL}template/modify`, formdata).pipe(first()).subscribe(
+        this.http.post<any>(`${SERVER_URL}templates/modify`, formdata).pipe(first()).subscribe(
             (data) => {
               this.disabled = true;
               this.showTemplateNotificationInfo();

@@ -64,14 +64,14 @@ describe('ChangePasswordDialogComponent', () => {
     component.attemptSave();
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('concordre'), 'Champs Non Égaux');
 
-    http.expectNone('/api/password');
+    http.expectNone('/api/users/password');
   });
 
   it('posts the change with the credentials and closes on success', () => {
     fill('old-pass', 'longenough1', 'longenough1');
     component.attemptSave();
 
-    const req = http.expectOne('/api/password');
+    const req = http.expectOne('/api/users/password');
     const form = req.request.body as FormData;
     expect(form.get('username')).toBe('alice');
     expect(form.has('token')).toBeFalse();
@@ -86,7 +86,7 @@ describe('ChangePasswordDialogComponent', () => {
   it('shows the server message when the old password is wrong', () => {
     fill('wrong', 'longenough1', 'longenough1');
     component.attemptSave();
-    http.expectOne('/api/password').flush(
+    http.expectOne('/api/users/password').flush(
       { response: 'Le mot de passe entré est incorrect!' }, { status: 500, statusText: 'Error' });
     expect(notification.showError).toHaveBeenCalledWith('Le mot de passe entré est incorrect!', 'Erreur');
     expect(dialogRef.close).not.toHaveBeenCalled();

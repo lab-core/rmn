@@ -73,7 +73,7 @@ describe('TaskFilesDialogComponent', () => {
     inputs()[2].value = '   ';
     component.checkInputBox('notes_csv_file', false);
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('nom de fichier'), 'ERREUR');
-    http.expectNone('/api/file/share');
+    http.expectNone('/api/files/share');
   });
 
   it('downloads through a share link carrying the chosen file name', async () => {
@@ -81,27 +81,27 @@ describe('TaskFilesDialogComponent', () => {
     const click = spyOn(HTMLAnchorElement.prototype, 'click');
 
     component.checkInputBox('zip_file', false, 1);
-    const req = http.expectOne('/api/file/share');
+    const req = http.expectOne('/api/files/share');
     const form = req.request.body as FormData;
     expect(form.get('job_id')).toBe('job');
     expect(form.get('file')).toBe('zip_file');
     expect(form.get('zip_index')).toBe('1');
-    req.flush({ response: { share_url: 'https://rmn/api/file/download?job_id=job&token=t' } });
+    req.flush({ response: { share_url: 'https://rmn/api/files/download?job_id=job&token=t' } });
     await settle();
 
     const anchor = fixture.nativeElement.querySelector('#download-file') as HTMLAnchorElement;
-    expect(anchor.getAttribute('href')).toBe('https://rmn/api/file/download?job_id=job&token=t&filename=moodle.zip');
+    expect(anchor.getAttribute('href')).toBe('https://rmn/api/files/download?job_id=job&token=t&filename=moodle.zip');
     expect(anchor.getAttribute('download')).toBe('moodle.zip');
     expect(click).toHaveBeenCalled();
 
     component.checkInputBox('notes_csv_file', false);
-    http.expectOne('/api/file/share').flush({ response: { share_url: 'https://rmn/f?x' } });
+    http.expectOne('/api/files/share').flush({ response: { share_url: 'https://rmn/f?x' } });
     await settle();
     expect(anchor.getAttribute('download')).toBe('notes.csv');
 
     inputs()[3].value = 'moyennes';
     component.checkInputBox('stats_pdf_file', false);
-    http.expectOne('/api/file/share').flush({ response: { share_url: 'https://rmn/f?y' } });
+    http.expectOne('/api/files/share').flush({ response: { share_url: 'https://rmn/f?y' } });
     await settle();
     expect(anchor.getAttribute('download')).toBe('moyennes.pdf');
   });

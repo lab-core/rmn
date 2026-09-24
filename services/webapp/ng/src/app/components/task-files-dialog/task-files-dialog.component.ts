@@ -103,7 +103,7 @@ export class TaskFilesDialogComponent implements OnInit {
       filename += '.pdf';
     }
 
-    await this.http.post<any>(`${SERVER_URL}file/share`, formdata)
+    await this.http.post<any>(`${SERVER_URL}files/share`, formdata)
     .toPromise()
     .then(async (data: any) => {
       const resp = data['response'];
@@ -158,7 +158,7 @@ export class TaskFilesDialogComponent implements OnInit {
     if ( !this.downloading) {
       this.downloading = true;
       this.notifyService.showInfo('Téléchargement...', "")
-      const sub = this.http.post(`${SERVER_URL}file/download`, formdata, {responseType: 'blob', reportProgress: true, observe: "events"}).subscribe(
+      const sub = this.http.post(`${SERVER_URL}files/download`, formdata, {responseType: 'blob', reportProgress: true, observe: "events"}).subscribe(
         (data) => {
           if (data.type == HttpEventType.DownloadProgress) {
             this.downloadProgress = data.total ? Math.round(100 * data.loaded / data.total) : 0

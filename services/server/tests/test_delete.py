@@ -35,7 +35,7 @@ def test_delete_removes_record_and_enqueues_task(client, user_factory, job_facto
     _seed_storage(app_module_fixture, "job1")
     token = login("alice")
 
-    resp = client.post("/job/delete", data={"user_id": "alice", "token": token, "job_id": "job1"})
+    resp = client.post("/jobs/delete", data={"user_id": "alice", "token": token, "job_id": "job1"})
     assert resp.status_code == 200
 
     # the job record is gone synchronously
@@ -73,7 +73,7 @@ def test_delete_falls_back_to_background_thread_when_queue_unreachable(monkeypat
 
     monkeypatch.setattr(jobs_routes, "Thread", _SyncThread)
 
-    resp = client.post("/job/delete", data={"user_id": "alice", "token": token, "job_id": "job1"})
+    resp = client.post("/jobs/delete", data={"user_id": "alice", "token": token, "job_id": "job1"})
     assert resp.status_code == 200
     # queue was unreachable -> cleanup handed to a background thread (not inline,
     # not left undone); the record is still removed synchronously
@@ -92,7 +92,7 @@ def test_delete_foreign_job_is_rejected(client, user_factory, job_factory, login
     _seed_storage(app_module_fixture, "job1")
     bob_token = login("bob")
 
-    resp = client.post("/job/delete", data={"user_id": "bob", "token": bob_token, "job_id": "job1"})
+    resp = client.post("/jobs/delete", data={"user_id": "bob", "token": bob_token, "job_id": "job1"})
     assert resp.status_code == 404
     # nothing enqueued, alice's job/storage intact
     assert _queue(app_module_fixture) == []
@@ -103,6 +103,6 @@ def test_delete_foreign_job_is_rejected(client, user_factory, job_factory, login
 def test_delete_unknown_job_returns_404(client, user_factory, login, app_module_fixture):
     user_factory("alice")
     token = login("alice")
-    resp = client.post("/job/delete", data={"user_id": "alice", "token": token, "job_id": "nope"})
+    resp = client.post("/jobs/delete", data={"user_id": "alice", "token": token, "job_id": "nope"})
     assert resp.status_code == 404
     assert _queue(app_module_fixture) == []

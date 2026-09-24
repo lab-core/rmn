@@ -5,7 +5,7 @@ import json
 
 def _login(client, user_factory, username="alice"):
     user_factory(username)
-    resp = client.post("/login", data={"username": username, "password": "pass123"})
+    resp = client.post("/users/login", data={"username": username, "password": "pass123"})
     return json.loads(resp.data)["response"]["token"]
 
 
@@ -52,7 +52,7 @@ def test_share_token_routes_take_the_header_too(client, user_factory, app_module
     token = _login(client, user_factory)
     app_module_fixture.mongo["RMN"]["eval_jobs"].insert_one({"job_id": "j1", "user_id": "alice"})
     resp = client.post(
-        "/job/update/stats",
+        "/jobs/update/stats",
         data={"job_id": "j1", "statistics_for_students": "true"},
         headers={"Authorization": f"Bearer {token}"},
     )

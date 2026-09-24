@@ -112,7 +112,7 @@ def job_factory():
 @pytest.fixture
 def login(client):
     def _login(username="alice", password="pass123"):
-        resp = client.post("/login", data={"username": username, "password": password})
+        resp = client.post("/users/login", data={"username": username, "password": password})
         assert resp.status_code == 200, resp.data
         return resp.get_json(force=True)["response"]["token"]
 

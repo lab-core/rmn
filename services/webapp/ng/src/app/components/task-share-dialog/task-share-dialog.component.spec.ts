@@ -51,7 +51,7 @@ describe('TaskShareDialogComponent', () => {
 
   it('asks the server for a link scoped to the question and copies it', async () => {
     create({ questionIndex: 2, all: true });
-    const req = http.expectOne('/api/job/share');
+    const req = http.expectOne('/api/jobs/share');
     const form = req.request.body as FormData;
     expect(form.get('job_id')).toBe('job');
     expect(form.get('question_index')).toBe('2');
@@ -73,7 +73,7 @@ describe('TaskShareDialogComponent', () => {
 
   it('a matricule share lists the groups and appends the chosen one to the link', async () => {
     create({ shareType: 'matricule' });
-    http.expectOne('/api/matricule/share').flush({ response: { share_url: 'https://rmn/m?job_id=job&token=t2' } });
+    http.expectOne('/api/matricules/share').flush({ response: { share_url: 'https://rmn/m?job_id=job&token=t2' } });
     await settle();
     fixture.detectChanges();
 
@@ -91,13 +91,13 @@ describe('TaskShareDialogComponent', () => {
 
   it('closes with an error when the task cannot be shared or the request fails', async () => {
     create({});
-    http.expectOne('/api/job/share').flush({ response: {} });
+    http.expectOne('/api/jobs/share').flush({ response: {} });
     await settle();
     expect(dialogRef.close).toHaveBeenCalledWith({ success: false, message: 'Vous ne pouvez pas partager cette tâche.' });
 
     TestBed.resetTestingModule();
     create({});
-    http.expectOne('/api/job/share').flush('nope', { status: 404, statusText: 'Not Found' });
+    http.expectOne('/api/jobs/share').flush('nope', { status: 404, statusText: 'Not Found' });
     await settle();
     expect(dialogRef.close).toHaveBeenCalledWith(
       { success: false, message: 'Une erreur est intervenue lors du partage de la tâche !' });
@@ -105,11 +105,11 @@ describe('TaskShareDialogComponent', () => {
 
   it('unshare revokes the link for the same scope', async () => {
     create({ all: true });
-    http.expectOne('/api/job/share').flush({ response: { share_url: 'https://rmn/d?job_id=job&token=t3' } });
+    http.expectOne('/api/jobs/share').flush({ response: { share_url: 'https://rmn/d?job_id=job&token=t3' } });
     await settle();
 
     component.unshare();
-    const req = http.expectOne('/api/job/unshare');
+    const req = http.expectOne('/api/jobs/unshare');
     expect((req.request.body as FormData).get('all')).toBe('true');
     req.flush({ response: 'OK' });
     expect(dialogRef.close).toHaveBeenCalledWith(
@@ -118,20 +118,20 @@ describe('TaskShareDialogComponent', () => {
 
   it('unshare keeps the scope of question 0', async () => {
     create({ questionIndex: 0 });
-    http.expectOne('/api/job/share').flush({ response: { share_url: 'https://rmn/x' } });
+    http.expectOne('/api/jobs/share').flush({ response: { share_url: 'https://rmn/x' } });
     await settle();
     component.unshare();
-    const req = http.expectOne('/api/job/unshare');
+    const req = http.expectOne('/api/jobs/unshare');
     expect((req.request.body as FormData).get('question_index')).toBe('0');  // was dropped as falsy
     req.flush({ response: 'OK' });
   });
 
   it('unshare reports a refusal', async () => {
     create({});
-    http.expectOne('/api/job/share').flush({ response: { share_url: 'https://rmn/x' } });
+    http.expectOne('/api/jobs/share').flush({ response: { share_url: 'https://rmn/x' } });
     await settle();
     component.unshare();
-    http.expectOne('/api/job/unshare').flush({ response: 'Error' });
+    http.expectOne('/api/jobs/unshare').flush({ response: 'Error' });
     expect(dialogRef.close).toHaveBeenCalledWith(
       { success: false, message: "L'accès n'a pas pu être enlevé pour cette tâche." });
   });
