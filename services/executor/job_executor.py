@@ -65,17 +65,26 @@ class Heartbeat:
         self._stop = threading.Event()
         self._thread = None
 
+    def _touch(self):
+        try:
+            self._db.eval_jobs_collection().update_one(
+                {"job_id": self._job_id},
+                {"$set": {"alive_time": dt.datetime.now(dt.UTC)}},
+            )
+        except Exception as e:
+            print("Heartbeat failed:", e)
+
     def _beat(self):
         while not self._stop.wait(self._interval):
-            try:
-                self._db.eval_jobs_collection().update_one(
-                    {"job_id": self._job_id},
-                    {"$set": {"alive_time": dt.datetime.now(dt.UTC)}},
-                )
-            except Exception as e:
-                print("Heartbeat failed:", e)
+            self._touch()
 
     def __enter__(self):
+        # beat once before the job is touched: the thread only writes after a
+        # full interval, and a job set to FINALIZING with the alive_time of an
+        # old run was requeued by the idle sweep of any executor starting in
+        # the meantime, then finalized by several executors at once (job
+        # a119c7b2: four runs, one overwrote the zips with 17 of 59 copies)
+        self._touch()
         self._thread = threading.Thread(target=self._beat, daemon=True)
         self._thread.start()
         return self
