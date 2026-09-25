@@ -638,6 +638,19 @@ export class DashboardPageComponent {
   }
 
   /** Rename the task, or change its points per question until it is validated. */
+  /** Start a new task from this one, in the creation wizard.
+   *
+   *  On a share link the wizard gets the link's token along: the task is
+   *  someone else's, and the server lets a logged-in user copy it only with
+   *  the token of its dashboard link. */
+  public duplicateTask(): void {
+    const queryParams = {};
+    if (this.shared()) {
+      this.userService.addShareToken(queryParams);
+    }
+    this.router.navigate(['/new-exam-correction', this.taskId], { queryParams });
+  }
+
   public editSettings(): void {
     const dialogRef = this.dialog.open(TaskSettingsDialogComponent, {
       width: '80%',

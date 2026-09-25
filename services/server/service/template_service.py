@@ -215,6 +215,85 @@ class TemplateService():
 
         return Response(response=json.dumps({"response": user_templates_list}), status=200)
 
+    # fields of a template document that belong to its row, not to its layout:
+    # a copy gets its own
+    _OWN_FIELDS = ("_id", "user_id", "template_id", "template_name", "template_file_id",
+                   "template_rendered_file_id", "locked", "copied_from")
+
+    @staticmethod
+    def copy_for_user(template_id, user_id, db, storage):
+        """A template of ``user_id``'s own with the layout of ``template_id``.
+
+        A task shared with a colleague points at its owner's templates, which
+        the colleague can neither list nor edit; duplicating it gives them a
+        copy instead: the image, the rendered image and the boxes, under a new
+        id. The copy remembers its source (``copied_from``), so duplicating
+        another task with the same template reuses it rather than piling up
+        copies. The user's own templates and the locked defaults are returned
+        as they are.
+
+        Args:
+            template_id: The template the task was created with.
+            user_id: The user who will own the new task.
+            db: The ``RMN`` database.
+            storage: The storage tree holding the template images.
+
+        Returns:
+            ``(template_id, template_name)`` to create the task with, or
+            ``None`` when ``template_id`` does not exist any more.
+        """
+        collection = db["template"]
+        source = collection.find_one({"template_id": template_id})
+        if source is None:
+            return None
+        if source.get("locked") or source.get("user_id") == user_id:
+            return source["template_id"], source["template_name"]
+        copy = collection.find_one({"user_id": user_id, "copied_from": template_id})
+        if copy is not None:
+            return copy["template_id"], copy["template_name"]
+
+        # the template list is keyed by name: a copy must not hide one of theirs
+        taken = {
+            t["template_name"]
+            for t in collection.find({"user_id": user_id}, {"template_name": 1})
+        }
+        name = source["template_name"]
+        if name in taken:
+            name = f"{source['template_name']} ({source['user_id']})"
+            n = 2
+            while name in taken:
+                name = f"{source['template_name']} ({source['user_id']} {n})"
+                n += 1
+
+        new_id = str(uuid.uuid4())
+        extension = os.path.splitext(source["template_file_id"])[1] or ".png"
+        template = {
+            k: v for k, v in source.items() if k not in TemplateService._OWN_FIELDS
+        }
+        template.update({
+            "user_id": user_id,
+            "template_id": new_id,
+            "template_name": name,
+            "locked": False,
+            "copied_from": template_id,
+            # same extension: an old template may be a pdf, which the executor
+            # reads too
+            "template_file_id": os.path.join(TEMPLATE_DIR, new_id + extension),
+        })
+        storage.copy_inside(source["template_file_id"], template["template_file_id"])
+        rendered = source.get("template_rendered_file_id")
+        if rendered and os.path.isfile(storage.abs_path(rendered)):
+            template["template_rendered_file_id"] = os.path.join(
+                TEMPLATE_DIR, f"{new_id}-rendered.png"
+            )
+            storage.copy_inside(rendered, template["template_rendered_file_id"])
+        collection.insert_one(template)
+        if "template_rendered_file_id" not in template and (
+                "grade_box" in template or "matricule_box" in template):
+            # the source was never rendered: let the executor draw the boxes
+            redis.lpush("job_queue", json.dumps({"template_id": new_id}))
+        return new_id, name
+
     @staticmethod
     def readable_by(template_id, user_id):
         """The query for a template ``user_id`` may read: own, or a locked default.

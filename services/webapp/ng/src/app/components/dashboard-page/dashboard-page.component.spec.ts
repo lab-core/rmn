@@ -254,6 +254,38 @@ describe('DashboardPageComponent', () => {
     });
   });
 
+  it('Dupliquer opens the creation wizard on this task', async () => {
+    await create();
+    expect(fixture.nativeElement.querySelector('#shared-task-hint')).toBeNull();  // their own task
+    const button = fixture.nativeElement.querySelector('#duplicate-task');
+    // the same copy icon as the task list's Dupliquer
+    expect(button.querySelector('mat-icon').textContent.trim()).toBe('content_copy');
+    button.click();
+    expect(router.navigate).toHaveBeenCalledWith(['/new-exam-correction', 'job'], { queryParams: {} });
+  });
+
+  it('a logged-in colleague on a share link duplicates with the link\'s token', async () => {
+    await create();
+    user.shared = () => true;
+    fixture.detectChanges();
+    // their own settings are not offered, the copy is
+    expect(fixture.nativeElement.querySelector('#edit-task')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#shared-task-hint')).not.toBeNull();
+    fixture.nativeElement.querySelector('#duplicate-task').click();
+    expect(router.navigate).toHaveBeenCalledWith(['/new-exam-correction', 'job'], {
+      queryParams: { token: 'share-1' },
+    });
+  });
+
+  it('a share-link visitor who is not logged in cannot duplicate', async () => {
+    await create();
+    user.shared = () => true;
+    user.loggued = () => false;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#duplicate-task')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#shared-task-hint')).toBeNull();
+  });
+
   it('opens the sharing, csv and extra-copies dialogs', async () => {
     await create();
     spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of({ success: true, message: 'Le lien a été copié' }) } as any);

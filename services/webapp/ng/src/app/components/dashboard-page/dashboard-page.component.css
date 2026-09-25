@@ -45,6 +45,19 @@ app-main-menu {
   vertical-align: middle;
 }
 
+/* a new task from this one: last on the search row, pushed to the right
+   edge (the row is a flex container centring its items on the search box) */
+.duplicate-task-button {
+  margin-left: auto;
+}
+
+/* under the title, for a logged-in colleague on a share link */
+.shared-task-hint {
+  margin-top: 4px;
+  font-size: 0.95em;
+  opacity: 0.8;
+}
+
 .select-index-container {
   display: flex;
   flex-direction: row;

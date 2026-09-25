@@ -41,10 +41,15 @@ export class TasksService {
     return this.uploadPart2;
   }
 
-  async getTaskById(jobId) {
+  /** The settings of a task.
+   *
+   *  ``shareToken`` reads a task shared with the logged-in user by its link,
+   *  outside the share link's own pages (the wizard duplicating it). */
+  async getTaskById(jobId, shareToken: string = null) {
     const formdata: FormData = new FormData();
     formdata.append('job_id', jobId);
     this.userService.addTokens(formdata);
+    if (shareToken) formdata.append('share_token', shareToken);
     const data = await this.http.post<any>(`${SERVER_URL}jobs/info`, formdata).toPromise();
     return data['response'];
   }
@@ -67,11 +72,14 @@ export class TasksService {
    *  ``copies`` and ``csv`` may be null when ``sourceJobId`` names the task to
    *  take them from: the server copies that task's files for each one that is
    *  not sent, which is how the same exam is corrected a second time.
+   *  ``sourceShareToken`` is the dashboard link's token of a task shared by
+   *  someone else: it lets the server copy that task, templates included.
    */
   async addTask(copies, csv, front_template_id, regular_template_id,
                 n_pages_per_question, n_max_points_per_question, bonus_enabled_map,
                 taskName, front_template_name, regular_template_name,
-                statistics_for_students, validateMatricule, sourceJobId = null): Promise<void> {
+                statistics_for_students, validateMatricule, sourceJobId = null,
+                sourceShareToken: string = null): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('front_template_id', front_template_id);
@@ -79,6 +87,7 @@ export class TasksService {
     if (copies) formdata.append('zip_file', copies);
     if (csv) formdata.append('notes_csv_file', csv);
     if (sourceJobId) formdata.append('source_job_id', sourceJobId);
+    if (sourceJobId && sourceShareToken) formdata.append('source_share_token', sourceShareToken);
     // formdata.append('nb_pages', number_pages.toString());
     formdata.append('n_pages_per_question', JSON.stringify(Array.from(n_pages_per_question.entries())));
     formdata.append('n_max_points_per_question', JSON.stringify(Array.from(n_max_points_per_question.entries())));

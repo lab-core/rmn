@@ -13,9 +13,15 @@
       @if (taskInfo) {
         <div class="task-progress" id="task-progress">{{ taskInfo }}</div>
       }
+      @if (loggued() && shared()) {
+        <div class="shared-task-hint" id="shared-task-hint">
+          Tâche partagée : « Dupliquer » la copie dans votre compte, copies, notes et templates compris.
+        </div>
+      }
     </div>
-    @if (!disableButtons) {
+    @if (!disableButtons || loggued()) {
 <div class="select-index-container">
+      @if (!disableButtons) {
         <p>Recherche index: </p>
         <div class="index-input-div">
             <ng-select id="copy" [items]="copiesList" bindLabel="identifiant"
@@ -29,6 +35,16 @@
 <button class="select-index-button" mat-raised-button color="primary" (click)="selectCopy()"
                 [disabled]="this.copySelection.copy === undefined">Sélectionner</button>
 }
+      }
+      <!-- on the row of the search box, at the table's right edge, in the
+           format of the task list's Dupliquer. Also on a share link: a
+           logged-in colleague may copy the task -->
+      @if (loggued()) {
+        <button mat-raised-button color="accent" class="duplicate-task-button" id="duplicate-task"
+                title="Créer une nouvelle tâche à partir de celle-ci" (click)="duplicateTask()">
+          <mat-icon>content_copy</mat-icon> Dupliquer
+        </button>
+      }
     </div>
 }
     <div class="task-content">

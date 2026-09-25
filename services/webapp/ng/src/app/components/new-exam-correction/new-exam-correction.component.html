@@ -7,6 +7,10 @@
 <div class="info" id="source-task">
                     <small>Nouvelle tâche créée à partir de « {{ sourceTask.name }} » :
                       tous les champs sont repris et restent modifiables.</small>
+                    @if (sourceShareToken) {
+                      <br><small id="shared-source">Cette tâche vous a été partagée : ses templates
+                        seront copiés dans les vôtres, à moins d'en choisir d'autres.</small>
+                    }
                 </div>
 }
                 <div class="breaker"></div>

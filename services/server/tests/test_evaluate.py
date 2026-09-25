@@ -326,3 +326,265 @@ def test_without_a_source_both_files_are_still_required(client, user_factory, lo
     resp = client.post("/jobs/evaluate", data=data, content_type="multipart/form-data")
     assert resp.status_code == 400
     assert "notes_csv_file" in resp.get_json(force=True)["response"]
+
+
+# ------------------------------------------- a task shared by someone else --
+def _shared_source(app_module_fixture, storage_root, share_token=None, rendered=True):
+    """alice's task, with her two templates on the share, shared as given."""
+    db = app_module_fixture.mongo["RMN"]
+    source = _source_task(app_module_fixture, storage_root)
+    db["eval_jobs"].update_one(
+        {"job_id": source},
+        {"$set": {"front_template_id": "front", "regular_template_id": "regular",
+                  "share_token": share_token or {"all": "dash-token"}}},
+    )
+    for template_id, name in (("front", "Front"), ("regular", "Regular")):
+        template = {
+            "template_id": template_id,
+            "user_id": "alice",
+            "template_name": name,
+            "template_file_id": f"template/{template_id}.png",
+            "grade_box": [0.1, 0.2, 0.3, 0.4],
+            "n_questions": 1,
+            "locked": False,
+        }
+        (storage_root / "template").mkdir(parents=True, exist_ok=True)
+        (storage_root / "template" / f"{template_id}.png").write_bytes(name.encode())
+        if rendered:
+            rendered_id = f"template/{template_id}-rendered.png"
+            template["template_rendered_file_id"] = rendered_id
+            (storage_root / rendered_id).write_bytes(b"r")
+        db["template"].insert_one(template)
+    return source
+
+
+def _from_shared(client, token, source, share_token="dash-token", **fields):
+    data = {
+        "user_id": "bob",
+        "token": token,
+        "front_template_id": "front",
+        "regular_template_id": "regular",
+        "front_template_name": "Front",
+        "regular_template_name": "Regular",
+        "job_name": "Intra bob",
+        "statistics_for_students": "true",
+        "n_pages_per_question": json.dumps([["Q1", 2]]),
+        "n_max_points_per_question": json.dumps([["Q1", 10]]),
+        "bonus_enabled_map": json.dumps([["Q1", False]]),
+        "source_job_id": source,
+        "source_share_token": share_token,
+        **fields,
+    }
+    return client.post("/jobs/evaluate", data=data, content_type="multipart/form-data")
+
+
+def test_a_task_shared_by_its_dashboard_link_can_be_duplicated(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    db = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    user_factory("bob")
+    source = _shared_source(app_module_fixture, storage_root)
+
+    resp = _from_shared(client, login("bob"), source)
+
+    assert resp.status_code == 200, resp.data
+    new = db["eval_jobs"].find_one({"job_name": "Intra bob"})
+    assert new["user_id"] == "bob"
+    assert len(list((storage_root / "zips" / new["job_id"]).iterdir())) == 2
+    csv = storage_root / "csv" / f"{new['job_id']}.csv"
+    assert csv.read_bytes().startswith(b"Matricule")
+    # the task points at bob's own copies of alice's templates
+    front = db["template"].find_one({"template_id": new["front_template_id"]})
+    regular = db["template"].find_one({"template_id": new["regular_template_id"]})
+    assert front["user_id"] == regular["user_id"] == "bob"
+    assert (front["copied_from"], regular["copied_from"]) == ("front", "regular")
+    names = (new["front_template_name"], new["regular_template_name"])
+    assert names == ("Front", "Regular")
+    assert front["grade_box"] == [0.1, 0.2, 0.3, 0.4] and front["n_questions"] == 1
+    assert (storage_root / front["template_file_id"]).read_bytes() == b"Front"
+    assert (storage_root / front["template_rendered_file_id"]).read_bytes() == b"r"
+    # alice keeps hers untouched
+    assert db["template"].count_documents({"user_id": "alice"}) == 2
+
+
+@pytest.mark.parametrize(
+    "share_token,sent",
+    [
+        ({"all": "dash-token"}, "wrong"),  # not the link's token
+        ({"all": "dash-token"}, ""),  # no token at all
+        ({"questions": "q-token"}, "q-token"),  # correction link: not the task
+        ({"2": "q2-token"}, "q2-token"),  # one question only
+    ],
+)
+def test_only_the_dashboard_link_lets_another_user_duplicate(
+    client, user_factory, login, app_module_fixture, storage_root, share_token, sent
+):
+    db = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    user_factory("bob")
+    source = _shared_source(app_module_fixture, storage_root, share_token=share_token)
+
+    resp = _from_shared(client, login("bob"), source, share_token=sent)
+
+    assert resp.status_code == 404
+    assert db["eval_jobs"].find_one({"job_name": "Intra bob"}) is None
+    assert db["template"].count_documents({"user_id": "bob"}) == 0
+
+
+def test_a_second_duplicate_reuses_the_template_copies(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    db = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    user_factory("bob")
+    source = _shared_source(app_module_fixture, storage_root)
+    token = login("bob")
+
+    first = _from_shared(client, token, source, job_name="first")
+    second = _from_shared(client, token, source, job_name="second")
+
+    assert first.status_code == second.status_code == 200
+    jobs = {j["job_name"]: j for j in db["eval_jobs"].find({"user_id": "bob"})}
+    assert jobs["first"]["front_template_id"] == jobs["second"]["front_template_id"]
+    assert db["template"].count_documents({"user_id": "bob"}) == 2
+
+
+def test_a_template_copy_does_not_hide_one_of_the_same_name(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    db = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    user_factory("bob")
+    source = _shared_source(app_module_fixture, storage_root)
+    db["template"].insert_one(
+        {"template_id": "bobs", "user_id": "bob", "template_name": "Front",
+         "template_file_id": "template/bobs.png"}
+    )
+
+    resp = _from_shared(client, login("bob"), source)
+
+    assert resp.status_code == 200, resp.data
+    new = db["eval_jobs"].find_one({"job_name": "Intra bob"})
+    assert new["front_template_name"] == "Front (alice)"
+    assert new["regular_template_name"] == "Regular"
+
+
+def test_a_template_of_their_own_picked_in_the_wizard_is_not_copied(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    db = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    user_factory("bob")
+    source = _shared_source(app_module_fixture, storage_root)
+    db["template"].insert_one(
+        {"template_id": "bobs", "user_id": "bob", "template_name": "Mine",
+         "template_file_id": "template/bobs.png"}
+    )
+
+    resp = _from_shared(client, login("bob"), source,
+                        front_template_id="bobs", front_template_name="Mine")
+
+    assert resp.status_code == 200, resp.data
+    new = db["eval_jobs"].find_one({"job_name": "Intra bob"})
+    assert (new["front_template_id"], new["front_template_name"]) == ("bobs", "Mine")
+    assert db["template"].find_one({"user_id": "bob", "copied_from": "front"}) is None
+    assert db["template"].find_one({"user_id": "bob", "copied_from": "regular"})
+
+
+def test_only_the_templates_of_the_source_are_copied(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    """A shared source must not be a way to copy any template whose id is known."""
+    db = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    user_factory("bob")
+    source = _shared_source(app_module_fixture, storage_root)
+    db["template"].insert_one(
+        {"template_id": "other", "user_id": "carol", "template_name": "Carol's",
+         "template_file_id": "template/other.png"}
+    )
+    (storage_root / "template" / "other.png").write_bytes(b"carol")
+
+    resp = _from_shared(client, login("bob"), source, front_template_id="other")
+
+    assert resp.status_code == 200, resp.data
+    assert db["template"].find_one({"user_id": "bob", "copied_from": "other"}) is None
+
+
+def test_a_deleted_template_of_the_source_is_refused_before_anything_is_created(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    db = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    user_factory("bob")
+    source = _shared_source(app_module_fixture, storage_root)
+    db["template"].delete_one({"template_id": "regular"})
+
+    resp = _from_shared(client, login("bob"), source)
+
+    assert resp.status_code == 400
+    assert "template" in resp.get_json(force=True)["response"]
+    assert db["eval_jobs"].find_one({"job_name": "Intra bob"}) is None
+
+
+def test_a_locked_default_template_is_used_as_it_is(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    db = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    user_factory("bob")
+    source = _shared_source(app_module_fixture, storage_root)
+    db["template"].update_one({"template_id": "regular"}, {"$set": {"locked": True}})
+
+    resp = _from_shared(client, login("bob"), source)
+
+    assert resp.status_code == 200, resp.data
+    new = db["eval_jobs"].find_one({"job_name": "Intra bob"})
+    assert new["regular_template_id"] == "regular"
+    assert db["template"].find_one({"user_id": "bob", "copied_from": "regular"}) is None
+
+
+def test_a_template_never_rendered_is_queued_for_rendering(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    from service import template_service
+
+    user_factory("alice")
+    user_factory("bob")
+    source = _shared_source(app_module_fixture, storage_root, rendered=False)
+    # a queue of its own, separate from the app's, which _isolate_state does
+    # not wipe: leave it empty for the template tests that read it after
+    template_service.redis.delete("job_queue")
+    try:
+        resp = _from_shared(client, login("bob"), source)
+        queued = template_service.redis.lrange("job_queue", 0, -1)
+    finally:
+        template_service.redis.delete("job_queue")
+
+    assert resp.status_code == 200, resp.data
+    db = app_module_fixture.mongo["RMN"]
+    new = db["eval_jobs"].find_one({"job_name": "Intra bob"})
+    assert {"template_id": new["front_template_id"]} in [json.loads(m) for m in queued]
+
+
+def test_the_wizard_reads_a_shared_task_with_the_session_and_the_link(
+    client, user_factory, login, job_factory
+):
+    """How the wizard prefills a colleague's task: bob's session in the
+    Authorization header, the dashboard link's token in the form."""
+    user_factory("alice")
+    user_factory("bob")
+    job_factory("shared", "alice", queued_time="2026-09-25", job_name="Intra",
+                statistics_for_students=False, share_token={"all": "dash-token"})
+    headers = {"Authorization": f"Bearer {login('bob')}"}
+
+    resp = client.post("/jobs/info", headers=headers,
+                       data={"job_id": "shared", "user_id": "bob",
+                             "share_token": "dash-token"})
+    assert resp.status_code == 200, resp.data
+    assert resp.get_json(force=True)["response"]["job_name"] == "Intra"
+
+    resp = client.post("/jobs/info", headers=headers,
+                       data={"job_id": "shared", "user_id": "bob"})
+    assert resp.status_code == 401  # not without the link
