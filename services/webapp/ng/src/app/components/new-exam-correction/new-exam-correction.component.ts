@@ -1,5 +1,5 @@
 import { Component, HostListener, OnInit, OnChanges, SimpleChanges, OnDestroy, Renderer2, ChangeDetectionStrategy } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from 'src/app/services/user.service';
 import { TasksService } from 'src/app/services/tasks.service';
@@ -64,6 +64,13 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   questionKeys: string[] = [];
   taskName: string = "Tâche";
 
+  /** The task this one is being created from, when the route names one. */
+  sourceTask: { id: string, name: string } = null;
+  /** Whether that task's copies, and its notes, are still the ones to use.
+   *  Uploading a file of its own turns the matching one off. */
+  reuseCopies: boolean = false;
+  reuseCsv: boolean = false;
+
   suffix: string = "";
   presentationCopies: File;
   latexFrontPage: File;
@@ -77,6 +84,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
 
   constructor(
     private router: Router,
+    private route: ActivatedRoute,
     private tasksService: TasksService,
     private http: HttpClient,
     private renderer: Renderer2,
@@ -102,7 +110,14 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     if (this.showDropbox) await this.loadDropbox();
     if (this.showOneDrive) await this.loadOnedrive();
     this.getTemplates();
-    await this.loadTask();
+    const from = this.route.snapshot.paramMap.get('from');
+    if (from) {
+      // the draft of an unfinished task would fight the prefill: the user
+      // asked for this task, not for the one they left half-written
+      await this.loadSourceTask(from);
+    } else {
+      await this.loadTask();
+    }
     this.updateQuestionsCount();
     this.updateTotals();
   }
@@ -380,6 +395,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
 
     const target = fileInput.target as HTMLInputElement;
     const file: File = (target.files as FileList)[0];
+    this.reuseCopies = false;  // the upload replaces the source task's copies
     this.copiesName = file.name;
     // textContent: the file name is user data, not markup
     document.getElementById("files-upload-label").setAttribute("value", this.copiesName);
@@ -425,6 +441,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
 
       if (validCSV) {
         this.csv = file;
+        this.reuseCsv = false;  // the upload replaces the source task's notes
         this.setCSVName(file.name);
         this.saveTask();
       } else {
@@ -587,7 +604,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       try {
         await this.convertDownloadableFile();
         await this.convertDownloadableCSV();
-        if (!this.copies) {
+        if (!this.copies && !this.reuseCopies) {
           // No copies uploaded: send an empty zip so the task is created
           // without any exam to correct.
           this.copies = this.createEmptyZipFile();
@@ -600,9 +617,13 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
           this.bonusEnabledMap.clear();
           this.statisticsForStudents = false;
         }
-        await this.tasksService.addTask(this.copies, this.csv, this.selectedFrontTemplate, this.selectedRegularTemplate,
+        // what is reused is not sent: the server copies it from the source
+        await this.tasksService.addTask(this.reuseCopies ? null : this.copies,
+                                        this.reuseCsv ? null : this.csv,
+                                        this.selectedFrontTemplate, this.selectedRegularTemplate,
                                         this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName,
-                                        front_template_name, regular_template_name, this.statisticsForStudents, this.validateMatricule);
+                                        front_template_name, regular_template_name, this.statisticsForStudents,
+                                        this.validateMatricule, this.sourceTask ? this.sourceTask.id : null);
         this.removeTask();
         this.doNotSaveTask = true;
         this.reroute();
@@ -643,6 +664,18 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     }
   }
 
+  /** Fill a per-question map from ``[key, value]`` pairs.
+   *
+   *  Both the Map and its property form: the inputs are bound to
+   *  nPagesPerQuestion[key] while the logic reads the Map.
+   */
+  private restoreQuestions(map: Map<string, any>, entries: Array<[string, any]>): void {
+    for (const [key, value] of entries || []) {
+      map.set(key, value);
+      map[key] = value;
+    }
+  }
+
   async loadTask() {
     const taskJson = localStorage.getItem('newTask');
 
@@ -652,20 +685,69 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       this.selectedFrontTemplate = task.frontTemplate;
       this.selectedRegularTemplate = task.regularTemplate;
       this.nQuestions = task.nQuestions;
-      // both the Map and its property form: the inputs are bound to
-      // nPagesPerQuestion[key] while the logic reads the Map
-      const restore = (map: Map<string, any>, values: Record<string, any>) => {
-        for (const key in values || {}) {
-          map.set(key, values[key]);
-          map[key] = values[key];
-        }
-      };
-      restore(this.nPagesPerQuestion, task.nPages);
-      restore(this.nMaxPointsPerQuestion, task.maxPoints);
-      restore(this.bonusEnabledMap, task.bonus);
-      restore(this.ignoredQuestions, task.ignored);
+      this.restoreQuestions(this.nPagesPerQuestion, Object.entries(task.nPages || {}));
+      this.restoreQuestions(this.nMaxPointsPerQuestion, Object.entries(task.maxPoints || {}));
+      this.restoreQuestions(this.bonusEnabledMap, Object.entries(task.bonus || {}));
+      this.restoreQuestions(this.ignoredQuestions, Object.entries(task.ignored || {}));
       this.statisticsForStudents = task.stats;
     }
+  }
+
+  /** Fill the form with an existing task, and reuse its files to begin with.
+   *
+   *  Everything is prefilled and everything stays editable: the name gets a
+   *  suffix so the two are told apart in the history, and the copies and the
+   *  notes are the ones already on the server until the user replaces them.
+   */
+  async loadSourceTask(jobId: string): Promise<void> {
+    let job: any;
+    try {
+      job = await this.tasksService.getTaskById(jobId);
+    } catch (error) {
+      console.error(error);
+    }
+    if (!job) {
+      this.notifyService.showError("La tâche d'origine est introuvable.", "ERREUR");
+      return;
+    }
+    this.sourceTask = { id: jobId, name: job.job_name };
+    this.taskName = `${job.job_name} (copie)`;
+    this.selectedFrontTemplate = job.front_template_id;
+    this.selectedFrontTemplateName = job.front_template_name;
+    this.selectedRegularTemplate = job.regular_template_id;
+    this.restoreQuestions(this.nPagesPerQuestion, job.n_pages_per_question);
+    this.restoreQuestions(this.nMaxPointsPerQuestion, job.n_max_points_per_question);
+    this.restoreQuestions(this.bonusEnabledMap, job.bonus_enabled_map);
+    this.nQuestions = (job.n_pages_per_question || []).length;
+    // the wizard's own notion: a question the template has a box for and the
+    // exam does not use, which the server stores as 0 page and 0 point
+    for (const [key, pages] of job.n_pages_per_question || []) {
+      if (!pages && !this.nMaxPointsPerQuestion.get(key)) {
+        this.ignoredQuestions.set(key, true);
+        this.ignoredQuestions[key] = true;
+      }
+    }
+    this.statisticsForStudents = !!job.statistics_for_students;
+    this.validateMatricule = !!job.validate_matricule;
+    this.reuseCopies = true;
+    this.reuseCsv = true;
+    // checkDisabled() asks for a csv, and there is one: the source's
+    this.copiesName = `Copies de « ${job.job_name} »`;
+    this.csvName = `Notes de « ${job.job_name} »`;
+  }
+
+  /** Stop reusing the copies of the source task (the copies are optional). */
+  dropReusedCopies(): void {
+    this.reuseCopies = false;
+    this.copies = undefined;
+    this.copiesName = "";
+  }
+
+  /** Stop reusing the notes of the source task; another csv must be given. */
+  dropReusedCsv(): void {
+    this.reuseCsv = false;
+    this.csv = undefined;
+    this.csvName = "";
   }
 
   removeTask() {

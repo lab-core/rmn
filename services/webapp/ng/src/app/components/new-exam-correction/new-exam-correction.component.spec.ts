@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { Router, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 
 import { NewExamCorrectionComponent } from './new-exam-correction.component';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -10,6 +10,21 @@ import { UserService } from 'src/app/services/user.service';
 import {
   MATERIAL_MODULES, MainMenuStubComponent, notificationSpy, settle, userServiceStub, waitUntil,
 } from '../../testing/helpers';
+
+// the task a new one is created from, as /jobs/info answers it
+const SOURCE = {
+  job_id: 'src-1',
+  job_name: 'Intra',
+  front_template_id: 't1',
+  front_template_name: 'Front',
+  regular_template_id: 't2',
+  regular_template_name: 'Regular',
+  n_pages_per_question: [['Q1', 2], ['Q2', 0], ['Q3', 1]],
+  n_max_points_per_question: [['Q1', 10], ['Q2', 0], ['Q3', 5]],
+  bonus_enabled_map: [['Q1', false], ['Q2', false], ['Q3', true]],
+  statistics_for_students: false,
+  validate_matricule: true,
+};
 
 const TEMPLATES = [
   { template_id: 't1', template_name: 'Front', n_questions: 3, locked: false },
@@ -25,10 +40,12 @@ describe('NewExamCorrectionComponent', () => {
   let notification: jasmine.SpyObj<NotificationService>;
   let tasks: any;
 
-  const create = async (templates: any[] = TEMPLATES, before: (c: NewExamCorrectionComponent) => void = () => {}) => {
+  const create = async (templates: any[] = TEMPLATES, before: (c: NewExamCorrectionComponent) => void = () => {},
+                        from: string = null) => {
     notification = notificationSpy();
     tasks = {
       addTask: jasmine.createSpy('addTask').and.resolveTo(undefined),
+      getTaskById: jasmine.createSpy('getTaskById').and.resolveTo(SOURCE),
       getUploadPart1State: () => true,
       getUploadPart2State: () => false,
     };
@@ -42,6 +59,8 @@ describe('NewExamCorrectionComponent', () => {
         { provide: NotificationService, useValue: notification },
         { provide: TasksService, useValue: tasks },
         { provide: UserService, useValue: userServiceStub() },
+        { provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap(from ? { from } : {}) } } },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -240,7 +259,8 @@ describe('NewExamCorrectionComponent', () => {
     expect(Array.from(args[4].entries())).toEqual([['Q1', 2], ['Q2', 0], ['Q3', 1]]);
     expect(Array.from(args[5].entries())).toEqual([['Q1', 10], ['Q2', 0], ['Q3', 5]]);
     expect(Array.from(args[6].entries())).toEqual([['Q1', false], ['Q2', false], ['Q3', false]]);
-    expect(args.slice(7)).toEqual(['Quiz', 'Front', 'Regular', true, true]);
+    // the last one is the task this one was created from: none here
+    expect(args.slice(7)).toEqual(['Quiz', 'Front', 'Regular', true, true, null]);
     expect(localStorage.getItem('newTask')).toBeNull();
     expect(router.navigate).toHaveBeenCalledWith(['/main-menu']);
   });
@@ -607,6 +627,91 @@ describe('NewExamCorrectionComponent', () => {
       expect(copies.name).toBe('onedrive.zip');
       expect(await copies.text()).toBe('od-zip');
       expect(csv.name).toBe('onedrive.csv');
+    });
+  });
+  describe('a task created from an existing one', () => {
+    it('prefills every field and keeps its copies and notes', async () => {
+      await create(TEMPLATES, () => {}, 'src-1');
+
+      expect(tasks.getTaskById).toHaveBeenCalledWith('src-1');
+      expect(component.sourceTask).toEqual({ id: 'src-1', name: 'Intra' });
+      expect(component.taskName).toBe('Intra (copie)');
+      expect(component.selectedFrontTemplate).toBe('t1');
+      expect(component.selectedRegularTemplate).toBe('t2');
+      expect(Array.from(component.nPagesPerQuestion.entries()))
+        .toEqual([['Q1', 2], ['Q2', 0], ['Q3', 1]]);
+      expect(Array.from(component.nMaxPointsPerQuestion.entries()))
+        .toEqual([['Q1', 10], ['Q2', 0], ['Q3', 5]]);
+      expect(Array.from(component.bonusEnabledMap.entries()))
+        .toEqual([['Q1', false], ['Q2', false], ['Q3', true]]);
+      // 0 page and 0 point is how a question the exam does not use is stored
+      expect(component.ignoredQuestions.get('Q2')).toBeTrue();
+      expect(component.statisticsForStudents).toBeFalse();
+      expect(component.validateMatricule).toBeTrue();
+      expect(component.reuseCopies).toBeTrue();
+      expect(component.reuseCsv).toBeTrue();
+      expect(fixture.nativeElement.querySelector('#source-task').textContent).toContain('Intra');
+      expect(fixture.nativeElement.querySelector('#reused-copies')).not.toBeNull();
+    });
+
+    it('creates it without sending the files again', async () => {
+      await create(TEMPLATES, () => {}, 'src-1');
+
+      await component.createTask();
+
+      const args = tasks.addTask.calls.mostRecent().args;
+      expect(args[0]).toBeNull();  // the copies stay on the server
+      expect(args[1]).toBeNull();  // and so do the notes
+      expect(args[args.length - 1]).toBe('src-1');
+      expect(router.navigate).toHaveBeenCalledWith(['/main-menu']);
+    });
+
+    it('a zip picked locally replaces the copies of the source', async () => {
+      await create(TEMPLATES, () => {}, 'src-1');
+      const zip = new File(['zip'], 'autres.zip');
+
+      component.CopiesFileEvent({ target: { files: [zip] } } as unknown as Event);
+      fixture.detectChanges();
+
+      expect(component.reuseCopies).toBeFalse();
+      expect(fixture.nativeElement.querySelector('#reused-copies')).toBeNull();
+      await component.createTask();
+      const args = tasks.addTask.calls.mostRecent().args;
+      expect(args[0]).toBe(zip);
+      expect(args[1]).toBeNull();  // the notes are still the source's
+      expect(args[args.length - 1]).toBe('src-1');
+    });
+
+    it('the copies can be dropped altogether', async () => {
+      await create(TEMPLATES, () => {}, 'src-1');
+
+      component.dropReusedCopies();
+      await component.createTask();
+
+      // an empty zip, as for any task created without copies
+      const args = tasks.addTask.calls.mostRecent().args;
+      expect((args[0] as File).size).toBe(22);
+      expect(args[args.length - 1]).toBe('src-1');
+    });
+
+    it('says so and stays usable when the source is gone', async () => {
+      await create(TEMPLATES, () => {}, 'gone');
+      tasks.getTaskById.and.resolveTo(null);
+      await component.loadSourceTask('gone');
+
+      expect(notification.showError).toHaveBeenCalledWith(
+        jasmine.stringContaining('introuvable'), 'ERREUR');
+    });
+
+    it('a plain new task keeps its draft and reuses nothing', async () => {
+      localStorage.setItem('newTask', JSON.stringify({ name: 'Brouillon', nQuestions: 2 }));
+
+      await create();
+
+      expect(component.taskName).toBe('Brouillon');
+      expect(component.sourceTask).toBeNull();
+      expect(component.reuseCopies).toBeFalse();
+      expect(fixture.nativeElement.querySelector('#source-task')).toBeNull();
     });
   });
 });

@@ -6,6 +6,9 @@ but the exam does not use it. Any other 0 or negative value is refused.
 
 import io
 import json
+import os
+import shutil
+import zipfile
 
 import pytest
 
@@ -129,3 +132,197 @@ def test_unreadable_csv_leaves_no_orphan_job(client, user_factory, login, app_mo
     resp = client.post("/jobs/evaluate", data=data, content_type="multipart/form-data")
     assert resp.status_code == 500
     assert app_module_fixture.mongo["RMN"]["eval_jobs"].count_documents({}) == 0
+
+
+# --------------------------------------------------- a task from another one --
+def _source_task(app_module_fixture, storage_root, user="alice", job_id="source"):
+    """A task of ``user`` with its notes and two zips on the share."""
+    app_module_fixture.mongo["RMN"]["eval_jobs"].insert_one(
+        {
+            "job_id": job_id,
+            "user_id": user,
+            "job_name": "Intra",
+            "notes_file_id": os.path.join("csv", f"{job_id}.csv"),
+        }
+    )
+    csv = storage_root / "csv" / f"{job_id}.csv"
+    csv.parent.mkdir(parents=True, exist_ok=True)
+    csv.write_bytes(b"Matricule,Nom complet\n1234567,Alice\n")
+    zips = storage_root / "zips" / job_id
+    zips.mkdir(parents=True, exist_ok=True)
+    (zips / "a.zip").write_bytes(b"PK\x05\x06" + b"\x00" * 18)
+    (zips / "b.zip").write_bytes(b"PK\x05\x06" + b"\x01" * 18)
+    return job_id
+
+
+def _from_source(client, user, token, source_job_id, files=None, name="Intra bis"):
+    data = {
+        "user_id": user,
+        "token": token,
+        "front_template_id": "front",
+        "regular_template_id": "regular",
+        "front_template_name": "front",
+        "regular_template_name": "regular",
+        "job_name": name,
+        "statistics_for_students": "true",
+        "n_pages_per_question": json.dumps([["Q1", 2]]),
+        "n_max_points_per_question": json.dumps([["Q1", 10]]),
+        "bonus_enabled_map": json.dumps([["Q1", False]]),
+        "source_job_id": source_job_id,
+        **(files or {}),
+    }
+    return client.post("/jobs/evaluate", data=data, content_type="multipart/form-data")
+
+
+def test_a_task_created_from_another_one_reuses_its_copies_and_notes(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    user_factory("alice")
+    token = login("alice")
+    source = _source_task(app_module_fixture, storage_root)
+
+    resp = _from_source(client, "alice", token, source)
+
+    assert resp.status_code == 200, resp.data
+    new = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_name": "Intra bis"})
+    job_id = new["job_id"]
+    assert job_id != source
+    # the files are copied, never shared: deleting either task takes its own
+    copied = sorted(p.name for p in (storage_root / "zips" / job_id).iterdir())
+    assert len(copied) == 2
+    assert {(storage_root / "zips" / job_id / n).read_bytes()
+            for n in copied} == {b"PK\x05\x06" + b"\x00" * 18, b"PK\x05\x06" + b"\x01" * 18}
+    assert (storage_root / "csv" / f"{job_id}.csv").read_bytes().startswith(b"Matricule")
+    # and the source keeps everything it had
+    assert len(list((storage_root / "zips" / source).iterdir())) == 2
+
+
+def test_a_file_that_is_uploaded_replaces_the_one_of_the_source(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    """The point of the switch in the wizard: keep the copies, change the notes."""
+    user_factory("alice")
+    token = login("alice")
+    source = _source_task(app_module_fixture, storage_root)
+
+    resp = _from_source(
+        client, "alice", token, source,
+        files={"notes_csv_file": (io.BytesIO(b"Matricule,Nom complet\n7654321,Bob\n"), "new.csv")},
+    )
+
+    assert resp.status_code == 200, resp.data
+    job_id = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one(
+        {"job_name": "Intra bis"})["job_id"]
+    assert b"7654321" in (storage_root / "csv" / f"{job_id}.csv").read_bytes()
+    assert len(list((storage_root / "zips" / job_id).iterdir())) == 2  # copies kept
+
+
+def test_a_task_of_another_user_cannot_be_the_source(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    user_factory("alice")
+    user_factory("bob")
+    token = login("bob")
+    source = _source_task(app_module_fixture, storage_root)  # alice's
+
+    resp = _from_source(client, "bob", token, source)
+
+    assert resp.status_code == 404
+    assert app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_name": "Intra bis"}) is None
+
+
+def test_a_source_whose_files_are_gone_is_refused_before_anything_is_created(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    """The copies of an old task are swept once it is archived; say so, and do
+    not leave a task behind that could never be split."""
+    user_factory("alice")
+    token = login("alice")
+    source = _source_task(app_module_fixture, storage_root)
+    shutil.rmtree(storage_root / "zips" / source)  # nothing left to zip up either
+
+    resp = _from_source(client, "alice", token, source)
+
+    assert resp.status_code == 400
+    assert "copies" in resp.get_json(force=True)["response"]
+    assert app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_name": "Intra bis"}) is None
+
+
+def test_the_copies_of_a_task_already_split_are_zipped_up_again(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    """The usual case: the executor deletes a zip as soon as it has split it,
+    so a task worth duplicating keeps its copies in documents/<job>/all."""
+    user_factory("alice")
+    token = login("alice")
+    source = _source_task(app_module_fixture, storage_root)
+    shutil.rmtree(storage_root / "zips" / source)
+    copies = storage_root / "documents" / source / "all"
+    copies.mkdir(parents=True)
+    (copies / "Alice_Tremblay_1234567.pdf").write_bytes(b"%PDF-1.4 alice")
+    (copies / "Bob_Gagnon_7654321.pdf").write_bytes(b"%PDF-1.4 bob")
+
+    resp = _from_source(client, "alice", token, source)
+
+    assert resp.status_code == 200, resp.data
+    job_id = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one(
+        {"job_name": "Intra bis"})["job_id"]
+    written = list((storage_root / "zips" / job_id).iterdir())
+    assert len(written) == 1
+    with zipfile.ZipFile(written[0]) as archive:
+        # the copies keep the names they had in the zip they arrived in
+        assert sorted(archive.namelist()) == [
+            "Alice_Tremblay_1234567.pdf", "Bob_Gagnon_7654321.pdf"]
+        assert archive.read("Bob_Gagnon_7654321.pdf") == b"%PDF-1.4 bob"
+    # and the source keeps its own
+    assert len(list(copies.iterdir())) == 2
+
+
+def test_a_source_with_neither_a_zip_nor_a_copy_is_refused(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    user_factory("alice")
+    token = login("alice")
+    source = _source_task(app_module_fixture, storage_root)
+    shutil.rmtree(storage_root / "zips" / source)
+
+    resp = _from_source(client, "alice", token, source)
+
+    assert resp.status_code == 400
+    assert "copies" in resp.get_json(force=True)["response"]
+    assert app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_name": "Intra bis"}) is None
+
+
+def test_the_legacy_single_zip_of_an_old_task_is_reused_too(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    user_factory("alice")
+    token = login("alice")
+    source = _source_task(app_module_fixture, storage_root)
+    shutil.rmtree(storage_root / "zips" / source)
+    (storage_root / "zips" / f"{source}.zip").write_bytes(b"PK\x05\x06" + b"\x02" * 18)
+
+    resp = _from_source(client, "alice", token, source)
+
+    assert resp.status_code == 200, resp.data
+    job_id = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one(
+        {"job_name": "Intra bis"})["job_id"]
+    assert len(list((storage_root / "zips" / job_id).iterdir())) == 1
+
+
+def test_without_a_source_both_files_are_still_required(client, user_factory, login):
+    user_factory("alice")
+    token = login("alice")
+    data = {
+        "user_id": "alice", "token": token,
+        "front_template_id": "f", "regular_template_id": "r",
+        "front_template_name": "f", "regular_template_name": "r",
+        "job_name": "exam", "statistics_for_students": "true",
+        "n_pages_per_question": json.dumps([["Q1", 2]]),
+        "n_max_points_per_question": json.dumps([["Q1", 10]]),
+        "bonus_enabled_map": json.dumps([["Q1", False]]),
+        "zip_file": (io.BytesIO(b"PK\x05\x06" + b"\x00" * 18), "copies.zip"),
+    }
+    resp = client.post("/jobs/evaluate", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 400
+    assert "notes_csv_file" in resp.get_json(force=True)["response"]

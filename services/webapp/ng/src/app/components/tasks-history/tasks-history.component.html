@@ -98,6 +98,15 @@
       </td>
     </ng-container>
 
+    <!-- New task from this one Column -->
+    <ng-container matColumnDef="job_duplicate">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header> </th>
+      <td mat-cell *matCellDef="let row">
+        <button (click)="duplicateJob(row)" mat-raised-button color="accent"
+        class="button-cell">Dupliquer</button>
+      </td>
+    </ng-container>
+
     <!-- Job share Column -->
     <ng-container matColumnDef="job_share">
       <th mat-header-cell *matHeaderCellDef mat-sort-header> </th>
