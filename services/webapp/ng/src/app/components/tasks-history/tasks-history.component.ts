@@ -10,7 +10,7 @@ import { WarningDialogComponent } from 'src/app/components/warning-dialog/warnin
 import { ErrorInfoDialogComponent } from 'src/app/components/error-info-dialog/error-info-dialog.component';
 import { NavigationStart, Router } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
-import { MatPaginator } from '@angular/material/paginator';
+import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { SocketService } from 'src/app/services/socket.service';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -26,6 +26,24 @@ import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 // the opening of the progress message a grade reading emits; matching it is
 // what tells a reading apart from any other progress the executor reports
 const READING_INFOS = 'Lecture des notes';
+
+// the page sizes the task list offers, and the key the chosen one is stored
+// under: the paginator always reopened on the smallest size, so a grader with
+// many tasks had to widen the page again on every visit
+export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+export const PAGE_SIZE_KEY = 'tasksHistoryPageSize';
+
+/** The page size the user last picked, or the smallest one when what is
+ *  stored is not a size the paginator offers (an older value, or storage
+ *  unavailable). */
+function storedPageSize(): number {
+  try {
+    const stored = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    return PAGE_SIZE_OPTIONS.includes(stored) ? stored : PAGE_SIZE_OPTIONS[0];
+  } catch {
+    return PAGE_SIZE_OPTIONS[0];
+  }
+}
 
 @Component({
     selector: 'app-tasks-history',
@@ -44,6 +62,10 @@ export class TasksHistoryComponent implements OnInit {
   diameter = 60;
   displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status' ,'job_infos', 'job_deletion', 'job_share'];  //, 'job_retry'
   dataSource: MatTableDataSource<any> = new MatTableDataSource<any>();
+
+  /** The sizes offered by the paginator, and the one it opens on. */
+  readonly pageSizeOptions = PAGE_SIZE_OPTIONS;
+  pageSize: number = storedPageSize();
 
   @ViewChild(MatPaginator) paginator: MatPaginator;
   @ViewChild(MatSort) sort: MatSort;
@@ -160,6 +182,17 @@ export class TasksHistoryComponent implements OnInit {
     this.socketService.off('job_status', this.onJobStatus);
     for (const room of this.joinedRooms) {
       this.socketService.leave(room);
+    }
+  }
+
+  /** Remember the size picked in the paginator. Only the size is kept: the
+   *  page index would point at other rows, the list reorders as jobs run. */
+  onPage(event: PageEvent): void {
+    this.pageSize = event.pageSize;
+    try {
+      localStorage.setItem(PAGE_SIZE_KEY, String(event.pageSize));
+    } catch {
+      // storage unavailable: the choice simply does not outlive the page
     }
   }
 

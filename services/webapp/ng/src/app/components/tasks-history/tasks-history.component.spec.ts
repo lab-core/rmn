@@ -5,7 +5,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { Router, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
-import { TasksHistoryComponent } from './tasks-history.component';
+import { TasksHistoryComponent, PAGE_SIZE_KEY, PAGE_SIZE_OPTIONS } from './tasks-history.component';
 import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog.component';
 import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
 import { WarningDialogComponent } from '../warning-dialog/warning-dialog.component';
@@ -197,6 +197,45 @@ describe('TasksHistoryComponent', () => {
       job_id: 'j2', status: 'RETRY', job_infos: 'Découpage des copies : 3/8 (38 %)',
     }));
     expect(task.auto_grade_running).toBeFalsy();
+  });
+
+  describe('the size of a page of tasks', () => {
+    // a fixture of its own: the size is read when the component is built
+    async function reopenList(): Promise<TasksHistoryComponent> {
+      const reopened = TestBed.createComponent(TasksHistoryComponent);
+      reopened.detectChanges();
+      http.expectOne('/api/jobs').flush({ response: [] });
+      await settle();
+      reopened.detectChanges();
+      return reopened.componentInstance;
+    }
+
+    afterEach(() => localStorage.removeItem(PAGE_SIZE_KEY));
+
+    it('offers 5, 10, 20 and 50, and opens on the smallest', async () => {
+      localStorage.removeItem(PAGE_SIZE_KEY);
+      const reopened = await reopenList();
+      expect(PAGE_SIZE_OPTIONS).toEqual([5, 10, 20, 50]);
+      expect(reopened.paginator.pageSizeOptions).toEqual([5, 10, 20, 50]);
+      expect(reopened.paginator.pageSize).toBe(5);
+    });
+
+    it('reopens on the size the user picked', async () => {
+      component.onPage({ pageIndex: 0, pageSize: 20, length: 2 });
+      expect(component.pageSize).toBe(20);
+      expect(localStorage.getItem(PAGE_SIZE_KEY)).toBe('20');
+
+      const reopened = await reopenList();
+      expect(reopened.paginator.pageSize).toBe(20);
+    });
+
+    it('opens on the smallest size when the stored one is not offered', async () => {
+      localStorage.setItem(PAGE_SIZE_KEY, '8');  // a size of an older version
+      expect((await reopenList()).paginator.pageSize).toBe(5);
+
+      localStorage.setItem(PAGE_SIZE_KEY, 'toutes');
+      expect((await reopenList()).paginator.pageSize).toBe(5);
+    });
   });
 
 });
