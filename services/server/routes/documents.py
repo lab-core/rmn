@@ -331,7 +331,8 @@ def update_document(validity):
                         f"grades.{q_index}": grade
                     }}
                 )
-                if not r:
+                # an UpdateResult is always truthy: `if not r` never fired
+                if r.matched_count == 0:
                     return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
                                     status=404)
 
