@@ -834,9 +834,14 @@ describe('TaskVerificationComponent', () => {
 
       await component.uploadOffline(true);
 
-      expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining("n'a pu être sauvegardée"), 'Error');
+      // named as on its tile, not by its position from the first document
+      expect(notification.showError).toHaveBeenCalledWith("La copie 1|Q3 n'a pu être sauvegardée.", 'Error');
       expect(copy.updated).toBeFalse();
       expect(notification.showSuccess).not.toHaveBeenCalled();
+      // and the offline management can be opened again to retry
+      expect(component.downloadingOffline).toBeFalse();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.pdf-management-button').disabled).toBeFalse();
     });
 
     it('cancelling the offline correction asks first', async () => {
