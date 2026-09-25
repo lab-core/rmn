@@ -251,3 +251,17 @@ def test_another_user_cannot_unshare(client, job, user_factory, login):
 
 def test_unshare_requires_a_job_id(client, job, login):
     assert client.post("/matricules/unshare", data={"token": login()}).status_code == 400
+
+
+@pytest.mark.parametrize("route", ["/matricules/update", "/matricules/status/update"])
+def test_a_malformed_document_index_is_400(client, job, login, route):
+    job.sio.emit.reset_mock()
+    form = {"job_id": "j1", "document_index": "abc", "token": login("alice")}
+    resp = client.post(route, data={**form, "matricule": "1", "status": "VALIDATED"})
+    # a bare int() made it a 500
+    assert resp.status_code == 400, resp.data
+    assert resp.get_json(force=True) == {
+        "response": "Error: document_index is not a number."
+    }
+    assert _doc(job)["matricule"] == "111"
+    job.sio.emit.assert_not_called()

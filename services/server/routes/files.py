@@ -8,6 +8,7 @@ from flask_cors import cross_origin
 from rmn_common.status import Output_File
 from auth import verify_share_token, verify_token
 from context import TEMP_FOLDER, mongo, storage
+from utils.forms import form_int
 from utils.uploads import temp_upload_path
 
 
@@ -171,10 +172,23 @@ def download_file():
 
     target_output_file = output_file_mapping_dict[target_file]
 
-    file_id = output_files[target_output_file]
+    # the executor writes each output when it gets to it: the stats of a job
+    # still running, for instance, are not there yet (was a KeyError, a 500)
+    file_id = output_files.get(target_output_file)
     if target_file == Output_File.ZIP_FILE:
-        zip_index = int(request_form["zip_index"])
+        zip_index = form_int(request_form, "zip_index")
+        # a negative index would have served an archive from the end
+        if file_id is None or not 0 <= zip_index < len(file_id):
+            return Response(
+                response=json.dumps({"response": f"Error: zip {zip_index} doesn't exist."}),
+                status=404
+            )
         file_id = file_id[zip_index]
+    if file_id is None:
+        return Response(
+            response=json.dumps({"response": f"Error: {target_file.value} doesn't exist."}),
+            status=404
+        )
 
     if not os.path.exists(TEMP_FOLDER):
         os.makedirs(TEMP_FOLDER)
