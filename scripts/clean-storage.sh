@@ -80,8 +80,7 @@ if [ "$code" != "200" ]; then
   head -c 300 <<<"$response" >&2
   echo >&2
   if [ "$code" = "502" ] || [ "$code" = "504" ]; then
-    echo "A 502/504 comes from the proxy: after a rebuild of the local stack," \
-      "restart nginx (docker restart rmn-nginx-1)." >&2
+    echo "A 502/504 comes from the proxy: is the server container up?" >&2
   fi
   if [ "$dry_run" = false ]; then
     echo "The sweep may have started before the error: run a dry run to see" \

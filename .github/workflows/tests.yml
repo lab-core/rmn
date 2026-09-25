@@ -271,10 +271,9 @@ jobs:
       - name: Front nginx (reverse proxy, login rate limit, security headers)
         run: |
           docker build -q -t rmn-nginx-check services/nginx
-          # nginx -t resolves the upstream names; any address will do
-          docker run --rm \
-            --add-host server:127.0.0.1 --add-host socketio:127.0.0.1 --add-host webapp:127.0.0.1 \
-            rmn-nginx-check nginx -t
+          # no --add-host: the upstreams are resolved at request time, so the
+          # config must load without them (that is what spares the restart)
+          docker run --rm rmn-nginx-check nginx -t
       - name: Webapp nginx (static files, safe security headers)
         run: |
           docker run --rm \
