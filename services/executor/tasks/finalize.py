@@ -229,7 +229,9 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
             # store copy for moodle zip if necessary
             if moodle_ind:
                 # create participant moodle folder
-                identifiant = df.at[matricule, MF.id]
+                # str: a column of plain participant numbers is read as
+                # integers, which re.search refuses (as in mcc.copy_files_for_moodle)
+                identifiant = str(df.at[matricule, MF.id])
                 m_id = re.search('\\d+', identifiant)
                 if not m_id:
                     print("Moodle participant id not found in " + identifiant)

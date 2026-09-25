@@ -468,6 +468,36 @@ def test_a_moodle_id_without_digits_leaves_the_copy_out_of_the_moodle_zip_only(
     assert moodle and all(n.startswith("Tremblay Carol_103_3333333") for n in moodle)
 
 
+def test_a_moodle_id_column_of_plain_numbers_names_the_moodle_folders(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    # a roster whose "Identifiant" holds the participant ids alone: pandas
+    # reads the column as integers
+    roster = ROSTER.copy()
+    roster[MF.id] = [101, 102, 103, 105]
+    job = _job(mongo_db, storage_root, roster=roster)
+    _split_copies(
+        tmp_path,
+        mongo_db,
+        scanned_copy_factory,
+        {"alice": COPIES["alice"], "carol": COPIES["carol"]},
+    )
+
+    _finalize(job, tmp_path)
+
+    assert mongo_db["eval_jobs"].find_one({"job_id": "job"})["job_status"] == "ARCHIVED"
+    moodle = _zip_names(storage_root / "output_zip" / "job_1.zip")
+    assert ALICE_MOODLE_FOLDER + "Martin_Alice_1111111.pdf" in moodle
+    assert (
+        "Tremblay Carol_103_3333333_assignsubmission_file_/Tremblay_Carol_3333333.pdf"
+        in moodle
+    )
+
+
 def test_a_failing_student_stats_page_does_not_hold_back_the_copy(
     tmp_path: Path,
     storage_root: Path,
