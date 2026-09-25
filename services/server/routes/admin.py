@@ -1,6 +1,8 @@
 """Operator commands, guarded by the shared admin key rather than a session."""
 
 import json
+import math
+
 from flask import Blueprint, Response, request
 from flask_cors import cross_origin
 from auth import verify_admin
@@ -9,9 +11,17 @@ from service import storage_cleanup
 from service.job_cleanup import delete_old_jobs
 from service.template_service import TemplateService
 from service.user_service import UserService
+from utils.forms import form_int
 
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+
+def _negative(field):
+    return Response(
+        response=json.dumps({"response": f"Error: {field} must be >= 0."}),
+        status=400,
+    )
 
 
 @bp.route("/delete/jobs", methods=["POST"])
@@ -26,8 +36,10 @@ def admin_delete_jobs():
             status=400,
         )
 
-    #
-    n_days_old = int(request_form["n_days_old"])
+    n_days_old = form_int(request_form, "n_days_old")
+    # a negative age puts the cutoff in the future: every job would go
+    if n_days_old < 0:
+        return _negative("n_days_old")
 
     user_id = None
     if "username" in request_form:
@@ -59,7 +71,9 @@ def admin_delete_tokens():
         user_id = str(request_form["username"])
     elif "user_id" in request_form:
         user_id = str(request_form["user_id"])
-    n_days_old = int(request_form["n_days_old"]) if "n_days_old" in request_form else 0
+    n_days_old = form_int(request_form, "n_days_old", default=0)
+    if n_days_old < 0:
+        return _negative("n_days_old")
     db = mongo["RMN"]
     UserService.delete_tokens(user_id, n_days_old, db)
     return Response(
@@ -138,6 +152,9 @@ def admin_clean_storage():
     include_strays = request_form.get("include_strays", "false").lower() == "true"
     try:
         min_age_hours = float(request_form.get("min_age_hours", "24"))
+        # "nan" passed the >= 0 check below and "inf" overflowed int(): 500s
+        if not math.isfinite(min_age_hours):
+            raise ValueError(min_age_hours)
     except ValueError:
         return Response(
             response=json.dumps({"response": "Error: min_age_hours is not a number."}),
