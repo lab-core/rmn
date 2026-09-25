@@ -35,4 +35,4 @@ def test_share_url_scheme_follows_host(
 
     assert resp.status_code == 200, resp.data
     url = resp.get_json(force=True)["response"]["share_url"]
-    assert url.startswith(f"{scheme}://{host}/api/file/download?job_id=job1&")
+    assert url.startswith(f"{scheme}://{host}/api/files/download?job_id=job1&")

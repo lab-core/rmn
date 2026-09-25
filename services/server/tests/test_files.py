@@ -170,9 +170,25 @@ def test_share_returns_the_existing_archive_link(client, finished, login):
     body = resp.get_json(force=True)["response"]
     assert body == {
         "job_id": finished,
-        "share_url": f"https://rmn.example.org/api/file/download?job_id={finished}"
+        "share_url": f"https://rmn.example.org/api/files/download?job_id={finished}"
         "&token=tok-file&file=notes_csv_file",
     }
+
+
+@pytest.mark.parametrize(
+    "form", [{"file": "notes_csv_file"}, {"file": "zip_file", "zip_index": "1"}], ids=["csv", "zip"]
+)
+def test_the_share_url_downloads_the_file(client, finished, login, form):
+    # follow the link as the browser does, less the /api prefix nginx strips:
+    # it pointed at /file/download, a route #181 had renamed, and got a 404
+    url = _share(client, finished, token=login(), **form).get_json(force=True)["response"]["share_url"]
+    prefix = "https://rmn.example.org/api"
+    assert url.startswith(prefix + "/")
+    resp = client.get(url[len(prefix):])
+    assert resp.status_code == 200, url
+    assert resp.data.startswith(b"ZIP1" if form["file"] == "zip_file" else b"Matricule")
+    # a known size: the browser shows the download's progress
+    assert resp.headers["Content-Length"] == str(len(resp.data))
 
 
 def test_share_of_a_zip_carries_its_index(client, finished, login):
