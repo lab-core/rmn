@@ -156,6 +156,36 @@ def test_the_digits_a_job_contributed_outlive_it(tmp_path):
     assert not any("samples" in p for p in owned)
 
 
+def test_corpus_usage_counts_each_corpus_directory(tmp_path):
+    root = str(tmp_path)
+    _touch(os.path.join(root, "digit_bank", "samples", "7", "a.png"), "aa")
+    _touch(os.path.join(root, "digit_bank", "samples", "3", "b.png"), "b")
+    _touch(os.path.join(root, "digit_bank", "staged", "job", "0", "r.npz"), "xxxx")
+    _touch(os.path.join(root, "numbers", "0", "c.png"), "ccc")
+
+    usage = Storage(root).corpus_usage()
+
+    # the staged crops are not corpus: they belong to a job and die with it
+    assert usage == {
+        os.path.join("digit_bank", "samples"): {"bytes": 3, "files": 2},
+        "numbers": {"bytes": 3, "files": 1},
+    }
+    assert Storage(tmp_path / "empty").corpus_usage() == {}
+
+
+def test_the_corpus_is_never_a_stray(tmp_path):
+    """``stray_entries`` drives a delete, so it must not reach the corpus."""
+    root = str(tmp_path)
+    _build_job(root, "job-A")
+    _touch(os.path.join(root, "digit_bank", "samples", "7", "a.png"))
+    _touch(os.path.join(root, "digit_bank", "index.jsonl"))
+    _touch(os.path.join(root, "numbers", "7", "b.png"))
+
+    strays = list(Storage(root).stray_entries())
+
+    assert not any("samples" in s or "numbers" in s or "index" in s for s in strays)
+
+
 def test_rel_path_of_a_relative_or_foreign_path(tmp_path):
     storage = Storage(tmp_path / "store")
     assert storage.rel_path("csv/j.csv") == "csv/j.csv"

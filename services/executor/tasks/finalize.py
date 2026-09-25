@@ -85,7 +85,6 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
     #
     # a deleted user keeps the defaults; a job without output cannot finalize
     user = db.users_collection().find_one({"username": user_id}) or {}
-    save_verified_images = bool(user.get("saveVerifiedImages", False))
     moodle_ind = bool(int(user.get("moodleStructureInd", True)))
 
     #
@@ -213,13 +212,6 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
             doc = db.documents_collection().find_one({"job_id": job_id, "filename": filename})
             if doc is None or doc['status'] == Document_Status.DELETED.value:
                 continue
-
-            # doc_idx = doc["document_index"]
-            # start_time = time.time()
-            # if save_verified_images:
-            #     save_number_images(
-            #         storage, job_id, doc_idx - 1, doc["grades"]
-            #     )
 
             # find matricule associated to this file
             matricule = str(doc["matricule"])

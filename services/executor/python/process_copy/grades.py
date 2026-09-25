@@ -310,9 +310,6 @@ def grade_files(
             elif numbers and len(numbers) > 1:
                 print("Found numbers:", numbers)
 
-                # db.save_unverified_number_images(
-                #     job_id, doc_index, number_images[:-1]
-                # )
                 number_images.clear()  # delete numbers picture
 
                 # fill csv for all the subquestion

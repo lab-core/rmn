@@ -17,7 +17,8 @@ export class UserService {
   private shareToken: string;
   private questionIndex: string;
   role: string;
-  saveVerifiedImages: boolean = false;
+  // on by default, like the server's users: the profile screen turns it off
+  saveVerifiedImages: boolean = true;
   moodleStructureInd: boolean = false;
   warningShown: boolean = true;
   /** Fires after logout(): the socket and the pdf cache drop the previous
@@ -33,7 +34,7 @@ export class UserService {
     this.token = localStorage.getItem('token')
 
     const saveImages = localStorage.getItem('saveVerifiedImages')
-    this.saveVerifiedImages = (saveImages && saveImages != "undefined") ? JSON.parse(localStorage.getItem('saveVerifiedImages')) : false
+    this.saveVerifiedImages = (saveImages && saveImages != "undefined") ? JSON.parse(localStorage.getItem('saveVerifiedImages')) : true
 
     const moodleInd = localStorage.getItem('moodleStructureInd')
     this.moodleStructureInd = (moodleInd && moodleInd != "undefined") ? JSON.parse(localStorage.getItem('moodleStructureInd')) : false

@@ -45,7 +45,8 @@ describe('UserService', () => {
     const service = fresh();
     expect(service.loggued()).toBeFalse();
     expect(service.shared()).toBeFalse();
-    expect(service.saveVerifiedImages).toBeFalse();
+    // the server's own default, until a session says otherwise
+    expect(service.saveVerifiedImages).toBeTrue();
     expect(service.moodleStructureInd).toBeFalse();
     const form = new FormData();
     service.addTokens(form);

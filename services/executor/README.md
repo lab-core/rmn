@@ -43,7 +43,13 @@ storage/digit_bank/
 Staged crops belong to the job and are deleted with it. A labelled sample
 outlives it, which is why the promotion asks the teacher's `saveVerifiedImages`
 (the switch in the user profile): **the reading is staged for everyone, the
-bank only keeps what its owner allowed.**
+bank only keeps what its owner allowed.** It is on by default, so a teacher
+who never opens the profile screen contributes; turning it off stores a real
+`false` and is honoured. Rows that predate the flag keep the default.
+
+`digit_bank/samples` is in `rmn_common.storage.CORPUS_DIRS`: no cleanup, job
+deletion or orphan sweep may remove it, and the monthly storage report counts
+it on its own line, because it is the one part of the share that only grows.
 
 **The samples are 64 x 64**, the thresholded mask the classifier sees, centred
 with no margin. The model's input is 28 x 28, but the crops leave the page at
@@ -63,6 +69,9 @@ python tools/build_digit_bank.py export --size 28 --margin 0.1 --out dataset_con
 `export` writes the `(x, y)` pair `train.load_dataset` reads, so the bank mixes
 into the training set beside MNIST.
 
-The dormant `runtime.save_number_images` predates this: it filed whole grade
-boxes under `storage/numbers/<digit>/` for single-digit grades only, and both
-of its call sites have long been commented out. The bank replaces it.
+This replaces `runtime.save_number_images`, deleted with it: that path filed
+whole grade boxes under `storage/numbers/<digit>/`, for single-digit grades
+only, and both of its call sites had been commented out for as long as they
+existed. Anything `storage/numbers/` already holds is kept and still counted
+(it is a corpus directory too); `unverified_numbers/` keeps its place in the
+job layout so that what old trees hold still goes with its job.

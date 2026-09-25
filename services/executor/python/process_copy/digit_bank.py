@@ -415,9 +415,15 @@ def saves_images(db: Any, user_id: Optional[str]) -> bool:
     ``saveVerifiedImages`` is the switch in the user profile, and it is what
     the bank asks: staged crops die with the job, a banked sample outlives it,
     so the consent is about the promotion and not about the reading.
+
+    It is on by default, here and where a user is created, so a teacher who
+    never opened the profile screen contributes; a row that predates the flag,
+    and a deleted user, keep that default (as ``finalize`` does for
+    ``moodleStructureInd``). Turning the switch off stores a real ``false``
+    and is honoured.
     """
     user = db.users_collection().find_one({"username": user_id}) or {}
-    return bool(user.get("saveVerifiedImages", False))
+    return bool(user.get("saveVerifiedImages", True))
 
 
 def promote_job(db: Any, job_id: str, storage: Any = None, remove: bool = True) -> Dict[str, int]:

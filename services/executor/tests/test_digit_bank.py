@@ -254,12 +254,17 @@ def test_nothing_is_banked_from_a_teacher_who_did_not_opt_in(storage_root, mongo
     assert len(staged_files(storage_root)) == 1
 
 
-def test_a_job_whose_owner_is_gone_banks_nothing(storage_root, mongo_db):
-    mongo_db["eval_jobs"].insert_one({"job_id": JOB, "user_id": "ghost"})
+def test_a_user_who_never_touched_the_switch_contributes(storage_root, mongo_db):
+    """It is on by default, and a row that predates it -- or a deleted user --
+    keeps that default, the way ``finalize`` treats ``moodleStructureInd``."""
+    mongo_db["eval_jobs"].insert_one(
+        {"job_id": JOB, "user_id": "ghost", "validate_matricule": True})
+    mongo_db["users"].insert_one({"username": "ghost"})  # no saveVerifiedImages
     a_document(mongo_db, matricule="1234567")
     stage()
-    assert digit_bank.promote_job(Database(), JOB)["refused"] == 1
-    assert bank_files(storage_root) == []
+
+    assert digit_bank.promote_job(Database(), JOB)["samples"] == 7
+    assert len(bank_files(storage_root)) == 7
 
 
 # --------------------------------------------------------------- the export --
