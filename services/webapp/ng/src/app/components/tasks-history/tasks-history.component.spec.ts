@@ -90,6 +90,19 @@ describe('TasksHistoryComponent', () => {
     expect(notification.showInfo).toHaveBeenCalledTimes(1);
   });
 
+  it('a task can be reused: the wizard opens on it', () => {
+    // the row of a known task: the table's order is its own business
+    const row = Array.from(fixture.nativeElement.querySelectorAll('tr.element-row'))
+      .find((r: HTMLElement) => r.textContent.includes('Retry me')) as HTMLElement;
+    const button = Array.from(row.querySelectorAll('button'))
+      .find((b: HTMLButtonElement) => b.textContent.trim() === 'Réutiliser') as HTMLButtonElement;
+    expect(button).withContext('the list must offer it').toBeDefined();
+
+    button.click();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/new-exam-correction', 'j1']);
+  });
+
   it('filters the table', () => {
     component.applyFilter({ target: { value: '  Retry ' } } as any);
     expect(component.dataSource.filter).toBe('retry');

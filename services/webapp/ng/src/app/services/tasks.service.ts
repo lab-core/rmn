@@ -62,16 +62,23 @@ export class TasksService {
     // components show their own progress bars
   }
 
+  /** Create a task.
+   *
+   *  ``copies`` and ``csv`` may be null when ``sourceJobId`` names the task to
+   *  take them from: the server copies that task's files for each one that is
+   *  not sent, which is how the same exam is corrected a second time.
+   */
   async addTask(copies, csv, front_template_id, regular_template_id,
                 n_pages_per_question, n_max_points_per_question, bonus_enabled_map,
                 taskName, front_template_name, regular_template_name,
-                statistics_for_students, validateMatricule): Promise<void> {
+                statistics_for_students, validateMatricule, sourceJobId = null): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('front_template_id', front_template_id);
     formdata.append('regular_template_id', regular_template_id);
-    formdata.append('zip_file', copies);
-    formdata.append('notes_csv_file', csv);
+    if (copies) formdata.append('zip_file', copies);
+    if (csv) formdata.append('notes_csv_file', csv);
+    if (sourceJobId) formdata.append('source_job_id', sourceJobId);
     // formdata.append('nb_pages', number_pages.toString());
     formdata.append('n_pages_per_question', JSON.stringify(Array.from(n_pages_per_question.entries())));
     formdata.append('n_max_points_per_question', JSON.stringify(Array.from(n_max_points_per_question.entries())));

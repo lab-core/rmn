@@ -8,6 +8,7 @@ suite needs no running services.
 """
 
 import os
+import shutil
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -48,6 +49,28 @@ from werkzeug.security import generate_password_hash  # noqa: E402
 def app_module_fixture():
     """The imported ``app`` module (for monkeypatching module globals)."""
     return app_module
+
+
+@pytest.fixture
+def storage_root(app_module_fixture):
+    """The storage tree the app writes to, empty at the start of the test.
+
+    The root is fixed (``STORAGE`` is read when the app is imported), so a
+    test that looks at what was written clears it rather than trusting what
+    another test left behind.
+    """
+    root = Path(app_module_fixture.storage.path)
+
+    def clear():
+        for child in root.iterdir():
+            if child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                child.unlink(missing_ok=True)
+
+    clear()
+    yield root
+    clear()
 
 
 @pytest.fixture(autouse=True)

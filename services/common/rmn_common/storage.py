@@ -118,6 +118,32 @@ class Storage:
         for f in glob.glob(str(self.abs_path(s_file))):
             os.remove(f)
 
+    def copy_inside(self, s_src, s_dst):
+        """Copy a stored file to another path inside the tree.
+
+        Used when a task is created from another one: its copies and its notes
+        are duplicated rather than shared, so deleting either task takes only
+        its own files (``remove_job`` deletes by path, not by reference).
+
+        Args:
+            s_src: Storage-relative path of the file to copy.
+            s_dst: Storage-relative path to write.
+
+        Returns:
+            The absolute path written.
+
+        Raises:
+            ValueError: If the source does not exist, or either path would
+                escape the storage root.
+        """
+        src = self.abs_path(s_src)
+        dst = self.abs_path(s_dst)
+        if not os.path.isfile(src):
+            raise ValueError("Storage can't find stored file " + str(s_src))
+        create_tree(dst)
+        shutil.copyfile(src, dst)
+        return dst
+
     def remove_tree(self, s_dir):
         shutil.rmtree(self.abs_path(s_dir), ignore_errors=True)
 

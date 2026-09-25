@@ -26,10 +26,40 @@ from utils.uploads import save_csv, temp_upload_path
 bp = Blueprint("jobs", __name__, url_prefix="/jobs")
 
 
+def stored_zips(job_id):
+    """Every zip stored for a task, storage-relative.
+
+    The current layout is a directory per task; a task old enough predates it
+    and has a single ``zips/<job_id>.zip`` (see ``Storage._JOB_FILES``).
+    """
+    directory = os.path.join("zips", job_id)
+    absolute = storage.abs_path(directory)
+    if os.path.isdir(absolute):
+        return sorted(
+            os.path.join(directory, name)
+            for name in os.listdir(absolute)
+            if name.endswith(".zip")
+        )
+    legacy = os.path.join("zips", f"{job_id}.zip")
+    return [legacy] if os.path.isfile(storage.abs_path(legacy)) else []
+
+
 @bp.route("/evaluate", methods=["POST"])
 @cross_origin()
 @verify_token()
 def evaluate(user_id):
+    """Create a task and queue it for splitting.
+
+    Form fields: the templates, the per-question pages, points and bonus, the
+    name and the two switches; files: ``zip_file`` (the copies) and
+    ``notes_csv_file`` (the Moodle export).
+
+    ``source_job_id`` creates the task from an existing one of the same user:
+    each of the two files it does not carry is copied from that task, so the
+    same copies and the same notes can be corrected again -- with any other
+    setting changed, since all of them still come from the form. A file that
+    *is* uploaded wins, which is how one of the two is replaced.
+    """
     request_form = request.form
 
     required_fields = [
@@ -51,19 +81,55 @@ def evaluate(user_id):
                 status=400,
             )
 
-    if not request.files:
+    # A task can be created from an existing one: whatever is not uploaded is
+    # taken from that task's own files. Everything else -- name, templates,
+    # questions -- is sent by the form, so the user can change any of it.
+    source_job_id = str(request_form.get("source_job_id", "")).strip()
+    source_csv = None
+    source_zips = []
+    if source_job_id:
+        source = mongo["RMN"]["eval_jobs"].find_one(
+            {"job_id": source_job_id, "user_id": user_id}
+        )
+        if source is None:
+            return Response(
+                response=json.dumps(
+                    {"response": f"Error: job {source_job_id} for user {user_id} doesn't exist."}
+                ),
+                status=404,
+            )
+        if "notes_csv_file" not in request.files:
+            source_csv = source.get("notes_file_id") or os.path.join(
+                "csv", f"{source_job_id}.csv"
+            )
+            if not os.path.isfile(storage.abs_path(source_csv)):
+                return Response(
+                    response=json.dumps(
+                        {"response": "Error: la liste de notes de la tâche "
+                         "d'origine n'est plus disponible."}
+                    ),
+                    status=400,
+                )
+        if "zip_file" not in request.files:
+            source_zips = stored_zips(source_job_id)
+            if not source_zips:
+                return Response(
+                    response=json.dumps(
+                        {"response": "Error: les copies de la tâche d'origine "
+                         "ne sont plus disponibles."}
+                    ),
+                    status=400,
+                )
+
+    if not request.files and not source_job_id:
         return Response(
             response=json.dumps({"response": "Error: No files provided."}),
             status=400,
         )
 
-    required_files = [
-        "notes_csv_file",
-        "zip_file"
-    ]
-
-    for file_field in required_files:
-        if file_field not in request.files:
+    inherited = {"notes_csv_file": source_csv is not None, "zip_file": bool(source_zips)}
+    for file_field in ("notes_csv_file", "zip_file"):
+        if file_field not in request.files and not inherited[file_field]:
             return Response(
                 response=json.dumps({"response": f"Error: {file_field} not provided."}),
                 status=400,
@@ -134,22 +200,34 @@ def evaluate(user_id):
         os.makedirs(TEMP_FOLDER)
     try:
         # only for a zip with a folder for each student
-        notes_csv_file = request.files.get("notes_csv_file")
-        notes_csv_file_name = temp_upload_path(notes_csv_file.filename)
-        notes_csv_file.save(FileIO(notes_csv_file_name, "wb"))
-        save_csv(str(notes_csv_file_name), notes_file_id)
+        if source_csv:
+            # already normalised to a comma separator when it was first stored
+            storage.copy_inside(source_csv, notes_file_id)
+        else:
+            notes_csv_file = request.files.get("notes_csv_file")
+            notes_csv_file_name = temp_upload_path(notes_csv_file.filename)
+            notes_csv_file.save(FileIO(notes_csv_file_name, "wb"))
+            save_csv(str(notes_csv_file_name), notes_file_id)
 
-        zip_file = request.files.get("zip_file")
-        random_id = uuid.uuid4()
-        zip_file_id = os.path.join("zips", job_id, f"{random_id}.zip")
-        # Stream straight into the storage share, in chunks. The previous code
-        # read the whole upload into memory (a multi-GB zip in one gunicorn
-        # worker, fatal under the container memory limit) and then copied it a
-        # second time from the temp folder to the share, which for 5 GB took
-        # longer than the gunicorn worker timeout.
-        zip_abs_path = storage.abs_path(zip_file_id)
-        os.makedirs(os.path.dirname(zip_abs_path), exist_ok=True)
-        zip_file.save(zip_abs_path)
+        if source_zips:
+            # copied, not shared: deleting either task must take only its own
+            # files, and the executor extracts each task's zips into its tree
+            for stored in source_zips:
+                storage.copy_inside(
+                    stored, os.path.join("zips", job_id, f"{uuid.uuid4()}.zip")
+                )
+        else:
+            zip_file = request.files.get("zip_file")
+            random_id = uuid.uuid4()
+            zip_file_id = os.path.join("zips", job_id, f"{random_id}.zip")
+            # Stream straight into the storage share, in chunks. The previous code
+            # read the whole upload into memory (a multi-GB zip in one gunicorn
+            # worker, fatal under the container memory limit) and then copied it a
+            # second time from the temp folder to the share, which for 5 GB took
+            # longer than the gunicorn worker timeout.
+            zip_abs_path = storage.abs_path(zip_file_id)
+            os.makedirs(os.path.dirname(zip_abs_path), exist_ok=True)
+            zip_file.save(zip_abs_path)
     except Exception as e:
         print(e)
         # no orphan: a SPLIT job without files would sit in the history forever
@@ -257,6 +335,8 @@ def get_job():
         "n_pages_per_question": job["n_pages_per_question"],
         "bonus_enabled_map": job["bonus_enabled_map"],
         "statistics_for_students": job["statistics_for_students"],
+        # so a task created from this one opens with the same switch
+        "validate_matricule": job.get("validate_matricule", True),
         "groups": job.get("groups", [""]),
         "copies_errors": job.get("copies_errors"),
         # how far the grade reading has got, question by question, so the

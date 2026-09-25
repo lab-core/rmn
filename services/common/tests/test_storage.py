@@ -223,3 +223,29 @@ def test_remove_all_match_walks_the_whole_tree(tmp_path):
     remaining = [os.path.join(d, f) for d, _, files in os.walk(root) for f in files]
     assert remaining and not any("job-A" in p for p in remaining)
     assert all("job-B" in p for p in remaining)
+
+
+def test_copy_inside_duplicates_a_stored_file(tmp_path):
+    """A task created from another one copies its files rather than sharing
+    them: deleting either task must take only its own."""
+    root = str(tmp_path)
+    _touch(os.path.join(root, "zips", "job-A", "a.zip"), "copies")
+    storage = Storage(root)
+
+    written = storage.copy_inside(
+        os.path.join("zips", "job-A", "a.zip"), os.path.join("zips", "job-B", "b.zip")
+    )
+
+    assert open(written).read() == "copies"
+    assert os.path.exists(os.path.join(root, "zips", "job-A", "a.zip"))
+    storage.remove_job("job-B")
+    assert os.path.exists(os.path.join(root, "zips", "job-A", "a.zip"))
+
+
+def test_copy_inside_refuses_a_missing_source_or_a_path_outside_the_root(tmp_path):
+    storage = Storage(tmp_path)
+    with pytest.raises(ValueError):
+        storage.copy_inside("zips/none.zip", "zips/copy.zip")
+    _touch(str(tmp_path / "zips" / "a.zip"), "x")
+    with pytest.raises(ValueError):
+        storage.copy_inside("zips/a.zip", "../escaped.zip")
