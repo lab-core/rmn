@@ -8,7 +8,7 @@ from flask_cors import cross_origin
 from auth import verify_admin
 from context import mongo, redis, storage
 from service import storage_cleanup
-from service.job_cleanup import delete_old_jobs
+from service.job_cleanup import delete_job, delete_old_jobs
 from service.template_service import TemplateService
 from service.user_service import UserService
 from utils.forms import form_int
@@ -152,12 +152,17 @@ def admin_clean_storage():
     ``min_age_hours`` (default 24, paths touched more recently are skipped so
     the sweep cannot race an upload) and ``include_strays`` (default false --
     also delete paths under a known prefix that match no layout rule).
+    ``include_empty_jobs`` (default false) also deletes the ``eval_jobs``
+    rows none of whose files exist any more, with everything else of the job.
     ``usage=true`` adds a ``usage`` block: bytes used on the share by files
     older than 0, 30, 90, 180 and 365 days (it walks the whole tree).
     """
     request_form = request.form
     dry_run = request_form.get("dry_run", "true").lower() != "false"
     include_strays = request_form.get("include_strays", "false").lower() == "true"
+    include_empty_jobs = (
+        request_form.get("include_empty_jobs", "false").lower() == "true"
+    )
     with_usage = request_form.get("usage", "false").lower() == "true"
     try:
         min_age_hours = float(request_form.get("min_age_hours", "24"))
@@ -180,7 +185,13 @@ def admin_clean_storage():
     if dry_run:
         report = storage_cleanup.scan(storage, db, min_age_seconds)
     else:
-        report = storage_cleanup.clean(storage, db, min_age_seconds, include_strays)
+        report = storage_cleanup.clean(
+            storage,
+            db,
+            min_age_seconds,
+            include_strays,
+            delete_job=delete_job if include_empty_jobs else None,
+        )
     report["dry_run"] = dry_run
     if with_usage:
         report["usage"] = storage_cleanup.usage(storage)
@@ -190,6 +201,8 @@ def admin_clean_storage():
         "orphan(s),",
         report["bytes"],
         "bytes,",
+        len(report["empty_jobs"]),
+        "empty job(s),",
         "dry run" if dry_run else "deleted",
     )
     return Response(response=json.dumps({"response": "OK", **report}), status=200)

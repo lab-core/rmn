@@ -1,5 +1,6 @@
 """The storage sweep: what it removes, what it must never touch."""
 
+import datetime as dt
 import os
 import time
 
@@ -107,6 +108,111 @@ def test_rows_pointing_at_a_missing_image_are_reported(tree):
         {"template_id": "t1", "template_file_id": "template/gone.png"}
     )
     assert storage_cleanup.scan(storage, db)["missing"] == ["template/gone.png"]
+
+
+def _job(db, job_id, age_seconds=48 * 3600, **fields):
+    """Insert an ``eval_jobs`` row queued ``age_seconds`` ago, plus a document."""
+    queued = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=age_seconds)
+    db["eval_jobs"].insert_one(
+        {
+            "job_id": job_id,
+            "user_id": "alice",
+            "job_name": job_id,
+            "job_status": "VALIDATION",
+            "queued_time": queued,
+            **fields,
+        }
+    )
+    db["job_documents"].insert_one({"job_id": job_id, "document_index": 0})
+
+
+def test_jobs_without_any_file_are_reported_but_kept(tree):
+    storage, db, write = tree
+    _job(db, "kept")
+    write("output_csv/kept.csv")  # a single stored path is enough
+    _job(db, "empty")
+
+    report = storage_cleanup.clean(storage, db)
+
+    assert [j["job_id"] for j in report["empty_jobs"]] == ["empty"]
+    assert report["empty_jobs"][0]["user_id"] == "alice"
+    assert report["deleted_jobs"] == []
+    assert db["eval_jobs"].count_documents({"job_id": "empty"}) == 1
+
+
+def test_jobs_without_any_file_are_deleted_when_asked(tree):
+    storage, db, write = tree
+    _job(db, "kept")
+    write("documents/kept/1.png")
+    _job(db, "empty")
+    deleted = []
+
+    report = storage_cleanup.clean(storage, db, delete_job=deleted.append)
+
+    assert report["deleted_jobs"] == deleted == ["empty"]
+
+
+def test_a_job_being_created_is_not_empty_yet(tree):
+    """The row is inserted just before the upload is stored."""
+    storage, db, _ = tree
+    _job(db, "uploading", age_seconds=60)
+
+    assert storage_cleanup.scan(storage, db)["empty_jobs"] == []
+    assert storage_cleanup.scan(storage, db, min_age_seconds=0)["empty_jobs"]
+
+
+def test_a_legacy_row_without_queued_time_counts_as_old(tree):
+    storage, db, _ = tree
+    db["eval_jobs"].insert_one({"job_id": "legacy"})
+
+    (entry,) = storage_cleanup.scan(storage, db)["empty_jobs"]
+    assert entry["job_id"] == "legacy" and entry["age_seconds"] is None
+
+
+def test_a_failing_job_delete_is_reported(tree):
+    storage, db, _ = tree
+    _job(db, "empty")
+
+    def boom(job_id):
+        raise RuntimeError("mongo down")
+
+    report = storage_cleanup.clean(storage, db, delete_job=boom)
+
+    assert report["deleted_jobs"] == []
+    assert report["failed"] == [{"job_id": "empty", "error": "mongo down"}]
+
+
+def test_admin_endpoint_deletes_empty_jobs_only_when_asked(client, tree):
+    storage, db, _ = tree
+    _job(db, "empty")
+
+    body = client.post(
+        "/admin/storage/clean", data={"dry_run": "false"}, headers=HEADERS
+    ).get_json(force=True)
+    assert [j["job_id"] for j in body["empty_jobs"]] == ["empty"]
+    assert body["deleted_jobs"] == []
+    assert db["eval_jobs"].count_documents({"job_id": "empty"}) == 1
+
+    body = client.post(
+        "/admin/storage/clean",
+        data={"dry_run": "false", "include_empty_jobs": "true"},
+        headers=HEADERS,
+    ).get_json(force=True)
+    assert body["deleted_jobs"] == ["empty"]
+    # the whole job goes, not only its eval_jobs row
+    assert db["eval_jobs"].count_documents({"job_id": "empty"}) == 0
+    assert db["job_documents"].count_documents({"job_id": "empty"}) == 0
+
+
+def test_admin_endpoint_never_deletes_empty_jobs_on_a_dry_run(client, tree):
+    storage, db, _ = tree
+    _job(db, "empty")
+
+    body = client.post(
+        "/admin/storage/clean", data={"include_empty_jobs": "true"}, headers=HEADERS
+    ).get_json(force=True)
+    assert body["dry_run"] is True and "deleted_jobs" not in body
+    assert db["eval_jobs"].count_documents({"job_id": "empty"}) == 1
 
 
 def test_admin_endpoint_reports_without_deleting_by_default(client, tree):
