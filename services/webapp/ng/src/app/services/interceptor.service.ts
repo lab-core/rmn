@@ -76,8 +76,6 @@ export class FreshHttpInterceptor implements HttpInterceptor {
   // change state are retried: a mutation re-sent after a network error may
   // already have been applied (a task created twice, a grade written twice,
   // a 5 GiB upload sent three times).
-  // The server's routes (under /api), as #181 named them: the old names
-  // stayed here after the rename, so no read was retried any more.
   static readonly READ_ONLY_POSTS = new Set([
     'jobs', 'jobs/info', 'jobs/batch/info', 'jobs/incorrect/download',
     'documents', 'documents/download', 'documents/annotations', 'documents/last_version',
