@@ -41,7 +41,9 @@
            logged-in colleague may copy the task -->
       @if (loggued()) {
         <button mat-raised-button color="accent" class="duplicate-task-button" id="duplicate-task"
-                title="Créer une nouvelle tâche à partir de celle-ci" (click)="duplicateTask()">Dupliquer</button>
+                title="Créer une nouvelle tâche à partir de celle-ci" (click)="duplicateTask()">
+          <mat-icon>content_copy</mat-icon> Dupliquer
+        </button>
       }
     </div>
 }

@@ -95,8 +95,10 @@ describe('TasksHistoryComponent', () => {
     const row = Array.from(fixture.nativeElement.querySelectorAll('tr.element-row'))
       .find((r: HTMLElement) => r.textContent.includes('Retry me')) as HTMLElement;
     const button = Array.from(row.querySelectorAll('button'))
-      .find((b: HTMLButtonElement) => b.textContent.trim() === 'Dupliquer') as HTMLButtonElement;
+      .find((b: HTMLButtonElement) => b.textContent.includes('Dupliquer')) as HTMLButtonElement;
     expect(button).withContext('the list must offer it').toBeDefined();
+    // the same copy icon as the dashboard's Dupliquer
+    expect(button.querySelector('mat-icon').textContent.trim()).toBe('content_copy');
 
     button.click();
 

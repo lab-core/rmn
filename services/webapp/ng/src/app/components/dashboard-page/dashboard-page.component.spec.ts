@@ -257,7 +257,10 @@ describe('DashboardPageComponent', () => {
   it('Dupliquer opens the creation wizard on this task', async () => {
     await create();
     expect(fixture.nativeElement.querySelector('#shared-task-hint')).toBeNull();  // their own task
-    fixture.nativeElement.querySelector('#duplicate-task').click();
+    const button = fixture.nativeElement.querySelector('#duplicate-task');
+    // the same copy icon as the task list's Dupliquer
+    expect(button.querySelector('mat-icon').textContent.trim()).toBe('content_copy');
+    button.click();
     expect(router.navigate).toHaveBeenCalledWith(['/new-exam-correction', 'job'], { queryParams: {} });
   });
 
