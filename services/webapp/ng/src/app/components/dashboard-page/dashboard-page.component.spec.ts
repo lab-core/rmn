@@ -256,6 +256,7 @@ describe('DashboardPageComponent', () => {
 
   it('Dupliquer opens the creation wizard on this task', async () => {
     await create();
+    expect(fixture.nativeElement.querySelector('#shared-task-hint')).toBeNull();  // their own task
     fixture.nativeElement.querySelector('#duplicate-task').click();
     expect(router.navigate).toHaveBeenCalledWith(['/new-exam-correction', 'job'], { queryParams: {} });
   });
@@ -266,6 +267,7 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
     // their own settings are not offered, the copy is
     expect(fixture.nativeElement.querySelector('#edit-task')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#shared-task-hint')).not.toBeNull();
     fixture.nativeElement.querySelector('#duplicate-task').click();
     expect(router.navigate).toHaveBeenCalledWith(['/new-exam-correction', 'job'], {
       queryParams: { token: 'share-1' },
@@ -278,6 +280,7 @@ describe('DashboardPageComponent', () => {
     user.loggued = () => false;
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#duplicate-task')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#shared-task-hint')).toBeNull();
   });
 
   it('opens the sharing, csv and extra-copies dialogs', async () => {

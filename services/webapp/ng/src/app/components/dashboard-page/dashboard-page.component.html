@@ -10,15 +10,22 @@
           <mat-icon>edit</mat-icon>
         </button>
       }
-      <!-- also on a share link: a logged-in colleague may copy the task -->
+      <!-- also on a share link: a logged-in colleague may copy the task.
+           Filled and accent-coloured like the one of the task list: the
+           outlined version disappeared against the page background -->
       @if (loggued()) {
-        <button mat-stroked-button color="primary" class="duplicate-task-button" id="duplicate-task"
+        <button mat-raised-button color="accent" class="duplicate-task-button" id="duplicate-task"
                 title="Créer une nouvelle tâche à partir de celle-ci" (click)="duplicateTask()">
           <mat-icon>content_copy</mat-icon> Dupliquer
         </button>
       }
       @if (taskInfo) {
         <div class="task-progress" id="task-progress">{{ taskInfo }}</div>
+      }
+      @if (loggued() && shared()) {
+        <div class="shared-task-hint" id="shared-task-hint">
+          Tâche partagée : « Dupliquer » la copie dans votre compte, copies, notes et templates compris.
+        </div>
       }
     </div>
     @if (!disableButtons) {
