@@ -203,4 +203,20 @@ describe('FreshHttpInterceptor', () => {
     expect(FreshHttpInterceptor.isRetryable(new HttpRequest('PUT', '/api/users/updateSaveVerifiedImages', {}))).toBeFalse();
     expect(FreshHttpInterceptor.isRetryable(new HttpRequest('GET', '/api/admin/executor'))).toBeTrue();
   });
+
+  it('retries the reads under the route names of #181, not their old names', () => {
+    const post = (url: string) => new HttpRequest('POST', url, new FormData());
+    // the old names stayed in the list after the rename: no read was retried
+    for (const path of ['jobs/info', 'jobs/batch/info', 'jobs/incorrect/download', 'documents/download',
+                        'documents/annotations', 'documents/last_version', 'templates/user', 'templates/info',
+                        'templates/download', 'templates/download/src', 'files/download']) {
+      expect(FreshHttpInterceptor.isRetryable(post(`/api/${path}`))).withContext(path).toBeTrue();
+    }
+    for (const path of ['job', 'file/download', 'template/info', 'user/template']) {
+      expect(FreshHttpInterceptor.isRetryable(post(`/api/${path}`))).withContext(path).toBeFalse();
+    }
+    // still never a mutation
+    expect(FreshHttpInterceptor.isRetryable(post('/api/files/share'))).toBeFalse();
+    expect(FreshHttpInterceptor.isRetryable(post('/api/jobs/validate'))).toBeFalse();
+  });
 });

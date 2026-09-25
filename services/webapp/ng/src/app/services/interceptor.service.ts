@@ -76,11 +76,13 @@ export class FreshHttpInterceptor implements HttpInterceptor {
   // change state are retried: a mutation re-sent after a network error may
   // already have been applied (a task created twice, a grade written twice,
   // a 5 GiB upload sent three times).
+  // The server's routes (under /api), as #181 named them: the old names
+  // stayed here after the rename, so no read was retried any more.
   static readonly READ_ONLY_POSTS = new Set([
-    'job', 'jobs', 'job/batch/info',
-    'documents', 'document/download', 'document/annotations', 'document/last_version',
-    'user/template', 'template/info', 'template/download', 'template/download/src',
-    'file/download', 'incorrect/download',
+    'jobs', 'jobs/info', 'jobs/batch/info', 'jobs/incorrect/download',
+    'documents', 'documents/download', 'documents/annotations', 'documents/last_version',
+    'templates/user', 'templates/info', 'templates/download', 'templates/download/src',
+    'files/download',
   ]);
 
   static isRetryable(req: HttpRequest<any>): boolean {

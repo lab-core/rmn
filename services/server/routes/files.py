@@ -3,7 +3,7 @@
 import json
 import os
 import uuid
-from flask import Blueprint, Response, request, send_file
+from flask import Blueprint, Response, request, send_file, url_for
 from flask_cors import cross_origin
 from rmn_common.status import Output_File
 from auth import verify_share_token, verify_token
@@ -73,7 +73,11 @@ def share_archive():
     # http; anything else sits behind the TLS reverse proxy
     hostname = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
     protocol = "http" if hostname in ("0.0.0.0", "localhost", "127.0.0.1") else "https"
-    share_url = f"{protocol}://{host}/api/file/download?job_id={job_id}&token={token}&file={target_file}"
+    # built from the route itself (nginx serves the API under /api): the path
+    # was written out by hand and kept /file/download when #181 moved the
+    # route to /files/download, so every shared file link answered 404
+    download = url_for("files.download_file")
+    share_url = f"{protocol}://{host}/api{download}?job_id={job_id}&token={token}&file={target_file}"
     if zip_index:
         share_url += f"&zip_index={zip_index}"
 
