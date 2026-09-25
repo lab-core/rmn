@@ -61,7 +61,7 @@ spec after 10 s.
 | executor | `pip install -r requirements-dev.txt && python -m pytest` (Python 3.13; the digit model runs through LiteRT, no TensorFlow needed: about 500 MB of packages) |
 | socketIO | `pip install -r requirements-dev.txt && python -m pytest` |
 | webapp   | `cd ng && npm ci && npx ng test --watch=false --browsers=ChromeHeadlessCI` (`npm test` opens Chrome and re-runs on change) |
-| nginx    | `docker build -t rmn-nginx . && docker run --rm --add-host server:127.0.0.1 --add-host socketio:127.0.0.1 --add-host webapp:127.0.0.1 rmn-nginx nginx -t` |
+| nginx    | `docker build -t rmn-nginx . && docker run --rm rmn-nginx nginx -t` |
 
 Use one virtualenv per Python service (their pins differ); the server and
 executor `requirements-dev.txt` also install `services/common` in editable
