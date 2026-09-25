@@ -432,3 +432,49 @@ def test_read_grades_of_a_job_without_questions_is_refused(
     resp = client.post("/documents/read_grades", data={"job_id": "no-questions", **owner})
     assert resp.status_code == 401
     assert redis_queue() == before
+
+
+# ------------------------------------------------------- malformed numbers ---
+@pytest.mark.parametrize(
+    "route,field,extra",
+    [
+        ("/documents/tag", "document_index", {"tag": "t"}),
+        ("/documents/update", "document_index", {"status": "TO VALIDATE"}),
+        (
+            "/documents/update",
+            "version",
+            {"status": "TO VALIDATE", "annotations": "[]"},
+        ),
+        (
+            "/documents/update",
+            "question_index",
+            {"status": "VALIDATED", "grades": "3"},
+        ),
+        ("/documents/download", "document_index", {}),
+        ("/documents/download", "version", {"questions": "true"}),
+        ("/documents/last_version", "document_index", {}),
+        ("/documents/annotations", "document_index", {"questions": "true"}),
+        ("/documents/annotations", "version", {"questions": "true"}),
+    ],
+    ids=[
+        "tag",
+        "update",
+        "update-version",
+        "update-question",
+        "download",
+        "download-version",
+        "last-version",
+        "annotations",
+        "annotations-version",
+    ],
+)
+def test_a_malformed_number_is_400(client, job, owner, db, route, field, extra):
+    form = {"job_id": job, **owner, "document_index": "0", **extra, field: "x"}
+    resp = client.post(route, data=form)
+    # a bare int() made it a 500
+    assert resp.status_code == 400, resp.data
+    assert resp.get_json(force=True) == {"response": f"Error: {field} is not a number."}
+    # refused before any write: a bad question_index used to fail after the
+    # question had been graded
+    q1 = db["job_questions"].find_one({"job_id": job, "document_index": 0})
+    assert (q1["status"], q1["grade"], q1.get("tag")) == ("TO VALIDATE", None, None)
