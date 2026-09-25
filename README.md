@@ -236,7 +236,8 @@ with `kubectl` and reports anything unhealthy: API readiness, node
 Ready/pressure, pods (Pending too long, CrashLoopBackOff, image pull errors,
 containers not ready, restart count, OOMKilled, failed job pods), Deployments and
 ReplicationControllers missing replicas, failed executor Jobs, CronJobs without
-a recent success, KEDA ScaledJob readiness, PVC/PV not Bound, recent Warning
+a recent success (48 h, or the hours in a CronJob's `rmn/success-window-hours`
+annotation, which the monthly `storage-report` sets), KEDA ScaledJob readiness, PVC/PV not Bound, recent Warning
 events and HTTP probes of the public host (`/`, `/api/`, `/socket.io/`).
 Exit code: 0 healthy, 1 warnings, 2 critical, 3 API unreachable.
 ```
@@ -504,6 +505,21 @@ asks for confirmation before deleting:
 scripts/clean-storage.sh                 # dry run
 scripts/clean-storage.sh --delete        # after reading the dry run
 ```
+`usage=true` adds a `usage` block: bytes and file count of the files older
+than 0, 30, 90, 180 and 365 days (by modification time, whole share, `numbers/`
+included) and the used/free space of the filesystem. It walks every file, so it
+is off by default.
+
+The `storage-report` CronJob (`deployment/storage-report.yml`) runs
+`deployment/storage-report.sh` at 07:00 UTC on the 1st of every month. It asks
+for a dry run with `usage=true` and `min_age_hours=720` over the in-cluster
+Service, and posts to the Slack channel the disk usage by age, followed by the
+orphans, strays and imageless template rows, if any. **It never deletes**: the
+share should hold no orphans, so a finding is a bug to look at first; delete
+by hand afterwards with `scripts/clean-storage.sh --min-age-hours 720 --delete`.
+A run that cannot reach the server or Slack fails its Job, which the health
+sentinel then reports. Run it now with
+`kubectl create job --from=cronjob/storage-report storage-report-manual`.
 
 ##### Create an executor pod
 It will add an empty job in the redis queue to trigger the creation of an executor pod.

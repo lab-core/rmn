@@ -22,10 +22,13 @@ Two things make the sweep safe to run on a live system:
 
 import os
 import shutil
+import stat
 import time
 from typing import Any, Dict, Iterable, List, Optional
 
 DEFAULT_MIN_AGE_SECONDS = 24 * 3600
+# age thresholds of the disk usage summary, in days (0 = everything)
+USAGE_AGE_DAYS = (0, 30, 90, 180, 365)
 
 
 def scan(storage: Any, db: Any, min_age_seconds: int = DEFAULT_MIN_AGE_SECONDS) -> Dict:
@@ -118,6 +121,54 @@ def clean(
     report["deleted"] = deleted
     report["failed"] = failed
     return report
+
+
+def usage(storage: Any, age_days: Iterable[int] = USAGE_AGE_DAYS) -> Dict:
+    """Summarise how much of the share is used, and by how old files.
+
+    Every regular file under the storage root is counted once per threshold
+    it is older than (by modification time), so the buckets are cumulative:
+    ``older_than_days["30"]`` includes ``older_than_days["90"]``. Symlinks are
+    not followed. The whole tree is walked, ``numbers/`` included: this is
+    about disk space, not ownership.
+
+    Args:
+        storage: The ``Storage`` whose tree is measured.
+        age_days: The thresholds, in days.
+
+    Returns:
+        ``{"older_than_days": {"<days>": {"bytes", "files"}}, "disk":
+        {"total", "used", "free"}}``; ``disk`` is the filesystem holding the
+        root (bytes, from ``statvfs``), ``None`` when it cannot be read.
+    """
+    now = time.time()
+    thresholds = sorted(set(age_days))
+    buckets = {str(days): {"bytes": 0, "files": 0} for days in thresholds}
+    for root, _, files in os.walk(storage.path):
+        for name in files:
+            try:
+                info = os.lstat(os.path.join(root, name))
+            except OSError:
+                continue  # removed while walking
+            if not stat.S_ISREG(info.st_mode):
+                continue
+            age = now - info.st_mtime
+            for days in thresholds:
+                if age < days * 86400:
+                    break
+                buckets[str(days)]["bytes"] += info.st_size
+                buckets[str(days)]["files"] += 1
+
+    try:
+        fs = os.statvfs(storage.path)
+        disk = {
+            "total": fs.f_blocks * fs.f_frsize,
+            "used": (fs.f_blocks - fs.f_bfree) * fs.f_frsize,
+            "free": fs.f_bavail * fs.f_frsize,
+        }
+    except OSError:
+        disk = None
+    return {"older_than_days": buckets, "disk": disk}
 
 
 def _entry(path: str, reason: str, owner: Optional[str], now: float) -> Dict:

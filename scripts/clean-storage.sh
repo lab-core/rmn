@@ -12,6 +12,7 @@
 #   scripts/clean-storage.sh                     # dry run, 24 h age guard
 #   scripts/clean-storage.sh --delete            # delete the orphans
 #   scripts/clean-storage.sh --min-age-hours 1   # widen the sweep
+#   scripts/clean-storage.sh --usage             # add disk usage by file age
 #   scripts/clean-storage.sh --delete --include-strays
 #   RMN_URL=http://localhost scripts/clean-storage.sh
 #
@@ -24,15 +25,17 @@ set -euo pipefail
 url="${RMN_URL:-http://localhost}"
 dry_run=true
 include_strays=false
+usage=false
 min_age_hours=24
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --delete)          dry_run=false ;;
     --include-strays)  include_strays=true ;;
+    --usage)           usage=true ;;
     --min-age-hours)   min_age_hours="${2:?--min-age-hours needs a value}"; shift ;;
     --url)             url="${2:?--url needs a value}"; shift ;;
-    -h|--help)         sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)         sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)                 echo "Unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -55,6 +58,7 @@ response=$(curl -sS -X POST \
   -H "Content-Type: multipart/form-data" \
   --form "dry_run=$dry_run" \
   --form "include_strays=$include_strays" \
+  --form "usage=$usage" \
   --form "min_age_hours=$min_age_hours" \
   "$url/api/admin/storage/clean")
 
@@ -63,7 +67,7 @@ if command -v jq >/dev/null 2>&1; then
     {response, dry_run, bytes, too_recent, scanned,
      orphans: (.orphans // [] | length), strays: (.strays // [] | length),
      deleted: (.deleted // [] | length), failed: (.failed // []),
-     missing: (.missing // [])}'
+     missing: (.missing // []), usage}'
   echo "--- paths ---"
   echo "$response" | jq -r '(.orphans // [])[] | "\(.reason)\t\(.path)"'
 else

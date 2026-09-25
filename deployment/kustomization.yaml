@@ -32,6 +32,8 @@ resources:
   - daily-rollout.yml
   # cluster sentinel (k8s-health.sh every 15 min, Slack alerts)
   - health-sentinel.yml
+  # monthly storage report (orphans + disk usage by age, Slack; never deletes)
+  - storage-report.yml
 
 # Cluster-specific values are defined ONCE here: the public hostname (injected
 # into every Ingress rule, read by socketIO for CORS and by the sentinel for
@@ -75,6 +77,10 @@ configMapGenerator:
   - name: k8s-health-script
     files:
       - k8s-health.sh
+  # the storage report script, mounted into the storage-report CronJob
+  - name: storage-report-script
+    files:
+      - storage-report.sh
 
 replacements:
   - path: replacements.yaml
