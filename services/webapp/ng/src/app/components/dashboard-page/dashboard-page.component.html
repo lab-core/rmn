@@ -10,15 +10,6 @@
           <mat-icon>edit</mat-icon>
         </button>
       }
-      <!-- also on a share link: a logged-in colleague may copy the task.
-           Filled and accent-coloured like the one of the task list: the
-           outlined version disappeared against the page background -->
-      @if (loggued()) {
-        <button mat-raised-button color="accent" class="duplicate-task-button" id="duplicate-task"
-                title="Créer une nouvelle tâche à partir de celle-ci" (click)="duplicateTask()">
-          <mat-icon>content_copy</mat-icon> Dupliquer
-        </button>
-      }
       @if (taskInfo) {
         <div class="task-progress" id="task-progress">{{ taskInfo }}</div>
       }
@@ -28,8 +19,9 @@
         </div>
       }
     </div>
-    @if (!disableButtons) {
+    @if (!disableButtons || loggued()) {
 <div class="select-index-container">
+      @if (!disableButtons) {
         <p>Recherche index: </p>
         <div class="index-input-div">
             <ng-select id="copy" [items]="copiesList" bindLabel="identifiant"
@@ -43,6 +35,14 @@
 <button class="select-index-button" mat-raised-button color="primary" (click)="selectCopy()"
                 [disabled]="this.copySelection.copy === undefined">Sélectionner</button>
 }
+      }
+      <!-- on the row of the search box, at the table's right edge, in the
+           format of the task list's Dupliquer. Also on a share link: a
+           logged-in colleague may copy the task -->
+      @if (loggued()) {
+        <button mat-raised-button color="accent" class="duplicate-task-button" id="duplicate-task"
+                title="Créer une nouvelle tâche à partir de celle-ci" (click)="duplicateTask()">Dupliquer</button>
+      }
     </div>
 }
     <div class="task-content">
