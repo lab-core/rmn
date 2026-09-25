@@ -17,7 +17,7 @@ lets this be tested against mongomock and a temporary tree.
 
 from typing import Any, Callable, Dict, List, Optional
 
-from process_copy import ink_grades
+from process_copy import digit_bank, ink_grades
 
 
 def question_key(question_index: int) -> str:
@@ -135,9 +135,12 @@ def read_question(
                 from process_copy.classifier import load_classifier
 
                 classifier = load_classifier()
-            reading = ink_grades.pick(
-                candidates[index], modal, max_points, classifier, bonus
-            )
+            with digit_bank.recording(
+                job_id, index, digit_bank.INK_GRADE, question_index=question_index
+            ):
+                reading = ink_grades.pick(
+                    candidates[index], modal, max_points, classifier, bonus
+                )
             stored = db.save_auto_grade(job_id, index, run, reading)
             read += 1
             if stored and on_read is not None:

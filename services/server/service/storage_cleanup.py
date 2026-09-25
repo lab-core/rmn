@@ -10,7 +10,11 @@ keeps filling the share.
 Ownership is read from the layout tables of ``rmn_common.storage``: a path is
 an orphan only when it is shaped like a job's or a template's and the id in
 its name has no row. Everything else in the tree is left alone -- in
-particular ``numbers/``, the shared digit corpus, which no row owns.
+particular ``rmn_common.storage.CORPUS_DIRS``, the digits kept to retrain the
+recogniser (``digit_bank/samples`` and the older ``numbers/``), which no row
+owns and which this module must never delete. The usage summary counts them
+on their own line, because they are the one part of the share that only
+grows.
 
 Two things make the sweep safe to run on a live system:
 
@@ -183,9 +187,12 @@ def usage(storage: Any, age_days: Iterable[int] = USAGE_AGE_DAYS) -> Dict:
         age_days: The thresholds, in days.
 
     Returns:
-        ``{"older_than_days": {"<days>": {"bytes", "files"}}, "disk":
-        {"total", "used", "free"}}``; ``disk`` is the filesystem holding the
-        root (bytes, from ``statvfs``), ``None`` when it cannot be read.
+        ``{"older_than_days": {"<days>": {"bytes", "files"}}, "corpus":
+        {"<dir>": {"bytes", "files"}}, "disk": {"total", "used", "free"}}``.
+        ``corpus`` is the training data of ``CORPUS_DIRS``, counted on its own
+        because no cleanup ever removes it; those files are in the age buckets
+        too, which measure the whole share. ``disk`` is the filesystem holding
+        the root (bytes, from ``statvfs``), ``None`` when it cannot be read.
     """
     now = time.time()
     thresholds = sorted(set(age_days))
@@ -214,7 +221,7 @@ def usage(storage: Any, age_days: Iterable[int] = USAGE_AGE_DAYS) -> Dict:
         }
     except OSError:
         disk = None
-    return {"older_than_days": buckets, "disk": disk}
+    return {"older_than_days": buckets, "corpus": storage.corpus_usage(), "disk": disk}
 
 
 def _entry(path: str, reason: str, owner: Optional[str], now: float) -> Dict:

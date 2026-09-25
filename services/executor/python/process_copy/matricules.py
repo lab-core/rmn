@@ -8,6 +8,7 @@ from datetime import datetime
 import cv2
 import unidecode
 from colorama import Fore, Style
+from process_copy import digit_bank
 from process_copy.classifier import load_classifier
 from process_copy.config import known_mistmatch_matricule, len_mat, re_mat
 from process_copy.database import Database
@@ -30,7 +31,8 @@ from process_copy.contours import (
     find_digit_contours,
     find_matricule_box_contours,
 )
-from process_copy.digits import extract_all_digits, extract_digit
+from process_copy.digits import (
+    extract_all_digits, extract_digit, most_probable_digits)
 
 
 
@@ -100,7 +102,7 @@ def find_matricule(
     possible_digits = [{} for i in range(len_mat)]
     id_box = None
 
-    def find_digits(gray_box, cnt, split=True):
+    def _find_digits(gray_box, cnt, split=True):
         try:
             # find contours of the numbers.
             # If separate_box, each number of the matricule is in its separate box
@@ -151,6 +153,10 @@ def find_matricule(
         if len(all_digits) != len_mat:
             return True
 
+        # the seven crops of this box are the digits of the matricule: the one
+        # a human validates later labels them (see digit_bank.promote_job)
+        digit_bank.keep(read=most_probable_digits(all_digits))
+
         # store values
         for i, digits in enumerate(all_digits):
             distri = possible_digits[i]
@@ -160,6 +166,11 @@ def find_matricule(
                 else:
                     distri[d] = p
         return True
+
+    def find_digits(gray_box, cnt, split=True):
+        """Read one matricule box, staging its crops for the digit bank."""
+        with digit_bank.reading():
+            return _find_digits(gray_box, cnt, split)
 
     def best_matricule_match():
         # build matricules and sort them by probabilities

@@ -36,20 +36,20 @@
               <hr>
               </div>
 
+              <div class="info-container" id="save-verified-images">
+                <div class="text-box-definition">Sauvegarder image des chiffres:</div>
+                <div class="text-box-check">
+                  <section>
+                    <mat-checkbox class="check-box" [checked]="this.userService.saveVerifiedImages" (change)="updateSaveVerifiedImagesValue($event.checked)"></mat-checkbox>
+                  </section>
+                </div>
+              </div>
+
+              <div class="bar">
+                <hr>
+                </div>
+
               <!-- <div class="info-container">
-              <div class="text-box-definition">Sauvegarder image des chiffres:</div>
-              <div class="text-box-check">
-                <section>
-                  <mat-checkbox class="check-box" [checked]="this.userService.saveVerifiedImages" (change)="updateSaveVerifiedImagesValue($event.checked)"></mat-checkbox>
-                </section>
-              </div>
-            </div>
-
-            <div class="bar">
-              <hr>
-              </div>
-
-              <div class="info-container">
                 <div class="text-box-definition">Sauvegarder avec la structure moodle:</div>
                 <div class="text-box-check">
                   <section>

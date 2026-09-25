@@ -3,6 +3,7 @@
 import random
 import cv2
 import numpy as np
+from process_copy import digit_bank
 from process_copy.classifier import load_classifier
 from process_copy.config import (
     allowed_decimals,
@@ -49,6 +50,9 @@ def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7, confu
     # config.digit_margins and average the probabilities.
     squares = [make_square(roi, margin=m) for m in digit_margins]
     imwrite_png("roi2", squares[0])
+    # the crop as it is, for the bank: the framings above are a training-time
+    # choice and must not be baked into what is stored (see digit_bank)
+    digit_bank.record(roi)
 
     # predicting
     batch = np.stack(squares).reshape(len(squares), 28, 28, 1).astype("float32") / 255
@@ -211,7 +215,13 @@ def correct_decimals(p, allowed=None, rng=random):
 
 
 
-def test(gray_img, classifier=None, trim=None):
+def test(gray_img, classifier=None, trim=None, meta=None):
+    """The numbers a box may hold, most probable first.
+
+    ``meta`` is what the caller knows about the box (``box_index`` for the
+    grade table); it is staged with the crops so a grade a human later
+    confirms can be matched back to the digits that were read.
+    """
     if classifier is None:
         classifier = load_classifier()
 
@@ -219,22 +229,35 @@ def test(gray_img, classifier=None, trim=None):
     gray = gray_img.copy()
     imwrite_png("gray", gray)
 
-    # find contours of the numbers as well as the dot number position
-    # return a sorted list of the relevant digits' contours and the dot position (and the threshold image used)
-    cnts, dot, thresh = find_digit_contours(gray, trim=trim)
+    with digit_bank.reading(**(meta or {})):
+        # find contours of the numbers as well as the dot number position
+        # return a sorted list of the relevant digits' contours and the dot position (and the threshold image used)
+        cnts, dot, thresh = find_digit_contours(gray, trim=trim)
 
-    # if found no digits contours, return 0
-    if not cnts:
-        return [(1.0, 0)]
+        # if found no digits contours, return 0
+        if not cnts:
+            return [(1.0, 0)]
 
-    # extract digits
-    all_digits = extract_all_digits(cnts, gray, thresh, classifier)
+        # extract digits
+        all_digits = extract_all_digits(cnts, gray, thresh, classifier)
 
-    if not all_digits:
-        print("No valid number has been found")
-        return [(1.0, 0)]
+        if not all_digits:
+            print("No valid number has been found")
+            return [(1.0, 0)]
 
-    print("All digits found:", [d[1] for d in all_digits])
+        print("All digits found:", [d[1] for d in all_digits])
 
-    # process all possible digits combinations
-    return process_digits_combinations(all_digits, dot)
+        # the crops are the digits of this box, in order: worth keeping
+        digit_bank.keep(dot=dot, read=most_probable_digits(all_digits))
+
+        # process all possible digits combinations
+        return process_digits_combinations(all_digits, dot)
+
+
+def most_probable_digits(all_digits):
+    """The digits the model ranks first, as a string, for the bank's metadata."""
+    digits = []
+    for entry in all_digits:
+        candidates = entry[1] if isinstance(entry, tuple) else entry
+        digits.append("%d" % max(candidates)[1] if candidates else "?")
+    return "".join(digits)

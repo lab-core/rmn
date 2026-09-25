@@ -65,15 +65,23 @@ code="$(curl -sS --max-time 900 -o "$body" -w '%{http_code}' -X POST \
 report="$(cat "$body")"
 jq -e .orphans >/dev/null <<<"$report" || fail "unexpected answer: $(head -c 300 <<<"$report")"
 
-# disk usage: one line per age threshold, then the filesystem itself. Padded
-# in jq: busybox (alpine/k8s) has no `column`.
+# disk usage: one line per age threshold, then the digit corpus on its own
+# line (it is never cleaned, so it only grows; its files are in the age
+# buckets too), then the filesystem itself. Padded in jq: busybox (alpine/k8s)
+# has no `column`.
 usage="$(jq -r '
   def gb: . / 1e9 * 10 | round / 10 | tostring + " GB";
+  # the corpus is a few hundred bytes a digit: GB would read 0 for years
+  def mb: . / 1e6 * 10 | round / 10 | tostring + " MB";
   def pad($n): tostring | (" " * ([$n - length, 0] | max)) + .;
   if .usage == null then "disk usage unavailable (server image older than usage=true)" else
   (.usage.older_than_days | to_entries | sort_by(.key | tonumber)[]
    | (if .key == "0" then "all files" else "older than \(.key)d" end) as $label
    | "\($label + " " * (15 - ($label | length)))\(.value.bytes | gb | pad(10))"
+     + "\(.value.files | pad(10)) files"),
+  (.usage.corpus // {} | to_entries | sort_by(.key)[]
+   | (if .key == "numbers" then "numbers (old)" else "digit bank" end) as $label
+   | "\($label + (" " * ([15 - ($label | length), 0] | max)))\(.value.bytes | mb | pad(10))"
      + "\(.value.files | pad(10)) files"),
   (.usage.disk // empty
    | "disk           \(.used | gb) used of \(.total | gb), \(.free | gb) free") end

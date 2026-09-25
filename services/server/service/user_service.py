@@ -171,8 +171,8 @@ class UserService:
                     "username": userDB['username'],
                     "role": userDB['role'],
                     "token": token,
-                    "saveVerifiedImages": userDB['saveVerifiedImages'],
-                    "moodleStructureInd": userDB['moodleStructureInd']
+                    "saveVerifiedImages": userDB.get('saveVerifiedImages', True),
+                    "moodleStructureInd": userDB.get('moodleStructureInd', True)
                 }
 
             return Response(
@@ -239,7 +239,10 @@ class UserService:
             "username": username,
             "password": hashed_password,
             "role": role,
-            "saveVerifiedImages": False,  # "saveVerifiedImages" in request_form,
+            # on by default: the digits of a validated copy are what the
+            # recogniser is retrained on (process_copy.digit_bank). The
+            # profile screen turns it off.
+            "saveVerifiedImages": True,
             "moodleStructureInd": True  # "moodleStructureInd" in request_form
         }
         collection.insert_one(user)

@@ -70,13 +70,31 @@ def test_orphan_templates_are_found_by_their_stored_path(tree):
 
 
 def test_the_digit_corpus_is_never_swept(tree):
-    """``numbers/`` belongs to no row; a sweep that removed it would be a loss."""
+    """The training digits belong to no row; a sweep removing them is a loss.
+
+    ``digit_bank/samples`` is what the recogniser is retrained on and
+    ``numbers/`` is the corpus of the path it replaced; both are in
+    ``rmn_common.storage.CORPUS_DIRS``, and neither may ever be deleted --
+    unlike ``digit_bank/staged``, which belongs to the job that will confirm
+    it and goes with it.
+    """
     storage, db, write = tree
     corpus = write("numbers/7/abcd.png")
+    bank = write("digit_bank/samples/7/abcd.png")
+    index = write("digit_bank/index.jsonl")
+    staged = write("digit_bank/staged/gone-job/0/reading.npz")
+    # the entry the sweep weighs is the job directory, a level above the one
+    # write() ages: the crops are staged per copy
+    job_dir = os.path.dirname(os.path.dirname(staged))
+    old = time.time() - 48 * 3600
+    os.utime(job_dir, (old, old))
 
     report = storage_cleanup.clean(storage, db, include_strays=True)
 
-    assert report["deleted"] == [] and os.path.exists(corpus)
+    assert os.path.exists(corpus) and os.path.exists(bank) and os.path.exists(index)
+    # the staged crops of a job with no row are the one thing here a sweep takes
+    assert report["deleted"] == [job_dir]
+    assert not os.path.exists(staged)
 
 
 def test_recent_paths_are_left_for_the_next_sweep(tree):
@@ -264,6 +282,31 @@ def test_usage_buckets_are_cumulative_by_age(tree):
     assert files == {"0": 3, "30": 2, "90": 1, "180": 1, "365": 1}
     assert usage["older_than_days"]["0"]["bytes"] == 3
     assert usage["disk"]["total"] >= usage["disk"]["used"] > 0
+
+
+def test_usage_counts_the_digit_corpus_on_its_own(tree):
+    """It only grows and no cleanup touches it, so it gets its own line."""
+    storage, db, write = tree
+    write("documents/a/copy.pdf")
+    write("digit_bank/samples/7/a.png")
+    write("digit_bank/samples/3/b.png")
+    write("digit_bank/staged/job/0/r.npz")  # not the corpus: it dies with the job
+    write("numbers/0/old.png")
+
+    usage = storage_cleanup.usage(storage)
+
+    assert usage["corpus"] == {
+        os.path.join("digit_bank", "samples"): {"bytes": 2, "files": 2},
+        "numbers": {"bytes": 1, "files": 1},
+    }
+    # and they are in the age buckets too: that line is the whole share
+    assert usage["older_than_days"]["0"]["files"] == 5
+
+
+def test_usage_reports_no_corpus_before_a_digit_is_banked(tree):
+    storage, db, write = tree
+    write("documents/a/copy.pdf")
+    assert storage_cleanup.usage(storage)["corpus"] == {}
 
 
 def test_usage_skips_symlinks(tree):

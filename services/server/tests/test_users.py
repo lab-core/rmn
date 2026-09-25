@@ -59,7 +59,8 @@ def test_admin_signup_validates_and_hashes(client, user_factory, login, app_modu
     bob = app_module_fixture.mongo["RMN"]["users"].find_one({"username": "bob"})
     assert bob["role"] == USER
     assert bob["password"] != "S3cret!!" and check_password_hash(bob["password"], "S3cret!!")
-    assert bob["saveVerifiedImages"] is False and bob["moodleStructureInd"] is True
+    # a new user contributes to the digit bank until they say otherwise
+    assert bob["saveVerifiedImages"] is True and bob["moodleStructureInd"] is True
 
     # the name is taken now
     assert client.post("/users/signup", data={**base, "username": "bob", "password": "Other123"}).status_code == 404

@@ -8,11 +8,22 @@ paths on both sides.
 import glob
 import os
 import shutil
+import stat
 from pathlib import Path
 
 # Template images live outside the per-job layout: they are owned by a row of
 # the ``template`` collection, not by a job, and outlive the jobs using them.
 TEMPLATE_DIR = "template"
+
+# The training corpus: digits kept to retrain the recogniser
+# (``process_copy.digit_bank``, and ``numbers`` from the path it replaced).
+# No database row owns these, they belong to no job, and no cleanup or sweep
+# may remove them -- they are listed here so both sides know to leave them
+# alone and so a storage report can count them on their own.
+CORPUS_DIRS = (
+    os.path.join("digit_bank", "samples"),
+    "numbers",
+)
 
 
 def create_tree(file_path):
@@ -45,6 +56,11 @@ class Storage:
         "incorrect_files",
         "zips",
         "unverified_numbers",
+        # digit crops waiting for the humans of this job to confirm what they
+        # are (process_copy.digit_bank). The labelled samples live outside the
+        # per-job layout: they outlive the copies they were cut from, like
+        # TEMPLATE_DIR above.
+        os.path.join("digit_bank", "staged"),
     )
     _JOB_FILES = (
         ("csv", "{job_id}.csv"),
@@ -219,9 +235,11 @@ class Storage:
     def stray_entries(self):
         """Paths under a job or template prefix that the layout does not name.
 
-        Anything else in the tree is left out on purpose: ``numbers/`` is the
-        shared digit corpus, which no database row owns and which a sweep
-        must never touch.
+        Anything else in the tree is left out on purpose, :data:`CORPUS_DIRS`
+        above all: the digit bank's samples and the older ``numbers/`` are the
+        training corpus, no database row owns them, and a sweep must never
+        touch them. Only ``digit_bank/staged`` is walked, and only because its
+        subdirectories are named after the job that will confirm them.
 
         Yields:
             Absolute paths.
@@ -232,6 +250,35 @@ class Storage:
             for entry in self._listdir(prefix):
                 if entry.path not in owned:
                     yield entry.path
+
+    def corpus_usage(self):
+        """Bytes and files of each of :data:`CORPUS_DIRS` that exists.
+
+        The digit corpus is the one part of the tree that only ever grows and
+        that no cleanup touches, so a storage report counts it on its own.
+
+        Returns:
+            ``{"<dir>": {"bytes": int, "files": int}}``, one entry per corpus
+            directory present under the root.
+        """
+        totals = {}
+        for prefix in CORPUS_DIRS:
+            root = self.abs_path(prefix)
+            if not os.path.isdir(root):
+                continue
+            entry = {"bytes": 0, "files": 0}
+            for directory, _dirs, files in os.walk(root):
+                for name in files:
+                    try:
+                        info = os.lstat(os.path.join(directory, name))
+                    except OSError:
+                        continue  # removed while walking
+                    if not stat.S_ISREG(info.st_mode):
+                        continue
+                    entry["bytes"] += info.st_size
+                    entry["files"] += 1
+            totals[prefix] = entry
+        return totals
 
     def _listdir(self, prefix):
         """Entries directly under ``prefix``; an absent prefix yields nothing."""

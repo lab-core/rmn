@@ -11,9 +11,8 @@ import fakeredis
 import job_executor
 import runtime
 from job_executor import check_for_idle_jobs_to_requeue
-from runtime import Heartbeat, save_number_images
+from runtime import Heartbeat
 from process_copy.database import Database
-from utils.storage import Storage
 
 
 def _touch(path):
@@ -68,31 +67,6 @@ def test_heartbeat_survives_a_failing_database():
     with heartbeat:
         time.sleep(0.2)
     assert db.eval_jobs_collection.called
-
-
-# --------------------------------------------------------------- digit images
-
-
-def test_save_number_images_keeps_only_single_digit_grades(storage_root):
-    for i in range(3):
-        _touch(str(storage_root / "unverified_numbers" / "job" / "0" / f"{i}.png"))
-
-    save_number_images(Storage(), "job", 0, {"Q1": "7", "Q2": "12", "Q3": "3.5"})
-
-    saved = os.listdir(storage_root / "numbers" / "7")
-    assert len(saved) == 1 and saved[0].endswith(".png")
-    unverified = storage_root / "unverified_numbers" / "job" / "0"
-    assert not (unverified / "0.png").exists()
-    assert (unverified / "1.png").exists() and (unverified / "2.png").exists()
-    assert not (storage_root / "numbers" / "12").exists()
-
-
-def test_save_number_images_swallows_bad_values(storage_root):
-    # not a number, and a digit whose image is missing: neither may raise
-    save_number_images(Storage(), "job", 0, {"Q1": "abc"})
-    save_number_images(Storage(), "job", 0, {"Q1": "4"})
-    # the target folder may have been created, but nothing was saved in it
-    assert not any(p.is_file() for p in (storage_root / "numbers").rglob("*"))
 
 
 # -------------------------------------------------------------- idle-job sweep

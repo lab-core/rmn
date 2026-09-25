@@ -155,7 +155,10 @@ def admin_clean_storage():
     ``include_empty_jobs`` (default false) also deletes the ``eval_jobs``
     rows none of whose files exist any more, with everything else of the job.
     ``usage=true`` adds a ``usage`` block: bytes used on the share by files
-    older than 0, 30, 90, 180 and 365 days (it walks the whole tree).
+    older than 0, 30, 90, 180 and 365 days (it walks the whole tree), and a
+    ``corpus`` entry counting the digits kept to retrain the recogniser
+    (``digit_bank/samples``, ``numbers``) on their own -- no sweep deletes
+    those, so they are worth watching apart from the rest.
     """
     request_form = request.form
     dry_run = request_form.get("dry_run", "true").lower() != "false"

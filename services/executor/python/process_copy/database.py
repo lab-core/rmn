@@ -1,7 +1,4 @@
-import os
-import shutil
 import datetime as dt
-import cv2
 from rmn_common import auto_grade
 from rmn_common.status import Document_Status, Job_Status
 from utils.storage import Storage, ROOT_DIR
@@ -170,15 +167,6 @@ class Database:
     #     # self.storage.move_to(str(src), filename)
     #     return filename
 
-    def save_unverified_number_images(self, job_id, document_index, images):
-        for index, img in enumerate(images):
-            filename = "unverified_number.png"
-            self.imwrite_png(filename, img)
-            n_png = f"unverified_numbers/{job_id}/{document_index}/{index}.png"
-            self.storage.move_to(str(f"numbers/{filename}"), n_png)
-
-        shutil.rmtree(os.path.join("numbers"))
-
     def get_templates_info(self, front_template_id, regular_template_id=None):
         front_template = self.mongo_database["template"].find_one(
             {"template_id": front_template_id}
@@ -200,11 +188,6 @@ class Database:
             front_template_matricule_box,
             regular_template_matricule_box,
         )
-
-    def imwrite_png(self, name, img):
-        if not os.path.exists("numbers"):
-            os.mkdir("numbers")
-        cv2.imwrite(f"numbers/{name}", img)
 
     # ---------------------------------------------------------- auto grades --
     # The rules live in rmn_common.auto_grade because the server starts a pass
