@@ -3,9 +3,10 @@
 # Monthly storage report: asks the server for a dry run of the storage sweep
 # plus a disk usage summary (POST /admin/storage/clean, dry_run=true,
 # usage=true) and posts both to Slack: GB used by files older than 0, 30, 90,
-# 180 and 365 days, then the orphans, if any. It never deletes: the share
-# should hold no orphans, so a finding is a bug to look at, and the operator
-# deletes by hand with scripts/clean-storage.sh --delete after reading it.
+# 180 and 365 days, then the orphans and the jobs without any file, if any. It
+# never deletes: the share should hold no orphans, so a finding is a bug to
+# look at, and the operator deletes by hand with scripts/clean-storage.sh
+# --delete (--include-empty-jobs for the jobs) after reading it.
 #
 # Runs as the storage-report CronJob (deployment/storage-report.yml), which
 # mounts this file from the storage-report-script ConfigMap.
@@ -81,29 +82,34 @@ usage="$(jq -r '
 orphans="$(jq '.orphans|length' <<<"$report")"
 strays="$(jq '.strays|length' <<<"$report")"
 missing="$(jq '.missing|length' <<<"$report")"
+# absent from a server older than the empty_jobs report: count them as 0
+empty_jobs="$(jq '.empty_jobs // [] | length' <<<"$report")"
 summary="$(jq -r --argjson h "$min_age_hours" '
   "\(.orphans|length) orphan(s), \(.bytes / 1e9 * 10 | round / 10) GB"
   + " | \(.strays|length) stray(s) | \(.missing|length) template row(s) without image"
+  + " | \(.empty_jobs // [] | length) job(s) without any file"
   + " (older than \($h)h; scanned \(.scanned.jobs) job and"
   + " \(.scanned.templates) template path(s))"' <<<"$report")"
 echo "$usage"
 echo "Storage sweep: $summary"
 
 text="📦 RMN storage, monthly report"$'\n''```'$'\n'"$usage"$'\n''```'
-if [ "$orphans" -eq 0 ] && [ "$strays" -eq 0 ] && [ "$missing" -eq 0 ]; then
+if [ "$orphans" -eq 0 ] && [ "$strays" -eq 0 ] && [ "$missing" -eq 0 ] \
+  && [ "$empty_jobs" -eq 0 ]; then
   text+=$'\n'"✅ No orphan files ($summary)."
 else
   # every path goes to the log; Slack gets the first $max_paths
   paths="$(jq -r '
     (.orphans[] | "orphan  \(.reason)  \(.path)"),
     (.strays[]  | "stray   \(.path)"),
-    (.missing[] | "missing \(.)")' <<<"$report")"
+    (.missing[] | "missing \(.)"),
+    (.empty_jobs // [] | .[] | "no file \(.job_id)  \(.job_status)  \(.user_id)")' <<<"$report")"
   echo "$paths"
   total="$(wc -l <<<"$paths" | tr -d ' ')"
   shown="$(head -n "$max_paths" <<<"$paths")"
   [ "$total" -gt "$max_paths" ] && shown+=$'\n'"… $((total - max_paths)) more in the job log"
   text+=$'\n'"⚠️ $summary"$'\n''```'$'\n'"$shown"$'\n''```'
   text+=$'\n'"Nothing was deleted. Review with \`scripts/clean-storage.sh --min-age-hours $min_age_hours\`,"
-  text+=" then add \`--delete\`."
+  text+=" then add \`--delete\` (and \`--include-empty-jobs\` for the jobs without any file)."
 fi
 slack "$text"

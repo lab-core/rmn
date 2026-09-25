@@ -495,6 +495,13 @@ recently, which is what keeps the sweep from racing an upload in progress;
 `include_strays=true` also deletes paths that sit under a job prefix without
 matching the layout. `numbers/`, the shared digit corpus, is never swept: no
 row owns it.
+
+The report also lists, under `empty_jobs`, the jobs none of whose files are
+left on the share (queued more than `min_age_hours` ago): they can no longer
+be opened, corrected or downloaded. `include_empty_jobs=true` (with
+`dry_run=false`) deletes them like `/job/delete` does: every row of the job in
+`eval_jobs`, `job_documents`, `job_questions`, `jobs_output` and `versions`,
+and its queued tasks.
 ```
 curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost/api/admin/storage/clean
 curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "dry_run=false" http://localhost/api/admin/storage/clean
@@ -504,6 +511,7 @@ asks for confirmation before deleting:
 ```
 scripts/clean-storage.sh                 # dry run
 scripts/clean-storage.sh --delete        # after reading the dry run
+scripts/clean-storage.sh --delete --include-empty-jobs   # also the empty jobs
 ```
 `usage=true` adds a `usage` block: bytes and file count of the files older
 than 0, 30, 90, 180 and 365 days (by modification time, whole share, `numbers/`
@@ -514,7 +522,7 @@ The `storage-report` CronJob (`deployment/storage-report.yml`) runs
 `deployment/storage-report.sh` at 07:00 UTC on the 1st of every month. It asks
 for a dry run with `usage=true` and `min_age_hours=720` over the in-cluster
 Service, and posts to the Slack channel the disk usage by age, followed by the
-orphans, strays and imageless template rows, if any. **It never deletes**: the
+orphans, strays, imageless template rows and jobs without any file, if any. **It never deletes**: the
 share should hold no orphans, so a finding is a bug to look at first; delete
 by hand afterwards with `scripts/clean-storage.sh --min-age-hours 720 --delete`.
 A run that cannot reach the server or Slack fails its Job, which the health
