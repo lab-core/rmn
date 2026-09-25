@@ -418,6 +418,10 @@ describe('TaskVerificationComponent', () => {
     await create(JOB, { group: 'G2' }, {}, grouped);
     expect(component.groupsList).toEqual(['G2']);
     expect(component.subExamsList.map(e => e.filename)).toEqual(['b_Q1', 'b_Q3']);
+    // opens the group's first copy, not the task's (a_Q1 is in G1)
+    expect(component.currentCopy).toBe(2);
+    expect(component.currentDocumentIndex).toBe(11);
+    expect(component.pdfUrl).toBe('blob:11');
 
     component.loadSubExamsList();
     await settle();
@@ -428,6 +432,31 @@ describe('TaskVerificationComponent', () => {
     await settle();
     expect(component.subExamsList.map(e => e.filename)).toEqual(['a_Q1', 'a_Q3']);
     expect(component.currentDocumentIndex).toBe(10);
+  });
+
+  describe('a group in the link', () => {
+    const grouped = QUESTION_DOCS.map(d => ({ ...d, group: d.basename === 'a' ? 'G1' : 'G2' }));
+
+    it('resumes on the copy the page was left on when it is in the group', async () => {
+      await create(JOB, { group: 'G2' }, {}, grouped, () => localStorage.setItem('job_copy', '3'));
+      expect(component.currentDocumentIndex).toBe(13);  // b_Q3
+    });
+
+    it('opens its first copy when the page was left on a copy of another group', async () => {
+      await create(JOB, { group: 'G2' }, {}, grouped, () => localStorage.setItem('job_copy', '1'));
+      expect(component.currentDocumentIndex).toBe(11);  // b_Q1, not a_Q3
+    });
+
+    it('keeps the precedence of a copy picked on the dashboard', async () => {
+      await create(JOB, { group: 'G2' }, {}, grouped,
+                   () => localStorage.setItem('job_dashboard_copy', JSON.stringify({ document_index: 0, basename: 'a' })));
+      expect(component.currentDocumentIndex).toBe(10);  // a_Q1
+    });
+
+    it('with a question follows the first student of the group', async () => {
+      await create(JOB, { group: 'G2', question_index: '3' }, {}, grouped);
+      expect(component.currentDocumentIndex).toBe(13);  // b_Q3, not a_Q3
+    });
   });
 
   it('a link shared for the whole task goes back to the shared dashboard', async () => {
@@ -805,9 +834,14 @@ describe('TaskVerificationComponent', () => {
 
       await component.uploadOffline(true);
 
-      expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining("n'a pu être sauvegardée"), 'Error');
+      // named as on its tile, not by its position from the first document
+      expect(notification.showError).toHaveBeenCalledWith("La copie 1|Q3 n'a pu être sauvegardée.", 'Error');
       expect(copy.updated).toBeFalse();
       expect(notification.showSuccess).not.toHaveBeenCalled();
+      // and the offline management can be opened again to retry
+      expect(component.downloadingOffline).toBeFalse();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.pdf-management-button').disabled).toBeFalse();
     });
 
     it('cancelling the offline correction asks first', async () => {

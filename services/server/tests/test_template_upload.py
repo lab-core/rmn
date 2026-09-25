@@ -10,6 +10,7 @@ import io
 import json
 import os
 import shutil
+import warnings
 
 import pytest
 from PIL import Image
@@ -40,7 +41,7 @@ def _listing(folder):
 
 @pytest.fixture(autouse=True)
 def _drop_uploaded_pdfs():
-    """Remove the uploaded pdfs create_user_template leaves in its temp folder."""
+    """Safety net: remove what a failing test left in the service's temp folder."""
     folder = template_service.TEMP_FOLDER
     before = _listing(folder)
     yield
@@ -118,6 +119,22 @@ def test_upload_renders_the_chosen_page_and_queues_the_boxes(
     assert _queue()[queued:] == [{"template_id": body["template_id"]}]
 
 
+def test_upload_leaves_nothing_in_the_temp_folder(client, alice, cleanup):
+    folder = template_service.TEMP_FOLDER
+    before = _listing(folder)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", ResourceWarning)
+        resp = _upload(client, alice, _pdf((72, 72)))
+
+    assert resp.status_code == 200, resp.data
+    template_id = resp.get_json(force=True)["response"]["template_id"]
+    cleanup.append(f"template/{template_id}.png")
+    # the uploaded pdf used to stay there, and the file the
+    # upload was saved through was never closed
+    assert _listing(folder) == before
+    assert not [w for w in caught if issubclass(w.category, ResourceWarning)]
+
+
 def test_upload_without_boxes_is_not_queued(client, alice, app_module_fixture, cleanup):
     queued = len(_queue())
     resp = _upload(client, alice, _pdf((72, 72)))
@@ -143,12 +160,15 @@ def test_an_unreadable_upload_stores_nothing(
 ):
     storage = app_module_fixture.storage
     before = _listing(storage.abs_path("template"))
+    folder = template_service.TEMP_FOLDER
+    temp_before = _listing(folder)
 
     resp = _upload(client, alice, pdf, **fields)
 
     assert resp.status_code == 500
     assert app_module_fixture.mongo["RMN"]["template"].count_documents({}) == 0
     assert _listing(storage.abs_path("template")) == before
+    assert _listing(folder) == temp_before
 
 
 def test_upload_requires_the_template_file(client, alice):

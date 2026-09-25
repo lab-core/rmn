@@ -468,6 +468,36 @@ def test_a_moodle_id_without_digits_leaves_the_copy_out_of_the_moodle_zip_only(
     assert moodle and all(n.startswith("Tremblay Carol_103_3333333") for n in moodle)
 
 
+def test_a_moodle_id_column_of_plain_numbers_names_the_moodle_folders(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    # a roster whose "Identifiant" holds the participant ids alone: pandas
+    # reads the column as integers
+    roster = ROSTER.copy()
+    roster[MF.id] = [101, 102, 103, 105]
+    job = _job(mongo_db, storage_root, roster=roster)
+    _split_copies(
+        tmp_path,
+        mongo_db,
+        scanned_copy_factory,
+        {"alice": COPIES["alice"], "carol": COPIES["carol"]},
+    )
+
+    _finalize(job, tmp_path)
+
+    assert mongo_db["eval_jobs"].find_one({"job_id": "job"})["job_status"] == "ARCHIVED"
+    moodle = _zip_names(storage_root / "output_zip" / "job_1.zip")
+    assert ALICE_MOODLE_FOLDER + "Martin_Alice_1111111.pdf" in moodle
+    assert (
+        "Tremblay Carol_103_3333333_assignsubmission_file_/Tremblay_Carol_3333333.pdf"
+        in moodle
+    )
+
+
 def test_a_failing_student_stats_page_does_not_hold_back_the_copy(
     tmp_path: Path,
     storage_root: Path,
@@ -739,8 +769,12 @@ def test_dispatch_reports_a_job_without_output_csv_as_an_error(
     assert _statuses(sio) == ["FINALIZING", "ERROR"]
 
 
-def test_dispatch_reports_a_failing_pdflatex_as_an_error(
-    tmp_path: Path, storage_root: Path, mongo_db: Any, monkeypatch: pytest.MonkeyPatch
+def test_a_failing_pdflatex_archives_the_job_without_the_teacher_stats(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def broken(
         latex_file: str | Path,
@@ -751,15 +785,47 @@ def test_dispatch_reports_a_failing_pdflatex_as_an_error(
         raise ChildProcessError("pdflatex failed with exit code 1 (log above).")
 
     monkeypatch.setattr(stats, "create_tex_pdf", broken)
-    _job(mongo_db, storage_root, points=[], pages=[], bonus=[])
+    _job(mongo_db, storage_root)
+    _split_copies(
+        tmp_path,
+        mongo_db,
+        scanned_copy_factory,
+        {"alice": COPIES["alice"], "carol": COPIES["carol"]},
+    )
+    # the stats of an earlier finalization, made with other grades
+    stale = storage_root / "output_stats" / "job.pdf"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("old stats")
+    mongo_db["jobs_output"].update_one(
+        {"job_id": "job"}, {"$set": {"stats_file_id": "output_stats/job.pdf"}}
+    )
+    sio = MagicMock()
 
     dispatch.process(
-        Database(), MagicMock(), Storage(), MagicMock(), {"job_id": "job"}, tmp_path
+        Database(), MagicMock(), Storage(), sio, {"job_id": "job"}, tmp_path
     )
 
+    # the zips and the grades csv are delivered, the job is complete
     record = mongo_db["eval_jobs"].find_one({"job_id": "job"})
-    assert record["job_status"] == "ERROR"
+    assert record["job_status"] == "ARCHIVED"
+    output = mongo_db["jobs_output"].find_one({"job_id": "job"})
+    assert output["zip_id_list"] == ["output_zip/job_all.zip", "output_zip/job_1.zip"]
+    for file_id in output["zip_id_list"]:
+        assert (storage_root / file_id).is_file(), file_id
+    assert _grades_csv(storage_root).loc["1111111", MF.grade] == 8.0
+    moodle = _zip_names(storage_root / "output_zip" / "job_1.zip")
+    assert ALICE_MOODLE_FOLDER + "Martin_Alice_1111111.pdf" in moodle
+    # without any stats pdf, and the teacher is told why
+    assert "stats_file_id" not in output
+    assert not stale.exists()
+    assert not any(n.endswith("_notes.pdf") for n in moodle)
+    assert record["job_infos"].startswith(
+        "Tâche terminée sans le pdf des statistiques générales"
+    )
     assert "pdflatex failed with exit code 1" in record["job_infos"]
+    archived = json.loads(sio.emit.call_args_list[-1].args[1])
+    assert archived["status"] == "ARCHIVED"
+    assert archived["job_infos"] == record["job_infos"]
 
 
 def _pdflatex_runs() -> bool:

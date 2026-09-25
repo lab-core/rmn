@@ -252,3 +252,31 @@ def test_another_user_cannot_unshare_the_archive(
 
 def test_unshare_requires_a_job_id(client, finished, login):
     assert client.post("/files/unshare", data={"token": login()}).status_code == 400
+
+
+@pytest.mark.parametrize("index", ["2", "-1"])
+def test_a_zip_index_out_of_range_is_404(client, finished, login, index):
+    # an IndexError (a 500) past the end; -1 used to serve the last archive
+    resp = _download(client, finished, token=login(), file="zip_file", zip_index=index)
+    assert resp.status_code == 404, resp.data
+    assert resp.get_json(force=True) == {"response": f"Error: zip {index} doesn't exist."}
+
+
+def test_a_malformed_zip_index_is_400(client, finished, login):
+    resp = _download(client, finished, token=login(), file="zip_file", zip_index="a")
+    assert resp.status_code == 400, resp.data
+    assert resp.get_json(force=True) == {"response": "Error: zip_index is not a number."}
+
+
+@pytest.mark.parametrize(
+    "file,field", [("stats_pdf_file", "stats_file_id"), ("zip_file", "zip_id_list")]
+)
+def test_an_output_not_written_yet_is_404(
+    client, finished, login, app_module_fixture, file, field
+):
+    # the executor had not stored it yet: a KeyError, a 500
+    app_module_fixture.mongo["RMN"]["jobs_output"].update_one(
+        {"job_id": finished}, {"$unset": {field: ""}}
+    )
+    resp = _download(client, finished, token=login(), file=file, zip_index="0")
+    assert resp.status_code == 404, resp.data
