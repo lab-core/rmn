@@ -143,3 +143,38 @@ def test_admin_endpoint_rejects_a_bad_age_and_the_wrong_key(client):
     assert resp.status_code == 400
     resp = client.post("/admin/storage/clean", headers={"X-Admin-Key": "nope"})
     assert resp.status_code == 403
+
+
+def test_usage_buckets_are_cumulative_by_age(tree):
+    storage, db, write = tree
+    day = 24 * 3600
+    write("documents/a/new.png", age_seconds=0)
+    write("documents/b/month.png", age_seconds=40 * day)
+    write("numbers/0/old.png", age_seconds=400 * day)
+
+    usage = storage_cleanup.usage(storage)
+
+    files = {days: b["files"] for days, b in usage["older_than_days"].items()}
+    assert files == {"0": 3, "30": 2, "90": 1, "180": 1, "365": 1}
+    assert usage["older_than_days"]["0"]["bytes"] == 3
+    assert usage["disk"]["total"] >= usage["disk"]["used"] > 0
+
+
+def test_usage_skips_symlinks(tree):
+    storage, db, write = tree
+    target = write("documents/a/1.png")
+    os.symlink(target, storage.abs_path("documents/a/link.png"))
+
+    assert storage_cleanup.usage(storage)["older_than_days"]["0"]["files"] == 1
+
+
+def test_admin_endpoint_adds_usage_only_when_asked(client, tree):
+    storage, db, write = tree
+    write("documents/a/1.png")
+
+    body = client.post("/admin/storage/clean", headers=HEADERS).get_json(force=True)
+    assert "usage" not in body
+    body = client.post(
+        "/admin/storage/clean", data={"usage": "true"}, headers=HEADERS
+    ).get_json(force=True)
+    assert body["usage"]["older_than_days"]["0"]["files"] == 1

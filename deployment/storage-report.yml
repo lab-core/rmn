@@ -1,0 +1,85 @@
+# Monthly storage report: runs deployment/storage-report.sh on the 1st of the
+# month. It asks the server for a dry run of the storage sweep and a disk usage
+# summary by file age, and posts both to Slack. Report only: nothing is
+# deleted; orphans are removed by hand with scripts/clean-storage.sh --delete.
+# The script is mounted from the storage-report-script ConfigMap generated in
+# kustomization.yaml.
+#
+# The pod talks to the server over the in-cluster Service with the admin key;
+# it needs no Kubernetes API access, so no service account token is mounted.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: storage-report
+  annotations:
+    # the health sentinel expects a success within 48h by default; a monthly
+    # job gets a month and a few days of slack
+    rmn/success-window-hours: "800"
+spec:
+  schedule: "0 7 1 * *"  # 07:00 UTC (03:00 Montreal) on the 1st of every month
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # the sweep walks the whole NFS share; the script's curl gives up after
+      # 15 min, this deadline catches anything else that hangs
+      activeDeadlineSeconds: 1200
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: report
+              # bash + curl + jq; same pinned image as the health sentinel, so
+              # the node already has it
+              image: alpine/k8s:1.31.4
+              command: [/bin/bash, /opt/storage-report/storage-report.sh]
+              env:
+                - name: SERVER_URL
+                  value: http://server:5000
+                # only paths untouched for 30 days count as orphans
+                - name: MIN_AGE_HOURS
+                  value: "720"
+                - name: ADMIN_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: admin-api-key
+                - name: SLACK_CHANNEL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: rmn-config
+                      key: slack-channel
+                - name: SLACK_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: slack-token
+              resources:
+                requests: {cpu: 50m, memory: 64Mi}
+                limits: {cpu: 200m, memory: 128Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              volumeMounts:
+                - name: script
+                  mountPath: /opt/storage-report
+                  readOnly: true
+                # mktemp writes the server's answer here
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: script
+              configMap:
+                name: storage-report-script
+                defaultMode: 0555
+            - name: tmp
+              emptyDir: {}

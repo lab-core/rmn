@@ -13,7 +13,6 @@ from service.template_service import TemplateService
 from service.user_service import UserService
 from utils.forms import form_int
 
-
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
@@ -50,7 +49,9 @@ def admin_delete_jobs():
     n = delete_old_jobs(n_days_old, user_id)
 
     #
-    return Response(response=json.dumps({"response": "OK", "n_deleted_jobs": n}), status=200)
+    return Response(
+        response=json.dumps({"response": "OK", "n_deleted_jobs": n}), status=200
+    )
 
 
 @bp.route("/signup", methods=["POST"])
@@ -76,10 +77,7 @@ def admin_delete_tokens():
         return _negative("n_days_old")
     db = mongo["RMN"]
     UserService.delete_tokens(user_id, n_days_old, db)
-    return Response(
-        response=json.dumps({"response": "OK"}),
-        status=200
-    )
+    return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
 @bp.route("/delete/user", methods=["POST"])
@@ -90,8 +88,12 @@ def admin_delete_user():
 
     if "username" not in request_form and "user_id" not in request_form:
         return Response(
-            response=json.dumps({"response": "Error: username and user_id not provided. "
-                                             "Please one of these two fields."}),
+            response=json.dumps(
+                {
+                    "response": "Error: username and user_id not provided. "
+                    "Please one of these two fields."
+                }
+            ),
             status=400,
         )
 
@@ -117,7 +119,9 @@ def admin_delete_user():
 def admin_users():
     db = mongo["RMN"]
     all_users = UserService.users(db)
-    return Response(response=json.dumps({"response": "OK", "users": all_users}), status=200)
+    return Response(
+        response=json.dumps({"response": "OK", "users": all_users}), status=200
+    )
 
 
 @bp.route("/change_password", methods=["POST"])
@@ -133,7 +137,9 @@ def admin_change_password():
 @verify_admin
 def create_default_template():
     db = mongo["RMN"]
-    return TemplateService.add_default_templates(request.form.get('user_id'), db, storage)
+    return TemplateService.add_default_templates(
+        request.form.get("user_id"), db, storage
+    )
 
 
 @bp.route("/storage/clean", methods=["POST"])
@@ -146,10 +152,13 @@ def admin_clean_storage():
     ``min_age_hours`` (default 24, paths touched more recently are skipped so
     the sweep cannot race an upload) and ``include_strays`` (default false --
     also delete paths under a known prefix that match no layout rule).
+    ``usage=true`` adds a ``usage`` block: bytes used on the share by files
+    older than 0, 30, 90, 180 and 365 days (it walks the whole tree).
     """
     request_form = request.form
     dry_run = request_form.get("dry_run", "true").lower() != "false"
     include_strays = request_form.get("include_strays", "false").lower() == "true"
+    with_usage = request_form.get("usage", "false").lower() == "true"
     try:
         min_age_hours = float(request_form.get("min_age_hours", "24"))
         # "nan" passed the >= 0 check below and "inf" overflowed int(): 500s
@@ -173,13 +182,17 @@ def admin_clean_storage():
     else:
         report = storage_cleanup.clean(storage, db, min_age_seconds, include_strays)
     report["dry_run"] = dry_run
+    if with_usage:
+        report["usage"] = storage_cleanup.usage(storage)
     print(
-        "Storage sweep:", len(report["orphans"]), "orphan(s),",
-        report["bytes"], "bytes,", "dry run" if dry_run else "deleted",
+        "Storage sweep:",
+        len(report["orphans"]),
+        "orphan(s),",
+        report["bytes"],
+        "bytes,",
+        "dry run" if dry_run else "deleted",
     )
-    return Response(
-        response=json.dumps({"response": "OK", **report}), status=200
-    )
+    return Response(response=json.dumps({"response": "OK", **report}), status=200)
 
 
 @bp.route("/executor", methods=["GET"])
