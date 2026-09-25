@@ -18,6 +18,7 @@ from service.documents import (
     start_reading_grades,
 )
 from service.versions import get_last_version, save_new_pdf_version
+from utils.forms import form_int
 
 
 bp = Blueprint("documents", __name__, url_prefix="/documents")
@@ -203,15 +204,7 @@ def read_grades(validity):
     db = mongo["RMN"]
 
     if "question_index" in request_form:
-        try:
-            questions = [int(request_form["question_index"])]
-        except ValueError:
-            return Response(
-                response=json.dumps(
-                    {"response": "Error: question_index is not a number."}
-                ),
-                status=400,
-            )
+        questions = [form_int(request_form, "question_index")]
     else:
         questions = sorted(db["job_questions"].distinct(
             "question_index", {"job_id": job_id}
@@ -244,7 +237,7 @@ def tag_document(validity):
             )
 
     db = mongo["RMN"]
-    query = {"job_id": str(request_form["job_id"]), "document_index": int(request_form["document_index"])}
+    query = {"job_id": str(request_form["job_id"]), "document_index": form_int(request_form, "document_index")}
     q_doc = db["job_questions"].find_one(query)
     if q_doc is None:
         return Response(response=json.dumps({"response": "Error: document not found."}), status=404)
@@ -277,7 +270,7 @@ def update_document(validity):
                 response=json.dumps({"response": f"Error: field version not provided with annotations."}),
                 status=400,
             )
-        version = int(request_form["version"])
+        version = form_int(request_form, "version")
         annotations = json.loads(request_form.get("annotations"))
 
     try:
@@ -290,7 +283,10 @@ def update_document(validity):
         )
 
     job_id = str(request_form["job_id"])
-    document_index = int(request_form["document_index"])
+    document_index = form_int(request_form, "document_index")
+    # read before any write: it used to be converted after the question had
+    # been updated, so a malformed one was a 500 on a half-saved copy
+    question_index = form_int(request_form, "question_index")
 
     # update the database
     db = mongo["RMN"]
@@ -324,14 +320,15 @@ def update_document(validity):
                                 status=404)
 
             if grade is not None:
-                q_index = int(request_form["question_index"]) - 1
+                q_index = question_index - 1
                 r = db["job_documents"].update_one(
                     {"job_id": job_id, "filename": q_doc["basename"]},
                     {"$set": {
                         f"grades.{q_index}": grade
                     }}
                 )
-                if not r:
+                # an UpdateResult is always truthy: `if not r` never fired
+                if r.matched_count == 0:
                     return Response(response=json.dumps({"response": "Error: document %s not found." % q_doc["basename"]}),
                                     status=404)
 
@@ -342,7 +339,6 @@ def update_document(validity):
                 # wrong idea of that question. The readings stay -- the right
                 # answer is still usually among them -- but the copies stop
                 # being shown as confident.
-                question_index = int(request_form["question_index"])
                 if auto_grade.unreliable(db["job_questions"], job_id, question_index):
                     distrusted = auto_grade.distrust_suggestions(
                         db["job_questions"], job_id, question_index
@@ -437,13 +433,13 @@ def update_document(validity):
     ):
         queued_run = auto_grade.queue_document(
             db["eval_jobs"], db["job_questions"], job_id,
-            int(request_form["question_index"]), document_index,
+            question_index, document_index,
         )
         if queued_run:
             redis.rpush("job_queue", json.dumps({
                 "job_id": job_id,
                 "read_grades": True,
-                "question_index": int(request_form["question_index"]),
+                "question_index": question_index,
                 "run": queued_run,
             }))
 
@@ -472,7 +468,7 @@ def download_document(validity):
         )
 
     job_id = str(request_form["job_id"])
-    document_index = int(request_form["document_index"])
+    document_index = form_int(request_form, "document_index")
 
     db = mongo["RMN"]
     if request_form.get("questions") is not None:
@@ -497,7 +493,7 @@ def download_document(validity):
         # if annotations are requested, use last version as it's the only one with annotations not separated
         if request_form.get("with_annotations") is None:
             last_version = get_last_version(job_id, file_path)
-            version = int(request_form.get("version", last_version))  # use last_version by default
+            version = form_int(request_form, "version", last_version)  # use last_version by default
             print("Query version for:", {"job_id": job_id, "rel_filepath": file_path, "version": version})
             vers = db["versions"].find_one(
                 {"job_id": job_id, "rel_filepath": file_path, "version": version}
@@ -536,7 +532,7 @@ def last_version_document():
         )
 
     job_id = str(request_form["job_id"])
-    document_index = int(request_form["document_index"])
+    document_index = form_int(request_form, "document_index")
 
     db = mongo["RMN"]
     question_collection = db["job_questions"]
@@ -570,7 +566,7 @@ def document_annotations(validity):
         )
 
     job_id = str(request_form["job_id"])
-    document_index = int(request_form["document_index"])
+    document_index = form_int(request_form, "document_index")
 
     db = mongo["RMN"]
     coll = db["job_questions"] if request_form.get("questions") is not None else db["job_documents"]
@@ -588,7 +584,7 @@ def document_annotations(validity):
 
     rel_filepath = doc["rel_filepath"]
     last_version = get_last_version(job_id, rel_filepath)
-    version = int(request_form.get("version", last_version))  # use last_version by default
+    version = form_int(request_form, "version", last_version)  # use last_version by default
     query = {"job_id": job_id, "rel_filepath": rel_filepath, "version": version}
     print("Query versions for", query)
     vers = db["versions"].find_one(query)
