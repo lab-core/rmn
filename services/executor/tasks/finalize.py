@@ -302,12 +302,24 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
         except Exception as e:
             print(e)
 
-    # adding stats for professors
-    fpdf = create_stats_latex('Statistiques', None, n_questions, all_grades, question_totals,
-                              f_boxplots, TMP_DIR=TEX_FOLDER, question_names=question_names)
-    print("General stats created:", fpdf)
+    # adding stats for professors; as for a student's stats page, a failure
+    # does not fail the job: the zips are already in storage by now, and
+    # nothing needs the stats pdf but its own download, so the job completes
+    # with its zips and csv, and the teacher is told the pdf is missing
     stats_file_id = os.path.normpath(f"output_stats{os.sep}{job_id}.pdf")
-    storage.move_to(fpdf, stats_file_id)
+    stats_infos = None
+    try:
+        fpdf = create_stats_latex('Statistiques', None, n_questions, all_grades, question_totals,
+                                  f_boxplots, TMP_DIR=TEX_FOLDER, question_names=question_names)
+        print("General stats created:", fpdf)
+        storage.move_to(fpdf, stats_file_id)
+    except Exception as e:
+        print(f"General stats skipped: {e}")
+        # the pdf of an earlier finalization does not match these grades
+        storage.remove(stats_file_id)
+        stats_file_id = None
+        stats_infos = {"job_infos": "Tâche terminée sans le pdf des statistiques générales, "
+                                    f"qui n'a pas pu être créé : {e}"}
 
     if stopH.stop():
         cleanup_deleted_job(db, storage, job_id)
@@ -319,16 +331,19 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
         storage.move_to(csv_file_path, n_csv)
 
         #
-        db.jobs_output_collection().update_one(
-            {"job_id": job_id},
-            {"$set": {
-                "notes_csv_file_id": notes_csv_file_id,
-                "stats_file_id": stats_file_id,
-                "zip_id_list": zip_id_list
-            }})
+        outputs = {"$set": {
+            "notes_csv_file_id": notes_csv_file_id,
+            "zip_id_list": zip_id_list
+        }}
+        if stats_file_id:
+            outputs["$set"]["stats_file_id"] = stats_file_id
+        else:
+            outputs["$unset"] = {"stats_file_id": ""}
+        db.jobs_output_collection().update_one({"job_id": job_id}, outputs)
 
         #
-        update_status(db, sio, user_id, job_id, Job_Status.ARCHIVED, db_infos={"notes_file_id": notes_csv_file_id})
+        update_status(db, sio, user_id, job_id, Job_Status.ARCHIVED, infos=stats_infos,
+                      db_infos={"notes_file_id": notes_csv_file_id})
 
     except Exception as e:
         print("Error while moving file to storage")

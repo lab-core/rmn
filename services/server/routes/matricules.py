@@ -7,6 +7,7 @@ from flask_cors import cross_origin
 from rmn_common.status import Document_Status
 from auth import verify_share_token, verify_token
 from context import mongo, sio
+from utils.forms import form_int
 
 
 bp = Blueprint("matricules", __name__, url_prefix="/matricules")
@@ -27,7 +28,7 @@ def update_matricule():
             )
 
     job_id = str(request_form["job_id"])
-    document_index = int(request_form["document_index"])
+    document_index = form_int(request_form, "document_index")
     matricule = str(request_form["matricule"])
 
     db = mongo["RMN"]
@@ -66,7 +67,7 @@ def update_matricule_status():
             )
 
     job_id = str(request_form["job_id"])
-    document_index = int(request_form["document_index"])
+    document_index = form_int(request_form, "document_index")
     status = str(request_form["status"])
 
     try:

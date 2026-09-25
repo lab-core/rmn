@@ -155,12 +155,6 @@ def test_grade_mode_reads_the_cover_tables_into_the_database(
     assert {r["document_index"] for r in ready} == {0, 1}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="batch.process_all rewrites the csv with the dataframes it loaded "
-    "before the "
-    "workers ran, so the grades grade_files wrote to the csv are lost",
-)
 def test_grade_mode_writes_the_grades_read_in_the_csv(
     grade_mode: Callable[..., tuple],
 ) -> None:
