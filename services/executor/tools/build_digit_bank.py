@@ -61,7 +61,7 @@ def promote(args, storage) -> None:
         totals = {"readings": 0, "promoted": 0, "samples": 0, "skipped": 0}
         for job_id in job_ids:
             counts = digit_bank.promote_job(
-                db, job_id, storage, remove=not args.keep_staged
+                db, job_id, storage, remove=not args.keep_staged, final=args.final
             )
             for key, value in counts.items():
                 # "refused" only appears for a job whose owner opted out
@@ -97,6 +97,9 @@ def main(argv=None) -> int:
     p_promote.add_argument(
         "--keep-staged", action="store_true",
         help="do not delete the staged readings (to promote again later)")
+    p_promote.add_argument(
+        "--final", action="store_true",
+        help="the task is over: drop what could not be labelled, as finalising does")
 
     p_export = sub.add_parser("export", help="write the bank as a training set")
     p_export.add_argument("--size", type=int, default=28,

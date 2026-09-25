@@ -298,6 +298,58 @@ def test_a_user_who_never_touched_the_switch_contributes(storage_root, mongo_db)
     assert len(bank_files(storage_root)) == 7
 
 
+# ------------------------------------------------------- the end of a task --
+def test_finalising_drops_what_could_not_be_labelled(storage_root, mongo_db):
+    """Once the humans are done, a reading nobody confirmed never will be."""
+    a_job(mongo_db)
+    a_document(mongo_db, matricule="1234567")
+    stage()                                  # labelled by the matricule
+    stage(n=5, document_index=1, seed=1)     # five crops, no copy to confirm them
+
+    counts = digit_bank.promote_job(Database(), JOB, final=True)
+
+    assert counts["promoted"] == 1 and counts["skipped"] == 1
+    assert counts["dropped"] == 1
+    assert len(bank_files(storage_root)) == 7
+    assert staged_files(storage_root) == []
+    # the job's whole staging area, empty directories included
+    assert not (storage_root / digit_bank.STAGED_DIR / JOB).exists()
+
+
+def test_finalising_drops_the_crops_of_a_teacher_who_opted_out(storage_root, mongo_db):
+    """They will never be banked, so they go now rather than waiting for the
+    job to be deleted: they are the ink of real students."""
+    a_job(mongo_db, saves_images=False)
+    a_document(mongo_db, matricule="1234567")
+    stage()
+
+    counts = digit_bank.promote_job(Database(), JOB, final=True)
+
+    assert counts["refused"] == 1
+    assert bank_files(storage_root) == []
+    assert not (storage_root / digit_bank.STAGED_DIR / JOB).exists()
+
+
+def test_a_task_still_being_validated_keeps_what_it_could_not_label(
+    storage_root, mongo_db
+):
+    """The copies are validated one by one: a reading that no confirmation
+    matches today may well match tomorrow's."""
+    a_job(mongo_db)
+    a_document(mongo_db, status="TO VALIDATE", matricule="1234567")
+    stage()
+
+    counts = digit_bank.promote_job(Database(), JOB)
+
+    assert counts["skipped"] == 1 and "dropped" not in counts
+    assert len(staged_files(storage_root)) == 1
+
+    # the copy is validated, and the reading finds its labels
+    mongo_db["job_documents"].update_one(
+        {"job_id": JOB, "document_index": 0}, {"$set": {"status": "VALIDATED"}})
+    assert digit_bank.promote_job(Database(), JOB)["samples"] == 7
+
+
 # --------------------------------------------------------------- the export --
 def test_the_bank_exports_the_arrays_the_training_reads(storage_root, mongo_db):
     a_job(mongo_db)

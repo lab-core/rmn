@@ -35,7 +35,9 @@ def promote_digit_bank(db, storage, job_id):
     everything here is reported and swallowed.
     """
     try:
-        counts = digit_bank.promote_job(db, job_id, storage)
+        # final: the matricules and the grades are settled, so anything still
+        # staged is dropped instead of waiting on the job's own deletion
+        counts = digit_bank.promote_job(db, job_id, storage, final=True)
         print("Digit bank:", ", ".join(f"{k}={v}" for k, v in counts.items()))
     except Exception as e:
         print("Could not add the digits of job", job_id, "to the bank:", e)

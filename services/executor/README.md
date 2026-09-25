@@ -40,7 +40,9 @@ storage/digit_bank/
                                              # and what the model had read
 ```
 
-Staged crops belong to the job and are deleted with it. A labelled sample
+Staged crops belong to the job: finalising it drops whatever is left of them
+(a reading nobody confirmed by then never will be, and the crops of a teacher
+who opted out have no future), and deleting the job takes the rest. A labelled sample
 outlives it, which is why the promotion asks the teacher's `saveVerifiedImages`
 (the switch in the user profile): **the reading is staged for everyone, the
 bank only keeps what its owner allowed.** It is on by default, so a teacher

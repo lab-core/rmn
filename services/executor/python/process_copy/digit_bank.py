@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -430,7 +431,24 @@ def saves_images(db: Any, user_id: Optional[str]) -> bool:
     return bool(user.get("saveVerifiedImages", True))
 
 
-def promote_job(db: Any, job_id: str, storage: Any = None, remove: bool = True) -> Dict[str, int]:
+def drop_staged(storage: Any, job_id: str) -> None:
+    """Delete everything a job still has staged.
+
+    Called when the job is finalised: what could not be labelled by then never
+    will be -- the matricules and the grades are settled -- and what a teacher
+    who opted out staged has no future at all. Keeping either would leave the
+    ink of real students on the share for nothing.
+    """
+    shutil.rmtree(storage.abs_path(os.path.join(STAGED_DIR, job_id)), ignore_errors=True)
+
+
+def promote_job(
+    db: Any,
+    job_id: str,
+    storage: Any = None,
+    remove: bool = True,
+    final: bool = False,
+) -> Dict[str, int]:
     """Turn the staged readings of a job into labelled samples.
 
     Only what a human settled is used: a matricule the job asked to be
@@ -445,21 +463,32 @@ def promote_job(db: Any, job_id: str, storage: Any = None, remove: bool = True) 
         job_id: The job whose staged readings are promoted.
         storage: The storage holding the bank; the executor's by default.
         remove: Delete the staged readings once they are promoted.
+        final: The humans are done with this job (it is being finalised), so
+            whatever is left staged is dropped rather than kept for a
+            confirmation that will never come. Off by default: a job still
+            being validated has readings that tomorrow's validation can still
+            label.
 
     Returns:
-        Counts: ``readings``, ``promoted``, ``samples``, ``skipped``, and
-        ``refused`` when the owner has not opted in.
+        Counts: ``readings``, ``promoted``, ``samples``, ``skipped``,
+        ``refused`` when the owner has not opted in, and ``dropped`` when what
+        was left staged has been deleted.
     """
     storage = storage or default_storage
     counts = {"readings": 0, "promoted": 0, "samples": 0, "skipped": 0}
     staged_root = storage.abs_path(os.path.join(STAGED_DIR, job_id))
     if not os.path.isdir(staged_root):
         return counts
+    if final:
+        counts["dropped"] = 1
 
     job = db.eval_jobs_collection().find_one({"job_id": job_id}) or {}
     if not saves_images(db, job.get("user_id")):
-        # the crops stay staged and go with the job; nothing reaches the bank
+        # nothing reaches the bank; on a finalisation the crops go now rather
+        # than waiting for the job to be deleted
         counts["refused"] = 1
+        if final:
+            drop_staged(storage, job_id)
         return counts
     documents = {
         d["document_index"]: d
@@ -511,6 +540,10 @@ def promote_job(db: Any, job_id: str, storage: Any = None, remove: bool = True) 
             counts["promoted"] += 1
             if remove:
                 os.remove(path)
+    if final:
+        # the readings that could not be labelled, and the empty directories
+        # of those that could
+        drop_staged(storage, job_id)
     return counts
 
 
