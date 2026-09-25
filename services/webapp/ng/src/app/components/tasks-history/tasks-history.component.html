@@ -126,7 +126,8 @@
   </tr>
 </table>
 
-<mat-paginator [pageSizeOptions]="[5, 8]" aria-label="Select page of tasksList" #paginator></mat-paginator>
+<mat-paginator [pageSizeOptions]="pageSizeOptions" [pageSize]="pageSize" (page)="onPage($event)"
+               aria-label="Select page of tasksList" #paginator></mat-paginator>
 </div>
 </div>
 </div>
