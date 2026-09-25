@@ -279,10 +279,12 @@ describe('NewExamCorrectionComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.q-alert').textContent).toContain('sélectionner en premier');
 
-    component.onQuestionIndexChange({ value: 't0', source: { id: 'mat-select-0' } } as any);
+    // the id comes from Material's global counter: any other page with a mat-select shifts it
+    component.onQuestionIndexChange({ value: 't0', source: { id: 'mat-select-7' } } as any);
     fixture.detectChanges();
     expect(component.questionKeys).toEqual([]);
     expect(fixture.nativeElement.querySelector('.q-alert').textContent).toContain('sélectionner un rectangle');
+    expect(fixture.nativeElement.querySelector('.q-alert').textContent).toContain('pour le template Empty.');
   });
 
   it('shows the start button disabled when the user has no template', async () => {

@@ -155,9 +155,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     if (event.value) {
       const template = this.templates.find(t => t['template_id'] === event.value);
       this.nQuestions = template["n_questions"];
-      if (event.source.id == "mat-select-0") {
-        this.selectedFrontTemplateName = template["name"];
-      }
+      this.selectedFrontTemplateName = template["template_name"];
       this.updateQuestionsCount();
     }
   }
