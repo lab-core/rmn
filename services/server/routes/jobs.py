@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import uuid
+import zipfile
 from io import FileIO
 from threading import Thread
 from zipfile import ZipFile
@@ -44,6 +45,40 @@ def stored_zips(job_id):
     return [legacy] if os.path.isfile(storage.abs_path(legacy)) else []
 
 
+def stored_copies(job_id):
+    """The whole copies of a task, storage-relative.
+
+    The executor deletes each zip as soon as it has split it
+    (``utils.split.insert_copies``) and moves every copy, under the name it
+    had inside the zip, to ``documents/<job_id>/all``. So a task that has been
+    processed -- which is every task worth duplicating -- keeps its copies
+    there and nowhere else.
+    """
+    folder = os.path.join("documents", job_id, "all")
+    absolute = storage.abs_path(folder)
+    if not os.path.isdir(absolute):
+        return []
+    return sorted(
+        os.path.join(folder, name)
+        for name in os.listdir(absolute)
+        if name.lower().endswith(".pdf")
+    )
+
+
+def zip_stored_copies(copies, zip_file_id):
+    """Write ``copies`` into a new stored zip, the way they were uploaded.
+
+    Stored, not deflated: the pdfs are compressed already, and the archive is
+    read once by the executor and then deleted.
+    """
+    absolute = storage.abs_path(zip_file_id)
+    os.makedirs(os.path.dirname(absolute), exist_ok=True)
+    with zipfile.ZipFile(absolute, "w", zipfile.ZIP_STORED) as archive:
+        for copy in copies:
+            archive.write(storage.abs_path(copy), os.path.basename(copy))
+    return absolute
+
+
 @bp.route("/evaluate", methods=["POST"])
 @cross_origin()
 @verify_token()
@@ -55,10 +90,14 @@ def evaluate(user_id):
     ``notes_csv_file`` (the Moodle export).
 
     ``source_job_id`` creates the task from an existing one of the same user:
-    each of the two files it does not carry is copied from that task, so the
+    each of the two files it does not carry is taken from that task, so the
     same copies and the same notes can be corrected again -- with any other
     setting changed, since all of them still come from the form. A file that
     *is* uploaded wins, which is how one of the two is replaced.
+
+    The copies come from the source's zips while it still has them, and
+    otherwise from the pdfs they were split into (``stored_copies``), which is
+    what a task that has been processed keeps.
     """
     request_form = request.form
 
@@ -87,6 +126,7 @@ def evaluate(user_id):
     source_job_id = str(request_form.get("source_job_id", "")).strip()
     source_csv = None
     source_zips = []
+    source_copies = []
     if source_job_id:
         source = mongo["RMN"]["eval_jobs"].find_one(
             {"job_id": source_job_id, "user_id": user_id}
@@ -113,6 +153,9 @@ def evaluate(user_id):
         if "zip_file" not in request.files:
             source_zips = stored_zips(source_job_id)
             if not source_zips:
+                # the usual case: the task was split, so its zip is gone
+                source_copies = stored_copies(source_job_id)
+            if not source_zips and not source_copies:
                 return Response(
                     response=json.dumps(
                         {"response": "Error: les copies de la tâche d'origine "
@@ -127,7 +170,10 @@ def evaluate(user_id):
             status=400,
         )
 
-    inherited = {"notes_csv_file": source_csv is not None, "zip_file": bool(source_zips)}
+    inherited = {
+        "notes_csv_file": source_csv is not None,
+        "zip_file": bool(source_zips or source_copies),
+    }
     for file_field in ("notes_csv_file", "zip_file"):
         if file_field not in request.files and not inherited[file_field]:
             return Response(
@@ -216,6 +262,10 @@ def evaluate(user_id):
                 storage.copy_inside(
                     stored, os.path.join("zips", job_id, f"{uuid.uuid4()}.zip")
                 )
+        elif source_copies:
+            zip_stored_copies(
+                source_copies, os.path.join("zips", job_id, f"{uuid.uuid4()}.zip")
+            )
         else:
             zip_file = request.files.get("zip_file")
             random_id = uuid.uuid4()

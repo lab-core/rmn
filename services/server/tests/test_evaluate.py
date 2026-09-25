@@ -8,6 +8,7 @@ import io
 import json
 import os
 import shutil
+import zipfile
 
 import pytest
 
@@ -235,6 +236,51 @@ def test_a_source_whose_files_are_gone_is_refused_before_anything_is_created(
 ):
     """The copies of an old task are swept once it is archived; say so, and do
     not leave a task behind that could never be split."""
+    user_factory("alice")
+    token = login("alice")
+    source = _source_task(app_module_fixture, storage_root)
+    shutil.rmtree(storage_root / "zips" / source)  # nothing left to zip up either
+
+    resp = _from_source(client, "alice", token, source)
+
+    assert resp.status_code == 400
+    assert "copies" in resp.get_json(force=True)["response"]
+    assert app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_name": "Intra bis"}) is None
+
+
+def test_the_copies_of_a_task_already_split_are_zipped_up_again(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    """The usual case: the executor deletes a zip as soon as it has split it,
+    so a task worth duplicating keeps its copies in documents/<job>/all."""
+    user_factory("alice")
+    token = login("alice")
+    source = _source_task(app_module_fixture, storage_root)
+    shutil.rmtree(storage_root / "zips" / source)
+    copies = storage_root / "documents" / source / "all"
+    copies.mkdir(parents=True)
+    (copies / "Alice_Tremblay_1234567.pdf").write_bytes(b"%PDF-1.4 alice")
+    (copies / "Bob_Gagnon_7654321.pdf").write_bytes(b"%PDF-1.4 bob")
+
+    resp = _from_source(client, "alice", token, source)
+
+    assert resp.status_code == 200, resp.data
+    job_id = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one(
+        {"job_name": "Intra bis"})["job_id"]
+    written = list((storage_root / "zips" / job_id).iterdir())
+    assert len(written) == 1
+    with zipfile.ZipFile(written[0]) as archive:
+        # the copies keep the names they had in the zip they arrived in
+        assert sorted(archive.namelist()) == [
+            "Alice_Tremblay_1234567.pdf", "Bob_Gagnon_7654321.pdf"]
+        assert archive.read("Bob_Gagnon_7654321.pdf") == b"%PDF-1.4 bob"
+    # and the source keeps its own
+    assert len(list(copies.iterdir())) == 2
+
+
+def test_a_source_with_neither_a_zip_nor_a_copy_is_refused(
+    client, user_factory, login, app_module_fixture, storage_root
+):
     user_factory("alice")
     token = login("alice")
     source = _source_task(app_module_fixture, storage_root)
