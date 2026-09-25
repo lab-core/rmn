@@ -7,6 +7,7 @@ calls, and the reading itself is split by what it works on:
     pages       a pdf as page images, and the summary pages
     contours    finding the boxes and the digits, as contours
     digits      from a contour to a number
+    digit_bank  the digits a human confirmed, staged to retrain the model
     matricules  the student number of a copy, and of a batch
     grades      the grades written in the cover-page table
     annotate    writing back onto a copy
@@ -27,8 +28,8 @@ from process_copy.contours import (  # noqa: F401
     get_clean_thresh, ink_rects)
 from process_copy.digits import (  # noqa: F401
     allowed_decimals_with_digits, correct_decimals, extract_all_digits,
-    extract_digit, extract_number, process_digits_combinations,
-    random_allowed_decimals, split_digits, test)
+    extract_digit, extract_number, most_probable_digits,
+    process_digits_combinations, random_allowed_decimals, split_digits, test)
 from process_copy.grades import (  # noqa: F401
     compare_all, get_max_question, grade, grade_files, try_fix_n_questions,
     try_fix_questions)

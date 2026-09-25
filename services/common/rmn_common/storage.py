@@ -45,6 +45,11 @@ class Storage:
         "incorrect_files",
         "zips",
         "unverified_numbers",
+        # digit crops waiting for the humans of this job to confirm what they
+        # are (process_copy.digit_bank). The labelled samples live outside the
+        # per-job layout: they outlive the copies they were cut from, like
+        # TEMPLATE_DIR above.
+        os.path.join("digit_bank", "staged"),
     )
     _JOB_FILES = (
         ("csv", "{job_id}.csv"),

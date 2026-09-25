@@ -383,3 +383,36 @@ def test_the_circle_is_erased_from_the_pixels(classifier):
         assert candidate.image is not None
         # what is left is the digits, far less ink than circle plus digits
         assert 0 < (candidate.image > 0).mean() < 0.35
+
+
+def _vertical_stroke(x, y0=100.0, y1=160.0, n=24):
+    """A stroke a grader could have drawn: a straight vertical line."""
+    ys = np.linspace(y0, y1, n)
+    return ink_grades.Stroke(points=np.stack([np.full(n, x), ys], axis=1))
+
+
+def test_the_denominator_of_a_fraction_never_reaches_the_digit_bank(
+    classifier, storage_root
+):
+    """``pick`` reads the grade, then the denominator, then keeps what it chose.
+
+    The denominator is read last, so staging it would make it -- and not the
+    grade -- the reading ``keep_last`` keeps, and "10" would be banked with
+    the label of the grade written above it.
+    """
+    from process_copy import digit_bank
+
+    grade_strokes = [_vertical_stroke(200.0)]
+    denominator_strokes = [_vertical_stroke(300.0), _vertical_stroke(320.0)]
+
+    with digit_bank.recording("job-ink", 0, digit_bank.INK_GRADE, question_index=1):
+        ink_grades.read_number(grade_strokes, None, classifier)
+        ink_grades.read_number(denominator_strokes, None, classifier, stage=False)
+        digit_bank.keep_last(value=1.0)
+
+    staged = sorted((storage_root / digit_bank.STAGED_DIR / "job-ink").rglob("*.npz"))
+    assert len(staged) == 1
+    with np.load(staged[0], allow_pickle=False) as data:
+        crops = data["crops"]
+    # the one stroke of the grade, not the two of the denominator
+    assert len(crops) == 1

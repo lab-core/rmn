@@ -186,3 +186,48 @@ def test_a_copy_whose_student_is_not_in_the_csv_gets_a_low_confidence(case, clas
     # outside the csv (the copy goes to validation), at most half confident
     assert index is None
     assert confidence <= 0.5
+
+
+def test_the_digits_of_a_matricule_are_staged_and_banked_with_what_a_human_confirms(
+    classifier, storage_root, mongo_db
+):
+    """The bank end to end: the recogniser's own crops, labelled by a validation.
+
+    Only the size and the pairing are checked here -- what the model read does
+    not matter, and must not: the point of the bank is the digits it gets
+    wrong, labelled by the human who put them right.
+    """
+    from process_copy import digit_bank
+    from process_copy.database import Database
+
+    case = SPEC["matricules"][0]
+    job_id = "job-recognition"
+    page = page_with(case["file"], SPEC["matricule_box"])
+
+    with digit_bank.recording(job_id, 4, digit_bank.MATRICULE):
+        recognize.find_matricule(
+            [page], SPEC["matricule_box"], SPEC["regular_matricule_box"], classifier,
+            [], separate_box=True)
+
+    staged = sorted((storage_root / digit_bank.STAGED_DIR / job_id).rglob("*.npz"))
+    assert staged, "reading a matricule stages its crops"
+    with np.load(staged[0], allow_pickle=False) as data:
+        crops = data["crops"]
+    assert crops.shape == (7, 64, 64), "seven digits, at the bank's size"
+    assert crops.dtype == np.uint8 and crops.max() == 255, "the mask the model saw"
+
+    mongo_db["eval_jobs"].insert_one(
+        {"job_id": job_id, "user_id": "u", "validate_matricule": True})
+    mongo_db["users"].insert_one({"username": "u", "saveVerifiedImages": True})
+    mongo_db["job_documents"].insert_one(
+        {"job_id": job_id, "document_index": 4, "status": "VALIDATED",
+         "matricule": case["matricule"]})
+
+    counts = digit_bank.promote_job(Database(), job_id)
+    assert counts["promoted"] == len(staged) and counts["skipped"] == 0
+    banked = sorted(
+        p.parent.name for p in (storage_root / digit_bank.SAMPLES_DIR).rglob("*.png"))
+    # every crop is labelled by its position in the matricule the human
+    # confirmed, and nothing else lands in the bank
+    assert set(banked) == set(case["matricule"])
+    assert len(banked) == counts["samples"]

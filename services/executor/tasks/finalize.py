@@ -12,6 +12,7 @@ from rmn_common.moodle import MoodleFields as MF
 from rmn_common.paths import ensure_within, safe_path_component
 from rmn_common.questions import ignored_positions, question_sort_key
 from rmn_common.spreadsheet import defuse_csv
+from process_copy import digit_bank
 from rmn_common.status import Document_Status, Job_Status
 from runtime import BATCH_SIZE, timestamped_print
 from tasks.cleanup import cleanup_deleted_job
@@ -25,6 +26,19 @@ from utils.stats import create_all_boxplots, create_stats_latex
 print = timestamped_print
 
 
+
+
+def promote_digit_bank(db, storage, job_id):
+    """Label the digits staged for a job with what its humans confirmed.
+
+    A bank that cannot be built is not a reason to fail a finalisation, so
+    everything here is reported and swallowed.
+    """
+    try:
+        counts = digit_bank.promote_job(db, job_id, storage)
+        print("Digit bank:", ", ".join(f"{k}={v}" for k, v in counts.items()))
+    except Exception as e:
+        print("Could not add the digits of job", job_id, "to the bank:", e)
 
 
 def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
@@ -344,6 +358,10 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
         else:
             outputs["$unset"] = {"stats_file_id": ""}
         db.jobs_output_collection().update_one({"job_id": job_id}, outputs)
+
+        # every matricule and every grade of this job is settled now: the
+        # digits read off the copies can be labelled with what the humans said
+        promote_digit_bank(db, storage, job_id)
 
         #
         update_status(db, sio, user_id, job_id, Job_Status.ARCHIVED, infos=stats_infos,

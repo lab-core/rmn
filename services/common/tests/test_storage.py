@@ -22,6 +22,7 @@ def _build_job(root, job_id):
     _touch(os.path.join(root, "incorrect_files", job_id, "bad.pdf"))
     _touch(os.path.join(root, "zips", job_id, "u.zip"))
     _touch(os.path.join(root, "unverified_numbers", job_id, "0", "0.png"))
+    _touch(os.path.join(root, "digit_bank", "staged", job_id, "0", "r.npz"))
     _touch(os.path.join(root, "csv", f"{job_id}.csv"))
     _touch(os.path.join(root, "output_csv", f"{job_id}.csv"))
     _touch(os.path.join(root, "output_stats", f"{job_id}.pdf"))
@@ -126,12 +127,33 @@ def test_remove_job_deletes_all_job_paths_and_nothing_else(tmp_path):
         for f in files
     )
     assert not any("job-A" in p for p in remaining)
-    assert len([p for p in remaining if "job-B" in p]) == 13
+    assert len([p for p in remaining if "job-B" in p]) == 14
     assert "numbers/7/abc.png" in remaining
     assert "output_zip/unrelated.zip" in remaining
 
     Storage(root).remove_job("job-A")  # idempotent
     Storage(root).remove_job("never-existed")
+
+
+def test_the_digits_a_job_contributed_outlive_it(tmp_path):
+    """Staged crops belong to the job; a labelled sample belongs to the bank.
+
+    The samples are what the recogniser is retrained on, so deleting the job
+    they were cut from -- or the sweep that removes an orphan -- must not take
+    them (``process_copy.digit_bank``).
+    """
+    root = str(tmp_path)
+    _build_job(root, "job-A")
+    _touch(os.path.join(root, "digit_bank", "samples", "7", "abc.png"))
+    _touch(os.path.join(root, "digit_bank", "index.jsonl"))
+
+    Storage(root).remove_job("job-A")
+
+    assert not os.path.exists(os.path.join(root, "digit_bank", "staged", "job-A"))
+    assert os.path.exists(os.path.join(root, "digit_bank", "samples", "7", "abc.png"))
+    assert os.path.exists(os.path.join(root, "digit_bank", "index.jsonl"))
+    owned = [path for _job, path in Storage(root).job_entries()]
+    assert not any("samples" in p for p in owned)
 
 
 def test_rel_path_of_a_relative_or_foreign_path(tmp_path):
@@ -169,6 +191,7 @@ def test_job_entries_name_the_owner_of_every_job_path(tmp_path):
             ("job-A", os.path.join("incorrect_files", "job-A")),
             ("job-A", os.path.join("zips", "job-A")),
             ("job-A", os.path.join("unverified_numbers", "job-A")),
+            ("job-A", os.path.join("digit_bank", "staged", "job-A")),
             ("job-A", os.path.join("csv", "job-A.csv")),
             ("job-A", os.path.join("output_csv", "job-A.csv")),
             ("job-A", os.path.join("output_stats", "job-A.pdf")),

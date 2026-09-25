@@ -9,6 +9,7 @@ from statistics import median
 import cv2
 import pandas as pd
 from colorama import Fore, Style
+from process_copy import digit_bank
 from process_copy.classifier import load_classifier
 from process_copy.config import min_documents_for_max_questions
 from process_copy.database import Database
@@ -120,7 +121,8 @@ def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=Non
                 continue
 
         number_images.append(box_img.copy())
-        all_numbers.append(test(box_img.copy(), classifier, trim=n_trim))
+        all_numbers.append(
+            test(box_img.copy(), classifier, trim=n_trim, meta={"box_index": i}))
     print(f"All numbers: {all_numbers}")
 
     if len(all_numbers) == 0:
@@ -256,9 +258,10 @@ def grade_files(
             # Start timer
             start_time = time.time()
 
-            is_matricule_valid, m, confidence = find_file_matricule(
-                job_id, doc_index, file, db, classifier, shape, grades_dfs, box_matricule, matricules_data,
-                n_questions)
+            with digit_bank.recording(job_id, doc_index, digit_bank.MATRICULE):
+                is_matricule_valid, m, confidence = find_file_matricule(
+                    job_id, doc_index, file, db, classifier, shape, grades_dfs, box_matricule,
+                    matricules_data, n_questions)
 
             # if doc already processed
             if is_matricule_valid and m is None:
@@ -274,14 +277,15 @@ def grade_files(
                 print(Fore.RED + "%s: No valid pdf" % filename + Style.RESET_ALL)
                 continue
             gray = grays[0]
-            total_matched, numbers, grades, number_images, boxes = grade(
-                gray,
-                box["grade"],
-                classifier=classifier,
-                trim=trim,
-                max_grade=max_grade,
-                max_question=max_question
-            )
+            with digit_bank.recording(job_id, doc_index, digit_bank.GRADE_BOX):
+                total_matched, numbers, grades, number_images, boxes = grade(
+                    gray,
+                    box["grade"],
+                    classifier=classifier,
+                    trim=trim,
+                    max_grade=max_grade,
+                    max_question=max_question
+                )
 
             i, name = get_name(m, grades_dfs)
             group = ""

@@ -22,13 +22,14 @@ a page and returns numbers, which is what makes it testable.
 
 import math
 import re
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
 
-from process_copy import recognize
+from process_copy import digit_bank, recognize
 from process_copy.config import matricule_box
 
 DPI = 300
@@ -523,7 +524,10 @@ def render_number(
 
 
 def read_number(
-    strokes: Sequence[Stroke], dot_x: Optional[float], classifier: Any
+    strokes: Sequence[Stroke],
+    dot_x: Optional[float],
+    classifier: Any,
+    stage: bool = True,
 ) -> List[Tuple[float, float]]:
     """Ranked ``(probability, value)`` readings of one rendered number.
 
@@ -533,6 +537,10 @@ def read_number(
     handwritten ``10.5``. Here the glyphs and the decimal point are already
     known from the strokes.
 
+    ``stage`` is false for a number that cannot be the grade -- the
+    denominator of a fraction -- so its digits never reach the digit bank and,
+    just as importantly, never become the reading ``pick`` keeps.
+
     Returns:
         The ranked readings, or ``[]`` when there is nothing to read. An empty
         list is not ``[(1.0, 0)]``: "no mark" must never be reported as a
@@ -541,10 +549,14 @@ def read_number(
     gray, thresh, contours, dot = render_number(strokes, dot_x)
     if not contours:
         return []
-    all_digits = recognize.extract_all_digits(contours, gray, thresh, classifier)
-    if not all_digits:
-        return []
-    return recognize.process_digits_combinations(all_digits, dot)
+    # one staged reading per candidate mark; only the one pick() settles on is
+    # kept (keep_last below), the rest are ink that is not a grade
+    with digit_bank.reading(dot=dot) if stage else nullcontext():
+        all_digits = recognize.extract_all_digits(contours, gray, thresh, classifier)
+        if not all_digits:
+            return []
+        digit_bank.annotate(read=recognize.most_probable_digits(all_digits))
+        return recognize.process_digits_combinations(all_digits, dot)
 
 
 # ------------------------------------------------------------------ raster --
@@ -705,10 +717,12 @@ def read_raster(candidate: Candidate, classifier: Any) -> List[Tuple[float, floa
     cnts, dot, thresh = recognize.find_digit_contours(gray)
     if not cnts:
         return []
-    all_digits = recognize.extract_all_digits(cnts, gray, thresh, classifier)
-    if not all_digits:
-        return []
-    return recognize.process_digits_combinations(all_digits, dot)
+    with digit_bank.reading(dot=dot):
+        all_digits = recognize.extract_all_digits(cnts, gray, thresh, classifier)
+        if not all_digits:
+            return []
+        digit_bank.annotate(read=recognize.most_probable_digits(all_digits))
+        return recognize.process_digits_combinations(all_digits, dot)
 
 
 # --------------------------------------------------------------- candidates --
@@ -1022,7 +1036,8 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
 
         if candidate.denominator_strokes:
             den = read_number(
-                candidate.denominator_strokes, candidate.denominator_dot_x, classifier
+                candidate.denominator_strokes, candidate.denominator_dot_x,
+                classifier, stage=False,
             )
             if den and max_points is not None:
                 if abs(den[0][1] - max_points) > 1e-6:
@@ -1042,6 +1057,10 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
             probability = min(probability, NO_PRIOR_CEILING)
         if bonus or (max_points is not None and max_points < LOW_MAX_POINTS):
             probability = min(probability, UNMEASURED_CEILING)
+
+        # this is the mark the page is graded with: its crops are the digits
+        # of the grade a human will confirm or correct in the correction screen
+        digit_bank.keep_last(value=value)
 
         return Reading(
             grade=value,
