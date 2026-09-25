@@ -1174,8 +1174,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           copy.status,
           copy.questionIndex);
         if (!result) {
-          const index = copy.pdfSrc.index - this.subExamsList[0].document_index + 1;
-          this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
+          this.notificationService.showError(
+            `La copie ${this.formattedIndexes[copy.pdfSrc.index]} n'a pu être sauvegardée.`, 'Error');
+          this.downloadingOffline = false;
           return;
         }
         copy.updated = true;
