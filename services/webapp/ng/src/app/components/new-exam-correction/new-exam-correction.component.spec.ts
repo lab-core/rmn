@@ -41,7 +41,7 @@ describe('NewExamCorrectionComponent', () => {
   let tasks: any;
 
   const create = async (templates: any[] = TEMPLATES, before: (c: NewExamCorrectionComponent) => void = () => {},
-                        from: string = null) => {
+                        from: string = null, shareToken: string = null) => {
     notification = notificationSpy();
     tasks = {
       addTask: jasmine.createSpy('addTask').and.resolveTo(undefined),
@@ -60,7 +60,8 @@ describe('NewExamCorrectionComponent', () => {
         { provide: TasksService, useValue: tasks },
         { provide: UserService, useValue: userServiceStub() },
         { provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap(from ? { from } : {}) } } },
+          useValue: { snapshot: { paramMap: convertToParamMap(from ? { from } : {}),
+                                  queryParamMap: convertToParamMap(shareToken ? { token: shareToken } : {}) } } },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -259,8 +260,9 @@ describe('NewExamCorrectionComponent', () => {
     expect(Array.from(args[4].entries())).toEqual([['Q1', 2], ['Q2', 0], ['Q3', 1]]);
     expect(Array.from(args[5].entries())).toEqual([['Q1', 10], ['Q2', 0], ['Q3', 5]]);
     expect(Array.from(args[6].entries())).toEqual([['Q1', false], ['Q2', false], ['Q3', false]]);
-    // the last one is the task this one was created from: none here
-    expect(args.slice(7)).toEqual(['Quiz', 'Front', 'Regular', true, true, null]);
+    // the last two are the task this one was created from and the token of
+    // its share link: none here
+    expect(args.slice(7)).toEqual(['Quiz', 'Front', 'Regular', true, true, null, null]);
     expect(localStorage.getItem('newTask')).toBeNull();
     expect(router.navigate).toHaveBeenCalledWith(['/main-menu']);
   });
@@ -629,11 +631,60 @@ describe('NewExamCorrectionComponent', () => {
       expect(csv.name).toBe('onedrive.csv');
     });
   });
+  describe('a task shared by someone else', () => {
+    const OWN = [{ template_id: 'mine', template_name: 'Mine', n_questions: 2, locked: false }];
+
+    it('reads it with the link\'s token and offers its templates among the user\'s', async () => {
+      await create(OWN, () => {}, 'src-1', 'dash-token');
+
+      expect(tasks.getTaskById).toHaveBeenCalledWith('src-1', 'dash-token');
+      expect(component.sourceShareToken).toBe('dash-token');
+      expect(component.templates.map(t => t['template_id'])).toEqual(['mine', 't1', 't2']);
+      expect(component.selectedFrontTemplate).toBe('t1');
+      expect(fixture.nativeElement.querySelector('#shared-source')).not.toBeNull();
+    });
+
+    it('creates it with the token, under the source\'s template names', async () => {
+      await create(OWN, () => {}, 'src-1', 'dash-token');
+
+      await component.createTask();
+
+      const args = tasks.addTask.calls.mostRecent().args;
+      expect(args[0]).toBeNull();
+      expect(args[1]).toBeNull();
+      expect(args.slice(2, 4)).toEqual(['t1', 't2']);
+      expect(args.slice(8, 10)).toEqual(['Front', 'Regular']);
+      expect(args.slice(12)).toEqual(['src-1', 'dash-token']);
+    });
+
+    it('a user without any template of their own can still create it', async () => {
+      await create([], () => {}, 'src-1', 'dash-token');
+
+      expect(component.disabled).toBeFalse();
+      expect(notification.showWarning).not.toHaveBeenCalled();
+      await component.createTask();
+      expect(tasks.addTask).toHaveBeenCalled();
+    });
+
+    it('the templates are offered whichever list arrives last', async () => {
+      let answer: (job: any) => void;
+      await create(OWN, (c) => {
+        tasks.getTaskById.and.returnValue(new Promise(resolve => answer = resolve));
+      }, 'src-1', 'dash-token');
+      expect(component.templates.map(t => t['template_id'])).toEqual(['mine']);
+
+      answer(SOURCE);
+      await settle();
+
+      expect(component.templates.map(t => t['template_id'])).toEqual(['mine', 't1', 't2']);
+    });
+  });
+
   describe('a task created from an existing one', () => {
     it('prefills every field and keeps its copies and notes', async () => {
       await create(TEMPLATES, () => {}, 'src-1');
 
-      expect(tasks.getTaskById).toHaveBeenCalledWith('src-1');
+      expect(tasks.getTaskById).toHaveBeenCalledWith('src-1', null);  // no share token
       expect(component.sourceTask).toEqual({ id: 'src-1', name: 'Intra' });
       expect(component.taskName).toBe('Intra (copie)');
       expect(component.selectedFrontTemplate).toBe('t1');
@@ -662,7 +713,7 @@ describe('NewExamCorrectionComponent', () => {
       const args = tasks.addTask.calls.mostRecent().args;
       expect(args[0]).toBeNull();  // the copies stay on the server
       expect(args[1]).toBeNull();  // and so do the notes
-      expect(args[args.length - 1]).toBe('src-1');
+      expect(args[12]).toBe('src-1');
       expect(router.navigate).toHaveBeenCalledWith(['/main-menu']);
     });
 
@@ -679,7 +730,7 @@ describe('NewExamCorrectionComponent', () => {
       const args = tasks.addTask.calls.mostRecent().args;
       expect(args[0]).toBe(zip);
       expect(args[1]).toBeNull();  // the notes are still the source's
-      expect(args[args.length - 1]).toBe('src-1');
+      expect(args[12]).toBe('src-1');
     });
 
     it('the copies can be dropped altogether', async () => {
@@ -691,7 +742,7 @@ describe('NewExamCorrectionComponent', () => {
       // an empty zip, as for any task created without copies
       const args = tasks.addTask.calls.mostRecent().args;
       expect((args[0] as File).size).toBe(22);
-      expect(args[args.length - 1]).toBe('src-1');
+      expect(args[12]).toBe('src-1');
     });
 
     it('says so and stays usable when the source is gone', async () => {
@@ -701,6 +752,16 @@ describe('NewExamCorrectionComponent', () => {
 
       expect(notification.showError).toHaveBeenCalledWith(
         jasmine.stringContaining('introuvable'), 'ERREUR');
+    });
+
+    it('their own task sends no share token', async () => {
+      await create(TEMPLATES, () => {}, 'src-1');
+
+      await component.createTask();
+
+      expect(tasks.getTaskById).toHaveBeenCalledWith('src-1', null);
+      expect(tasks.addTask.calls.mostRecent().args[13]).toBeNull();
+      expect(fixture.nativeElement.querySelector('#shared-source')).toBeNull();
     });
 
     it('a plain new task keeps its draft and reuses nothing', async () => {

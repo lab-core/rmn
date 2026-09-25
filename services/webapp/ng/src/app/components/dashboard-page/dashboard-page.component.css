@@ -45,6 +45,12 @@ app-main-menu {
   vertical-align: middle;
 }
 
+/* beside the title too: a new task from this one */
+.duplicate-task-button {
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
 .select-index-container {
   display: flex;
   flex-direction: row;

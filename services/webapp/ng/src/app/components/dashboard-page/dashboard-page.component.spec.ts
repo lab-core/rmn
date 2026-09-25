@@ -254,6 +254,32 @@ describe('DashboardPageComponent', () => {
     });
   });
 
+  it('Dupliquer opens the creation wizard on this task', async () => {
+    await create();
+    fixture.nativeElement.querySelector('#duplicate-task').click();
+    expect(router.navigate).toHaveBeenCalledWith(['/new-exam-correction', 'job'], { queryParams: {} });
+  });
+
+  it('a logged-in colleague on a share link duplicates with the link\'s token', async () => {
+    await create();
+    user.shared = () => true;
+    fixture.detectChanges();
+    // their own settings are not offered, the copy is
+    expect(fixture.nativeElement.querySelector('#edit-task')).toBeNull();
+    fixture.nativeElement.querySelector('#duplicate-task').click();
+    expect(router.navigate).toHaveBeenCalledWith(['/new-exam-correction', 'job'], {
+      queryParams: { token: 'share-1' },
+    });
+  });
+
+  it('a share-link visitor who is not logged in cannot duplicate', async () => {
+    await create();
+    user.shared = () => true;
+    user.loggued = () => false;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#duplicate-task')).toBeNull();
+  });
+
   it('opens the sharing, csv and extra-copies dialogs', async () => {
     await create();
     spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of({ success: true, message: 'Le lien a été copié' }) } as any);

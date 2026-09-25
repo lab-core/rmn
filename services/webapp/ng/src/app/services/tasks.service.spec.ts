@@ -141,9 +141,38 @@ describe('TasksService', () => {
     expect(form.get('zip_file')).toBeNull();
     expect(form.get('notes_csv_file')).toBeNull();
     expect(form.get('job_name')).toBe('Exam bis');
+    expect(form.get('source_share_token')).toBeNull();  // their own task
 
     req.flush({ response: 'OK' });
     await pending;
+  });
+
+  it('addTask sends the share token of a task shared by someone else', async () => {
+    const pending = service.addTask(
+      null, null, 'front', 'regular',
+      new Map([['Q1', 2]]), new Map([['Q1', 10]]), new Map([['Q1', false]]),
+      'Exam bis', 'Front', 'Regular', 'true', true, 'src-1', 'dash-token');
+
+    const req = http.expectOne('/api/jobs/evaluate');
+    const form = req.request.body as FormData;
+    expect(form.get('source_job_id')).toBe('src-1');
+    expect(form.get('source_share_token')).toBe('dash-token');
+
+    req.flush({ response: 'OK' });
+    await pending;
+  });
+
+  it('getTaskById reads a shared task with its link\'s token', async () => {
+    const pending = service.getTaskById('src-1', 'dash-token');
+
+    const req = http.expectOne('/api/jobs/info');
+    const form = req.request.body as FormData;
+    expect(form.get('job_id')).toBe('src-1');
+    expect(form.get('share_token')).toBe('dash-token');
+    expect(form.get('user_id')).toBe('alice');  // still the logged-in user
+
+    req.flush({ response: { job_id: 'src-1' } });
+    expect(await pending).toEqual({ job_id: 'src-1' });
   });
 
   it('addTask rejects when the upload fails', async () => {

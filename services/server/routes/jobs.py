@@ -2,6 +2,7 @@
 
 import datetime as dt
 import glob
+import hmac
 import json
 import os
 import shutil
@@ -21,10 +22,28 @@ from rmn_common.status import Document_Status, Job_Status
 from auth import verify_share_token, verify_token
 from context import TEMP_FOLDER, mongo, redis, sio, storage
 from service.job_cleanup import delete_job
+from service.template_service import TemplateService
 from utils.uploads import save_csv, temp_upload_path
 
 
 bp = Blueprint("jobs", __name__, url_prefix="/jobs")
+
+
+def may_duplicate(source, user_id, share_token):
+    """Whether ``user_id`` may create a task from ``source``.
+
+    Its owner may, and so may any logged-in user holding the task's dashboard
+    link (share scope ``all``): that link already shows every copy and every
+    grade, which is what a duplicate takes. A link limited to the questions
+    or to one of them does not.
+    """
+    if source.get("user_id") == user_id:
+        return True
+    tokens = source.get("share_token")
+    expected = tokens.get("all") if isinstance(tokens, dict) else None
+    return bool(share_token and expected) and hmac.compare_digest(
+        str(expected).encode("utf-8"), str(share_token).encode("utf-8")
+    )
 
 
 def stored_zips(job_id):
@@ -89,8 +108,10 @@ def evaluate(user_id):
     name and the two switches; files: ``zip_file`` (the copies) and
     ``notes_csv_file`` (the Moodle export).
 
-    ``source_job_id`` creates the task from an existing one of the same user:
-    each of the two files it does not carry is taken from that task, so the
+    ``source_job_id`` creates the task from an existing one of the same user,
+    or from one shared with them by its dashboard link, whose token comes in
+    ``source_share_token`` (``may_duplicate``): each of the two files it does
+    not carry is taken from that task, so the
     same copies and the same notes can be corrected again -- with any other
     setting changed, since all of them still come from the form. A file that
     *is* uploaded wins, which is how one of the two is replaced.
@@ -98,6 +119,10 @@ def evaluate(user_id):
     The copies come from the source's zips while it still has them, and
     otherwise from the pdfs they were split into (``stored_copies``), which is
     what a task that has been processed keeps.
+
+    A task shared by someone else points at that person's templates: when the
+    form keeps them, the new task gets copies of its own
+    (``TemplateService.copy_for_user``).
     """
     request_form = request.form
 
@@ -127,11 +152,13 @@ def evaluate(user_id):
     source_csv = None
     source_zips = []
     source_copies = []
+    source = None
     if source_job_id:
-        source = mongo["RMN"]["eval_jobs"].find_one(
-            {"job_id": source_job_id, "user_id": user_id}
-        )
-        if source is None:
+        source = mongo["RMN"]["eval_jobs"].find_one({"job_id": source_job_id})
+        # the same answer whether the task is missing or not theirs to copy
+        if source is None or not may_duplicate(
+            source, user_id, request_form.get("source_share_token")
+        ):
             return Response(
                 response=json.dumps(
                     {"response": f"Error: job {source_job_id} for user {user_id} doesn't exist."}
@@ -207,6 +234,41 @@ def evaluate(user_id):
 
     db = mongo["RMN"]
     collection = db["eval_jobs"]
+
+    if source is not None and source.get("user_id") != user_id:
+        # only the source's own templates: the form must not be a way to copy
+        # any template whose id is known
+        copied = {}
+        for field, template_id in (
+            ("front_template_id", front_template_id),
+            ("regular_template_id", regular_template_id),
+        ):
+            if template_id != source.get(field) or template_id in copied:
+                continue
+            try:
+                copied[template_id] = TemplateService.copy_for_user(
+                    template_id, user_id, db, storage
+                )
+            except Exception as e:
+                print(e)
+                return Response(
+                    response=json.dumps(
+                        {"response": "Error: Failed to copy the templates."}
+                    ),
+                    status=500,
+                )
+            if copied[template_id] is None:
+                return Response(
+                    response=json.dumps(
+                        {"response": "Error: un template de la tâche d'origine "
+                         "n'est plus disponible."}
+                    ),
+                    status=400,
+                )
+        if front_template_id in copied:
+            front_template_id, front_template_name = copied[front_template_id]
+        if regular_template_id in copied:
+            regular_template_id, regular_template_name = copied[regular_template_id]
 
     job_id = str(uuid.uuid4())
 

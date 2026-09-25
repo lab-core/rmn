@@ -10,6 +10,13 @@
           <mat-icon>edit</mat-icon>
         </button>
       }
+      <!-- also on a share link: a logged-in colleague may copy the task -->
+      @if (loggued()) {
+        <button mat-stroked-button color="primary" class="duplicate-task-button" id="duplicate-task"
+                title="Créer une nouvelle tâche à partir de celle-ci" (click)="duplicateTask()">
+          <mat-icon>content_copy</mat-icon> Dupliquer
+        </button>
+      }
       @if (taskInfo) {
         <div class="task-progress" id="task-progress">{{ taskInfo }}</div>
       }

@@ -70,6 +70,12 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
    *  Uploading a file of its own turns the matching one off. */
   reuseCopies: boolean = false;
   reuseCsv: boolean = false;
+  /** The dashboard link's token when the source task is someone else's: the
+   *  server lets the user copy it, templates included, only with it. */
+  sourceShareToken: string = null;
+  /** That task's templates, offered among the user's own: the server copies
+   *  them into the user's templates unless another one is picked. */
+  private sourceTemplates: Array<any> = [];
 
   suffix: string = "";
   presentationCopies: File;
@@ -114,7 +120,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     if (from) {
       // the draft of an unfinished task would fight the prefill: the user
       // asked for this task, not for the one they left half-written
-      await this.loadSourceTask(from);
+      await this.loadSourceTask(from, this.route.snapshot.queryParamMap?.get('token'));
     } else {
       await this.loadTask();
     }
@@ -368,6 +374,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     this.http.post<any>(`${SERVER_URL}templates/user`, formdata).pipe(first()).subscribe(
       (data) => {
         this.templates = data['response'].filter((temp) => { return !temp.locked; });
+        this.offerSourceTemplates();
         if (this.templates.length === 0) {
           this.notifyService.showWarning("Veuillez créer un template avant de commencer une correction.", "Avertissement");
           this.disabled = true;
@@ -623,7 +630,8 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
                                         this.selectedFrontTemplate, this.selectedRegularTemplate,
                                         this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName,
                                         front_template_name, regular_template_name, this.statisticsForStudents,
-                                        this.validateMatricule, this.sourceTask ? this.sourceTask.id : null);
+                                        this.validateMatricule, this.sourceTask ? this.sourceTask.id : null,
+                                        this.sourceShareToken);
         this.removeTask();
         this.doNotSaveTask = true;
         this.reroute();
@@ -699,10 +707,10 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
    *  suffix so the two are told apart in the history, and the copies and the
    *  notes are the ones already on the server until the user replaces them.
    */
-  async loadSourceTask(jobId: string): Promise<void> {
+  async loadSourceTask(jobId: string, shareToken: string = null): Promise<void> {
     let job: any;
     try {
-      job = await this.tasksService.getTaskById(jobId);
+      job = await this.tasksService.getTaskById(jobId, shareToken);
     } catch (error) {
       console.error(error);
     }
@@ -734,6 +742,31 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     // checkDisabled() asks for a csv, and there is one: the source's
     this.copiesName = `Copies de « ${job.job_name} »`;
     this.csvName = `Notes de « ${job.job_name} »`;
+    if (shareToken) {
+      // shared by someone else: their templates are not in the user's list
+      this.sourceShareToken = shareToken;
+      const offered = [[job.front_template_id, job.front_template_name],
+                       [job.regular_template_id, job.regular_template_name]];
+      this.sourceTemplates = offered
+        .filter(([id], i) => id && offered.findIndex(([other]) => other === id) === i)
+        .map(([id, name]) => ({ template_id: id, template_name: name, n_questions: this.nQuestions }));
+      this.offerSourceTemplates();
+    }
+  }
+
+  /** Add the templates of a task shared by someone else to the user's own,
+   *  whichever of the two lists arrives last. */
+  private offerSourceTemplates(): void {
+    if (!this.templates || this.sourceTemplates.length === 0) {
+      return;
+    }
+    for (const template of this.sourceTemplates) {
+      if (!this.templates.some(t => t['template_id'] === template.template_id)) {
+        this.templates.push(template);
+      }
+    }
+    // a user without any template of their own can still copy this task
+    this.disabled = false;
   }
 
   /** Stop reusing the copies of the source task (the copies are optional). */
