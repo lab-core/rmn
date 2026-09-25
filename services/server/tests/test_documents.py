@@ -395,6 +395,16 @@ def test_update_of_an_unknown_question_is_404(client, job, owner):
     assert resp.status_code == 404
 
 
+def test_grading_a_question_of_a_missing_copy_is_404(client, job, owner, db):
+    # the question is there, the job_documents row of its copy is not
+    db["job_documents"].delete_many({"job_id": job})
+    resp = _save(
+        client, job, owner, document_index="0", question_index="1", grades="2"
+    )
+    assert resp.status_code == 404, resp.data
+    assert resp.get_json(force=True) == {"response": "Error: document copy1 not found."}
+
+
 @pytest.mark.parametrize(
     "extra",
     [
