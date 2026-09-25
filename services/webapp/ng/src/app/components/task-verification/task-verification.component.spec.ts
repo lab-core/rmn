@@ -457,6 +457,63 @@ describe('TaskVerificationComponent', () => {
       await create(JOB, { group: 'G2', question_index: '3' }, {}, grouped);
       expect(component.currentDocumentIndex).toBe(13);  // b_Q3, not a_Q3
     });
+
+    it('with a question lists, numbers and visits the copies of both only', async () => {
+      await create(JOB, { group: 'G2', question_index: '3' }, {}, grouped);
+      // the question filter used to start again from the whole task: a_Q3 of G1 was listed
+      expect(component.subExamsList.map(e => e.filename)).toEqual(['b_Q3']);
+      expect(component.formattedIndexes).toEqual({ 13: '1' });
+      expect(fixture.nativeElement.querySelectorAll('.file-container').length).toBe(1);
+      expect(component.nextCopyIndex()).toBe(component.examsList.length);
+      expect(component.previousCopyIndex()).toBeLessThan(0);
+      expect(await component.previousCopy()).toBeFalse();
+      expect(component.currentDocumentIndex).toBe(13);
+    });
+
+    it('picking a question keeps the group, and switching group keeps the question', async () => {
+      await create(JOB, { group: 'G2' }, {}, grouped);
+      component.onQuestionIndexChange({ value: '3' } as any);
+      await settle();
+      expect(component.subExamsList.map(e => e.filename)).toEqual(['b_Q3']);
+      expect(component.currentDocumentIndex).toBe(13);
+
+      component.onQuestionIndexChange({ value: 'Tout sélectionner' } as any);
+      await settle();
+      expect(component.subExamsList.map(e => e.filename)).toEqual(['b_Q1', 'b_Q3']);
+      // numbered within the group: b is the first student of G2
+      expect(component.formattedIndexes).toEqual({ 11: '1|Q1', 13: '1|Q3' });
+      expect(component.currentDocumentIndex).toBe(13);
+
+      component.onQuestionIndexChange({ value: '1' } as any);
+      await settle();
+      component.group = 'G1';
+      component.loadSubExamsList();
+      await settle();
+      expect(component.subExamsList.map(e => e.filename)).toEqual(['a_Q1']);
+      expect(component.formattedIndexes).toEqual({ 10: '1' });
+      expect(component.currentDocumentIndex).toBe(10);
+    });
+
+    it('the hidden-sidebar count is the rank of the copy in the group', async () => {
+      await create(JOB, { group: 'G2' }, {}, grouped);
+      await component.changeCurrentExam(3);  // b_Q3, the task's 4th copy
+      component.isSidebarHidden = true;
+      fixture.detectChanges();
+      expect(component.currentSubCopy()).toBe(1);
+      expect(fixture.nativeElement.querySelector('.page-count').textContent.trim()).toBe('2 / 2');
+    });
+
+    it('a refetch keeps both filters on the copies it brought back', async () => {
+      await create(JOB, { group: 'G2' }, {}, grouped);
+      expect(component.currentDocumentIndex).toBe(11);  // b_Q1, validated
+      // the server sends new objects: the filtered list used to keep the old ones
+      docs.documentsList = JSON.parse(JSON.stringify(docs.documentsList));
+      await socket.socket.fire('document_ready', { job_id: 'job' });
+      await settle();
+      expect(component.subExamsList.every(e => component.examsList.includes(e))).toBeTrue();
+      expect(component.subExamsList.map(e => e.filename)).toEqual(['b_Q1', 'b_Q3']);
+      expect(component.currentDocumentIndex).toBe(13);  // moved on within G2
+    });
   });
 
   it('a link shared for the whole task goes back to the shared dashboard', async () => {
