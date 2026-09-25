@@ -537,3 +537,30 @@ def test_a_malformed_number_is_400(client, job, owner, db, route, field, extra):
     # question had been graded
     q1 = db["job_questions"].find_one({"job_id": job, "document_index": 0})
     assert (q1["status"], q1["grade"], q1.get("tag")) == ("TO VALIDATE", None, None)
+
+
+@pytest.mark.parametrize("grade", ["x", "nan", "inf", "-inf", ""])
+def test_a_grade_that_is_not_a_finite_number_is_400(client, job, owner, db, grade):
+    # float() made "x" a 500, and stored "nan"/"inf" as a grade, which then
+    # broke the JSON of every response carrying it
+    resp = _save(
+        client, job, owner, document_index="0", question_index="1", status="VALIDATED", grades=grade
+    )
+    assert resp.status_code == 400, resp.data
+    assert resp.get_json(force=True) == {"response": "Error: grades is not a number."}
+    q1 = db["job_questions"].find_one({"job_id": job, "document_index": 0})
+    assert (q1["status"], q1["grade"]) == ("TO VALIDATE", None)
+    assert db["job_documents"].find_one({"job_id": job})["grades"] == [None, None]
+
+
+@pytest.mark.parametrize("grades", ['["x", 2]', '[1, NaN]', '[true, 2]', '"12"', "{}"])
+def test_whole_copy_grades_that_are_not_finite_numbers_are_400(client, job, owner, db, grades):
+    resp = _save(client, job, owner, document_index="0", grades=grades)
+    assert resp.status_code == 400, resp.data
+    assert db["job_documents"].find_one({"job_id": job})["grades"] == [None, None]
+
+
+def test_whole_copy_grades_still_take_numbers_and_an_empty_list(client, job, owner, db):
+    assert _save(client, job, owner, document_index="0", grades="[1.5, 2]").status_code == 200
+    assert db["job_documents"].find_one({"job_id": job})["grades"] == [1.5, 2.0]
+    assert _save(client, job, owner, document_index="0", grades="[]").status_code == 200
