@@ -1,6 +1,5 @@
 from flask import Response, json, send_file
 from pathlib import Path
-from io import FileIO
 from pypdf import PdfWriter, PdfReader
 from pdf2image import convert_from_path
 from werkzeug.utils import secure_filename
@@ -34,18 +33,29 @@ class TemplateService():
 
         if not os.path.exists(TEMP_FOLDER):
             os.makedirs(TEMP_FOLDER)
+        template_file = request.files.get("template_file")
+        template_file_name = secure_filename(template_file.filename) or "template.pdf"
+        # unique: two users uploading "template.pdf" at once shared the path
+        temp_template_file_name = str(TEMP_FOLDER.joinpath(f"{uuid.uuid4()}_{template_file_name}"))
+        # create_template renders the page to a png beside the pdf and moves
+        # only the png to the storage: both are removed here whatever happens,
+        # they used to pile up in the temp folder, on success as on failure
+        temp_files = [temp_template_file_name, temp_template_file_name.rsplit(".", 1)[0] + ".png"]
         try:
-            template_file = request.files.get("template_file")
-            template_file_name = secure_filename(template_file.filename) or "template.pdf"
-            # unique: two users uploading "template.pdf" at once shared the path
-            temp_template_file_name = str(TEMP_FOLDER.joinpath(f"{uuid.uuid4()}_{template_file_name}"))
-            template_file.save(FileIO(temp_template_file_name, "wb"))
+            try:
+                # closed before create_template reads it back: the bare FileIO
+                # this replaces was never closed
+                with open(temp_template_file_name, "wb") as f:
+                    template_file.save(f)
+            except Exception as e:
+                print(e)
+                return Response(response="Error: Failed to download files.", status=500)
 
-        except Exception as e:
-            print(e)
-            return Response(response="Error: Failed to download files.", status=500)
-
-        response, code = TemplateService.create_template(request.form, temp_template_file_name, db, storage)
+            response, code = TemplateService.create_template(request.form, temp_template_file_name, db, storage)
+        finally:
+            for temp_file in temp_files:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
         if code == 200:
             response = json.dumps({"response": response})
         return Response(response=response, status=code)
