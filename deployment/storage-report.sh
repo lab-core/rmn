@@ -69,12 +69,13 @@ jq -e .orphans >/dev/null <<<"$report" || fail "unexpected answer: $(head -c 300
 usage="$(jq -r '
   def gb: . / 1e9 * 10 | round / 10 | tostring + " GB";
   def pad($n): tostring | (" " * ([$n - length, 0] | max)) + .;
+  if .usage == null then "disk usage unavailable (server image older than usage=true)" else
   (.usage.older_than_days | to_entries | sort_by(.key | tonumber)[]
    | (if .key == "0" then "all files" else "older than \(.key)d" end) as $label
    | "\($label + " " * (15 - ($label | length)))\(.value.bytes | gb | pad(10))"
      + "\(.value.files | pad(10)) files"),
   (.usage.disk // empty
-   | "disk           \(.used | gb) used of \(.total | gb), \(.free | gb) free")
+   | "disk           \(.used | gb) used of \(.total | gb), \(.free | gb) free") end
   ' <<<"$report")"
 
 orphans="$(jq '.orphans|length' <<<"$report")"
