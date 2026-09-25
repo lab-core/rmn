@@ -3,6 +3,12 @@
     <div class="background">
         <mat-horizontal-stepper #stepper class="stepper_horizontal">
             <mat-step [stepControl]="firstFormGroup" label="Nommer la tâche">
+                @if (sourceTask) {
+<div class="info" id="source-task">
+                    <small>Nouvelle tâche créée à partir de « {{ sourceTask.name }} » :
+                      tous les champs sont repris et restent modifiables.</small>
+                </div>
+}
                 <div class="breaker"></div>
                 <form [formGroup]="firstFormGroup">
                     <div class="steps-container">
@@ -84,6 +90,15 @@
                         </div>
                     </div>
                     <span id="files-upload-label"></span>
+                    @if (reuseCopies) {
+<div class="info" id="reused-copies">
+                        <small>Copies réutilisées de « {{ sourceTask.name }} ».
+                          Téléversez un zip pour les remplacer.</small>
+                        <button mat-button color="primary" type="button"
+                                id="drop-reused-copies" (click)="dropReusedCopies()"
+                                [disabled]="this.uploading">Ne pas les réutiliser</button>
+                    </div>
+}
                     @if (copiesName === '') {
 <div class="info">
                         <small>Aucune copie téléversée : la tâche sera créée sans copie.
@@ -199,6 +214,15 @@
 }
                     </div>
                     <span id="csv-upload-label"></span>
+                    @if (reuseCsv) {
+<div class="info" id="reused-csv">
+                        <small>Notes réutilisées de « {{ sourceTask.name }} ».
+                          Téléversez un csv pour les remplacer.</small>
+                        <button mat-button color="primary" type="button"
+                                id="drop-reused-csv" (click)="dropReusedCsv()"
+                                [disabled]="this.uploading">Ne pas les réutiliser</button>
+                    </div>
+}
                     <br>
                     <div class="next-button">
                         <button mat-button matStepperPrevious>Retour</button>

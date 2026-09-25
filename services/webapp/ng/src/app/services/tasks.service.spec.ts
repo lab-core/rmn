@@ -129,6 +129,23 @@ describe('TasksService', () => {
     expect(notification.showInfo).toHaveBeenCalled();
   });
 
+  it('addTask names the task to inherit the files from, and sends neither', async () => {
+    const pending = service.addTask(
+      null, null, 'front', 'regular',
+      new Map([['Q1', 2]]), new Map([['Q1', 10]]), new Map([['Q1', false]]),
+      'Exam bis', 'Front', 'Regular', 'true', true, 'src-1');
+
+    const req = http.expectOne('/api/jobs/evaluate');
+    const form = req.request.body as FormData;
+    expect(form.get('source_job_id')).toBe('src-1');
+    expect(form.get('zip_file')).toBeNull();
+    expect(form.get('notes_csv_file')).toBeNull();
+    expect(form.get('job_name')).toBe('Exam bis');
+
+    req.flush({ response: 'OK' });
+    await pending;
+  });
+
   it('addTask rejects when the upload fails', async () => {
     spyOn(console, 'error');
     const pending = service.addTask(

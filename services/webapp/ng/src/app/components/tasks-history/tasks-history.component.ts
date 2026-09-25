@@ -60,7 +60,7 @@ export class TasksHistoryComponent implements OnInit {
   color: ThemePalette = 'primary';
   mode: ProgressSpinnerMode = 'determinate';
   diameter = 60;
-  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status' ,'job_infos', 'job_deletion', 'job_share'];  //, 'job_retry'
+  displayedColumns: string[] = ['job_name', 'template_name', 'queued_time', 'job_status' ,'job_infos', 'job_deletion', 'job_duplicate', 'job_share'];  //, 'job_retry'
   dataSource: MatTableDataSource<any> = new MatTableDataSource<any>();
 
   /** The sizes offered by the paginator, and the one it opens on. */
@@ -278,6 +278,12 @@ export class TasksHistoryComponent implements OnInit {
         console.error(error);
         this.getTasks();
       });
+  }
+
+  /** Start a new task from this one: the wizard opens prefilled with its
+   *  settings, and with its copies and notes until they are replaced. */
+  duplicateJob(task: any): void {
+    this.router.navigate(['/new-exam-correction', task.job_id]);
   }
 
   shareJob(jobId: string, jobName: string): void {

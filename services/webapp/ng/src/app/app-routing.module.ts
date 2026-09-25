@@ -103,6 +103,12 @@ const routes: Routes = [
         canActivate: [canActivateLoggued],
     },
     {
+        // the wizard opened on an existing task: same screen, prefilled
+        path: 'new-exam-correction/:from',
+        component : NewExamCorrectionComponent,
+        canActivate: [canActivateLoggued],
+    },
+    {
         path: 'user-profile',
         component : UserProfileComponent,
         canActivate: [canActivateLoggued],
