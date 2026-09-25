@@ -408,7 +408,7 @@ describe('PdfManagementDialogComponent export and import', () => {
     return shuffled.save();
   }
 
-  it('drops the files that are not pdf of a question and takes a drop on the zone', async () => {
+  it('names the ignored pdf that does not match a question and takes a drop on the zone', async () => {
     data.allExamsList = [{ document_index: 5, question: 'Q2', filename: 'Q2_5', status: 'TO VALIDATE' }];
     const back = await zipFile({ 'Q2/Q2.pdf': await exportedPdf('Q2.pdf', 2), 'readme.pdf': await pdfBytes(1) });
     const event = { preventDefault: jasmine.createSpy('preventDefault'), dataTransfer: { files: [back] } } as any;
@@ -417,7 +417,8 @@ describe('PdfManagementDialogComponent export and import', () => {
     const req = await waitForUpload();
 
     expect(event.preventDefault).toHaveBeenCalled();
-    expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('does not match a question'), 'Warning');
+    expect(notification.showError).toHaveBeenCalledWith(
+      'Ignoring this pdf document name that does not match a question: readme.pdf.', 'Warning');
     const split = await sentZip(req.request.body);
     expect(Object.keys(split.files)).toEqual(['Q2_5.pdf']);
     expect((await PDFDocument.load(await split.file('Q2_5.pdf').async('arraybuffer'))).getPageCount()).toBe(2);

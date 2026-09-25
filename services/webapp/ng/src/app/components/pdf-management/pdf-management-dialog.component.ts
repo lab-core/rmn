@@ -434,7 +434,7 @@ export class PdfManagementDialogComponent {
         if (!f.startsWith('__MACOSX')) {
           const match = f.match(/Q(\d+)(?=(_\d+)?.pdf$)/);
           if (!match) {
-            this.notificationService.showError(`Ignoring this pdf document name that does not match a question: ${name}.`, 'Warning');
+            this.notificationService.showError(`Ignoring this pdf document name that does not match a question: ${f}.`, 'Warning');
           } else {
             const pdfDoc = await zipContent.file(f).async('arraybuffer');
             mergedFiles[f] = pdfDoc;
