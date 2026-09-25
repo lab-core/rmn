@@ -569,7 +569,8 @@ def document_annotations(validity):
     document_index = form_int(request_form, "document_index")
 
     db = mongo["RMN"]
-    coll = db["job_questions"] if request_form.get("questions") is not None else db["job_documents"]
+    questions = request_form.get("questions") is not None
+    coll = db["job_questions"] if questions else db["job_documents"]
     doc = coll.find_one({"job_id": job_id, "document_index": document_index})
 
     if doc is None:
@@ -578,8 +579,14 @@ def document_annotations(validity):
             status=404,
         )
 
-    # validity = None => logged user
-    if not question_allowed(validity, doc["question_index"]):
+    # validity = None => logged user. A whole copy has no question_index (it
+    # used to raise a KeyError here, a 500 the webapp swallowed): it is open to
+    # the links that may download it, as in download_document.
+    if questions:
+        allowed = question_allowed(validity, doc["question_index"])
+    else:
+        allowed = validity is None or validity in ("mat", "all")
+    if not allowed:
         return Response(response=json.dumps({"Error": "You don't have access to this document"}), status=404)
 
     rel_filepath = doc["rel_filepath"]

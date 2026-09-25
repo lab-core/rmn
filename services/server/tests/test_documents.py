@@ -281,6 +281,55 @@ def test_annotations_need_a_known_document(client, job, owner):
     assert _annotations(client, job, owner).status_code == 400
 
 
+def _copy_annotations(client, job_id, auth, **extra):
+    # the webapp's getAnnotations without `questions`: the whole copy
+    return client.post(
+        "/documents/annotations",
+        data={"job_id": job_id, "document_index": "0", **auth, **extra},
+    )
+
+
+def test_annotations_of_a_whole_copy(client, job, owner, db):
+    # the versions of a whole copy are keyed by its job_documents rel_filepath;
+    # the row has no question_index, which used to be a KeyError, a 500
+    db["versions"].insert_one(
+        {
+            "job_id": job,
+            "rel_filepath": f"cover_pages/{job}/copy1_cover.pdf",
+            "version": 0,
+            "version_filepath": f"cover_pages/{job}/versions/copy1_cover-0.pdf",
+            "annotations": [{"layer": "copy"}],
+        }
+    )
+    resp = _copy_annotations(client, job, owner)
+    assert resp.status_code == 200, resp.data
+    assert resp.get_json(force=True) == {
+        "annotations": [{"layer": "copy"}],
+        "last_version": 0,
+    }
+
+
+def test_annotations_of_a_whole_copy_without_versions(client, job, owner):
+    resp = _copy_annotations(client, job, owner)
+    assert resp.status_code == 200, resp.data
+    assert "annotations" not in resp.get_json(force=True)
+
+
+@pytest.mark.parametrize(
+    "auth, status",
+    [
+        ({"share_token": "tok-mat"}, 200),
+        ({"share_token": "tok-all"}, 200),
+        ({"share_token": "tok-q"}, 404),
+        (_q1(), 404),
+    ],
+    ids=["mat", "all", "questions", "q1"],
+)
+def test_whole_copy_annotations_follow_the_download_scope(client, job, auth, status):
+    # the links that may download the whole copy, as in download_document
+    assert _copy_annotations(client, job, auth).status_code == status
+
+
 # --------------------------------------------------------- /document/update ---
 def _save(client, job_id, auth, pdf=None, name=None, **extra):
     data = {"job_id": job_id, "status": "TO VALIDATE", **auth, **extra}
