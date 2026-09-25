@@ -64,7 +64,8 @@ def promote(args, storage) -> None:
                 db, job_id, storage, remove=not args.keep_staged
             )
             for key, value in counts.items():
-                totals[key] += value
+                # "refused" only appears for a job whose owner opted out
+                totals[key] = totals.get(key, 0) + value
             print(job_id, ", ".join(f"{k}={v}" for k, v in counts.items()))
         print("total", ", ".join(f"{k}={v}" for k, v in totals.items()))
     finally:

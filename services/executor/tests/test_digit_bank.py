@@ -1,6 +1,7 @@
 """The bank of human-confirmed digits: staging, promotion and export."""
 
 import json
+import pathlib
 
 import numpy as np
 import pytest
@@ -287,3 +288,32 @@ def test_an_empty_bank_exports_an_empty_set():
     x, y = digit_bank.samples(size=28)
     assert x.shape == (0, 28, 28) and len(y) == 0
     assert digit_bank.counts() == {}
+
+
+# ------------------------------------------------------------------ the tool --
+def test_promoting_every_job_survives_one_whose_owner_opted_out(
+    storage_root, mongo_db, capsys
+):
+    """``promote --all`` walks jobs it knows nothing about: a job that banks
+    nothing reports a count the others do not have, and must not stop the run."""
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "tools"))
+    import build_digit_bank
+
+    a_job(mongo_db)  # opted in
+    a_document(mongo_db, matricule="1234567")
+    stage()
+    mongo_db["eval_jobs"].insert_one(
+        {"job_id": "other", "user_id": "bob", "validate_matricule": True})
+    mongo_db["users"].insert_one({"username": "bob", "saveVerifiedImages": False})
+    with digit_bank.recording("other", 0, digit_bank.MATRICULE):
+        with digit_bank.reading():
+            digit_bank.record(crop())
+            digit_bank.keep()
+
+    assert build_digit_bank.main(["promote", "--all"]) == 0
+
+    printed = capsys.readouterr().out
+    assert "refused=1" in printed and "samples=7" in printed
+    assert len(bank_files(storage_root)) == 7
