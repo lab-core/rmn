@@ -567,17 +567,19 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       return indexFirstExam[e1.basename] - indexFirstExam[e2.basename];
     });
     // initialize initialCopyIndex and currentCopy: the copy picked on the
-    // dashboard wins, then the copy this page was left on, then the first
+    // dashboard wins, then the copy this page was left on, then the first,
+    // both within the group of the link if any (only its copies are listed)
     if (this.examsList.length > 0 && this.currentCopy < 0) {
       const jobId = this.tasksService.getvalidatingTaskId();
       const selected = selectedCopyIndex(jobId, this.examsList);
       const copy = localStorage.getItem(`${jobId}_copy`);
+      const inGroup = (exam: any) => !this.group || exam['group'] == this.group;
       if (selected >= 0) {
         this.currentCopy = selected;
-      } else if (copy !== null && this.examsList[parseInt(copy)]) {
+      } else if (copy !== null && this.examsList[parseInt(copy)] && inGroup(this.examsList[parseInt(copy)])) {
         this.currentCopy = parseInt(copy);
       } else {
-        this.currentCopy = 0;
+        this.currentCopy = Math.max(0, this.examsList.findIndex(inGroup));
       }
       this.currentDocumentIndex = this.examsList[this.currentCopy]['document_index'];
     }
@@ -1174,8 +1176,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           copy.status,
           copy.questionIndex);
         if (!result) {
-          const index = copy.pdfSrc.index - this.subExamsList[0].document_index + 1;
-          this.notificationService.showError(`La copie ${index} n'a pu être sauvegardée.`, 'Error');
+          this.notificationService.showError(
+            `La copie ${this.formattedIndexes[copy.pdfSrc.index]} n'a pu être sauvegardée.`, 'Error');
+          this.downloadingOffline = false;
           return;
         }
         copy.updated = true;
