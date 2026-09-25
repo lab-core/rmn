@@ -8,6 +8,7 @@ page can be traced back to the student and the numbers it was compiled with.
 """
 
 import json
+import shutil
 import subprocess
 import zipfile
 from collections.abc import Callable
@@ -620,6 +621,45 @@ def test_a_rerun_after_the_merge_zips_the_merged_copies_as_they_are(
         == content
     )
     assert _grades_csv(storage_root).loc["1111111", MF.grade] == 8.0
+
+
+def test_a_deleted_copy_stays_deleted_when_the_job_is_finalized_again(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    # a duplicate scan of Alice, deleted at validation: finalized a second
+    # time (the server lets a job in ERROR be validated again), it must not
+    # come back and overwrite Alice's copy and grades with its empty ones
+    job = _job(mongo_db, storage_root)
+    copies = {
+        "alice": COPIES["alice"],
+        "alice_again": ("1111111", [None] * 5, "DELETED"),
+        "carol": COPIES["carol"],
+    }
+    _split_copies(tmp_path, mongo_db, scanned_copy_factory, copies)
+
+    _finalize(job, tmp_path)
+    # the executor works in a fresh folder for every job it runs
+    shutil.rmtree(tmp_path / "work")
+    _finalize(job, tmp_path)
+
+    status = mongo_db["job_documents"].find_one({"filename": "alice_again"})["status"]
+    assert status == "DELETED"
+    assert _grades_csv(storage_root).loc["1111111", MF.grade] == 8.0
+    assert not (storage_root / "corrected_copies" / "job" / "alice_again.pdf").exists()
+    all_zip = storage_root / "output_zip" / "job_all.zip"
+    assert _zip_names(all_zip) == {
+        "A/Martin_Alice_1111111.pdf",
+        "B/Tremblay_Carol_3333333.pdf",
+    }
+    notes = _read_zip(
+        storage_root / "output_zip" / "job_1.zip",
+        ALICE_MOODLE_FOLDER + "Martin_Alice_1111111_notes.pdf",
+    ).decode()
+    assert "Total (/ 15) & 8.0 & 7.00" in notes
 
 
 # --------------------------------------------------- stops and failures

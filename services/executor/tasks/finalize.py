@@ -147,9 +147,11 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
     df.to_csv(csv_file_path, mode="w+")
     defuse_csv(csv_file_path)
 
-    # update all document status
+    # update all document status; a deleted copy stays deleted, or a second
+    # finalization (a job in ERROR can be validated again) would merge, zip
+    # and grade it, its empty grades over the real student's
     db.documents_collection().update_many(
-        {"job_id": job_id},
+        {"job_id": job_id, "status": {"$ne": Document_Status.DELETED.value}},
         {
             "$set": {
                 "status": Document_Status.VALIDATED.value,
