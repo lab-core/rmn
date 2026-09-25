@@ -1,6 +1,8 @@
 """Reading the fields of a request form."""
 
 import json
+import math
+
 from flask import Response, abort
 
 
@@ -31,3 +33,38 @@ def form_int(request_form, field, default=None):
                 status=400,
             )
         )
+
+
+def finite_number(value):
+    """``value`` as a float when it is a finite number, else None.
+
+    ``float()`` alone also takes "nan" and "inf", which would be stored as a
+    grade and later break the JSON the routes answer with, and ``True``.
+    """
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def form_float(request_form, field, default=None):
+    """The finite number in ``request_form[field]``, or ``default`` when absent.
+
+    Like ``form_int``: a value that is not a finite number ends the request
+    with a 400 (a bare ``float()`` made a malformed grade a 500).
+    """
+    value = request_form.get(field)
+    if value is None:
+        return default
+    number = finite_number(value)
+    if number is None:
+        abort(
+            Response(
+                response=json.dumps({"response": f"Error: {field} is not a number."}),
+                status=400,
+            )
+        )
+    return number

@@ -18,7 +18,7 @@ from service.documents import (
     start_reading_grades,
 )
 from service.versions import get_last_version, save_new_pdf_version
-from utils.forms import form_int
+from utils.forms import finite_number, form_float, form_int
 
 
 bp = Blueprint("documents", __name__, url_prefix="/documents")
@@ -307,7 +307,7 @@ def update_document(validity):
             }
             grade = None
             if request_form.get("grades") is not None:
-                grade = float(request_form["grades"])
+                grade = form_float(request_form, "grades")
                 set_query['grade'] = grade
             if request_form.get("tag") is not None:
                 set_query['tag'] = request_form.get("tag")
@@ -352,8 +352,12 @@ def update_document(validity):
             # branch iterated the JSON text character by character and then
             # returned 404 unconditionally.
             try:
-                grades = [float(g) for g in json.loads(request_form["grades"])]
-            except (TypeError, ValueError):
+                parsed = json.loads(request_form["grades"])
+            except ValueError:
+                parsed = None
+            # a JSON string or object would be iterated too ("12" as [1, 2])
+            grades = [finite_number(g) for g in parsed] if isinstance(parsed, list) else [None]
+            if None in grades:
                 return Response(response=json.dumps({"response": "Error: grades must be a JSON list of numbers."}),
                                 status=400)
             r = db["job_documents"].update_one(

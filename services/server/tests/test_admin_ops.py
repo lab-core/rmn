@@ -90,3 +90,29 @@ def test_admin_delete_jobs_reports_the_count(client, job_factory, app_module_fix
 def test_admin_executor_wakes_a_worker(client, app_module_fixture):
     assert client.get("/admin/executor", headers=HEADERS).status_code == 200
     assert app_module_fixture.redis.lrange("job_queue", 0, -1) == [b"{}"]
+
+
+def test_admin_delete_jobs_refuses_a_malformed_or_negative_age(client, job_factory, app_module_fixture):
+    job_factory("new", "alice", queued_time=dt.datetime.now(dt.UTC))
+    for value, message in (("x", "Error: n_days_old is not a number."), ("-1", "Error: n_days_old must be >= 0.")):
+        resp = client.post("/admin/delete/jobs", data={"n_days_old": value}, headers=HEADERS)
+        assert resp.status_code == 400, value
+        assert resp.get_json(force=True) == {"response": message}
+    # a negative age put the cutoff in the future: the new job would have gone
+    assert app_module_fixture.mongo["RMN"]["eval_jobs"].count_documents({}) == 1
+
+
+def test_admin_delete_tokens_refuses_a_malformed_or_negative_age(client, user_factory, login, app_module_fixture):
+    user_factory("alice")
+    login("alice")
+    for value in ("x", "-3"):
+        resp = client.post("/admin/delete/tokens", data={"n_days_old": value}, headers=HEADERS)
+        assert resp.status_code == 400, value
+    assert app_module_fixture.mongo["RMN"]["tokens"].count_documents({}) == 1
+
+
+def test_admin_storage_clean_refuses_an_age_that_is_not_finite(client):
+    for value in ("nan", "inf", "x"):
+        resp = client.post("/admin/storage/clean", data={"min_age_hours": value}, headers=HEADERS)
+        assert resp.status_code == 400, value
+        assert resp.get_json(force=True) == {"response": "Error: min_age_hours is not a number."}
