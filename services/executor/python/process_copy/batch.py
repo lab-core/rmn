@@ -164,6 +164,11 @@ def process_all(
             break
     db.close()
 
+    # the workers filled their own copy of the csv (in another process) and
+    # saved it: reload it, or the frames loaded above, without the grades
+    # read, would be written back over it below
+    grades_dfs, grades_names = load_csv(grades_csv)
+
     # check the number of files that have been dropped on moodle if any
     print(f"[{datetime.now()}]", "Store grades in csv")
     n = 0
