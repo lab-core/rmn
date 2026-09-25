@@ -255,6 +255,36 @@ def test_nothing_is_banked_from_a_teacher_who_did_not_opt_in(storage_root, mongo
     assert len(staged_files(storage_root)) == 1
 
 
+def test_the_switch_is_the_profile_of_the_owner_not_anything_on_the_task(
+    storage_root, mongo_db
+):
+    """A task duplicated from another one answers to its owner's profile.
+
+    The switch belongs to the user and is read when the bank is filled, so a
+    task created from an old one -- which may have run when the answer was
+    different -- follows what the teacher says today. A field of that name on
+    the task itself, whatever put it there, has no say.
+    """
+    mongo_db["eval_jobs"].insert_one(
+        {"job_id": JOB, "user_id": "u", "validate_matricule": True,
+         "source_job_id": "an-older-task", "saveVerifiedImages": False}
+    )
+    mongo_db["users"].insert_one({"username": "u", "saveVerifiedImages": True})
+    a_document(mongo_db, matricule="1234567")
+    stage()
+
+    assert digit_bank.promote_job(Database(), JOB)["samples"] == 7
+
+    # and the other way round: the profile refuses, the task cannot allow it
+    mongo_db["users"].update_one({"username": "u"}, {"$set": {"saveVerifiedImages": False}})
+    mongo_db["eval_jobs"].update_one({"job_id": JOB}, {"$set": {"saveVerifiedImages": True}})
+    stage(document_index=1)
+    a_document(mongo_db, index=1, matricule="7654321")
+
+    assert digit_bank.promote_job(Database(), JOB)["refused"] == 1
+    assert len(bank_files(storage_root)) == 7  # only the first pass
+
+
 def test_a_user_who_never_touched_the_switch_contributes(storage_root, mongo_db):
     """It is on by default, and a row that predates it -- or a deleted user --
     keeps that default, the way ``finalize`` treats ``moodleStructureInd``."""

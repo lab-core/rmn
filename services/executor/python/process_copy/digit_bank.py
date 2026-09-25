@@ -421,6 +421,10 @@ def saves_images(db: Any, user_id: Optional[str]) -> bool:
     and a deleted user, keep that default (as ``finalize`` does for
     ``moodleStructureInd``). Turning the switch off stores a real ``false``
     and is honoured.
+
+    It belongs to the user and is read when the bank is filled, never carried
+    on a task: a task duplicated from an older one follows what its owner says
+    today, not what they answered when that older task ran.
     """
     user = db.users_collection().find_one({"username": user_id}) or {}
     return bool(user.get("saveVerifiedImages", True))
