@@ -200,6 +200,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       }
       this.readingInfo = '';
       await this.getDocuments();
+      // the refetched copies are new objects: filter them again, or the
+      // navigation compared them with the old ones and found none
+      this.getSubExamsList();
       if (this.currentCopy < 0 || this.currentExam()['status'] === DocumentStatus.VALIDATED) {
         this.nextCopy();
       }
@@ -223,7 +226,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       };
       this.socketService.on('job_status', this.onJobStatus);
     }
-    this.generateFormattedIndexes();
     this.initializeQuestionIndexes();
     this.checkValidationButton();
   }
@@ -329,8 +331,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   generateFormattedIndexes(): void {
     this.formattedIndexes = {};
+    if (this.index !== "Tout sélectionner") {
+      // a single question: the copies are numbered in the list
+      this.subExamsList.forEach((exam, i) => {
+        this.formattedIndexes[exam.document_index] = `${i + 1}`;
+      });
+      return;
+    }
     const indices = {};
-    for (const exam of this.examsList) {
+    for (const exam of this.subExamsList) {
       if (!(exam.question in indices)) {
         indices[exam.question] = 1;
       }
@@ -492,17 +501,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   onQuestionIndexChange(event: MatSelectChange): void {
-    if (event.value === "Tout sélectionner") {
-      this.subExamsList = this.examsList;
-      this.generateFormattedIndexes();
-    } else {
-      this.filterExamsByQuestion(event.value);
-      if (this.currentCopy >= 0) {
-        // fetch previous exam base name. If not found, start from beginning with -1
-        const previousExam = this.currentExam();
-        const newExam = this.subExamsList.find((exam) => exam.basename === previousExam.basename);
-        this.currentCopy = newExam ? this.examsList.indexOf(newExam) : -1;
-      }
+    // called from the code too, where the picker has not set it
+    this.index = event.value;
+    this.getSubExamsList();
+    const previousExam = this.currentExam();
+    if (previousExam && !this.subExamsList.includes(previousExam)) {
+      // the same student's copy of that question. If not found, start from beginning with -1
+      const newExam = this.subExamsList.find((exam) => exam.basename === previousExam.basename);
+      this.currentCopy = newExam ? this.examsList.indexOf(newExam) : -1;
     }
     if (this.subExamsList.length > 0) {
       if (this.currentCopy < 0) {
@@ -511,16 +517,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       this.currentDocumentIndex = -1;
       this.changeCurrentExam(this.currentCopy);
     }
-  }
-
-  filterExamsByQuestion(questionIndex: number): void {
-    const questionString = `Q${questionIndex}`;
-    this.subExamsList = this.examsList.filter(exam => exam.question === questionString);
-
-    this.formattedIndexes = {};
-    this.subExamsList.forEach((exam, i) => {
-      this.formattedIndexes[exam.document_index] = `${i + 1}`;
-    });
   }
 
   setQuestionId(question: string): string {
@@ -606,18 +602,17 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * The copies listed, numbered and visited: those of the group and of the
+   * question picked. Both filters apply together, so changing one keeps the
+   * other (the question used to be taken from the whole task).
+   */
   getSubExamsList(): void {
-    if (this.group) {
-      const subExamsList = [];
-      this.examsList.forEach((exam: any) => {
-        if (exam['group'] == this.group) {
-          subExamsList.push(exam);
-        }
-      })
-      this.subExamsList = subExamsList;
-    } else {
-      this.subExamsList = this.examsList;
-    }
+    const question = this.index === "Tout sélectionner" ? null : `Q${this.index}`;
+    this.subExamsList = this.examsList.filter((exam: any) =>
+      (!this.group || exam['group'] == this.group) &&
+      (question === null || exam.question === question));
+    this.generateFormattedIndexes();
   }
 
   loadSubExamsList(): void {
@@ -1001,9 +996,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return this.examsList[this.currentCopy];
   }
 
+  // the rank of the open copy in the filtered list, not in the whole task
   currentSubCopy() {
     const docIndex = this.currentDocumentIndex;
-    return this.examsList.findIndex(exam => exam.document_index === docIndex);
+    return this.subExamsList.findIndex(exam => exam.document_index === docIndex);
   }
 
   async reroute() {
