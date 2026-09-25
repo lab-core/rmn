@@ -60,8 +60,10 @@ if [ "$dry_run" = false ]; then
   [ "$answer" = "delete" ] || { echo "Aborted."; exit 1; }
 fi
 
-# the key travels in the header, never in the argv or the query string
-response=$(curl -sS -X POST \
+# the key travels in the header, never in the argv or the query string; the
+# status code is appended on a line of its own so an error page is not fed
+# to jq
+response=$(curl -sS -w '\n%{http_code}' -X POST \
   -H "X-Admin-Key: $ADMIN_API_KEY" \
   -H "Content-Type: multipart/form-data" \
   --form "dry_run=$dry_run" \
@@ -70,6 +72,23 @@ response=$(curl -sS -X POST \
   --form "usage=$usage" \
   --form "min_age_hours=$min_age_hours" \
   "$url/api/admin/storage/clean")
+code="${response##*$'\n'}"
+response="${response%$'\n'*}"
+
+if [ "$code" != "200" ]; then
+  echo "Server answered HTTP $code at $url:" >&2
+  head -c 300 <<<"$response" >&2
+  echo >&2
+  if [ "$code" = "502" ] || [ "$code" = "504" ]; then
+    echo "A 502/504 comes from the proxy: after a rebuild of the local stack," \
+      "restart nginx (docker restart rmn-nginx-1)." >&2
+  fi
+  if [ "$dry_run" = false ]; then
+    echo "The sweep may have started before the error: run a dry run to see" \
+      "what is left." >&2
+  fi
+  exit 1
+fi
 
 if command -v jq >/dev/null 2>&1; then
   echo "$response" | jq '
@@ -80,7 +99,9 @@ if command -v jq >/dev/null 2>&1; then
      deleted_jobs: (.deleted_jobs // [] | length), failed: (.failed // []),
      missing: (.missing // []), usage}'
   echo "--- paths ---"
-  echo "$response" | jq -r '(.orphans // [])[] | "\(.reason)\t\(.path)"'
+  echo "$response" | jq -r '
+    ((.orphans // [])[] | "\(.reason)\t\(.path)"),
+    ((.strays // [])[] | "stray (kept unless --include-strays)\t\(.path)")'
   echo "--- jobs without any file ---"
   echo "$response" | jq -r '(.empty_jobs // [])[]
     | "\(.job_id)\t\(.job_status)\t\(.user_id)\t"
