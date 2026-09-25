@@ -331,11 +331,15 @@ class TemplateService():
 
         collection = db["template"]
 
-        collection.update_one(
+        result = collection.update_one(
             {"template_id": template_id, "user_id": user_id},
             {
                 "$set": update_fields
             })
+        # scoped to the owner, so another user's template matches nothing:
+        # that used to answer "OK" and still queue a render of it
+        if result.matched_count == 0:
+            return Response(response=json.dumps({"response": "Error: template not found."}), status=404)
 
         redis.lpush("job_queue", json.dumps({"template_id": template_id}))
 

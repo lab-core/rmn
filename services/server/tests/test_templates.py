@@ -108,8 +108,25 @@ def test_modify_updates_name_and_boxes_and_requeues_the_render(client, alice, ap
 def test_modify_cannot_touch_another_users_template(client, alice, app_module_fixture):
     mongo = app_module_fixture.mongo
     _template(mongo, "t2", "bob", "Bobs")
-    client.post("/templates/modify", data=_auth(alice, template_id="t2", template_name="Hijacked"))
+    before = template_service.redis.lrange("job_queue", 0, -1)
+    resp = client.post(
+        "/templates/modify",
+        data=_auth(alice, template_id="t2", template_name="Hijacked"),
+    )
+    assert resp.status_code == 404
+    assert resp.get_json(force=True) == {"response": "Error: template not found."}
     assert mongo["RMN"]["template"].find_one({"template_id": "t2"})["template_name"] == "Bobs"
+    # nothing written, so nothing to render: bob's template is not queued
+    assert template_service.redis.lrange("job_queue", 0, -1) == before
+
+
+def test_modify_of_an_unknown_template_is_404(client, alice, app_module_fixture):
+    before = template_service.redis.lrange("job_queue", 0, -1)
+    resp = client.post(
+        "/templates/modify", data=_auth(alice, template_id="nope", template_name="X")
+    )
+    assert resp.status_code == 404
+    assert template_service.redis.lrange("job_queue", 0, -1) == before
 
 
 def test_delete_removes_the_files_and_the_record(client, alice, app_module_fixture):
