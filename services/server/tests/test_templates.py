@@ -203,3 +203,32 @@ def test_locked_default_template_is_readable_by_everyone(client, alice, app_modu
 def test_unknown_template_download_is_a_404_not_a_500(client, alice):
     assert client.post("/templates/download", data=_auth(alice, template_id="nope")).status_code == 404
     assert client.post("/templates/download/src", data=_auth(alice, template_id="nope")).status_code == 404
+
+
+def test_a_missing_rendered_image_falls_back_to_the_upload_and_renders_again(
+        client, alice, app_module_fixture):
+    # the storage sweep deleted every rendered image as an orphan, and the
+    # download answered 500: the template could not be opened any more
+    mongo = app_module_fixture.mongo
+    storage = app_module_fixture.storage
+    _template(mongo, "d1", "admin", "Default", locked=True,
+              template_rendered_file_id="templates/d1-rendered.png")
+    path = storage.abs_path("templates/d1.pdf")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(b"%PDF-1.4 default")
+    try:
+        resp = client.post("/templates/download", data=_auth(alice, template_id="d1"))
+        assert resp.status_code == 200
+        assert resp.data == b"%PDF-1.4 default"
+        doc = mongo["RMN"]["template"].find_one({"template_id": "d1"})
+        assert "template_rendered_file_id" not in doc
+        queue = [json.loads(p) for p in template_service.redis.lrange("job_queue", 0, -1)]
+        assert {"template_id": "d1"} in queue
+    finally:
+        os.remove(path)
+
+
+def test_a_template_without_any_image_is_a_404_not_a_500(client, alice, app_module_fixture):
+    _template(app_module_fixture.mongo, "t1", "alice", "Mine")
+    assert client.post("/templates/download", data=_auth(alice, template_id="t1")).status_code == 404

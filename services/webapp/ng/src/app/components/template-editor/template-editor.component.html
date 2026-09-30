@@ -12,28 +12,32 @@
     <div class="tools-container">
       <div class="template-name-div">
         <h3><u>Nom du template:</u></h3>
-        <input type="text" id="template_name" [(ngModel)]="this.templateName">
+        <input type="text" id="template_name" [(ngModel)]="this.templateName" [readonly]="locked">
       </div>
-      <div class="tools-options-container">
-        <mat-button-toggle-group class="tools-toggle-group" [(ngModel)]="toolType" aria-label="Font Style">
-          <mat-button-toggle value="rectangle" (change)="onToolChange($event.value)">
-            <mat-icon>crop_square</mat-icon>
-            Rectangles
-          </mat-button-toggle>
-          <mat-button-toggle value="selection" (change)="onToolChange($event.value)">
-            <mat-icon>select_all</mat-icon>
-            Selection
-          </mat-button-toggle>
-          <mat-button-toggle value="delete" (change)="onToolChange($event.value)">
-            <mat-icon>clear</mat-icon>
-            Supression
-          </mat-button-toggle>
-        </mat-button-toggle-group>
-      </div>
+      @if (!locked) {
+        <div class="tools-options-container">
+          <mat-button-toggle-group class="tools-toggle-group" [(ngModel)]="toolType" aria-label="Font Style">
+            <mat-button-toggle value="rectangle" (change)="onToolChange($event.value)">
+              <mat-icon>crop_square</mat-icon>
+              Rectangles
+            </mat-button-toggle>
+            <mat-button-toggle value="selection" (change)="onToolChange($event.value)">
+              <mat-icon>select_all</mat-icon>
+              Selection
+            </mat-button-toggle>
+            <mat-button-toggle value="delete" (change)="onToolChange($event.value)">
+              <mat-icon>clear</mat-icon>
+              Supression
+            </mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+      }
       @if (toolType == 'rectangle') {
         <div class="rectangle-options-container">
-          <button [ngClass]="this.identificationActive ? 'identification-button active' : 'identification-button'" (click)="setIdentificationRect()">Identification</button>
-          <button [ngClass]="this.questionsActive ? 'questions-button active' : 'questions-button'" (click)="setQuestionsRect()">Questions</button>
+          @if (!locked) {
+            <button [ngClass]="this.identificationActive ? 'identification-button active' : 'identification-button'" (click)="setIdentificationRect()">Identification</button>
+            <button [ngClass]="this.questionsActive ? 'questions-button active' : 'questions-button'" (click)="setQuestionsRect()">Questions</button>
+          }
           @if (nQuestions >= 0) {
             <div class="question-container">
               <p>Nombre de questions: {{nQuestions}}</p>
@@ -44,9 +48,15 @@
       @if (toolType != 'rectangle') {
         <div class="selection-options-container"></div>
       }
-      <div class="confirmation-container">
-        <button class="confirmation-button" mat-flat-button color="accent" [disabled]="disabled" (click)="confirm()">Confirmer</button>
-      </div>
+      @if (!locked) {
+        <div class="confirmation-container">
+          <button class="confirmation-button" mat-flat-button color="accent" [disabled]="disabled" (click)="confirm()">Confirmer</button>
+        </div>
+      } @else {
+        <div class="confirmation-container">
+          <p class="read-only-note">Ce template est en lecture seule.</p>
+        </div>
+      }
     </div>
   </div>
 </div>

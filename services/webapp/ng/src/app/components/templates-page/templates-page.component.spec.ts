@@ -70,6 +70,11 @@ describe('TemplatesPageComponent', () => {
     expect(rows()[1].querySelector('.delete-icon')).not.toBeNull();
   });
 
+  it('offers to view a locked template and to edit the others', () => {
+    init();
+    expect(rows().map(r => r.querySelector('.edit-icon').textContent.trim())).toEqual(['visibility', 'edit', 'edit']);
+  });
+
   it('filters by name and restores the list on backspace', () => {
     init();
     component.filterSearch = 'mi';
