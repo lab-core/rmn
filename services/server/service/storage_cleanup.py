@@ -74,10 +74,21 @@ def scan(storage: Any, db: Any, min_age_seconds: int = DEFAULT_MIN_AGE_SECONDS) 
         )
     )
     job_ids = {job["job_id"] for job in jobs}
+    template_rows = list(
+        db["template"].find({}, {"template_file_id": 1, "template_rendered_file_id": 1})
+    )
     templates = {
         template["template_file_id"]
-        for template in db["template"].find({}, {"template_file_id": 1})
+        for template in template_rows
         if template.get("template_file_id")
+    }
+    # the image with the boxes drawn on it, written by the executor beside the
+    # upload: owned by the same row. Leaving it out deleted every rendered
+    # image on the first sweep, and the templates could not be opened any more
+    owned_templates = templates | {
+        template["template_rendered_file_id"]
+        for template in template_rows
+        if template.get("template_rendered_file_id")
     }
 
     now = time.time()
@@ -93,7 +104,7 @@ def scan(storage: Any, db: Any, min_age_seconds: int = DEFAULT_MIN_AGE_SECONDS) 
 
     for relative, path in storage.template_entries():
         seen["templates"] += 1
-        if relative not in templates:
+        if relative not in owned_templates:
             orphans.append(_entry(path, "no template row", relative, now))
 
     strays = [

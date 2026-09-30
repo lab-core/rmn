@@ -25,7 +25,11 @@
               {{template.template_name}}
             </div>
             <div class="template-actions">
-              <mat-icon class="edit-icon" (click)="editTemplate(template)">edit</mat-icon>
+              @if (template.locked) {
+                <mat-icon class="edit-icon" title="Voir" (click)="editTemplate(template)">visibility</mat-icon>
+              } @else {
+                <mat-icon class="edit-icon" title="Modifier" (click)="editTemplate(template)">edit</mat-icon>
+              }
               @if (template.src_name) {
                 <mat-icon class="download-icon" (click)="downloadSource(template)">download</mat-icon>
               }

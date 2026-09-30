@@ -350,7 +350,21 @@ class TemplateService():
         template = db["template"].find_one(TemplateService.readable_by(template_id, user_id))
         if template is None:
             return Response(response=json.dumps({"response": "Error: template not found."}), status=404)
-        spath = template.get("template_rendered_file_id", template["template_file_id"])
+        spath = template.get("template_rendered_file_id")
+        if spath and not os.path.isfile(storage.abs_path(spath)):
+            # the rendered image is gone (the storage sweep used to delete
+            # them all): show the upload and draw the boxes again, instead of
+            # a 500 that left the template impossible to open
+            print(f"Rendered image {spath} of template {template_id} is missing: render it again.")
+            db["template"].update_one(
+                {"template_id": template_id}, {"$unset": {"template_rendered_file_id": ""}}
+            )
+            redis.lpush("job_queue", json.dumps({"template_id": template_id}))
+            spath = None
+        spath = spath or template["template_file_id"]
+        if not os.path.isfile(storage.abs_path(spath)):
+            print(f"Image {spath} of template {template_id} is missing.")
+            return Response(response=json.dumps({"response": "Error: template image not found."}), status=404)
         print("template file path:", spath)
 
         # Save file to local (unique name: a concurrent download removed the

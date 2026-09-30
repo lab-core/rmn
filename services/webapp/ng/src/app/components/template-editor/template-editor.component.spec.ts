@@ -78,12 +78,23 @@ describe('TemplateEditorComponent', () => {
     expect(socket.socket.handlers['template_rendered']).toBeDefined();
   });
 
-  it('a locked template cannot be confirmed', () => {
+  it('a locked template is shown read-only, without the drawing tools', () => {
     create();
     templates.setLocked(true);
     fixture = TestBed.createComponent(TemplateEditorComponent);
+    component = fixture.componentInstance;
     fixture.detectChanges();
-    expect((fixture.nativeElement.querySelector('.confirmation-button') as HTMLButtonElement).disabled).toBeTrue();
+    const page: HTMLElement = fixture.nativeElement;
+    expect(page.querySelector('.confirmation-button')).toBeNull();
+    expect(page.querySelector('mat-button-toggle-group')).toBeNull();
+    expect(page.querySelector('.identification-button')).toBeNull();
+    expect(page.querySelector('.questions-button')).toBeNull();
+    expect((page.querySelector('#template_name') as HTMLInputElement).readOnly).toBeTrue();
+    expect(page.textContent).toContain('lecture seule');
+    expect(page.textContent).toContain('Nombre de questions: 3');
+    spyOn(rectangles, 'mouseDown');
+    component.mouseDown(new MouseEvent('mousedown'));
+    expect(rectangles.mouseDown).not.toHaveBeenCalled();
   });
 
   it('routes the mouse to the active tool', () => {

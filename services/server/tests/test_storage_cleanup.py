@@ -69,6 +69,26 @@ def test_orphan_templates_are_found_by_their_stored_path(tree):
     assert os.path.exists(kept)
 
 
+def test_a_rendered_template_image_belongs_to_its_row(tree):
+    # the executor writes <id>-rendered.png beside the upload; the sweep only
+    # knew template_file_id and deleted every one of them
+    storage, db, write = tree
+    db["template"].insert_one(
+        {
+            "template_id": "t1",
+            "template_file_id": "template/t1.png",
+            "template_rendered_file_id": "template/t1-rendered.png",
+        }
+    )
+    kept = [write("template/t1.png"), write("template/t1-rendered.png")]
+    orphan = write("template/t2-rendered.png")
+
+    report = storage_cleanup.clean(storage, db)
+
+    assert report["deleted"] == [orphan]
+    assert all(os.path.exists(path) for path in kept)
+
+
 def test_the_digit_corpus_is_never_swept(tree):
     """The training digits belong to no row; a sweep removing them is a loss.
 

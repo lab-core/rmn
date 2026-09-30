@@ -29,6 +29,8 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
   identificationActive : boolean = true;
   questionsActive : boolean = false;
   disabled: boolean = false;
+  // an example template, or one of another user: shown, never edited
+  locked: boolean = false;
   nQuestions: number = -1;
 
   constructor(
@@ -49,7 +51,8 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
     } else {
       this.templateName = this.templateService.getName();
       this.rectangleService.initExistingRects();
-      this.disabled = this.templateService.getLocked();
+      this.locked = this.templateService.getLocked();
+      this.disabled = this.locked;
       this.nQuestions = this.templateService.getNQuestions();
 
       this.joinSocket();
@@ -133,6 +136,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
   }
 
   mouseDown(event: MouseEvent): void  {
+    if (this.locked) return;
     if (this.toolType === 'rectangle'){
       this.rectangleService.mouseDown(event, this.identificationActive);
     } else if(this.toolType === 'selection'){
@@ -143,6 +147,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
   }
 
   mouseMove(event: MouseEvent): void  {
+    if (this.locked) return;
     if (this.toolType === 'rectangle'){
       this.rectangleService.mouseMove(event, this.identificationActive);
     } else if(this.toolType === 'selection'){
@@ -151,6 +156,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
   }
 
   mouseUp(event: MouseEvent): void {
+    if (this.locked) return;
     if (this.toolType === 'rectangle'){
       this.rectangleService.mouseUp(event, this.identificationActive);
     } else if(this.toolType === 'selection'){
@@ -159,6 +165,7 @@ export class TemplateEditorComponent implements OnInit, AfterViewInit {
   }
 
   mouseLeave(event: MouseEvent): void {
+    if (this.locked) return;
     if (this.toolType === 'rectangle'){
       this.rectangleService.mouseLeave(event, this.identificationActive);
     } else if(this.toolType === 'selection'){
