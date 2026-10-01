@@ -105,7 +105,7 @@ describe('PDFViewerComponent annotations', () => {
     const loaded = jasmine.createSpy('loaded');
     component.onAnnotationsLoaded.subscribe(loaded);
     const legacy = { ...stroke(), paths: [{ bezier: [10, 50], points: [10, 50] }] };
-    await component.renderAnnotations([legacy, { annotationType: 3, pageIndex: 1 } as any], true);
+    await component.renderAnnotations([legacy, stroke(), { annotationType: 3, pageIndex: 1 } as any], true);
     await component.renderAnnotations(undefined);
     expect(component.pdfAnnotations.length).toBe(2);
 
@@ -118,8 +118,8 @@ describe('PDFViewerComponent annotations', () => {
     // one call: a single undo step for everything restored
     expect(ngx.addEditorAnnotation).toHaveBeenCalledTimes(1);
     expect(ngx.annotations.length).toBe(2);
-    // the pdf.js 4 drawing went in the pdf.js 6 shape (NaN is null after the deep copy)
-    expect(ngx.annotations[0].paths).toEqual({ lines: [[null, null, null, null, 10, 50]], points: [[10, 50]] });
+    // the pdf.js 4 drawing is left out, the rest is restored
+    expect(ngx.annotations.map(a => Array.isArray(a.paths))).toEqual([false, false]);
     expect(component.pdfAnnotations).toEqual([]);
     expect(component.pdfModified).toBeTrue();
     await waitUntil(() => component.pdfViewerInitialized);

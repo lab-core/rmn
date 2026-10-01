@@ -1,6 +1,5 @@
 import { Component, Input, Output, EventEmitter, OnChanges, ChangeDetectionStrategy, ViewChild } from '@angular/core';
 import { NgxExtendedPdfViewerService, EditorAnnotation, PdfTextEditorComponent, pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
-import { upgradeLegacyInk } from './legacy-ink';
 
 
 @Component({
@@ -47,7 +46,10 @@ export class PDFViewerComponent implements OnChanges {
 
   public async renderAnnotations(annotations: EditorAnnotation[], pdfModified: boolean=false) {
     if (annotations) {
-      this.pdfAnnotations = [ ...this.pdfAnnotations, ...annotations.map(upgradeLegacyInk)];
+      // a drawing saved by pdf.js 4 (`paths` an array) makes pdf.js 6 throw,
+      // which drops every annotation restored with it: leave those out
+      const readable = annotations.filter(a => a?.annotationType !== 15 || !Array.isArray(a.paths));
+      this.pdfAnnotations = [ ...this.pdfAnnotations, ...readable];
       // if pdf already rendered, call loadAnnotations(). Otherwise, it will be called naturlaly
       if (this.pdfRendered) {
         setTimeout(() => { this.loadAnnotations(); }, this.timeout);
