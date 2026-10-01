@@ -22,7 +22,8 @@
 # * `@dependabot rebase` refreshes a PR against main; `@dependabot recreate`
 #   rebuilds it from scratch after a config change.
 # * The 14-day cooldown (default 3) keeps a release from turning into a PR the
-#   day it comes out; the monthly run picks it up once it has aged.
+#   day it comes out; the monthly run picks it up once it has aged. Angular is
+#   exempt (see the npm entry).
 version: 2
 updates:
   - package-ecosystem: pip
@@ -44,7 +45,15 @@ updates:
   - package-ecosystem: npm
     directory: /services/webapp/ng
     schedule: {interval: monthly}
-    cooldown: {default-days: 14}
+    cooldown:
+      default-days: 14
+      # Angular fixes advisories in its next weekly release, with no backport to
+      # the minor we are on: GHSA-ff3f-86qr-9cv3 (router, published 2026-09-30,
+      # fixed in 22.2.0 of 2026-09-23 only), so the cooldown held the
+      # angular group on a vulnerable 22.1.x and failed the audit on every PR
+      # (#211-#213). Security updates are off for the repo, so nothing else
+      # would bring the fix in.
+      exclude: ["@angular/*", "@angular-devkit/*", "@angular-eslint/*", "angular-eslint"]
     groups:
       # Angular and its tooling move together (first matching group wins)
       angular: {patterns: ["@angular/*", "@angular-devkit/*", "@angular-eslint/*", "angular-eslint"]}
