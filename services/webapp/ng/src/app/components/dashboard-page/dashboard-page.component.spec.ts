@@ -8,7 +8,9 @@ import { of } from 'rxjs';
 
 import { DashboardPageComponent } from './dashboard-page.component';
 import { CsvUpdateDialogComponent } from '../csv-update/csv-update-dialog.component';
+import { TaskFilesDialogComponent } from '../task-files-dialog/task-files-dialog.component';
 import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog.component';
+import { TaskSettingsDialogComponent } from '../task-settings/task-settings-dialog.component';
 import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -308,6 +310,33 @@ describe('DashboardPageComponent', () => {
     component.addCopies();
     expect(dialog.open).toHaveBeenCalledWith(TaskRetryDialogComponent, jasmine.any(Object));
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('nouvelles copies'), 'Erreur!');
+  });
+
+  it('the files dialog sets the status it returns, the settings dialog reloads the task', async () => {
+    await create();
+    const closed = { afterClosed: () => of('ARCHIVED') } as any;
+    spyOn(dialog, 'open').and.returnValue(closed);
+
+    component.openTaskFilesDialog();
+    const info = http.expectOne(r => r.url.endsWith('jobs/batch/info'));
+    expect(info.request.body.get('job_id')).toBe('job');
+    info.flush({ nZips: 2, stats: { size: 1 } });
+    expect(dialog.open).toHaveBeenCalledWith(TaskFilesDialogComponent, jasmine.objectContaining({
+      data: jasmine.objectContaining({ taskId: 'job', nbZipFile: 2, stats: { size: 1 } }),
+    }));
+    expect(component.task.job_status).toBe('ARCHIVED');
+
+    tasks.getTaskById.calls.reset();
+    (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of(true) } as any);
+    component.editSettings();
+    expect(dialog.open).toHaveBeenCalledWith(TaskSettingsDialogComponent, jasmine.objectContaining({
+      data: jasmine.objectContaining({ taskId: 'job', taskName: 'Exam' }),
+    }));
+    await settle();
+    expect(tasks.getTaskById).toHaveBeenCalled();
+
+    await component.reroute();
+    expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);
   });
 
   it('a validated matricule pushed over the socket refreshes the counters', async () => {

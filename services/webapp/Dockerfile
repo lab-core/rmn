@@ -33,4 +33,3 @@ RUN npm run build
 FROM nginxinc/nginx-unprivileged:stable-alpine
 COPY --from=node /app/dist/rmn /usr/share/nginx/html
 COPY webapp/default.conf webapp/security_headers.inc /etc/nginx/conf.d/
-COPY webapp/assets/* /usr/share/nginx/html/assets/

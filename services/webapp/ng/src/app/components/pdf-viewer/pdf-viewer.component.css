@@ -12,10 +12,6 @@ ngx-extended-pdf-viewer {
   background-color: Snow;
 }
 
-#eraserParamsToolbar {
-  inset-inline-end: 68px;
-}
-
 #overlay {
   position: fixed; /* Sit on top of the page content */
   display: none; /* Hidden by default */
@@ -29,19 +25,6 @@ ngx-extended-pdf-viewer {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-}
-
-#circular-cursor {
-  position: absolute;
-  display: none;
-  width: 20px;
-  height: 20px;
-  background-color: transparent;
-  border:1px solid black;
-  border-radius: 50%;
-  pointer-events: none; /* Prevent interaction with the cursor itself */
-  transition: transform 0.05s ease-out; /* Smooth movement */
-  z-index: 10000;
 }
 
 .prevent-select {
