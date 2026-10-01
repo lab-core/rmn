@@ -74,10 +74,14 @@ export class PDFViewerComponent implements OnChanges {
     return this.ngxService?.getSerializedAnnotations();
   }
 
-  /** Adds the annotations in one call: one undo step, and no object shared with the caller. */
+  /** Adds the annotations one call each, in their saved order: one undo step
+   *  per annotation, so undo takes them back one by one, the last added first.
+   *  The viewer gets copies, never the caller's objects. */
   async addAnnotations(annotations: EditorAnnotation[]) {
     const deepClones: EditorAnnotation[] = JSON.parse(JSON.stringify(annotations));
-    await this.ngxService?.addEditorAnnotation(deepClones);
+    for (const annotation of deepClones) {
+      await this.ngxService?.addEditorAnnotation([annotation]);
+    }
   }
 
   async waitRender() {

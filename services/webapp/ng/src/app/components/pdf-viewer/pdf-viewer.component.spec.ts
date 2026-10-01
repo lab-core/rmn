@@ -101,7 +101,7 @@ describe('PDFViewerComponent annotations', () => {
     expect(component.getAnnotations()).toEqual([{ annotationType: 3 } as any]);
   });
 
-  it('draws the saved annotations in one step once the first page is rendered', async () => {
+  it('draws the saved annotations one by one once the first page is rendered', async () => {
     const loaded = jasmine.createSpy('loaded');
     component.onAnnotationsLoaded.subscribe(loaded);
     const legacy = { ...stroke(), paths: [{ bezier: [10, 50], points: [10, 50] }] };
@@ -115,8 +115,8 @@ describe('PDFViewerComponent annotations', () => {
 
     expect(loaded).toHaveBeenCalledOnceWith(true);
     expect(ngx.renderPage.calls.allArgs()).toEqual([[0], [1]]);
-    // one call: a single undo step for everything restored
-    expect(ngx.addEditorAnnotation).toHaveBeenCalledTimes(1);
+    // one call per annotation, in order: undo takes them back one by one
+    expect(ngx.addEditorAnnotation.calls.allArgs().map(([a]) => a.map(x => x.annotationType))).toEqual([[15], [3]]);
     expect(ngx.annotations.length).toBe(2);
     // the pdf.js 4 drawing is left out, the rest is restored
     expect(ngx.annotations.map(a => Array.isArray(a.paths))).toEqual([false, false]);
