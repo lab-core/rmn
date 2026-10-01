@@ -7,17 +7,17 @@ colorama==0.4.6
 fpdf==1.7.2
 img2pdf==0.6.3
 imutils==0.5.4
-matplotlib==3.11.1
+matplotlib==3.11.2
 numpy==2.5.3
 opencv-python-headless==5.0.0.93
 pandas==3.0.5
 pdf2image==1.17.0
 pillow==12.3.0
 psutil==7.2.2
-pymongo==4.18.0
+pymongo==4.18.1
 PyMuPDF==1.28.2
-pypdf==6.18.0
-python-socketio==5.16.4
+pypdf==6.19.0
+python-socketio==5.17.0
 redis==8.1.0
 # python-socketio's client opens with HTTP long-polling through requests; without
 # it every executor dies at start-up ("namespaces failed to connect")
