@@ -12,8 +12,14 @@ ngx-extended-pdf-viewer {
   background-color: Snow;
 }
 
-#eraserParamsToolbar {
-  inset-inline-end: 68px;
+/* With the pen or the eraser, the annotations never take the pointer: a pen
+   stroke that starts on one draws instead of selecting it, and the eraser
+   (its own overlay) is not stolen by one. pdf.js turns them off itself only
+   for those present when the tool is chosen, not for those of a page
+   rendered later or restored with a copy. */
+:host ::ng-deep .annotationEditorLayer:is(.inkEditing, .eraserEditing) :is(.inkEditor, .highlightEditor, .freeTextEditor),
+:host ::ng-deep .annotationEditorLayer:is(.inkEditing, .eraserEditing) :is(.inkEditor, .highlightEditor, .freeTextEditor) * {
+  pointer-events: none;
 }
 
 #overlay {
@@ -29,19 +35,6 @@ ngx-extended-pdf-viewer {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-}
-
-#circular-cursor {
-  position: absolute;
-  display: none;
-  width: 20px;
-  height: 20px;
-  background-color: transparent;
-  border:1px solid black;
-  border-radius: 50%;
-  pointer-events: none; /* Prevent interaction with the cursor itself */
-  transition: transform 0.05s ease-out; /* Smooth movement */
-  z-index: 10000;
 }
 
 .prevent-select {

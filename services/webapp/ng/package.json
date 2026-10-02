@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "ng": "ng",
+    "postinstall": "node scripts/patch-pdf-viewer.mjs",
     "start": "ng serve --poll 1",
     "build": "ng build",
     "watch": "ng build --watch -c development",
@@ -25,7 +26,7 @@
     "dexie": "^4.4.6",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.2",
-    "ngx-extended-pdf-viewer": "^21.4.6",
+    "ngx-extended-pdf-viewer": "31.0.0-alpha.1",
     "ngx-toastr": "^20.0.5",
     "pdf-lib": "^1.17.1",
     "rxjs": "^7.8.2",

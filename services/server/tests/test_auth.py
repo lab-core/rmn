@@ -187,6 +187,14 @@ def test_request_body_cap_returns_413(client, app_module_fixture, monkeypatch):
     assert resp.get_json()["response"].startswith("Error")
 
 
+def test_large_form_field_is_accepted(client, app_module_fixture):
+    # the annotations of a copy are one form field; Flask's 500 kB default for
+    # non-file fields answered 413 to a copy with a few pdf.js 6 drawings
+    assert app_module_fixture.app.config["MAX_FORM_MEMORY_SIZE"] == 50 * 1024**2
+    resp = client.post("/users/login", data={"username": "a", "password": "x" * 600_000})
+    assert resp.status_code != 413
+
+
 def test_token_lookup_index_exists(app_module_fixture):
     # every token check (server and socketIO handshakes) looks a token up
     info = app_module_fixture.mongo["RMN"]["tokens"].index_information()

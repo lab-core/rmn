@@ -21,6 +21,8 @@ WORKDIR /app
 # lockfile + .npmrc (legacy-peer-deps) so the image installs exactly what was
 # tested; npm download cache is a BuildKit cache mount kept across builds.
 COPY webapp/ng/package.json webapp/ng/package-lock.json webapp/ng/.npmrc ./
+# postinstall: temporary fixes to the pdf viewer, see the script
+COPY webapp/ng/scripts/patch-pdf-viewer.mjs scripts/
 RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY webapp/ng/ .
@@ -33,4 +35,3 @@ RUN npm run build
 FROM nginxinc/nginx-unprivileged:stable-alpine
 COPY --from=node /app/dist/rmn /usr/share/nginx/html
 COPY webapp/default.conf webapp/security_headers.inc /etc/nginx/conf.d/
-COPY webapp/assets/* /usr/share/nginx/html/assets/

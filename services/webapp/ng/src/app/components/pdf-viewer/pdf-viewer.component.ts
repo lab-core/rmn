@@ -1,156 +1,56 @@
-import { Component, ElementRef, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy, ViewChild, HostListener } from '@angular/core';
-import { NgxExtendedPdfViewerService, EditorAnnotation, FreeTextEditorAnnotation, InkEditorAnnotation,  PdfTextEditorComponent, PdfDrawEditorComponent, PDFWorker, pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
-import { NotificationService } from 'src/app/services/notification.service';
-import { PDFSource } from 'src/app/services/documents.service';
+import { Component, ElementRef, Input, Output, EventEmitter, OnChanges, OnDestroy, ChangeDetectionStrategy, ViewChild } from '@angular/core';
+import { NgxExtendedPdfViewerService, EditorAnnotation, PdfTextEditorComponent, pdfDefaultOptions, AnnotationEditorEditorModeChangedEvent } from 'ngx-extended-pdf-viewer';
+import { RemovedAnnotation, SavedAnnotation, isRemoved } from 'src/app/services/pdf-source';
+
+/** pdf.js editor modes the viewer switches between itself. */
+const MODE_NONE = 0;
+const MODE_INK = 15;
+const MODE_ERASER = 103;
 
 
-export class AnnotationsChange {
-  path: any = undefined;
-  annotation: InkEditorAnnotation = undefined;
-  eraser: EraserChange = undefined;
-  rect;
-
-  isEmpty() {
-    return this.path === undefined &&
-           this.annotation === undefined &&
-           this.eraser === undefined;
-  }
+/** A pdf.js editor (or a form value) in the document's annotation storage:
+ *  the part of it the viewer uses, pdf.js types none of it. */
+interface PdfJsStored {
+  annotationElementId?: string | null;
+  deleted?: boolean;
+  pageIndex?: number;
+  serialize?(isForCopying: boolean, context: null): Record<string, unknown> | null;
+  remove?(): void;
 }
 
-export class EraserChange {
-  used: boolean = false;
-  annotationsSnapshot: InkEditorAnnotation[] = undefined;
-  newAnnotations: BezierAnnotation[] = undefined;
-  // number of annotation added after erasing (usefull when undo)
-  nInkAnnotations: number = 0;
-
-  constructor(annotationsSnapshot: InkEditorAnnotation[]) {
-    this.annotationsSnapshot = annotationsSnapshot;
-    this.newAnnotations = [];
-    annotationsSnapshot.forEach(annotation => {
-      this.newAnnotations.push(new BezierAnnotation(annotation));
-    });
-  }
-
-  getInkAnnotations() {
-    const inkAnnotations = new Array<InkEditorAnnotation>();
-    this.newAnnotations.forEach(annotation => {
-      if (annotation.paths.length > 0) {
-        inkAnnotations.push(annotation.getInkAnnotation());
-      }
-    });
-    return inkAnnotations;
-  }
+/** pdf.js's record of the pointer type (mouse, pen, touch) that owns the editor mode. */
+interface PdfJsPointers {
+  claimFor(pointerType: string | null): void;
+  isSamePointerType(pointerType: string): boolean;
 }
 
-export class BezierPath {
-  points: number[][] = [];
-  bezier: number[][] = [];
+const POINTER_TYPES = ['mouse', 'pen', 'touch'];
 
-  pushPoint(x, y) {
-    this.points.push([x,y]);
-  }
-
-  pushBezierPoint(x, y) {
-    this.bezier.push([x,y]);
-  }
-
-  toObject() {
-    const points = [], bezier = [];
-    this.points.forEach(([x,y]) => {
-      points.push(y);
-      points.push(x);
-    });
-    this.bezier.forEach(([x,y]) => {
-      bezier.push(y);
-      bezier.push(x);
-    });
-    return {
-      points: points,
-      bezier: bezier
-    }
-  }
-
-  generateBezierPoints() {
-    const path = this.points;
-    if (path.length <= 2) {
-      this.bezier = [path[0], path[0], path[path.length-1], path[path.length-1]];
-      return;
-    }
-    this.bezier = [];
-    let i;
-    let [x0, y0] = path[0];
-    for (i = 1; i < path.length - 2; i++) {
-      const [x1, y1] = path[i];
-      const [x2, y2] = path[i + 1];
-      const x3 = (x1 + x2) / 2;
-      const y3 = (y1 + y2) / 2;
-      const control1 = [x0 + 2 * (x1 - x0) / 3, y0 + 2 * (y1 - y0) / 3];
-      const control2 = [x3 + 2 * (x1 - x3) / 3, y3 + 2 * (y1 - y3) / 3];
-      this.bezier = [...this.bezier, [x0, y0], control1, control2];
-      [x0, y0] = [x3, y3];
-    }
-    const [x1, y1] = path[i];
-    const [x2, y2] = path[i + 1];
-    const control1 = [x0 + 2 * (x1 - x0) / 3, y0 + 2 * (y1 - y0) / 3];
-    const control2 = [x2 + 2 * (x1 - x2) / 3, y2 + 2 * (y1 - y2) / 3];
-    this.bezier = [...this.bezier, [x0, y0], control1, control2, [x2, y2]];
-  }
+/** The pdf.js viewer application, as far as the viewer reaches into it. */
+interface PdfJsApplication {
+  pdfDocument?: { annotationStorage: Iterable<[string, PdfJsStored]> };
+  pdfViewer?: {
+    annotationEditorMode: number;
+    _pages?: { annotationEditorLayer?: { annotationEditorLayer?: { commitOrRemove(): boolean } | null } | null }[];
+    _layerProperties?: { annotationEditorUIManager?: { currentPointers?: PdfJsPointers } | null };
+  };
 }
 
-const PADDING = [2, 2, 1, 1];
-
-export class BezierAnnotation {
-  paths: BezierPath[];
-  rect: number[];
-  inkAnnotation: InkEditorAnnotation;
-
-  constructor(inkAnnotation: InkEditorAnnotation) {
-    this.inkAnnotation = structuredClone(inkAnnotation);
-    this.rect = inkAnnotation.rect;
-    this.paths = [];
-    inkAnnotation.paths.forEach(path => {
-      const newPath = new BezierPath();
-      for (let i = 0; i < path.points.length; i+=2) {
-        const y = path.points[i], x = path.points[i+1];
-        newPath.pushPoint(x, y);
-      }
-      for (let i = 0; i < path.bezier.length; i+=2) {
-        const y = path.bezier[i], x = path.bezier[i+1];
-        newPath.pushBezierPoint(x, y);
-      }
-      this.paths.push(newPath);
-    });
+/** Coordinates to 1/100 pt: pdf.js 6 writes them with full float precision,
+ *  which made a single drawing weigh hundreds of kB in the saved JSON. */
+function rounded<T>(value: T): T {
+  if (typeof value === 'number') {
+    return (Math.round(value * 100) / 100) as T;
   }
-
-  getInkAnnotation() {
-    this.inkAnnotation.rect = this.rect;
-    this.inkAnnotation.paths = [];
-    this.paths.forEach(path => {
-      if (path === undefined) {
-        return;  // used to log and then dereference it
-      }
-      path.generateBezierPoints();
-      this.inkAnnotation.paths.push(path.toObject());
-    });
-    return this.inkAnnotation;
+  if (Array.isArray(value)) {
+    return value.map(rounded) as T;
   }
-
-  computeRectangle() {
-    const rect = [undefined, undefined, undefined, undefined];
-    this.paths.forEach(path => {
-      for (const [x, y] of [...path.points, ...path.bezier]) {
-        if (rect[0] === undefined || y < rect[0]) rect[0] = y;
-        if (rect[1] === undefined || x < rect[1]) rect[1] = x;
-        if (rect[2] === undefined || y > rect[2]) rect[2] = y;
-        if (rect[3] === undefined || x > rect[3]) rect[3] = x;
-      };
-    });
-    if (rect[0] !== undefined) {
-      this.rect = [rect[0] - PADDING[0], rect[1] - PADDING[1], rect[2] + PADDING[2], rect[3] + PADDING[3]];
-    }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, rounded(v)])) as T;
   }
+  return value;
 }
+
 
 @Component({
     selector: 'app-pdf-viewer',
@@ -159,78 +59,99 @@ export class BezierAnnotation {
     styleUrls: ['./pdf-viewer.component.css'],
     standalone: false
 })
-export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
+export class PDFViewerComponent implements OnChanges, OnDestroy {
 
   @Input({required: true}) pdfUrl: string;
   @Input() hideToolbar: boolean = false;
 
-  pdfAnnotations: EditorAnnotation[] = [];
+  pdfAnnotations: SavedAnnotation[] = [];
   pdfViewerInitialized: boolean = false;
   pdfModified: boolean = false;
   pdfRendered: boolean = false;
-
-  annotationsHistory: AnnotationsChange[] = [];
-  nInkAnnotations: number;
-  flushHistoryActivated: boolean = true;
-  eraserHistory: EraserChange[] = [];
 
   @Output() onAnnotationsLoaded = new EventEmitter<boolean>();
 
   @ViewChild(PdfTextEditorComponent)
   pdfTextEditor: PdfTextEditorComponent;
 
-  @ViewChild(PdfDrawEditorComponent)
-  pdfDrawEditor: PdfDrawEditorComponent;
-
-  private isDrawing = false;
-  private isErasing = false;
-  private canvases: Map<number, HTMLCanvasElement[]>;
-  private eventListeners = [];
-  private pointerType = undefined;
-  private eraserPointerType = undefined;
-
   private timeout: number = 80;
-  radius: number = 20;
+  /** The tool (pen, eraser, ...) the user last chose: kept from one copy to the next. */
+  private editorMode = MODE_NONE;
+  /** The pointer type that owns that tool (the stylus that opened the pen...): kept with it. */
+  private pointerOwner: string | null = null;
+  /** A copy is being opened: the viewer's own mode changes and the events of
+   *  the restored annotations are not the user's. */
+  private loading = true;
+  /** The annotations to save right after the copy was opened, to tell whether it changed. */
+  private loadedAnnotations = '[]';
+  /** Bumped at each copy: a restore still running for the previous one stops. */
+  private generation = 0;
 
-  observers = [];
-
-  constructor(private notificationService: NotificationService,
-    private ngxService: NgxExtendedPdfViewerService) {
+  constructor(private ngxService: NgxExtendedPdfViewerService, private host: ElementRef<HTMLElement>) {
+      // the eraser and the undo/redo buttons only exist in the bleeding-edge
+      // bundle (pdf.js 6.3), copied to /bleeding-edge/ by angular.json
+      pdfDefaultOptions.assetsFolder = 'bleeding-edge';
       pdfDefaultOptions.doubleTapZoomsInHandMode = false;
       pdfDefaultOptions.doubleTapZoomsInTextSelectionMode = false;
       pdfDefaultOptions.doubleTapResetsZoomOnSecondDoubleTap = false;
+      document.addEventListener('touchmove', this.stopPencilScroll, { capture: true, passive: false });
   }
 
-  async ngOnInit(): Promise<void> {
+  ngOnDestroy() {
+    document.removeEventListener('touchmove', this.stopPencilScroll, { capture: true });
   }
 
-  async ngOnChanges(changes: SimpleChanges) {
+  /**
+   * The Apple Pencil on an iPad scrolled the page instead of writing (the
+   * stroke cut short after a few points). pdf.js stops the scroll by
+   * cancelling the touchmove whose timestamp is the one of the pointer move
+   * it drew; Safari does not always send them in that order, and it decides
+   * to scroll on the first one it is not stopped from. With the pen or the
+   * eraser on and owned by the stylus (or by nothing yet), a stylus touch on
+   * a page never scrolls: the finger still does.
+   */
+  private stopPencilScroll = (event: TouchEvent) => {
+    const mode = this.pdfApp?.pdfViewer?.annotationEditorMode;
+    if (mode !== MODE_INK && mode !== MODE_ERASER) {
+      return;
+    }
+    const stylus = Array.from(event.touches).some(touch => (touch as Touch & { touchType?: string }).touchType === 'stylus');
+    const target = event.target as Element;
+    const onPage = this.host.nativeElement.contains(target) && target.closest?.('.page');
+    const owner = this.ownerPointerType();
+    if (stylus && onPage && (owner === 'pen' || owner === null) && event.cancelable) {
+      event.preventDefault();
+    }
+  };
+
+  async ngOnChanges() {
+    if (!this.loading) {
+      this.pointerOwner = this.ownerPointerType();
+    }
     this.pdfModified = false;
     this.pdfRendered = false;
-    this.isDrawing = false;
-    this.removeCanvasListeners();
-    this.stopObservers();
+    this.loading = true;
+    this.generation++;
   }
 
-  async ngOnDestroy() {
-    this.removeCanvasListeners();
-    this.stopObservers();
+  /** The pdf.js viewer application, for what ngx-extended-pdf-viewer does not
+   *  expose: the annotation storage and the editor mode. */
+  private get pdfApp(): PdfJsApplication | undefined {
+    return (this.ngxService as unknown as { PDFViewerApplication?: PdfJsApplication })?.PDFViewerApplication;
   }
 
   public isWriting() {
-    return this.pdfTextEditor.isSelected;
+    return this.pdfTextEditor?.isSelected ?? false;
   }
 
-  getLastEraserChange() {
-    if (this.eraserHistory.length == 0) {
-      return undefined;
-    }
-    return this.eraserHistory[this.eraserHistory.length - 1];
-  }
-
-  public async renderAnnotations(annotations: EditorAnnotation[], pdfModified: boolean=false) {
+  public async renderAnnotations(annotations: SavedAnnotation[], pdfModified: boolean=false) {
     if (annotations) {
-      this.pdfAnnotations = [ ...this.pdfAnnotations, ...annotations];
+      // a drawing saved by pdf.js 4 (`paths` an array) makes pdf.js 6 throw,
+      // which drops every annotation restored with it: leave those out
+      const readable = annotations.filter(a => isRemoved(a) || a?.annotationType !== 15 || !Array.isArray(a.paths));
+      // the annotations of this copy: those of a copy left before they were
+      // drawn are dropped, not added to it
+      this.pdfAnnotations = readable;
       // if pdf already rendered, call loadAnnotations(). Otherwise, it will be called naturlaly
       if (this.pdfRendered) {
         setTimeout(() => { this.loadAnnotations(); }, this.timeout);
@@ -242,8 +163,9 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   public async getRenderedPdfFile(filename: string, onlyIfModified: boolean=false): Promise<File> {
+    await this.commitDrawing();
     // check if pdf has been modified
-    if (onlyIfModified && !this.pdfModified && this.annotationsHistory.length == 0) {
+    if (onlyIfModified && !this.isModified()) {
       return undefined;
     } else {
       const editedPdfData = await this.ngxService?.getCurrentDocumentAsBlob();
@@ -251,13 +173,49 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  public getAnnotations() {
-    return this.ngxService?.getSerializedAnnotations();
+  /**
+   * What to save with the copy: what changed since the pdf was opened, the way
+   * pdf.js itself decides it when it writes a pdf. The annotations already in
+   * the pdf file are left out unless they were changed; one that was erased or
+   * replaced is recorded as removed (its pdf id), and its new drawing, if any,
+   * as an annotation of ours. ngx's getSerializedAnnotations() returns every
+   * annotation, those of the file included: saved and restored on top of the
+   * file, they doubled at each save.
+   */
+  public getAnnotations(): SavedAnnotation[] {
+    const storage = this.pdfApp?.pdfDocument?.annotationStorage;
+    if (!storage) {
+      return [];
+    }
+    const saved: SavedAnnotation[] = [];
+    for (const [, editor] of storage) {
+      if (typeof editor?.serialize !== 'function' || !editor.serialize(false, null)) {
+        continue;  // a form value, or an annotation of the file left as it was
+      }
+      if (editor.annotationElementId) {
+        saved.push({ id: editor.annotationElementId, deleted: true, pageIndex: editor.pageIndex });
+        if (editor.deleted) {
+          continue;
+        }
+      }
+      const drawing = editor.serialize(true, null);
+      if (drawing) {
+        delete drawing.id;
+        delete drawing.isCopy;
+        saved.push(rounded(drawing) as unknown as EditorAnnotation);
+      }
+    }
+    return saved;
   }
 
-  addAnnotation(annotation: EditorAnnotation) {
-    const aDeepClone: EditorAnnotation = JSON.parse(JSON.stringify(annotation));
-    this.ngxService?.addEditorAnnotation(aDeepClone);
+  /** Adds the annotations one call each, in their saved order: one undo step
+   *  per annotation, so undo takes them back one by one, the last added first.
+   *  The viewer gets copies, never the caller's objects. */
+  async addAnnotations(annotations: EditorAnnotation[]) {
+    const deepClones: EditorAnnotation[] = JSON.parse(JSON.stringify(annotations));
+    for (const annotation of deepClones) {
+      await this.ngxService?.addEditorAnnotation([annotation]);
+    }
   }
 
   async waitRender() {
@@ -268,13 +226,7 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  async onPdfLoaded(e) {
-    this.nInkAnnotations = 0;
-    this.annotationsHistory = [];
-    this.eraserHistory = [];
-  }
-
-  async onPageRendered(e) {
+  async onPageRendered() {
     if (!this.pdfRendered) {
       this.pdfRendered = true;
       setTimeout(() => { this.initializePdfViewer() }, this.timeout);
@@ -282,12 +234,77 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  async onAnnotationEdited(e) {
-    const annotations: EditorAnnotation[] = this.getInkAnnotations();
-    if (this.flushHistoryActivated && !this.isWriting() && annotations.length != this.nInkAnnotations) {
-      this.annotationsHistory = [];  // flush history as at least one ink annotation has been added
+  /** Changed since it was opened: other annotations to save, or a local draft
+   *  restored (pdfModified). The viewer's editor events are no measure: it
+   *  fires them while opening a copy and switching tools too. */
+  isModified(): boolean {
+    return this.pdfModified || JSON.stringify(this.getAnnotations()) !== this.loadedAnnotations;
+  }
+
+  /**
+   * Ends the pen's drawing session. pdf.js gathers the strokes drawn with the
+   * pen into one drawing that exists, to be saved, only once the session ends
+   * (another tool, Escape, a click elsewhere): each page's editor layer ends
+   * it as Escape does, without the mode switch, which threw on pages still
+   * rendering when a copy changed.
+   */
+  private async commitDrawing() {
+    for (const page of this.pdfApp?.pdfViewer?._pages ?? []) {
+      page?.annotationEditorLayer?.annotationEditorLayer?.commitOrRemove();
     }
-    this.pdfModified = true;
+  }
+
+  onEditorModeChanged(event: AnnotationEditorEditorModeChangedEvent) {
+    if (!this.loading) {
+      this.editorMode = event.mode;
+    }
+  }
+
+  /** pdf.js's pointer manager of the document shown. */
+  private get pointers(): PdfJsPointers | undefined {
+    return this.pdfApp?.pdfViewer?._layerProperties?.annotationEditorUIManager?.currentPointers;
+  }
+
+  /** The pointer type that owns the editor mode, null while none does. */
+  private ownerPointerType(): string | null {
+    const pointers = this.pointers;
+    return POINTER_TYPES.find(type => pointers?.isSamePointerType(type)) ?? null;
+  }
+
+  /**
+   * Switches the editor mode and waits for the viewer to be in it. pdf.js
+   * gives the tool to the pointer pressed in the last second and ignores the
+   * others: on the next copy, that was the finger that tapped "next", and the
+   * stylus that had opened the pen scrolled or selected an annotation. The
+   * tool goes back to the pointer type that owned it on the previous copy.
+   */
+  private async setEditorMode(mode: number) {
+    const viewer = this.pdfApp?.pdfViewer;
+    if (!viewer || viewer.annotationEditorMode === mode) {
+      return;
+    }
+    this.ngxService.switchAnnotationEdtorMode(mode);
+    for (let i = 0; i < 40 && viewer.annotationEditorMode !== mode; i++) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    this.pointers?.claimFor(this.pointerOwner);
+  }
+
+  /**
+   * Removes the annotations of the file the saved ones replaced or erased.
+   * pdf.js turns them into editors only in an editor mode, where the caller
+   * puts the viewer.
+   */
+  private async removeFileAnnotations(removed: RemovedAnnotation[]) {
+    const ids = new Set(removed.map(a => a.id));
+    const storage = this.pdfApp?.pdfDocument?.annotationStorage;
+    const editors = () => storage ? Array.from(storage, ([, editor]) => editor)
+      .filter(editor => ids.has(editor?.annotationElementId) && !editor.deleted) : [];
+    // the pages turn their annotations into editors asynchronously
+    for (let i = 0; i < 40 && editors().length < ids.size; i++) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    editors().forEach(editor => editor.remove?.());
   }
 
   async initializePdfViewer(): Promise<void> {
@@ -299,473 +316,47 @@ export class PDFViewerComponent implements OnInit, OnChanges, OnDestroy {
         this.ngxService.editorFontColor = '#FF0000';
         this.ngxService.editorFontSize = 14;
         this.pdfViewerInitialized = true;
-      } catch (e) {
+      } catch {
         setTimeout(() => { this.initializePdfViewer() }, this.timeout);
       }
     }
   }
 
   loadAnnotations() {
+    const generation = this.generation;
+    const current = () => generation === this.generation;
     setTimeout(async () => {
-      for (const a of this.pdfAnnotations) {
-        await this.ngxService?.renderPage(a.pageIndex);
+      // each page once, however many annotations it carries
+      for (const pageIndex of new Set(this.pdfAnnotations.map(a => a.pageIndex))) {
+        await this.ngxService?.renderPage(pageIndex);
       }
       await this.waitRender();
-      this.pdfAnnotations.forEach(a => this.addAnnotation(a));
+      if (!current()) {
+        return;  // another copy: its own load restores its annotations
+      }
+      const annotations = this.pdfAnnotations;
       this.pdfAnnotations = [];
+      if (annotations.length > 0) {
+        // one editor mode for the whole restore: without one, pdf.js enters
+        // and leaves a mode for each annotation added (slow, and it threw
+        // on pages still rendering)
+        await this.setEditorMode(MODE_INK);
+        const removed = annotations.filter(isRemoved);
+        if (removed.length > 0) {
+          await this.removeFileAnnotations(removed);
+        }
+        const added = annotations.filter(a => !isRemoved(a)) as EditorAnnotation[];
+        if (added.length > 0 && current()) {
+          await this.addAnnotations(added);
+        }
+      }
+      if (!current()) {
+        return;
+      }
+      await this.setEditorMode(this.editorMode);
+      this.loadedAnnotations = JSON.stringify(this.getAnnotations());
+      this.loading = false;
       this.onAnnotationsLoaded.emit(true);
-      this.cleanInkEditors();
-      if (this.isErasing) {
-        this.addCanvasListeners();
-      }
-      this.observeAnnotationEditorLayer();
     });
-  }
-
-  undoChange() {
-    const inkAnnotations: InkEditorAnnotation[] = this.getInkAnnotations();
-    const eraserChange: EraserChange = this.getLastEraserChange();
-    this.nInkAnnotations = inkAnnotations.length;
-    const change = new AnnotationsChange();
-    // if any eraser to remove
-    if (eraserChange !== undefined && eraserChange.nInkAnnotations === this.nInkAnnotations) {
-      this.eraserHistory.pop();
-      this.replaceAllInkAnnotations(eraserChange.annotationsSnapshot);
-      this.nInkAnnotations = eraserChange.annotationsSnapshot.length;
-      change.eraser = eraserChange;
-      this.annotationsHistory.push(change);
-    }
-    // if any ink annotations to remove
-    else if (inkAnnotations.length > 0) {
-      // get last annotation
-      const lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1];
-      // remove last element
-      if (lastInkAnnotation.paths.length > 1) {
-        change.rect = lastInkAnnotation.rect;
-        change.path = lastInkAnnotation.paths.pop();  // remove last element
-        // recompute the bounding box
-        const bezierAnnotation = new BezierAnnotation(lastInkAnnotation);
-        bezierAnnotation.computeRectangle();
-        lastInkAnnotation.rect = bezierAnnotation.rect;
-      } else {
-        // remove last annotation
-        change.annotation = inkAnnotations.pop();
-        this.nInkAnnotations--;
-      }
-      this.annotationsHistory.push(change);
-      this.replaceAllInkAnnotations(inkAnnotations);
-    } else {
-      this.notificationService.showInfo("Aucune annotation à enlever. Veuillez utiliser une version précédente si nécessaire.", "Info");
-    }
-  }
-
-  redoChange() {
-    if (this.annotationsHistory.length > 0) {
-      const change: AnnotationsChange = this.annotationsHistory.pop();
-      if (change.path) {
-        const inkAnnotations: InkEditorAnnotation[] = this.getInkAnnotations();
-        const lastInkAnnotation: InkEditorAnnotation = inkAnnotations[inkAnnotations.length-1];
-        lastInkAnnotation.paths.push(change.path);
-        lastInkAnnotation.rect = change.rect;
-        this.replaceAllInkAnnotations(inkAnnotations);
-      } else if (change.annotation) {
-        this.addAnnotation(change.annotation);
-        this.nInkAnnotations += 1;
-      } else {
-        const eraserChange: EraserChange = change.eraser;
-        const inkAnnotations = eraserChange.getInkAnnotations();
-        this.replaceAllInkAnnotations(inkAnnotations);
-        this.nInkAnnotations = eraserChange.nInkAnnotations;
-        this.eraserHistory.push(eraserChange);
-      }
-    } else {
-      this.notificationService.showInfo("Aucune annotation à rajouter.", "Info");
-    }
-  }
-
-  getInkAnnotations(): InkEditorAnnotation[] {
-    const annotations: EditorAnnotation[] = this.ngxService?.getSerializedAnnotations() || [];
-    // search for all InkEditorAnnotation (annotationType = 15)
-    const inkAnnotations: InkEditorAnnotation[] = [];
-    annotations.filter(a => a.annotationType == 15).forEach(annotation => {
-      inkAnnotations.push(annotation as InkEditorAnnotation);
-    });
-    return inkAnnotations;
-  }
-
-  replaceAllInkAnnotations(inkAnnotations: InkEditorAnnotation[]) {
-    this.flushHistoryActivated = false;
-    this.removeAllInkAnnotations();
-    // re add all of them minus the last element
-    this.flushHistoryActivated = true;
-    inkAnnotations.forEach(a => this.addAnnotation(a));
-  }
-
-  removeAllInkAnnotations() {
-    // remove all InkEditorAnnotation (annotationType = 15)
-    const filter = (serial: any) => serial.annotationType === 15;
-    this.ngxService?.removeEditorAnnotations(filter);
-  }
-
-  private cleanInkEditors() {
-    // disable ink annotation pointers event
-    const editorColl = document.getElementsByClassName('inkEditor');
-    // add new rendered canvas
-    for (let i = 0; i < editorColl.length; i++) {
-      const element = editorColl[i];
-      // do not touch to the editing canvas as necessary to draw etc ...
-      element['__zone_symbol__pointerdownfalse'] = [];  // remove drag
-      // the three child nodes of an ink editor: canvas, resizers, alt-text button
-      if (element['childNodes'].length > 2) {
-        element['style']['pointerEvents'] = 'none';
-        element['classList'].remove('selectedEditor');
-        element['classList'].remove('draggable');
-        element['childNodes'][0]['classList'].add('disabled');
-        element['childNodes'][2]['classList'].add('disabled');
-        element['childNodes'][0]['classList'].add('hidden');
-        element['childNodes'][2]['classList'].add('hidden');
-      }
-    }
-
-    // disable ink annotation pointers event
-    const annotationColl = document.getElementsByClassName('inkAnnotation');
-    for (let i = 0; i < annotationColl.length; i++) {
-      annotationColl[i]['style']['pointerEvents'] = 'none';
-    }
-  }
-
-  private observeAnnotationEditorLayer() {
-    // Options for the observer (which mutations to observe)
-    const config = { childList: true };
-    const that = this;
-
-    // Select the node that will be observed for mutations
-    const editorColl = document.getElementsByClassName("annotationEditorLayer");
-    for (let i = 0; i < editorColl.length; i++) {
-      // Create an observer instance linked to the callback function
-      const observer = new MutationObserver((mutationList, observer) => {
-        setTimeout(() => { this.cleanInkEditors() });
-      });
-      // Start observing the target node for configured mutations
-      observer.observe(editorColl[i], config);
-      this.observers.push(observer);
-    }
-  }
-
-  stopObservers() {
-    this.observers.forEach(observer => {
-      // Later, you can stop observing
-      observer.disconnect();
-    });
-    this.observers = [];
-  }
-
-  closeOpenEditors() {
-    const toolColl = document.getElementsByClassName('toolbarButton');
-    for (let i = 0; i < toolColl.length; i++) {
-      const eTool = toolColl[i] as HTMLButtonElement;
-      // toolColl[i]['classList'].remove('toggled');
-      if (eTool['id'].includes('Editor') && eTool['classList'].contains('toggled')) {
-        eTool.click();
-      }
-    }
-  }
-
-  openEraser() {
-    this.isErasing = true;
-    this.isDrawing = false;
-    document.getElementById('eraserParamsToolbar')['classList'].remove('hidden');
-    document.getElementById('eraserTool')['classList'].add('toggled');
-    this.cleanInkEditors();
-    this.addCanvasListeners();
-  }
-
-  closeEraser() {
-    this.isErasing = false;
-    this.isDrawing = false;
-    document.getElementById('circular-cursor').style.display = 'none';
-    document.getElementById('eraserParamsToolbar')['classList'].add('hidden');
-    document.getElementById('eraserTool')['classList'].remove('toggled');
-    this.removeCanvasListeners();
-  }
-
-  erase(event: PointerEvent) {
-    this.disableAnnotationLayers();
-    if (!this.isErasing) {
-      this.eraserPointerType = this.pointerType;
-      this.closeOpenEditors();
-      setTimeout(() => { this.openEraser() });
-    } else {
-      this.closeEraser();
-      this.eraserPointerType = undefined;
-    }
-  }
-
-  private addCanvasListeners() {
-    this.removeCanvasListeners();
-    // register event for each page canvas
-    this.eventListeners = [];
-    const wrapperColl = document.getElementsByClassName('textLayer');
-    for (let i = 0; i < wrapperColl.length; i++) {
-      // const canvas: HTMLCanvasElement = wrapperColl[i]['childNodes'][0] as HTMLCanvasElement;
-      const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
-      canvas['classList'].add('inkErasing');
-      canvas['classList'].remove('disabled');
-
-      var self = this;
-      const eventListeners = {};
-      eventListeners['pointerdown'] = function(event: PointerEvent) { return self.onEraserStart(event) };
-      eventListeners['pointerup'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
-      eventListeners['pointerleave'] = function(event: PointerEvent) { return self.onEraserEnd(event) };
-      eventListeners['pointermove'] = function(event: PointerEvent) { return self.onEraserMove(i, event) };
-      eventListeners['touchmove'] = function(event: TouchEvent) { return self.onTouchMove(i, event) };
-      for (const k in eventListeners) {
-        canvas.addEventListener(k, eventListeners[k], { passive: false });
-      }
-      this.eventListeners.push(eventListeners);
-    }
-  }
-
-  private removeCanvasListeners() {
-    const wrapperColl = document.getElementsByClassName('textLayer');
-    for (let i = 0; i < this.eventListeners.length; i++) {
-      // remove the listeners on the child if the canvas still exists
-      if (wrapperColl[i]) {
-        const canvas: HTMLElement = wrapperColl[i] as HTMLElement;
-        for (const k in this.eventListeners[i]) {
-          canvas.removeEventListener(k, this.eventListeners[i][k]);
-        }
-        canvas['classList'].remove('inkErasing');
-      }
-    }
-    this.eventListeners = [];
-  }
-
-  private updateCanvas() {
-    // clear canvases and one array per page
-    this.canvases = new Map<number, HTMLCanvasElement[]>();
-    for (let i = 0; i<this.eventListeners.length; i++) {
-      this.canvases.set(i, []);
-    }
-    // store ink editor canvas associated with each page
-    const inkEditorColl = document.getElementsByClassName('inkEditor');
-    for (let i = 0; i < inkEditorColl.length; i++) {
-      const element = inkEditorColl[i];
-      if (element['childNodes'].length > 1) {
-        const canvas: HTMLCanvasElement = element['childNodes'][1] as HTMLCanvasElement;
-        const grandParent = element['parentNode']['parentNode'];
-        const label = grandParent['ariaLabel'];
-        const page = parseInt(label.match(/\d+/)[0]) - 1;
-        this.canvases.get(page).push(canvas);
-      }
-    }
-  }
-
-  private enableAnnotationLayers() {
-    const wrapperColl = document.getElementsByClassName('annotationEditorLayer');
-    for (let i = 0; i < wrapperColl.length; i++) {
-      wrapperColl[i]['classList'].remove('disabled');
-    }
-  }
-
-  private disableAnnotationLayers() {
-    const wrapperColl = document.getElementsByClassName('annotationEditorLayer');
-    for (let i = 0; i < wrapperColl.length; i++) {
-      wrapperColl[i]['classList'].add('disabled');
-    }
-  }
-
-  @HostListener('window:pointerdown', ['$event'])
-  onPointerDown(event: PointerEvent) {
-    this.pointerType = event.pointerType;
-    return true;  // do not prevent default
-  }
-
-  samePointerType(event=undefined) {
-    return (event ? event.pointerType : this.pointerType) === this.eraserPointerType;
-  }
-
-  private onEraserStart(event: PointerEvent): void {
-    if (this.isDrawing || !this.samePointerType(event)) {
-      return;
-    }
-    this.isDrawing = true;
-    document.getElementById('circular-cursor').style.display = 'block';
-    this.moveCircularCursor(event);
-    // fetch canvases
-    this.updateCanvas();
-    // store a snapshot of the annotations
-    const inkAnnotations: InkEditorAnnotation[] = this.getInkAnnotations();
-    const eraserChange = new EraserChange(inkAnnotations);
-    this.eraserHistory.push(eraserChange);
-  }
-
-  private onEraserEnd(event: PointerEvent): void {
-    if (!this.isDrawing || !this.samePointerType(event)) {
-      return;
-    }
-    this.isDrawing = false;
-    document.getElementById('circular-cursor').style.display = 'none';
-    // remove the old annotations and add the new annotations if any
-    const eraserChange = this.getLastEraserChange();
-    if (eraserChange.used) {
-      this.pdfModified = true;
-      this.annotationsHistory = [];  // flush history as erasing
-      const inkAnnotations = eraserChange.getInkAnnotations();
-      this.replaceAllInkAnnotations(inkAnnotations);
-      eraserChange.nInkAnnotations = inkAnnotations.length;
-    } else {
-      // as it has not been used -> remove it
-      this.eraserHistory.pop();
-    }
-    setTimeout(() => this.disableAnnotationLayers());
-  }
-
-  private onTouchMove(i: number, event: TouchEvent): void {
-    if (!this.isDrawing || !this.isErasing || !this.samePointerType()) return;
-    // do not apply default behavior
-    event.preventDefault();
-  }
-
-  private onEraserMove(i: number, event: PointerEvent): void {
-    if (!this.isDrawing || !this.isErasing || !this.samePointerType(event)) return;
-    // do not apply default behavior
-    event.preventDefault();
-    this.moveCircularCursor(event);
-    // erase drawing
-    this.canvases.get(i).forEach(canvas => {
-      // bounding box in browser
-      const rect = canvas.getBoundingClientRect();
-      // use position in browser
-      if (rect.left <= event.clientX && event.clientX <= rect.right &&
-          rect.top <= event.clientY && event.clientY <= rect.bottom) {
-        // the mouse move on this canvas
-        this.eraseDraw(canvas, event.clientX - rect.x, event.clientY - rect.y);
-      }
-    });
-    // erase annotations
-    const canvas: HTMLCanvasElement = event.target as HTMLCanvasElement;
-    const rect = canvas.getBoundingClientRect();
-    const offsetX = event.clientX - rect.x, offsetY = event.clientY - rect.y;
-    const center = this.canvasToPdf(offsetX, offsetY, canvas);
-    this.eraseAnnotations(i, center[0], center[1]);
-  }
-
-  /** pdf.js's --scale-factor on the viewer element (1 at 100 %). The value used
-   *  to be scraped from cssText with a regex that needed a decimal point, so an
-   *  integer zoom threw on every pointer move of the eraser. */
-  getScaleFactor(): number {
-    const viewer = document.getElementById('viewer');
-    if (!viewer) {
-      return 1;
-    }
-    const declared = viewer.style.getPropertyValue('--scale-factor') || getComputedStyle(viewer).getPropertyValue('--scale-factor');
-    const factor = parseFloat(declared);
-    return Number.isFinite(factor) && factor > 0 ? factor : 1;
-  }
-
-  private moveCircularCursor(event: PointerEvent) {
-    // move circle
-    const root = document.getElementsByTagName('app-pdf-viewer')[0];
-    const rootRect = root.getBoundingClientRect();
-    const circularCursor = document.getElementById('circular-cursor');
-    circularCursor.style.width = `${2*this.radius}px`;
-    circularCursor.style.height = `${2*this.radius}px`;
-    circularCursor.style.transform = `translate(${event.clientX - rootRect.x - this.radius}px, ${event.clientY - rootRect.y - this.radius}px)`;
-  }
-
-  private eraseDraw(canvas: HTMLCanvasElement, centerX: number, centerY: number) {
-    const ctx = canvas.getContext("2d");
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, this.radius, 0, Math.PI*2, false);
-    ctx.fill();
-  }
-
-  private eraseAnnotations(i: number, centerX: number, centerY: number) {
-    const eraserChange = this.getLastEraserChange();
-    const annotations: BezierAnnotation[] = eraserChange.newAnnotations;
-    let modified = false;
-    annotations.forEach(annotation => {
-      modified = this.eraseAnnotation(i, centerX, centerY, annotation) || modified;
-    });
-    // mark eraserChange as used
-    if (modified) eraserChange.used = true;
-  }
-
-  private eraseAnnotation(i: number, centerX: number, centerY: number, annotation: BezierAnnotation) {
-    // if annotation on a different page
-    if (annotation.inkAnnotation.pageIndex != i) {
-      return false;
-    }
-    if (annotation.rect[1] < centerX && centerX < annotation.rect[3] &&
-        annotation.rect[0] < centerY && centerY < annotation.rect[2]) {
-      let newAnnotationPaths: BezierPath[] = [];
-      let modified = false;
-      annotation.paths.forEach(path => {
-        const newPaths: BezierPath[] = this.erasePoints(centerX, centerY, path);
-        if (newPaths === undefined) {
-          newAnnotationPaths.push(path);  // keep old unmodified path
-        } else {
-          modified = true;
-          newAnnotationPaths = [...newAnnotationPaths, ...newPaths];
-        }
-      });
-      annotation.paths = newAnnotationPaths;
-      annotation.computeRectangle();
-      return modified;
-    }
-    return false;
-  }
-
-  private erasePoints(centerX: number, centerY: number, path: BezierPath): BezierPath[] {
-    // remove parts of the points => transform it in several paths
-    const newPaths: BezierPath[] = [];
-    let newPath: BezierPath = new BezierPath();
-    const radius2 = Math.pow(this.radius / this.getScaleFactor(), 2);
-    let modified = false;
-    for (const [x, y] of path.points) {
-      // keep this (x,y) if far enough from center
-      const dist = Math.pow(x-centerX, 2) + Math.pow(y-centerY, 2);
-      if (dist >= radius2) {
-        newPath.pushPoint(x, y);
-      } else {
-        modified = true;
-        if (newPath.points.length > 1) {
-          // do not consider a path too small or empty
-          newPaths.push(newPath);
-          newPath = new BezierPath();
-        }
-      }
-    }
-
-    if (modified) {
-      // add last new path if necessary
-      if (newPath.points.length > 1) {
-        newPaths.push(newPath);
-      }
-      return newPaths;
-    } else {
-      return undefined;
-    }
-  }
-
-  private canvasToPdf(cX, cY, canvas) {
-    // rewrite current pointer position into the points coordinates with the right scale
-    const scaleFactor = this.getScaleFactor();
-    // 1- flip origin. Canvas => top left, Annotations => bottom right
-    const rect = canvas.getBoundingClientRect();
-    const pX = rect.width - cX, pY = rect.height - cY;
-    // 2- Change scale
-    return [pX / scaleFactor, pY / scaleFactor]
-  }
-
-  private pdfToCanvas(pX, pY, canvas) {
-    // rewrite current pointer position into the points coordinates with the right scale
-    const scaleFactor = this.getScaleFactor();
-    // 1- Change scale
-    const cX = pX * scaleFactor, cY = pY * scaleFactor;
-    // 2- flip origin. Canvas => top left, Annotations => bottom right
-    return [canvas.width - cX, canvas.height - cY]
   }
 }
