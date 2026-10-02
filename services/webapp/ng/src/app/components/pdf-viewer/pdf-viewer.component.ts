@@ -20,7 +20,10 @@ interface PdfJsStored {
 /** The pdf.js viewer application, as far as the viewer reaches into it. */
 interface PdfJsApplication {
   pdfDocument?: { annotationStorage: Iterable<[string, PdfJsStored]> };
-  pdfViewer?: { annotationEditorMode: number };
+  pdfViewer?: {
+    annotationEditorMode: number;
+    _pages?: { annotationEditorLayer?: { annotationEditorLayer?: { commitOrRemove(): boolean } | null } | null }[];
+  };
 }
 
 /** Coordinates to 1/100 pt: pdf.js 6 writes them with full float precision,
@@ -69,6 +72,8 @@ export class PDFViewerComponent implements OnChanges {
   private loading = true;
   /** The annotations to save right after the copy was opened, to tell whether it changed. */
   private loadedAnnotations = '[]';
+  /** Bumped at each copy: a restore still running for the previous one stops. */
+  private generation = 0;
 
   constructor(private ngxService: NgxExtendedPdfViewerService) {
       // the eraser and the undo/redo buttons only exist in the bleeding-edge
@@ -83,6 +88,7 @@ export class PDFViewerComponent implements OnChanges {
     this.pdfModified = false;
     this.pdfRendered = false;
     this.loading = true;
+    this.generation++;
   }
 
   /** The pdf.js viewer application, for what ngx-extended-pdf-viewer does not
@@ -100,7 +106,9 @@ export class PDFViewerComponent implements OnChanges {
       // a drawing saved by pdf.js 4 (`paths` an array) makes pdf.js 6 throw,
       // which drops every annotation restored with it: leave those out
       const readable = annotations.filter(a => isRemoved(a) || a?.annotationType !== 15 || !Array.isArray(a.paths));
-      this.pdfAnnotations = [ ...this.pdfAnnotations, ...readable];
+      // the annotations of this copy: those of a copy left before they were
+      // drawn are dropped, not added to it
+      this.pdfAnnotations = readable;
       // if pdf already rendered, call loadAnnotations(). Otherwise, it will be called naturlaly
       if (this.pdfRendered) {
         setTimeout(() => { this.loadAnnotations(); }, this.timeout);
@@ -193,16 +201,13 @@ export class PDFViewerComponent implements OnChanges {
   /**
    * Ends the pen's drawing session. pdf.js gathers the strokes drawn with the
    * pen into one drawing that exists, to be saved, only once the session ends
-   * (another tool, or none): leaving and re-entering the mode ends it.
+   * (another tool, Escape, a click elsewhere): each page's editor layer ends
+   * it as Escape does, without the mode switch, which threw on pages still
+   * rendering when a copy changed.
    */
   private async commitDrawing() {
-    const mode = this.pdfApp?.pdfViewer?.annotationEditorMode;
-    if (mode && mode !== MODE_NONE) {
-      const loading = this.loading;
-      this.loading = true;  // the events of the mode switch are not the user's
-      await this.setEditorMode(MODE_NONE);
-      await this.setEditorMode(mode);
-      this.loading = loading;
+    for (const page of this.pdfApp?.pdfViewer?._pages ?? []) {
+      page?.annotationEditorLayer?.annotationEditorLayer?.commitOrRemove();
     }
   }
 
@@ -226,12 +231,11 @@ export class PDFViewerComponent implements OnChanges {
 
   /**
    * Removes the annotations of the file the saved ones replaced or erased.
-   * pdf.js turns them into editors only in an editor mode, so the viewer goes
-   * through the pen for that, the time to find and remove them.
+   * pdf.js turns them into editors only in an editor mode, where the caller
+   * puts the viewer.
    */
   private async removeFileAnnotations(removed: RemovedAnnotation[]) {
     const ids = new Set(removed.map(a => a.id));
-    await this.setEditorMode(MODE_INK);
     const storage = this.pdfApp?.pdfDocument?.annotationStorage;
     const editors = () => storage ? Array.from(storage, ([, editor]) => editor)
       .filter(editor => ids.has(editor?.annotationElementId) && !editor.deleted) : [];
@@ -258,20 +262,35 @@ export class PDFViewerComponent implements OnChanges {
   }
 
   loadAnnotations() {
+    const generation = this.generation;
+    const current = () => generation === this.generation;
     setTimeout(async () => {
-      for (const a of this.pdfAnnotations) {
-        await this.ngxService?.renderPage(a.pageIndex);
+      // each page once, however many annotations it carries
+      for (const pageIndex of new Set(this.pdfAnnotations.map(a => a.pageIndex))) {
+        await this.ngxService?.renderPage(pageIndex);
       }
       await this.waitRender();
+      if (!current()) {
+        return;  // another copy: its own load restores its annotations
+      }
       const annotations = this.pdfAnnotations;
       this.pdfAnnotations = [];
-      const removed = annotations.filter(isRemoved);
-      if (removed.length > 0) {
-        await this.removeFileAnnotations(removed);
+      if (annotations.length > 0) {
+        // one editor mode for the whole restore: without one, pdf.js enters
+        // and leaves a mode for each annotation added (slow, and it threw
+        // on pages still rendering)
+        await this.setEditorMode(MODE_INK);
+        const removed = annotations.filter(isRemoved);
+        if (removed.length > 0) {
+          await this.removeFileAnnotations(removed);
+        }
+        const added = annotations.filter(a => !isRemoved(a)) as EditorAnnotation[];
+        if (added.length > 0 && current()) {
+          await this.addAnnotations(added);
+        }
       }
-      const added = annotations.filter(a => !isRemoved(a)) as EditorAnnotation[];
-      if (added.length > 0) {
-        await this.addAnnotations(added);
+      if (!current()) {
+        return;
       }
       await this.setEditorMode(this.editorMode);
       this.loadedAnnotations = JSON.stringify(this.getAnnotations());

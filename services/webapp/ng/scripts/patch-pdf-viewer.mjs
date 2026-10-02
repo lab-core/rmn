@@ -16,7 +16,9 @@
 // - restored drawings were recorded twice in the undo history, so every
 //   other undo did nothing;
 // - undo/redo buttons only enabled while a tool is active, although pdf.js
-//   undoes as well without one.
+//   undoes as well without one;
+// - a mode switch threw on an eraser left without a page, or on a page whose
+//   editor layer was not created yet (a copy changed while pages render).
 //
 // The bleeding-edge viewer is patched in its readable build and copied over
 // the minified one, which is the file the viewer loads by default. The -es5
@@ -36,11 +38,11 @@ const FESM = 'fesm2022/ngx-extended-pdf-viewer.mjs';
 const patches = {
   [VIEWER]: [
     {
-      what: 'eraser area covers its layer, whatever the page rotation',
+      what: 'eraser area covers its layer, whatever the page rotation (and needs a page)',
       from: `    if (this.div) {
       this.div.style.pointerEvents = "auto";
       this.div.style.zIndex = "1000";`,
-      to: `    if (this.div) {
+      to: `    if (this.div && this.parent) {
       this.div.removeAttribute("data-editor-rotation");
       for (const [k, v] of [["left", "0"], ["top", "0"], ["width", "100%"], ["height", "100%"], ["max-width", "none"], ["max-height", "none"]]) {
         this.div.style.setProperty(k, v, "important");
@@ -109,6 +111,40 @@ const patches = {
       to: `    if (!this.annotationElementId && !this._uiManager.isRestoringAnnotations) {
       this.parent.addUndoableEditor(this);
     }`,
+    },
+    {
+      what: 'a page editor layer not created yet is not destroyed',
+      from: `    this._cancelled = true;
+    if (!this.div) {
+      return;
+    }
+    this.annotationEditorLayer.destroy();`,
+      to: `    this._cancelled = true;
+    if (!this.div) {
+      return;
+    }
+    this.annotationEditorLayer?.destroy();`,
+    },
+    {
+      what: 'a page editor layer not created yet is not hidden or shown',
+      from: `  hide() {
+    if (!this.div) {
+      return;
+    }
+    this.annotationEditorLayer.pause(true);
+    this.div.hidden = true;
+  }
+  show() {
+    if (!this.div || this.annotationEditorLayer.isInvisible) {`,
+      to: `  hide() {
+    if (!this.div || !this.annotationEditorLayer) {
+      return;
+    }
+    this.annotationEditorLayer.pause(true);
+    this.div.hidden = true;
+  }
+  show() {
+    if (!this.div || !this.annotationEditorLayer || this.annotationEditorLayer.isInvisible) {`,
     },
   ],
   [FESM]: [

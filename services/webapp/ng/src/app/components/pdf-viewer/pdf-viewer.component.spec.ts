@@ -141,9 +141,11 @@ describe('PDFViewerComponent annotations', () => {
   it('ends the pen session before saving, so the last strokes are in', async () => {
     await component.onPageRendered();
     await waitUntil(() => !(component as any).loading);
-    ngx.PDFViewerApplication.pdfViewer.annotationEditorMode = 15;
+    const layer = { commitOrRemove: jasmine.createSpy('commitOrRemove') };
+    (ngx.PDFViewerApplication.pdfViewer as any)._pages = [{ annotationEditorLayer: { annotationEditorLayer: layer } }, {}];
     await component.getRenderedPdfFile('a.pdf');
-    expect(ngx.modes).toEqual([0, 15]);  // out of the pen and back in
+    expect(layer.commitOrRemove).toHaveBeenCalled();  // as Escape does, no tool switch
+    expect(ngx.modes).toEqual([]);
   });
 
   it('saves what changed: its drawings, and the annotations of the file it replaced or erased', () => {
@@ -178,6 +180,15 @@ describe('PDFViewerComponent annotations', () => {
     expect(ngx.addEditorAnnotation).toHaveBeenCalledTimes(1);
     expect(ngx.modes).toEqual([15, 0]);  // through the pen to reach the editors, back to no tool
     expect(component.isModified()).toBeFalse();  // opening a copy is not changing it
+  });
+
+  it('restores only the annotations of the copy shown, even when the user moves on fast', async () => {
+    await component.renderAnnotations([stroke()]);   // copy A, left before it was drawn
+    await component.ngOnChanges();                   // copy B
+    await component.renderAnnotations([{ annotationType: 3, pageIndex: 0 } as any]);
+    await component.onPageRendered();
+    await waitUntil(() => !(component as any).loading);
+    expect(ngx.annotations.map(a => a.annotationType)).toEqual([3]);
   });
 
   it('keeps the tool the user chose from one copy to the next', async () => {
