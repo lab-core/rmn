@@ -2,7 +2,8 @@
 
 A job-wide or matricule link sees the whole copies, a question link only the
 pages of its question; the owner sees everything. Every saved copy becomes a
-new version whose base pdf and annotation layers can be fetched back.
+new version, the saved pdf itself (older versions: a base pdf and annotation
+layers), which can be fetched back.
 """
 
 import io
@@ -340,9 +341,9 @@ def _save(client, job_id, auth, pdf=None, name=None, **extra):
     )
 
 
-def test_saving_annotations_stores_a_version_on_the_requested_base(
-    client, job, owner, db, app_module_fixture
-):
+def test_a_saved_pdf_is_the_new_version(client, job, owner, db, app_module_fixture):
+    # the viewer's pdf carries its annotations: it is kept as the version,
+    # with no annotation layers beside it (fields of an older webapp ignored)
     resp = _save(
         client,
         job,
@@ -360,43 +361,27 @@ def test_saving_annotations_stores_a_version_on_the_requested_base(
         assert f.read() == b"%PDF annotated"
     new = db["versions"].find_one({"job_id": job, "version": 1})
     assert new["rel_filepath"] == f"documents/{job}/Q1/copy1_Q1.pdf"
-    assert new["version_filepath"] == f"documents/{job}/Q1/versions/copy1_Q1-0.pdf"
-    assert new["annotations"] == [{"ink": 1}]
-    # and it is what is served back
+    assert new["annotations"] == []
+    with open(storage.abs_path(storage.rel_path(new["version_filepath"])), "rb") as f:
+        assert f.read() == b"%PDF annotated"
+    # served back as such, the first version untouched
     resp = _annotations(client, job, owner, document_index="0")
-    assert resp.get_json(force=True) == {"annotations": [{"ink": 1}], "last_version": 1}
-    resp = _download(
-        client, job, owner, document_index="0", questions="true", version="1"
-    )
+    assert resp.get_json(force=True) == {"annotations": [], "last_version": 1}
+    resp = _download(client, job, owner, document_index="0", questions="true", version="1")
+    assert resp.data == b"%PDF annotated"
+    resp = _download(client, job, owner, document_index="0", questions="true", version="0")
     assert resp.data == b"%PDF initial Q1"
 
 
-def test_a_restored_copy_is_saved_on_a_backup_of_the_current_pdf(
-    client, job, owner, db, app_module_fixture
-):
-    # version -1: the teacher restored the copy, so the current pdf (with its
-    # flattened annotations) becomes the base of the new version
-    resp = _save(
-        client,
-        job,
-        owner,
-        b"%PDF new",
-        "copy1_Q2.pdf",
-        document_index="1",
-        version="-1",
-        annotations="[]",
-    )
-
-    assert resp.status_code == 200, resp.data
-    new = db["versions"].find_one({"job_id": job, "version": 1})
-    with open(new["version_filepath"], "rb") as f:
-        assert f.read() == b"%PDF current Q2"
-    storage = app_module_fixture.storage
-    assert new["version_filepath"] != storage.abs_path(
-        f"documents/{job}/Q2/versions/copy1_Q2-0.pdf"
-    )
-    with open(storage.abs_path(f"documents/{job}/Q2/copy1_Q2.pdf"), "rb") as f:
-        assert f.read() == b"%PDF new"
+def test_each_save_is_a_version_of_its_own(client, job, owner, db, app_module_fixture):
+    for content in (b"%PDF first", b"%PDF second"):
+        resp = _save(client, job, owner, content, "copy1_Q2.pdf", document_index="1")
+        assert resp.status_code == 200, resp.data
+    for version, content in ((1, b"%PDF first"), (2, b"%PDF second")):
+        resp = _download(
+            client, job, owner, document_index="1", questions="true", version=str(version)
+        )
+        assert resp.data == content
 
 
 def test_a_question_link_cannot_save_a_file_named_after_another_question(
@@ -458,11 +443,9 @@ def test_grading_a_question_of_a_missing_copy_is_404(client, job, owner, db):
     "extra",
     [
         {"status": "PERFECT"},
-        # annotations without the version they were drawn on
-        {"status": "TO VALIDATE", "annotations": "[]"},
         {},
     ],
-    ids=["unknown-status", "annotations-without-version", "no-status"],
+    ids=["unknown-status", "no-status"],
 )
 def test_update_refuses_a_malformed_request(client, job, owner, db, extra):
     form = {"job_id": job, **owner, "document_index": "0", "grades": "3", **extra}
@@ -501,11 +484,6 @@ def test_read_grades_of_a_job_without_questions_is_refused(
         ("/documents/update", "document_index", {"status": "TO VALIDATE"}),
         (
             "/documents/update",
-            "version",
-            {"status": "TO VALIDATE", "annotations": "[]"},
-        ),
-        (
-            "/documents/update",
             "question_index",
             {"status": "VALIDATED", "grades": "3"},
         ),
@@ -518,7 +496,6 @@ def test_read_grades_of_a_job_without_questions_is_refused(
     ids=[
         "tag",
         "update",
-        "update-version",
         "update-question",
         "download",
         "download-version",

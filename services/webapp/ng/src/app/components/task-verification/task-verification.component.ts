@@ -960,8 +960,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         grade,
         this.nMaxPointsPerQuestion,
         status,
-        pdfSource.version === undefined ? -1 : pdfSource.version,
-        pdfSource.annotations,
         tag,
     );
     if (validationResponse === 'OK') {

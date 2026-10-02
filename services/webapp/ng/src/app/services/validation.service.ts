@@ -15,9 +15,11 @@ export class ValidationService {
     private userService: UserService
   ) { }
 
+  /** Saves a copy: its status, grade and tag, and the pdf as the viewer
+   *  rendered it, its annotations written in it (the server keeps that pdf
+   *  as the copy's new version). */
   async validateDocument(jobId: string, validatingCopy: number, file: File,
-                         questionIndex, grade, nMaxPointsPerQuestion, status,
-                         version, annotations, tag) {
+                         questionIndex, grade, nMaxPointsPerQuestion, status, tag) {
     const formData: FormData = new FormData();
     this.userService.addTokens(formData);
     formData.append('job_id', jobId);
@@ -30,12 +32,6 @@ export class ValidationService {
       formData.append('grades', grade.toString());
     }
     formData.append('status', status);
-    if (version != undefined) {
-      formData.append('version', version.toString());
-    }
-    if (annotations != undefined) {
-      formData.append('annotations', JSON.stringify(annotations));
-    }
     if (tag != undefined) {
       formData.append('tag', tag);
     }

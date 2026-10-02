@@ -36,7 +36,7 @@ describe('ValidationService', () => {
   it('posts the document update with every optional field when given', async () => {
     const file = new File(['%PDF'], 'copy.pdf');
     const pending = service.validateDocument(
-      'job', 3, file, 'Q2', 7.5, 10, 'VALIDATED', 2, [{ id: 1 }], 'ok');
+      'job', 3, file, 'Q2', 7.5, 10, 'VALIDATED', 'ok');
 
     const req = http.expectOne('/api/documents/update');
     expect(req.request.method).toBe('POST');
@@ -48,8 +48,9 @@ describe('ValidationService', () => {
     expect(form.get('question_index')).toBe('Q2');
     expect(form.get('grades')).toBe('7.5');
     expect(form.get('status')).toBe('VALIDATED');
-    expect(form.get('version')).toBe('2');
-    expect(form.get('annotations')).toBe('[{"id":1}]');
+    // the pdf carries its annotations: no layers, no base version beside it
+    expect(form.has('version')).toBeFalse();
+    expect(form.has('annotations')).toBeFalse();
     expect(form.get('tag')).toBe('ok');
     expect(form.get('file')).toEqual(jasmine.any(File));
 
@@ -59,14 +60,12 @@ describe('ValidationService', () => {
 
   it('omits the optional fields when they are undefined but keeps a grade of 0', async () => {
     const pending = service.validateDocument(
-      'job', 0, new File([''], 'c.pdf'), undefined, 0, 10, 'TO VALIDATE', undefined, undefined, undefined);
+      'job', 0, new File([''], 'c.pdf'), undefined, 0, 10, 'TO VALIDATE', undefined);
 
     const req = http.expectOne('/api/documents/update');
     const form = req.request.body as FormData;
     expect(form.get('grades')).toBe('0');
     expect(form.has('question_index')).toBeFalse();
-    expect(form.has('version')).toBeFalse();
-    expect(form.has('annotations')).toBeFalse();
     expect(form.has('tag')).toBeFalse();
 
     req.flush({ response: 'ok' });
@@ -76,7 +75,7 @@ describe('ValidationService', () => {
   it('resolves undefined instead of throwing when the server fails', async () => {
     spyOn(console, 'error');
     const pending = service.validateDocument(
-      'job', 0, new File([''], 'c.pdf'), undefined, undefined, 10, 'VALIDATED', undefined, undefined, undefined);
+      'job', 0, new File([''], 'c.pdf'), undefined, undefined, 10, 'VALIDATED', undefined);
 
     http.expectOne('/api/documents/update').flush({ response: 'nope' }, { status: 500, statusText: 'Error' });
 

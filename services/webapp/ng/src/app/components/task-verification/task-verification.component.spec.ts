@@ -585,7 +585,7 @@ describe('TaskVerificationComponent', () => {
 
     expect(viewer().getRenderedPdfFile).toHaveBeenCalledWith('a_Q1.pdf', false);
     expect(validation.validateDocument).toHaveBeenCalledWith(
-      'job', 10, file, '1', 8, component.nMaxPointsPerQuestion, 'VALIDATED', 0, [{ annotationType: 3 }], undefined);
+      'job', 10, file, '1', 8, component.nMaxPointsPerQuestion, 'VALIDATED', undefined);
     expect(left.lastVersion).toBe(1);
     expect(left.version).toBe(1);
     expect(component.currentCopy).toBe(1);
