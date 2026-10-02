@@ -12,7 +12,7 @@
       [showToolbar]="!hideToolbar"
       [showEraserEditor]="true"
       [showUndoRedoButtons]="true"
-      (annotationEditorEvent)="onAnnotationEdited()"
+      (annotationEditorModeChanged)="onEditorModeChanged($event)"
       (pageRendered)="onPageRendered()"
       >
     </ngx-extended-pdf-viewer>

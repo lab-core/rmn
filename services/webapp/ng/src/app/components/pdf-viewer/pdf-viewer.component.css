@@ -12,6 +12,12 @@ ngx-extended-pdf-viewer {
   background-color: Snow;
 }
 
+/* With the pen, a stroke that starts on an existing annotation draws: pdf.js
+   would select that annotation instead (the eraser removes annotations). */
+:host ::ng-deep .annotationEditorLayer.inkEditing :is(.inkEditor, .highlightEditor, .freeTextEditor) {
+  pointer-events: none;
+}
+
 #overlay {
   position: fixed; /* Sit on top of the page content */
   display: none; /* Hidden by default */

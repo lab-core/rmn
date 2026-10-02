@@ -62,6 +62,10 @@ cors = CORS(app)
 app.config["MAX_CONTENT_LENGTH"] = int(
     float(os.getenv("MAX_UPLOAD_GB", "5")) * 1024**3
 )
+# Flask 3.1 also caps every non-file form field at 500 kB (a 413 with the
+# request otherwise accepted). The annotations of a copy travel as one JSON
+# field, and pdf.js 6 drawings are verbose: a heavily annotated copy passes it.
+app.config["MAX_FORM_MEMORY_SIZE"] = 50 * 1024**2
 
 # a Redis lock elects one gunicorn worker per tick of the Slack dead-man's
 # switch. Dedicated client with short timeouts: the lock must fail open fast

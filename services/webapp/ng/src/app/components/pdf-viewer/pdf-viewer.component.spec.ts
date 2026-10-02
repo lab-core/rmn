@@ -43,9 +43,33 @@ describe('PDFViewerComponent', () => {
   });
 });
 
+/** A pdf.js editor in the annotation storage, as far as the component looks at it. */
+class FakeEditor {
+  deleted = false;
+  constructor(public data: any, public annotationElementId: string = null, public changed = false) {}
+  get pageIndex() { return this.data.pageIndex; }
+  /** pdf.js: an annotation of the file serializes only once changed, unless copied. */
+  serialize(isForCopying: boolean) {
+    if (!isForCopying && this.annotationElementId && !this.changed && !this.deleted) {
+      return null;
+    }
+    if (this.deleted) {
+      return { id: this.annotationElementId, deleted: true, pageIndex: this.pageIndex };
+    }
+    return { ...structuredClone(this.data), id: this.annotationElementId || 'pdfjs_internal_editor_0', isCopy: isForCopying };
+  }
+  remove() { this.deleted = true; }
+}
+
 /** The part of ngx-extended-pdf-viewer's service the component talks to. */
 class FakePdfViewerService {
   annotations: any[] = [];
+  storage = new Map<string, FakeEditor>();
+  modes: number[] = [];
+  PDFViewerApplication = {
+    pdfDocument: { annotationStorage: this.storage },
+    pdfViewer: { annotationEditorMode: 0 },
+  };
   editorInkColor: string;
   editorInkThickness: number;
   editorFontColor: string;
@@ -55,10 +79,19 @@ class FakePdfViewerService {
   renderPage = jasmine.createSpy('renderPage').and.resolveTo(undefined);
   addEditorAnnotation = jasmine.createSpy('addEditorAnnotation').and.callFake((annotations: any[]) => {
     this.annotations.push(...annotations);
+    annotations.forEach(a => this.storage.set(`editor_${this.storage.size}`, new FakeEditor(a)));
     return Promise.resolve();
   });
-  getSerializedAnnotations() { return structuredClone(this.annotations); }
+  switchAnnotationEdtorMode(mode: number) {
+    this.modes.push(mode);
+    this.PDFViewerApplication.pdfViewer.annotationEditorMode = mode;
+  }
   isRenderQueueEmpty() { return true; }
+}
+
+/** A stroke in the pdf file itself, pdf object 14R. */
+function fileStroke(changed = false) {
+  return new FakeEditor({ ...stroke(), rect: [1.23456, 2, 3, 4] }, '14R', changed);
 }
 
 describe('PDFViewerComponent annotations', () => {
@@ -94,11 +127,70 @@ describe('PDFViewerComponent annotations', () => {
     expect(file.name).toBe('a.pdf');
     expect(file.type).toBe('application/pdf');
 
-    await component.onAnnotationEdited();  // a stroke, an erasing, an undo...
-    expect(component.pdfModified).toBeTrue();
+    ngx.storage.set('pdf', fileStroke());  // the annotations of the file are not a change
+    await component.onPageRendered();
+    await waitUntil(() => !(component as any).loading);
+    expect(component.isModified()).toBeFalse();
+    expect(await component.getRenderedPdfFile('b.pdf', true)).toBeUndefined();
+
+    ngx.storage.set('new', new FakeEditor(stroke()));  // a stroke, an erasing...
+    expect(component.isModified()).toBeTrue();
     expect(await component.getRenderedPdfFile('b.pdf', true)).toBeDefined();
-    ngx.annotations = [{ annotationType: 3 }];
-    expect(component.getAnnotations()).toEqual([{ annotationType: 3 } as any]);
+  });
+
+  it('ends the pen session before saving, so the last strokes are in', async () => {
+    await component.onPageRendered();
+    await waitUntil(() => !(component as any).loading);
+    ngx.PDFViewerApplication.pdfViewer.annotationEditorMode = 15;
+    await component.getRenderedPdfFile('a.pdf');
+    expect(ngx.modes).toEqual([0, 15]);  // out of the pen and back in
+  });
+
+  it('saves what changed: its drawings, and the annotations of the file it replaced or erased', () => {
+    expect(component.getAnnotations()).toEqual([]);
+    ngx.storage.set('a', new FakeEditor({ ...stroke(), rect: [1.23456, 2, 3, 4] }));  // drawn in the app
+    ngx.storage.set('b', fileStroke());                                               // in the file, untouched
+    ngx.storage.set('c', fileStroke(true));                                           // in the file, erased in part
+    const erased = fileStroke();
+    erased.annotationElementId = '20R';
+    erased.remove();                                                                  // in the file, erased
+    ngx.storage.set('d', erased);
+    ngx.storage.set('e', { value: 'a form field' } as any);
+
+    const saved: any[] = component.getAnnotations();
+    expect(saved.length).toBe(4);
+    expect(saved[0].rect).toEqual([1.23, 2, 3, 4]);  // coordinates to 1/100 pt
+    expect(saved[0].id).toBeUndefined();             // a new annotation on restore, not a copy of this one
+    expect(saved[0].isCopy).toBeUndefined();
+    expect(saved[1]).toEqual({ id: '14R', deleted: true, pageIndex: 0 });
+    expect(saved[2].annotationType).toBe(15);        // its new drawing
+    expect(saved[3]).toEqual({ id: '20R', deleted: true, pageIndex: 0 });
+  });
+
+  it('restores them: removes the annotations of the file they replaced, then draws theirs', async () => {
+    const original = fileStroke();
+    ngx.storage.set('pdf', original);  // pdf.js turns it into an editor in an editor mode
+    await component.renderAnnotations([{ id: '14R', deleted: true, pageIndex: 0 }, stroke()]);
+    await component.onPageRendered();
+    await waitUntil(() => !(component as any).loading);
+
+    expect(original.deleted).toBeTrue();
+    expect(ngx.addEditorAnnotation).toHaveBeenCalledTimes(1);
+    expect(ngx.modes).toEqual([15, 0]);  // through the pen to reach the editors, back to no tool
+    expect(component.isModified()).toBeFalse();  // opening a copy is not changing it
+  });
+
+  it('keeps the tool the user chose from one copy to the next', async () => {
+    await component.onPageRendered();
+    await waitUntil(() => !(component as any).loading);
+    component.onEditorModeChanged({ mode: 103 } as any);  // the eraser
+
+    await component.ngOnChanges();                         // the next copy
+    component.onEditorModeChanged({ mode: 0 } as any);     // the viewer resets it on a new document
+    ngx.PDFViewerApplication.pdfViewer.annotationEditorMode = 0;
+    await component.onPageRendered();
+    await waitUntil(() => !(component as any).loading);
+    expect(ngx.modes).toEqual([103]);
   });
 
   it('draws the saved annotations one by one once the first page is rendered', async () => {

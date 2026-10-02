@@ -1,5 +1,19 @@
 import { EditorAnnotation } from 'ngx-extended-pdf-viewer';
 
+/** An annotation of the pdf file itself that was erased or replaced: `id` is
+ *  its pdf object reference (e.g. "14R"), as pdf.js names it. */
+export interface RemovedAnnotation {
+  id: string;
+  deleted: true;
+  pageIndex: number;
+}
+
+/** What is saved with a version of a copy: the annotations drawn in the app,
+ *  and the annotations of the file they removed. */
+export type SavedAnnotation = EditorAnnotation | RemovedAnnotation;
+
+export const isRemoved = (a: SavedAnnotation): a is RemovedAnnotation => (a as RemovedAnnotation)?.deleted === true;
+
 /**
  * A downloaded copy: its object URL, version and annotation layers, plus the
  * local draft of its annotations (localStorage, per job and document index).
@@ -9,7 +23,7 @@ import { EditorAnnotation } from 'ngx-extended-pdf-viewer';
 export class PDFSource {
   index: number;
   version: number;
-  annotations: EditorAnnotation[];
+  annotations: SavedAnnotation[];
   url?: string;
   blob?: Blob;
   timestamp_min: number;
