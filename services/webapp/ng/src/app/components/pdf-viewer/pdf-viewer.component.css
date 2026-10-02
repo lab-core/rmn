@@ -12,9 +12,13 @@ ngx-extended-pdf-viewer {
   background-color: Snow;
 }
 
-/* With the pen, a stroke that starts on an existing annotation draws: pdf.js
-   would select that annotation instead (the eraser removes annotations). */
-:host ::ng-deep .annotationEditorLayer.inkEditing :is(.inkEditor, .highlightEditor, .freeTextEditor) {
+/* With the pen or the eraser, the annotations never take the pointer: a pen
+   stroke that starts on one draws instead of selecting it, and the eraser
+   (its own overlay) is not stolen by one. pdf.js turns them off itself only
+   for those present when the tool is chosen, not for those of a page
+   rendered later or restored with a copy. */
+:host ::ng-deep .annotationEditorLayer:is(.inkEditing, .eraserEditing) :is(.inkEditor, .highlightEditor, .freeTextEditor),
+:host ::ng-deep .annotationEditorLayer:is(.inkEditing, .eraserEditing) :is(.inkEditor, .highlightEditor, .freeTextEditor) * {
   pointer-events: none;
 }
 
