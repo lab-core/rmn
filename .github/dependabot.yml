@@ -66,7 +66,9 @@ updates:
       # Pinned to a 31.0.0 alpha: the eraser and the undo/redo buttons are in
       # its bleeding-edge bundle (pdf.js 6.3) only. 31.x prereleases and
       # releases still come through; the next major waits for a manual check
-      # of that bundle and of the stored ink format.
+      # of that bundle and of the stored ink format. Any bump fails `npm ci`
+      # until services/webapp/ng/scripts/patch-pdf-viewer.mjs is updated:
+      # drop the fixes the new version ships, port the others.
       - dependency-name: ngx-extended-pdf-viewer
         versions: [">=32"]
       # zone.js/testing (0.16) patches describe/it on the jasmine Env; jasmine
