@@ -204,6 +204,24 @@ describe('PDFViewerComponent annotations', () => {
     expect(ngx.modes).toEqual([103]);
   });
 
+  it('a pencil touch on a page does not scroll while the pen is on, a finger does', () => {
+    const page = document.createElement('div');
+    page.className = 'page';
+    fixture.nativeElement.appendChild(page);
+    // Safari's Touch.touchType ("stylus" for the Apple Pencil): Chrome has none to build
+    const move = (touchType: string) => {
+      const event = new Event('touchmove', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'touches', { value: [{ touchType }] });
+      page.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(move('stylus')).toBeFalse();  // no tool: the pencil scrolls
+    ngx.PDFViewerApplication.pdfViewer.annotationEditorMode = 15;
+    expect(move('stylus')).toBeTrue();
+    expect(move('direct')).toBeFalse();  // the finger
+    page.remove();
+  });
+
   it('the tool goes back to the pointer type that owned it on the previous copy', async () => {
     let owner = 'pen';  // the stylus opened the pen
     const pointers = { claimFor: jasmine.createSpy('claimFor').and.callFake((t: string) => owner = t),

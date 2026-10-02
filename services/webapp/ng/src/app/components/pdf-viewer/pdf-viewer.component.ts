@@ -1,10 +1,11 @@
-import { Component, Input, Output, EventEmitter, OnChanges, ChangeDetectionStrategy, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, Output, EventEmitter, OnChanges, OnDestroy, ChangeDetectionStrategy, ViewChild } from '@angular/core';
 import { NgxExtendedPdfViewerService, EditorAnnotation, PdfTextEditorComponent, pdfDefaultOptions, AnnotationEditorEditorModeChangedEvent } from 'ngx-extended-pdf-viewer';
 import { RemovedAnnotation, SavedAnnotation, isRemoved } from 'src/app/services/pdf-source';
 
 /** pdf.js editor modes the viewer switches between itself. */
 const MODE_NONE = 0;
 const MODE_INK = 15;
+const MODE_ERASER = 103;
 
 
 /** A pdf.js editor (or a form value) in the document's annotation storage:
@@ -58,7 +59,7 @@ function rounded<T>(value: T): T {
     styleUrls: ['./pdf-viewer.component.css'],
     standalone: false
 })
-export class PDFViewerComponent implements OnChanges {
+export class PDFViewerComponent implements OnChanges, OnDestroy {
 
   @Input({required: true}) pdfUrl: string;
   @Input() hideToolbar: boolean = false;
@@ -86,14 +87,42 @@ export class PDFViewerComponent implements OnChanges {
   /** Bumped at each copy: a restore still running for the previous one stops. */
   private generation = 0;
 
-  constructor(private ngxService: NgxExtendedPdfViewerService) {
+  constructor(private ngxService: NgxExtendedPdfViewerService, private host: ElementRef<HTMLElement>) {
       // the eraser and the undo/redo buttons only exist in the bleeding-edge
       // bundle (pdf.js 6.3), copied to /bleeding-edge/ by angular.json
       pdfDefaultOptions.assetsFolder = 'bleeding-edge';
       pdfDefaultOptions.doubleTapZoomsInHandMode = false;
       pdfDefaultOptions.doubleTapZoomsInTextSelectionMode = false;
       pdfDefaultOptions.doubleTapResetsZoomOnSecondDoubleTap = false;
+      document.addEventListener('touchmove', this.stopPencilScroll, { capture: true, passive: false });
   }
+
+  ngOnDestroy() {
+    document.removeEventListener('touchmove', this.stopPencilScroll, { capture: true });
+  }
+
+  /**
+   * The Apple Pencil on an iPad scrolled the page instead of writing (the
+   * stroke cut short after a few points). pdf.js stops the scroll by
+   * cancelling the touchmove whose timestamp is the one of the pointer move
+   * it drew; Safari does not always send them in that order, and it decides
+   * to scroll on the first one it is not stopped from. With the pen or the
+   * eraser on and owned by the stylus (or by nothing yet), a stylus touch on
+   * a page never scrolls: the finger still does.
+   */
+  private stopPencilScroll = (event: TouchEvent) => {
+    const mode = this.pdfApp?.pdfViewer?.annotationEditorMode;
+    if (mode !== MODE_INK && mode !== MODE_ERASER) {
+      return;
+    }
+    const stylus = Array.from(event.touches).some(touch => (touch as Touch & { touchType?: string }).touchType === 'stylus');
+    const target = event.target as Element;
+    const onPage = this.host.nativeElement.contains(target) && target.closest?.('.page');
+    const owner = this.ownerPointerType();
+    if (stylus && onPage && (owner === 'pen' || owner === null) && event.cancelable) {
+      event.preventDefault();
+    }
+  };
 
   async ngOnChanges() {
     if (!this.loading) {
