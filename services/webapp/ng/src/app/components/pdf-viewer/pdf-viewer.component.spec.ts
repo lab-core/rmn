@@ -204,6 +204,18 @@ describe('PDFViewerComponent annotations', () => {
     expect(ngx.modes).toEqual([103]);
   });
 
+  it('a tool the viewer switches itself belongs to no pointer yet', async () => {
+    const claimFor = jasmine.createSpy('claimFor');
+    (ngx.PDFViewerApplication.pdfViewer as any)._layerProperties = { annotationEditorUIManager: { currentPointers: { claimFor } } };
+    await component.onPageRendered();
+    await waitUntil(() => !(component as any).loading);
+    component.onEditorModeChanged({ mode: 15 } as any);
+    await component.ngOnChanges();
+    await component.onPageRendered();
+    await waitUntil(() => !(component as any).loading);
+    expect(claimFor).toHaveBeenCalledWith(null);  // not the finger that tapped "next"
+  });
+
   it('draws the saved annotations one by one once the first page is rendered', async () => {
     const loaded = jasmine.createSpy('loaded');
     component.onAnnotationsLoaded.subscribe(loaded);

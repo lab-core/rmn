@@ -23,6 +23,7 @@ interface PdfJsApplication {
   pdfViewer?: {
     annotationEditorMode: number;
     _pages?: { annotationEditorLayer?: { annotationEditorLayer?: { commitOrRemove(): boolean } | null } | null }[];
+    _layerProperties?: { annotationEditorUIManager?: { currentPointers?: { claimFor(pointerType: string | null): void } } | null };
   };
 }
 
@@ -217,7 +218,13 @@ export class PDFViewerComponent implements OnChanges {
     }
   }
 
-  /** Switches the editor mode and waits for the viewer to be in it. */
+  /**
+   * Switches the editor mode and waits for the viewer to be in it. pdf.js
+   * gives the tool to the pointer pressed in the last second (the finger
+   * that tapped "next"), and ignores the others: a stylus then scrolled or
+   * selected an annotation. Switched by the viewer, the tool belongs to the
+   * first pointer that uses it.
+   */
   private async setEditorMode(mode: number) {
     const viewer = this.pdfApp?.pdfViewer;
     if (!viewer || viewer.annotationEditorMode === mode) {
@@ -227,6 +234,7 @@ export class PDFViewerComponent implements OnChanges {
     for (let i = 0; i < 40 && viewer.annotationEditorMode !== mode; i++) {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
+    viewer._layerProperties?.annotationEditorUIManager?.currentPointers?.claimFor(null);
   }
 
   /**
