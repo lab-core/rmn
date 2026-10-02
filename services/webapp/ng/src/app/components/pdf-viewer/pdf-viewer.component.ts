@@ -17,13 +17,21 @@ interface PdfJsStored {
   remove?(): void;
 }
 
+/** pdf.js's record of the pointer type (mouse, pen, touch) that owns the editor mode. */
+interface PdfJsPointers {
+  claimFor(pointerType: string | null): void;
+  isSamePointerType(pointerType: string): boolean;
+}
+
+const POINTER_TYPES = ['mouse', 'pen', 'touch'];
+
 /** The pdf.js viewer application, as far as the viewer reaches into it. */
 interface PdfJsApplication {
   pdfDocument?: { annotationStorage: Iterable<[string, PdfJsStored]> };
   pdfViewer?: {
     annotationEditorMode: number;
     _pages?: { annotationEditorLayer?: { annotationEditorLayer?: { commitOrRemove(): boolean } | null } | null }[];
-    _layerProperties?: { annotationEditorUIManager?: { currentPointers?: { claimFor(pointerType: string | null): void } } | null };
+    _layerProperties?: { annotationEditorUIManager?: { currentPointers?: PdfJsPointers } | null };
   };
 }
 
@@ -68,6 +76,8 @@ export class PDFViewerComponent implements OnChanges {
   private timeout: number = 80;
   /** The tool (pen, eraser, ...) the user last chose: kept from one copy to the next. */
   private editorMode = MODE_NONE;
+  /** The pointer type that owns that tool (the stylus that opened the pen...): kept with it. */
+  private pointerOwner: string | null = null;
   /** A copy is being opened: the viewer's own mode changes and the events of
    *  the restored annotations are not the user's. */
   private loading = true;
@@ -86,6 +96,9 @@ export class PDFViewerComponent implements OnChanges {
   }
 
   async ngOnChanges() {
+    if (!this.loading) {
+      this.pointerOwner = this.ownerPointerType();
+    }
     this.pdfModified = false;
     this.pdfRendered = false;
     this.loading = true;
@@ -218,12 +231,23 @@ export class PDFViewerComponent implements OnChanges {
     }
   }
 
+  /** pdf.js's pointer manager of the document shown. */
+  private get pointers(): PdfJsPointers | undefined {
+    return this.pdfApp?.pdfViewer?._layerProperties?.annotationEditorUIManager?.currentPointers;
+  }
+
+  /** The pointer type that owns the editor mode, null while none does. */
+  private ownerPointerType(): string | null {
+    const pointers = this.pointers;
+    return POINTER_TYPES.find(type => pointers?.isSamePointerType(type)) ?? null;
+  }
+
   /**
    * Switches the editor mode and waits for the viewer to be in it. pdf.js
-   * gives the tool to the pointer pressed in the last second (the finger
-   * that tapped "next"), and ignores the others: a stylus then scrolled or
-   * selected an annotation. Switched by the viewer, the tool belongs to the
-   * first pointer that uses it.
+   * gives the tool to the pointer pressed in the last second and ignores the
+   * others: on the next copy, that was the finger that tapped "next", and the
+   * stylus that had opened the pen scrolled or selected an annotation. The
+   * tool goes back to the pointer type that owned it on the previous copy.
    */
   private async setEditorMode(mode: number) {
     const viewer = this.pdfApp?.pdfViewer;
@@ -234,7 +258,7 @@ export class PDFViewerComponent implements OnChanges {
     for (let i = 0; i < 40 && viewer.annotationEditorMode !== mode; i++) {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
-    viewer._layerProperties?.annotationEditorUIManager?.currentPointers?.claimFor(null);
+    this.pointers?.claimFor(this.pointerOwner);
   }
 
   /**

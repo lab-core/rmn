@@ -204,16 +204,21 @@ describe('PDFViewerComponent annotations', () => {
     expect(ngx.modes).toEqual([103]);
   });
 
-  it('a tool the viewer switches itself belongs to no pointer yet', async () => {
-    const claimFor = jasmine.createSpy('claimFor');
-    (ngx.PDFViewerApplication.pdfViewer as any)._layerProperties = { annotationEditorUIManager: { currentPointers: { claimFor } } };
+  it('the tool goes back to the pointer type that owned it on the previous copy', async () => {
+    let owner = 'pen';  // the stylus opened the pen
+    const pointers = { claimFor: jasmine.createSpy('claimFor').and.callFake((t: string) => owner = t),
+                       isSamePointerType: (t: string) => t === owner };
+    (ngx.PDFViewerApplication.pdfViewer as any)._layerProperties = { annotationEditorUIManager: { currentPointers: pointers } };
     await component.onPageRendered();
     await waitUntil(() => !(component as any).loading);
     component.onEditorModeChanged({ mode: 15 } as any);
-    await component.ngOnChanges();
+    await component.ngOnChanges();  // the next copy, "next" tapped with a finger
+    owner = 'touch';                // pdf.js would give the pen to that finger
+    ngx.PDFViewerApplication.pdfViewer.annotationEditorMode = 0;
     await component.onPageRendered();
     await waitUntil(() => !(component as any).loading);
-    expect(claimFor).toHaveBeenCalledWith(null);  // not the finger that tapped "next"
+    expect(pointers.claimFor).toHaveBeenCalledWith('pen');
+    expect(owner).toBe('pen');
   });
 
   it('draws the saved annotations one by one once the first page is rendered', async () => {
