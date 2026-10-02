@@ -262,17 +262,6 @@ def update_document(validity):
                 status=400,
             )
 
-    version = None
-    annotations = []
-    if "annotations" in request_form and request_form["annotations"] is not None:
-        if "version" not in request_form:
-            return Response(
-                response=json.dumps({"response": f"Error: field version not provided with annotations."}),
-                status=400,
-            )
-        version = form_int(request_form, "version")
-        annotations = json.loads(request_form.get("annotations"))
-
     try:
         status = request_form["status"].upper()
         doc_status = Document_Status(status)
@@ -390,36 +379,23 @@ def update_document(validity):
         rel_filepath = os.path.join('documents', job_id, question, file_name)
         abs_filepath = storage.abs_path(rel_filepath)
 
-        # get last version
         last_version = get_last_version(job_id, rel_filepath)
 
-        # set version to last version by default
-        if version is None or version > last_version:
-            version = last_version
-
-        # if document has been restored, use a new version from the last available pdf
-        if version == -1:
-            # save the last available pdf as a new version
-            version_filepath = save_new_pdf_version(abs_filepath)
-            version = last_version
-        # fetch doc version
-        else:
-            version_doc = db["versions"].find_one({"job_id": job_id, "rel_filepath": rel_filepath, "version": version})
-            version_filepath = version_doc["version_filepath"]
-
-        # save this pdf with default name -> become latest available pdf
+        # The pdf the viewer rendered is the copy as the teacher left it, its
+        # annotations written in it (pdf.js 6 edits the annotations of a pdf
+        # in place): it becomes the latest pdf and, kept as it is, the new
+        # version. No annotation layers are stored beside it any more; the
+        # versions saved before keep theirs on their base pdf.
         file.save(abs_filepath)
-
-        # save new version
+        version_filepath = save_new_pdf_version(abs_filepath)
         db["versions"].insert_one(
             {"job_id": job_id, "rel_filepath": rel_filepath, "version": last_version + 1,
-             "version_filepath": version_filepath, "annotations": annotations}
+             "version_filepath": version_filepath, "annotations": []}
         )
 
         print(f"Saved new version ({last_version + 1}) for",
               {"job_id": job_id, "rel_filepath": rel_filepath,
-              "version_filepath": version_filepath, "version": version},
-              "with %d annotation layers" % len(annotations))
+               "version_filepath": version_filepath})
 
     # The teacher annotated the copy in the app and saved it without typing a
     # grade: the mark they drew is on the page now, so read it. Only this copy
