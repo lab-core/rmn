@@ -402,6 +402,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     exam.auto_grade_status = 'DONE';
     if (reading.status) {
       exam.status = reading.status;
+    } else if (exam.status === DocumentStatus.HIGH_ACCURACY) {
+      exam.status = DocumentStatus.TO_VALIDATE;  // unsure now: no longer blue
     }
     if (this.currentCopy >= 0 && exam === this.currentExam()) {
       this.currentStatus = exam.status;
@@ -478,7 +480,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     // a confirmed grade always wins; otherwise offer what the reader made of
     // the page, marked as a suggestion so the teacher can see it is one
     const grade = this.currentExam()["grade"];
-    const autoGrade = this.currentExam()["auto_grade"];
+    // a copy queued for the reader offers nothing until it is read: what an
+    // earlier pass made of it is about to be replaced
+    const readingStatus = this.currentExam()["auto_grade_status"];
+    const autoGrade = readingStatus === 'PENDING' || readingStatus === 'RUNNING'
+      ? null : this.currentExam()["auto_grade"];
     this.currentGradeIsAuto = grade === null && autoGrade !== null && autoGrade !== undefined;
     this.currentGradeConfidence = this.currentGradeIsAuto
       ? this.currentExam()["auto_grade_confidence"] ?? null

@@ -165,6 +165,18 @@ def store_reading(
             }
         },
     )
+    if result.modified_count == 1 and not confident:
+        # a re-read that is no longer sure takes back the blue an earlier,
+        # confident pass gave; a deleted copy keeps its status
+        job_questions.update_one(
+            {
+                "job_id": job_id,
+                "document_index": document_index,
+                "auto_grade_run": run,
+                "status": Document_Status.HIGH_ACCURACY.value,
+            },
+            {"$set": {"status": Document_Status.TO_VALIDATE.value}},
+        )
     return result.modified_count == 1
 
 

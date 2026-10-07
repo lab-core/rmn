@@ -673,6 +673,27 @@ describe('TaskVerificationComponent', () => {
     expect(component.getExamClass({ ...queued, status: 'VALIDATED', grade: 4 })).toContain('validated-copy');
   });
 
+  it('the score box offers no earlier reading while the copy waits for the reader', async () => {
+    await create();
+    const exam = component.currentExam();
+    Object.assign(exam, { grade: null, auto_grade: 4, auto_grade_confidence: 1, auto_grade_status: 'PENDING' });
+    component.loadScore();
+    expect(component.currentGradeIsAuto).toBeFalse();
+    expect(component.currentGrade).toBeNull();
+    exam.auto_grade_status = 'DONE';
+    component.loadScore();
+    expect(component.currentGrade).toBe(4);
+  });
+
+  it('an unsure re-reading takes back the blue of an earlier one', async () => {
+    await create();
+    const exam = component.examsList[1];
+    Object.assign(exam, { status: 'HIGH ACCURACY', grade: null });
+    expect(component.applyReading({ document_index: exam.document_index, question_index: exam.question_index,
+                                    auto_grade: 7, auto_grade_confidence: 0.5 })).toBeTrue();
+    expect(exam.status).toBe('TO VALIDATE');
+  });
+
   it('a copy left in this session takes what is written on it from the viewer', async () => {
     await create();
     const left = component.currentExam();

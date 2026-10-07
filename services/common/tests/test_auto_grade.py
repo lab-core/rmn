@@ -210,6 +210,17 @@ def test_an_unsure_reading_leaves_the_status(eval_jobs):
     assert doc["status"] == "TO VALIDATE" and doc["auto_grade_bbox"] is None
 
 
+def test_an_unsure_re_reading_takes_back_the_high_accuracy(eval_jobs):
+    questions = FakeCollection([_question(0), _question(1)])
+    questions.update_one({"document_index": 0}, {"$set": {"status": "HIGH ACCURACY"}})
+    questions.update_one({"document_index": 1}, {"$set": {"status": "DELETED"}})
+    run = auto_grade.start_run(eval_jobs, questions, "j", 1)
+    assert auto_grade.store_reading(questions, "j", 0, run, 7, 0.5, "d", "ocr")
+    assert auto_grade.store_reading(questions, "j", 1, run, 7, 0.5, "d", "ocr")
+    assert _doc(questions, 0)["status"] == "TO VALIDATE"
+    assert _doc(questions, 1)["status"] == "DELETED"
+
+
 def test_a_superseded_run_cannot_store_its_reading(eval_jobs):
     questions = FakeCollection([_question(0)])
     old = auto_grade.start_run(eval_jobs, questions, "j", 1)
