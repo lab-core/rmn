@@ -417,12 +417,13 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   /** Nobody has corrected it: not validated, no grade, nothing written on
-   *  it. A grade typed is enough to count as corrected. `annotated` comes
+   *  it. A grade typed is enough to count as corrected; validating with no
+   *  grade on a copy with nothing written on it is not. `annotated` comes
    *  from the server, and from the viewer for a copy left in this session. */
   isUncorrected(exam: any): boolean {
     return (exam.status === DocumentStatus.TO_VALIDATE || exam.status === DocumentStatus.HIGH_ACCURACY)
       && (exam.grade === null || exam.grade === undefined)
-      && exam.annotated === false && !exam.submitted;
+      && exam.annotated === false;
   }
 
   /** The tile colour of a copy the reader read and nobody has graded yet. */

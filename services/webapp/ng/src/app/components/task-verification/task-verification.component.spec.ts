@@ -596,6 +596,7 @@ describe('TaskVerificationComponent', () => {
     await create();
     const file = new File(['%PDF-1.4'], 'a_Q1.pdf', { type: 'application/pdf' });
     viewer().getRenderedPdfFile.and.resolveTo(file);
+    viewer().hasAnnotations.and.resolveTo(true);  // the teacher wrote the grade on it
     component.currentGrade = null;
 
     await component.validateCurrentCopy();
@@ -614,8 +615,23 @@ describe('TaskVerificationComponent', () => {
     // corrected: not grey like the copies nobody has looked at
     const left = component.examsList[0];
     expect(left.submitted).toBeTrue();
+    expect(left.annotated).toBeTrue();
     expect(component.getExamClass(left)).not.toContain('uncorrected-copy');
     expect(component.tileTitle(left)).toBe('Corrigée, note à confirmer');
+  });
+
+  it('validated with no grade and nothing written, the copy stays grey', async () => {
+    await create();
+    viewer().getRenderedPdfFile.and.resolveTo(new File(['%PDF-1.4'], 'a_Q1.pdf'));
+    viewer().hasAnnotations.and.resolveTo(false);
+    component.currentGrade = null;
+
+    await component.validateCurrentCopy();
+
+    const left = component.examsList[0];
+    expect(left.annotated).toBeFalse();
+    expect(component.getExamClass(left)).toContain('uncorrected-copy');
+    expect(component.tileTitle(left)).toBe('Non corrigée');
   });
 
   it('a copy nobody has corrected is grey, whatever the reader thought of it', async () => {
@@ -630,9 +646,10 @@ describe('TaskVerificationComponent', () => {
     const written = { ...base, annotated: true, status: 'HIGH ACCURACY', auto_grade: 4, auto_grade_confidence: 1 };
     expect(component.getExamClass(written)).not.toContain('uncorrected-copy');
     expect(component.tileColour(written)).toBe('rgb(65, 65, 247)');
-    // a grade typed is enough, and so is validating with no grade
+    // a grade typed is enough; validating with nothing written on it is not
     expect(component.getExamClass({ ...untouched, grade: 3 })).not.toContain('uncorrected-copy');
-    expect(component.getExamClass({ ...untouched, submitted: true })).not.toContain('uncorrected-copy');
+    expect(component.getExamClass({ ...untouched, submitted: true })).toContain('uncorrected-copy');
+    expect(component.tileTitle({ ...untouched, submitted: true })).toBe('Non corrigée');
     // validated is green; a copy the server said nothing about is not greyed
     expect(component.getExamClass({ ...untouched, status: 'VALIDATED', grade: 4 })).toContain('validated-copy');
     expect(component.getExamClass({ ...base, annotated: undefined })).not.toContain('uncorrected-copy');
