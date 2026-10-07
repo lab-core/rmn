@@ -127,6 +127,11 @@ def replace_documents(validity, job_id, grades, zip_path, read_grades=False):
 
                 # moving the extracted file to the final destination
                 shutil.move(extracted_path, final_destination)
+                # read again from the new pdf the next time the copies are listed
+                db["job_questions"].update_many(
+                    {"job_id": job_id, "rel_filepath": storage_path},
+                    {"$unset": {"annotated": ""}},
+                )
                 # save new version
                 version_filepath = save_new_pdf_version(final_destination)
                 last_version = get_last_version(job_id, storage_path)

@@ -365,10 +365,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     } else if (exam.status === DocumentStatus.DELETED) {
       examClass = 'deleted-copy';
     }
-    if (this.isCorrected(exam) && !(exam.status === DocumentStatus.TO_VALIDATE && this.availableTags.includes(exam.tag))) {
-      // corrected (validated with no grade) but not validated: neither red like
-      // a copy nobody has looked at nor green like a confirmed one
-      examClass = 'submitted-copy';
+    if (this.isUncorrected(exam) && !this.availableTags.includes(exam.tag)) {
+      // not validated, no grade and nothing written on it: nobody has
+      // corrected it yet, so it is not red like a copy waiting to be confirmed
+      examClass = 'uncorrected-copy';
     }
 
     if (exam.document_index === this.currentDocumentIndex) {
@@ -416,13 +416,22 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return !!exam.submitted && exam.status !== DocumentStatus.VALIDATED && exam.status !== DocumentStatus.DELETED;
   }
 
+  /** Nobody has corrected it: not validated, no grade, nothing written on
+   *  it. A grade typed is enough to count as corrected. `annotated` comes
+   *  from the server, and from the viewer for a copy left in this session. */
+  isUncorrected(exam: any): boolean {
+    return (exam.status === DocumentStatus.TO_VALIDATE || exam.status === DocumentStatus.HIGH_ACCURACY)
+      && (exam.grade === null || exam.grade === undefined)
+      && exam.annotated === false && !exam.submitted;
+  }
+
   /** The tile colour of a copy the reader read and nobody has graded yet. */
   tileColour(exam: any): string | null {
     if (exam.grade !== null && exam.grade !== undefined) {
       return null;
     }
-    if (this.isCorrected(exam)) {
-      return null;  // its own background; the confidence goes to the border
+    if (this.isUncorrected(exam)) {
+      return null;  // the grey of a copy nobody has corrected
     }
     if (exam.status === DocumentStatus.TO_VALIDATE && this.availableTags.includes(exam.tag)) {
       return null;  // the teacher's own tag colour wins
@@ -430,13 +439,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return confidenceColour(exam.auto_grade_confidence, exam.status);
   }
 
-  /** The border of a corrected copy carries the confidence of its reading. */
-  tileBorder(exam: any): string | null {
-    return this.isCorrected(exam) ? confidenceColour(exam.auto_grade_confidence, exam.status) : null;
-  }
-
   tileTitle(exam: any): string {
     const confidence = exam.grade === null || exam.grade === undefined ? confidenceLabel(exam.auto_grade_confidence) : '';
+    if (this.isUncorrected(exam)) {
+      return 'Non corrigée';
+    }
     if (this.isCorrected(exam)) {
       return 'Corrigée, note à confirmer' + (confidence ? ` (${confidence})` : '');
     }
@@ -952,6 +959,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async saveCurrentCopy() {
     const currentExam = this.currentExam();
     if (currentExam) {
+      // what is written on it now, for its tile (grey while nothing is)
+      try {
+        currentExam.annotated = await this.pdfViewer.hasAnnotations();
+      } catch {
+        // the tile keeps what the server said
+      }
       // get the file only if it has been modified
       const filename = currentExam["filename"] + ".pdf";
       let file;

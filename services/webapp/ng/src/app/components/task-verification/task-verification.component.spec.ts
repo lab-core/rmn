@@ -611,29 +611,41 @@ describe('TaskVerificationComponent', () => {
     expect(notification.showWarning).not.toHaveBeenCalledWith('Veuillez saisir une note.', 'Note invalide');
     expect(component.currentCopy).toBe(1);
     expect(component.readOnSave).toBeFalse();  // the next copy is saved as usual
-    // corrected: its tile is told apart from the copies nobody has looked at
+    // corrected: not grey like the copies nobody has looked at
     const left = component.examsList[0];
     expect(left.submitted).toBeTrue();
-    expect(component.getExamClass(left)).toContain('submitted-copy');
-    expect(component.getExamClass(left)).not.toContain('to-validate-copy');
+    expect(component.getExamClass(left)).not.toContain('uncorrected-copy');
     expect(component.tileTitle(left)).toBe('Corrigée, note à confirmer');
   });
 
-  it('a corrected copy keeps its own background, the reading goes to its border', async () => {
+  it('a copy nobody has corrected is grey, whatever the reader thought of it', async () => {
     await create();
-    const corrected = { ...component.examsList[0], submitted: true, grade: null,
-                        status: 'HIGH ACCURACY', auto_grade: 4, auto_grade_confidence: 1 };
-    expect(component.tileColour(corrected)).toBeNull();
-    expect(component.tileBorder(corrected)).toBe('rgb(65, 65, 247)');
-    expect(component.tileTitle(corrected)).toBe('Corrigée, note à confirmer (confiance 100 %)');
-    // once validated it is green like any other
-    const validated = { ...corrected, status: 'VALIDATED', grade: 4 };
-    expect(component.getExamClass(validated)).toContain('validated-copy');
-    expect(component.tileBorder(validated)).toBeNull();
-    // a copy nobody has looked at stays as it was
-    const untouched = { ...corrected, submitted: false };
-    expect(component.getExamClass(untouched)).not.toContain('submitted-copy');
-    expect(component.tileBorder(untouched)).toBeNull();
+    const base = { ...component.examsList[0], grade: null, status: 'TO VALIDATE', tag: undefined,
+                   auto_grade: null, auto_grade_confidence: null, submitted: false };
+    const untouched = { ...base, annotated: false };
+    expect(component.getExamClass(untouched)).toContain('uncorrected-copy');
+    expect(component.tileColour(untouched)).toBeNull();
+    expect(component.tileTitle(untouched)).toBe('Non corrigée');
+    // something written on it: red to blue as before, by the reading's confidence
+    const written = { ...base, annotated: true, status: 'HIGH ACCURACY', auto_grade: 4, auto_grade_confidence: 1 };
+    expect(component.getExamClass(written)).not.toContain('uncorrected-copy');
+    expect(component.tileColour(written)).toBe('rgb(65, 65, 247)');
+    // a grade typed is enough, and so is validating with no grade
+    expect(component.getExamClass({ ...untouched, grade: 3 })).not.toContain('uncorrected-copy');
+    expect(component.getExamClass({ ...untouched, submitted: true })).not.toContain('uncorrected-copy');
+    // validated is green; a copy the server said nothing about is not greyed
+    expect(component.getExamClass({ ...untouched, status: 'VALIDATED', grade: 4 })).toContain('validated-copy');
+    expect(component.getExamClass({ ...base, annotated: undefined })).not.toContain('uncorrected-copy');
+  });
+
+  it('a copy left in this session takes what is written on it from the viewer', async () => {
+    await create();
+    const left = component.currentExam();
+    left.annotated = false;
+    viewer().hasAnnotations.and.resolveTo(true);
+    component.currentGrade = 8;
+    await component.validateCurrentCopy();
+    expect(left.annotated).toBeTrue();
   });
 
   it('stays on a copy the server did not accept', async () => {

@@ -137,5 +137,6 @@ export class PdfViewerStubComponent {
   renderAnnotations = jasmine.createSpy('renderAnnotations');
   getAnnotations = jasmine.createSpy('getAnnotations').and.returnValue([]);
   getRenderedPdfFile = jasmine.createSpy('getRenderedPdfFile').and.resolveTo(undefined);
+  hasAnnotations = jasmine.createSpy('hasAnnotations').and.resolveTo(false);
   isWriting() { return false; }
 }

@@ -17,6 +17,7 @@ from service.documents import (
     skipped_questions,
     start_reading_grades,
 )
+from service.annotations import has_annotations
 from service.versions import get_last_version, save_new_pdf_version
 from utils.forms import finite_number, form_float, form_int
 
@@ -46,8 +47,16 @@ def get_documents(validity):
         question = None
         if validity is not None and validity != "questions" and validity != "all":
             question = f"Q{validity}"
-        docs = db["job_questions"].find(query)
+        docs = list(db["job_questions"].find(query))
         count = db["job_questions"].count_documents(query)
+        # whether a copy carries annotations is read from its pdf once, then
+        # kept: copies stored before the field have none yet
+        for doc in docs:
+            if "annotated" not in doc and doc.get("rel_filepath"):
+                doc["annotated"] = has_annotations(storage.abs_path(doc["rel_filepath"]))
+                db["job_questions"].update_one(
+                    {"_id": doc["_id"]}, {"$set": {"annotated": doc["annotated"]}}
+                )
         resp = [
             {
                 "job_id": doc["job_id"],
@@ -62,6 +71,9 @@ def get_documents(validity):
                 # validated in the app with no grade: corrected, its grade
                 # left to the reader and to a human to confirm
                 "submitted": doc.get("submitted", False),
+                # something written on the pdf: with a grade, what tells a
+                # corrected copy from one nobody has looked at
+                "annotated": doc.get("annotated", False),
                 "n_total_doc": count,
                 # what the reader made of the page, for the correction screen
                 # to offer; absent on documents older than the feature
@@ -391,6 +403,10 @@ def update_document(validity):
         # versions saved before keep theirs on their base pdf.
         file.save(abs_filepath)
         version_filepath = save_new_pdf_version(abs_filepath)
+        db["job_questions"].update_many(
+            {"job_id": job_id, "rel_filepath": rel_filepath},
+            {"$set": {"annotated": has_annotations(abs_filepath)}},
+        )
         db["versions"].insert_one(
             {"job_id": job_id, "rel_filepath": rel_filepath, "version": last_version + 1,
              "version_filepath": version_filepath, "annotations": []}
