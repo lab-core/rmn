@@ -402,3 +402,103 @@ def test_a_couple_of_disagreements_are_not_enough(db):
     # all three disagree, but three is below the minimum to judge on
     assert auto_grade.feedback(questions, JOB, 3) == (3, 3)
     assert not auto_grade.unreliable(questions, JOB, 3)
+
+
+# ------------------------------------------------ copies graded in the app --
+def _stage_copies(db, tmp_path, n, fixture="ink_circled_single.pdf", max_points=11):
+    """``n`` copies of one graded page in question 3, none of them pending."""
+    import os
+    import shutil
+
+    fixtures = os.path.join(os.path.dirname(__file__), "fixtures", "ink_grades")
+    target = tmp_path / "documents" / JOB / "Q3"
+    target.mkdir(parents=True, exist_ok=True)
+    for index in range(n):
+        name = f"copy{index}.pdf"
+        shutil.copy(os.path.join(fixtures, fixture), target / name)
+        db.questions_collection().insert_one(
+            {
+                "job_id": JOB,
+                "document_index": index,
+                "question_index": 3,
+                "question": "Q3",
+                "rel_filepath": f"documents/{JOB}/Q3/{name}",
+                "status": Document_Status.TO_VALIDATE.value,
+                "grade": None,
+            }
+        )
+    db.eval_jobs_collection().update_one(
+        {"job_id": JOB},
+        {
+            "$set": {
+                "job_status": "VALIDATION",
+                "n_max_points_per_question": [["Q3", max_points]],
+                "bonus_enabled_map": [["Q3", False]],
+            }
+        },
+    )
+
+
+def _read(db, tmp_path):
+    import pymupdf
+
+    from process_copy import auto_grade
+    from utils.storage import Storage
+
+    run = db.auto_grade_run(JOB, 3)
+    return auto_grade.read_question(
+        db, Storage(str(tmp_path)), _job_row(db), 3, run, open_pdf=pymupdf.open
+    )
+
+
+def _stored(db, index):
+    return db.questions_collection().find_one({"job_id": JOB, "document_index": index})
+
+
+def test_a_lone_grade_on_a_copy_validated_with_no_grade_is_trusted(db, tmp_path):
+    """The teacher said a grade is written there, and only one mark is.
+
+    Read alone, a copy has no learned position, so its reading used to stay
+    capped at 50 % however clear the digit: a red tile on a right reading.
+    """
+    from rmn_common import auto_grade as common
+
+    _stage_copies(db, tmp_path, 2)
+    db.questions_collection().update_one(
+        {"job_id": JOB, "document_index": 1}, {"$set": {"submitted": True}}
+    )
+    for index in (0, 1):
+        common.queue_document(
+            db.eval_jobs_collection(), db.questions_collection(), JOB, 3, index
+        )
+
+    _read(db, tmp_path)
+
+    plain, submitted = _stored(db, 0), _stored(db, 1)
+    assert plain["auto_grade"] == submitted["auto_grade"] == 9.0
+    assert plain["auto_grade_confidence"] == 0.5  # no position, not asked
+    assert submitted["auto_grade_confidence"] > 0.5
+
+
+def test_one_copy_read_alone_learns_the_position_from_the_whole_question(
+    db, tmp_path
+):
+    """Graded in the app, copies are read one at a time.
+
+    The position the grader writes at is learned from every page of the
+    question that carries marks, not only from the page being read.
+    """
+    from rmn_common import auto_grade as common
+
+    _stage_copies(db, tmp_path, 5)
+    common.queue_document(
+        db.eval_jobs_collection(), db.questions_collection(), JOB, 3, 4
+    )
+
+    result = _read(db, tmp_path)
+
+    assert result["read"] == 1
+    read = _stored(db, 4)
+    assert read["auto_grade"] == 9.0
+    assert read["auto_grade_confidence"] > 0.5  # a position was learned
+    assert _stored(db, 0).get("auto_grade") is None  # only the queued page
