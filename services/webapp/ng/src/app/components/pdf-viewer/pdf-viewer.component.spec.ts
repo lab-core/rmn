@@ -182,6 +182,23 @@ describe('PDFViewerComponent annotations', () => {
     expect(component.isModified()).toBeFalse();  // opening a copy is not changing it
   });
 
+  it('says whether something is written on the copy: the file\'s, minus erased, plus drawn', async () => {
+    const pages = [[{ id: '5R', annotationType: 15 }], [{ id: '9R', annotationType: 2 }]];  // ink; a link
+    (ngx.PDFViewerApplication.pdfDocument as any).numPages = 2;
+    (ngx.PDFViewerApplication.pdfDocument as any).getPage = (n: number) =>
+      Promise.resolve({ getAnnotations: () => Promise.resolve(pages[n - 1]) });
+    expect(await component.hasAnnotations()).toBeTrue();   // the file's ink
+
+    const erased = fileStroke();
+    erased.annotationElementId = '5R';
+    erased.remove();
+    ngx.storage.set('pdf', erased);
+    expect(await component.hasAnnotations()).toBeFalse();  // erased; a link is not writing
+
+    ngx.storage.set('new', new FakeEditor(stroke()));
+    expect(await component.hasAnnotations()).toBeTrue();   // drawn in the app
+  });
+
   it('restores only the annotations of the copy shown, even when the user moves on fast', async () => {
     await component.renderAnnotations([stroke()]);   // copy A, left before it was drawn
     await component.ngOnChanges();                   // copy B

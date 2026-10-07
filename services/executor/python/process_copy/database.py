@@ -229,6 +229,15 @@ class Database:
             confident=reading.confident,
         )
 
+    def question_documents(self, job_id, question_index):
+        """Every page of a question, read or not, graded or not."""
+        return list(
+            self.questions_collection().find(
+                {"job_id": job_id, "question_index": int(question_index)},
+                {"document_index": 1, "rel_filepath": 1},
+            )
+        )
+
     def questions_to_read(self, job_id, question_index, run):
         """Pages of a question still waiting for a reading pass."""
         return auto_grade.pending_documents(

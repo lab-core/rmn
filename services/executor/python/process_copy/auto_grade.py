@@ -92,23 +92,32 @@ def read_question(
     bonus = _is_bonus(job, question_index)
 
     # First pass: where this grader puts the grade on this question. Learned
-    # from the batch being uploaded, never carried between jobs -- the answer
-    # differs between jobs and between questions of the same job.
+    # from every page of the question that carries marks, not only the pages
+    # this pass reads: a copy graded in the app is read alone, and from one
+    # page nothing can be learned (its reading stayed capped at 50 %). Never
+    # carried between jobs -- the answer differs between jobs and between
+    # questions of the same job.
+    pending_indices = {document["document_index"] for document in pending}
     candidates: Dict[int, List] = {}
+    learning: List = []
     opened = []
-    for document in pending:
+    for document in db.question_documents(job_id, question_index):
+        index = document["document_index"]
         try:
             doc = open_pdf(storage.abs_path(document["rel_filepath"]))
         except Exception as e:
             print("auto_grade: cannot open", document.get("rel_filepath"), e)
             continue
-        opened.append(doc)
-        candidates[document["document_index"]] = ink_grades.grade_candidates(
-            doc[0], max_points
-        )
+        page_candidates = ink_grades.grade_candidates(doc[0], max_points)
+        learning.append(page_candidates)
+        if index in pending_indices:
+            opened.append(doc)
+            candidates[index] = page_candidates
+        else:
+            doc.close()
 
     key = question_key(question_index)
-    modal = ink_grades.learn_modal_positions({key: list(candidates.values())}).get(key)
+    modal = ink_grades.learn_modal_positions({key: learning}).get(key)
 
     read = 0
     superseded = 0
@@ -139,7 +148,10 @@ def read_question(
                 job_id, index, digit_bank.INK_GRADE, question_index=question_index
             ):
                 reading = ink_grades.pick(
-                    candidates[index], modal, max_points, classifier, bonus
+                    candidates[index], modal, max_points, classifier, bonus,
+                    # validated in the app with no grade: the teacher says a
+                    # grade is written on this page
+                    lone_mark_trusted=bool(claimed.get("submitted")),
                 )
             stored = db.save_auto_grade(job_id, index, run, reading)
             read += 1

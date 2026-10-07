@@ -45,6 +45,11 @@ def read_grades_for_job(db, storage, sio, job, question_index, run, stopH):
         )
     )
     if pending:
+        # the copies waiting for this pass turn red on the correction screen:
+        # one refetch now, or they kept the colour of an earlier reading
+        # until the end of the pass
+        sio.emit("document_ready", json.dumps(
+            {"job_id": job_id, "user_id": user_id, "questions": True}))
         progress(0, pending)
 
     def on_read(document_index, reading):

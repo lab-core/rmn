@@ -81,6 +81,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   currentPdfSrc: PDFSource;
   currentGradeModified: boolean = false;
   currentTagModified: boolean = false;
+  // validated with an empty score box: the copy is saved as it is, not
+  // validated, and the grade written on it is read by the grade reader
+  readOnSave = false;
   currentVersion: number = 0;
   currentGrade: number | null;
   // the grade shown came from the reader, not from a human, and has not been
@@ -362,6 +365,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     } else if (exam.status === DocumentStatus.DELETED) {
       examClass = 'deleted-copy';
     }
+    if (this.isUncorrected(exam) && !this.availableTags.includes(exam.tag)) {
+      // not validated, no grade and nothing written on it: nobody has
+      // corrected it yet, so it is not red like a copy waiting to be confirmed
+      examClass = 'uncorrected-copy';
+    } else if (this.isBeingRead(exam) && !this.availableTags.includes(exam.tag)) {
+      // red until the reader is done with it, whatever an earlier pass said
+      examClass = 'to-validate-copy';
+    }
 
     if (exam.document_index === this.currentDocumentIndex) {
         examClass += ' chosen-copy';
@@ -391,6 +402,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     exam.auto_grade_status = 'DONE';
     if (reading.status) {
       exam.status = reading.status;
+    } else if (exam.status === DocumentStatus.HIGH_ACCURACY) {
+      exam.status = DocumentStatus.TO_VALIDATE;  // unsure now: no longer blue
     }
     if (this.currentCopy >= 0 && exam === this.currentExam()) {
       this.currentStatus = exam.status;
@@ -403,10 +416,40 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  /** Validated with no grade typed and not confirmed since. */
+  isCorrected(exam: any): boolean {
+    return !!exam.submitted && exam.status !== DocumentStatus.VALIDATED && exam.status !== DocumentStatus.DELETED;
+  }
+
+  /** Nobody has corrected it: not validated, no grade, nothing written on
+   *  it. A grade typed is enough to count as corrected; validating with no
+   *  grade on a copy with nothing written on it is not. `annotated` comes
+   *  from the server, and from the viewer for a copy left in this session. */
+  isUncorrected(exam: any): boolean {
+    return (exam.status === DocumentStatus.TO_VALIDATE || exam.status === DocumentStatus.HIGH_ACCURACY)
+      && (exam.grade === null || exam.grade === undefined)
+      && exam.annotated === false;
+  }
+
+  /** Something is written on it, no grade, and the reader has not read it
+   *  yet: queued after an import or after being validated with no grade. */
+  isBeingRead(exam: any): boolean {
+    return (exam.auto_grade_status === 'PENDING' || exam.auto_grade_status === 'RUNNING')
+      && (exam.status === DocumentStatus.TO_VALIDATE || exam.status === DocumentStatus.HIGH_ACCURACY)
+      && (exam.grade === null || exam.grade === undefined)
+      && !this.isUncorrected(exam);
+  }
+
   /** The tile colour of a copy the reader read and nobody has graded yet. */
   tileColour(exam: any): string | null {
     if (exam.grade !== null && exam.grade !== undefined) {
       return null;
+    }
+    if (this.isUncorrected(exam)) {
+      return null;  // the grey of a copy nobody has corrected
+    }
+    if (this.isBeingRead(exam)) {
+      return null;  // the red of its class, until the reader is done
     }
     if (exam.status === DocumentStatus.TO_VALIDATE && this.availableTags.includes(exam.tag)) {
       return null;  // the teacher's own tag colour wins
@@ -415,7 +458,17 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   tileTitle(exam: any): string {
-    return exam.grade === null || exam.grade === undefined ? confidenceLabel(exam.auto_grade_confidence) : '';
+    const confidence = exam.grade === null || exam.grade === undefined ? confidenceLabel(exam.auto_grade_confidence) : '';
+    if (this.isUncorrected(exam)) {
+      return 'Non corrigée';
+    }
+    if (this.isBeingRead(exam)) {
+      return 'Lecture de la note en cours';
+    }
+    if (this.isCorrected(exam)) {
+      return 'Corrigée, note à confirmer' + (confidence ? ` (${confidence})` : '');
+    }
+    return confidence;
   }
 
   /** The score box border follows the tile while the value is a suggestion. */
@@ -427,7 +480,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     // a confirmed grade always wins; otherwise offer what the reader made of
     // the page, marked as a suggestion so the teacher can see it is one
     const grade = this.currentExam()["grade"];
-    const autoGrade = this.currentExam()["auto_grade"];
+    // a copy queued for the reader offers nothing until it is read: what an
+    // earlier pass made of it is about to be replaced
+    const readingStatus = this.currentExam()["auto_grade_status"];
+    const autoGrade = readingStatus === 'PENDING' || readingStatus === 'RUNNING'
+      ? null : this.currentExam()["auto_grade"];
     this.currentGradeIsAuto = grade === null && autoGrade !== null && autoGrade !== undefined;
     this.currentGradeConfidence = this.currentGradeIsAuto
       ? this.currentExam()["auto_grade_confidence"] ?? null
@@ -443,7 +500,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     const confidence = this.currentGradeConfidence;
     return confidence === null
       ? 'Note lue automatiquement, à confirmer.'
-      : `Note lue automatiquement (confiance ${Math.round(confidence * 100)} %), à confirmer.`;
+      : `Note lue automatiquement (${confidenceLabel(confidence)}), à confirmer.`;
   }
 
   gradeColor(): string {
@@ -769,6 +826,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     const pdfLoaded = await this.loadPdf();
     this.currentGradeModified = false;
     this.currentTagModified = false;
+    this.readOnSave = false;
     this.getCurrentStatus();
     // try to load the following copy
     if (!this.offline) {
@@ -826,11 +884,32 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async validateCurrentCopy() {
+    if (this.currentGrade === null || this.currentGrade === undefined) {
+      await this.sendCurrentCopyToReading();
+      return;
+    }
     const statusChanged = this.setValidatedStatus();
     if (statusChanged) {
       this.currentGradeModified = true;  // ensure that the copy will be saved
     }
     await this.updateCurrentCopy(true);
+  }
+
+  /**
+   * Validate with no grade typed: nothing a human confirmed, so the copy is
+   * not validated. It is saved as it is (the pdf, with what was written on
+   * it in the app) and the server queues that copy for the grade reader,
+   * which suggests a grade when it can read one. Then the next copy.
+   */
+  async sendCurrentCopyToReading() {
+    if (!this.currentExam()) {
+      return;
+    }
+    this.readOnSave = true;
+    this.notificationService.showInfo(
+      'Aucune note saisie : la copie n\'est pas validée, la note écrite dessus sera lue automatiquement.',
+      'Lecture de la note');
+    await this.updateCurrentCopy(false);
   }
 
   async skipCurrentCopy(tag) {
@@ -905,11 +984,18 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async saveCurrentCopy() {
     const currentExam = this.currentExam();
     if (currentExam) {
+      // what is written on it now, for its tile (grey while nothing is)
+      try {
+        currentExam.annotated = await this.pdfViewer.hasAnnotations();
+      } catch {
+        // the tile keeps what the server said
+      }
       // get the file only if it has been modified
       const filename = currentExam["filename"] + ".pdf";
       let file;
       try {
-        file = await this.pdfViewer.getRenderedPdfFile(filename, !(this.currentGradeModified || this.currentTagModified));
+        // the reader is queued by a save that carries the pdf and no grade
+        file = await this.pdfViewer.getRenderedPdfFile(filename, !(this.currentGradeModified || this.currentTagModified || this.readOnSave));
         this.isRestoreHiglighted = 0;
       } catch(err) {
         console.error(err);
@@ -925,6 +1011,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           copy.file64 = await PDFSource.readBlobSync(file);
           copy.status = this.currentStatus;
           if (this.currentTagModified) copy.tag = this.currentTag;
+          if (this.readOnSave) copy.submitted = true;
           copy.updated = false;
           if (this.currentGradeModified) {
             copy.grade = this.currentGrade;
@@ -937,10 +1024,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
             this.currentGradeModified ? this.currentGrade : undefined,
             this.currentStatus,
             this.currentQuestionIndex.slice(1),
-            this.currentTagModified ? this.currentTag : undefined);
+            this.currentTagModified ? this.currentTag : undefined,
+            this.readOnSave);
           if (result) {
             this.currentPdfSrc.lastVersion++;
             this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
+            if (this.readOnSave) {
+              currentExam.submitted = true;  // its tile turns at once
+            }
           }
           return result;
         }
@@ -949,7 +1040,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return true;  // nothing to do -> true
   }
 
-  async saveCopy(pdfSource, file, grade, status, questionIndex, tag = undefined): Promise<any> {
+  async saveCopy(pdfSource, file, grade, status, questionIndex, tag = undefined, submitted = false): Promise<any> {
     const jobId = this.tasksService.getvalidatingTaskId();
     pdfSource.save(jobId);
     const validationResponse = await this.validationService.validateDocument(
@@ -961,6 +1052,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.nMaxPointsPerQuestion,
         status,
         tag,
+        submitted,
     );
     if (validationResponse === 'OK') {
       pdfSource.clear(jobId);
@@ -1168,7 +1260,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           cFile,
           copy.grade,
           copy.status,
-          copy.questionIndex);
+          copy.questionIndex,
+          undefined,
+          copy.submitted);
         if (!result) {
           this.notificationService.showError(
             `La copie ${this.formattedIndexes[copy.pdfSrc.index]} n'a pu être sauvegardée.`, 'Error');

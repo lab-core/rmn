@@ -234,7 +234,8 @@ describe('TaskVerificationComponent', () => {
     // the open copy shows the suggestion at once, framed in its colour
     expect(component.currentGrade).toBe(6);
     expect(component.currentGradeIsAuto).toBeTrue();
-    expect(component.scoreBorderColour()).toBe('rgb(75, 62, 235)');
+    // 95 % is far from certain: mostly the "à valider" red
+    expect(component.scoreBorderColour()).toBe('rgb(214, 14, 53)');
   });
 
   it('a live reading never replaces a grade being typed, nor touches a validated copy', async () => {
@@ -321,10 +322,10 @@ describe('TaskVerificationComponent', () => {
 
   it('a refused grade leaves the copy to validate, not VALIDATED without a grade', async () => {
     await create();
-    component.currentGrade = null;
+    component.currentGrade = -1;
     await component.validateCurrentCopy();
     await settle();
-    expect(notification.showWarning).toHaveBeenCalledWith('Veuillez saisir une note.', 'Note invalide');
+    expect(notification.showWarning).toHaveBeenCalledWith('Veuillez saisir une note valide.', 'Note invalide');
     // the status was set to VALIDATED before the grade check and stayed so:
     // clicking another copy then saved VALIDATED with grade undefined
     expect(component.currentStatus).toBe('TO VALIDATE');
@@ -585,10 +586,122 @@ describe('TaskVerificationComponent', () => {
 
     expect(viewer().getRenderedPdfFile).toHaveBeenCalledWith('a_Q1.pdf', false);
     expect(validation.validateDocument).toHaveBeenCalledWith(
-      'job', 10, file, '1', 8, component.nMaxPointsPerQuestion, 'VALIDATED', undefined);
+      'job', 10, file, '1', 8, component.nMaxPointsPerQuestion, 'VALIDATED', undefined, false);
     expect(left.lastVersion).toBe(1);
     expect(left.version).toBe(1);
     expect(component.currentCopy).toBe(1);
+  });
+
+  it('validated with no grade, the copy is saved as it is, not validated, for the reader', async () => {
+    await create();
+    const file = new File(['%PDF-1.4'], 'a_Q1.pdf', { type: 'application/pdf' });
+    viewer().getRenderedPdfFile.and.resolveTo(file);
+    viewer().hasAnnotations.and.resolveTo(true);  // the teacher wrote the grade on it
+    component.currentGrade = null;
+
+    await component.validateCurrentCopy();
+
+    // the pdf goes even if the viewer saw no change: a save with a pdf and no
+    // grade is what queues the copy for the reader on the server
+    expect(viewer().getRenderedPdfFile).toHaveBeenCalledWith('a_Q1.pdf', false);
+    expect(validation.validateDocument).toHaveBeenCalledWith(
+      'job', 10, file, '1', undefined, component.nMaxPointsPerQuestion, 'TO VALIDATE', undefined, true);
+    expect(component.examsList[0].status).toBe('TO VALIDATE');
+    expect(component.examsList[0].grade).toBeNull();
+    expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('sera lue automatiquement'), 'Lecture de la note');
+    expect(notification.showWarning).not.toHaveBeenCalledWith('Veuillez saisir une note.', 'Note invalide');
+    expect(component.currentCopy).toBe(1);
+    expect(component.readOnSave).toBeFalse();  // the next copy is saved as usual
+    // corrected: not grey like the copies nobody has looked at
+    const left = component.examsList[0];
+    expect(left.submitted).toBeTrue();
+    expect(left.annotated).toBeTrue();
+    expect(component.getExamClass(left)).not.toContain('uncorrected-copy');
+    expect(component.tileTitle(left)).toBe('Corrigée, note à confirmer');
+  });
+
+  it('validated with no grade and nothing written, the copy stays grey', async () => {
+    await create();
+    viewer().getRenderedPdfFile.and.resolveTo(new File(['%PDF-1.4'], 'a_Q1.pdf'));
+    viewer().hasAnnotations.and.resolveTo(false);
+    component.currentGrade = null;
+
+    await component.validateCurrentCopy();
+
+    const left = component.examsList[0];
+    expect(left.annotated).toBeFalse();
+    expect(component.getExamClass(left)).toContain('uncorrected-copy');
+    expect(component.tileTitle(left)).toBe('Non corrigée');
+  });
+
+  it('a copy nobody has corrected is grey, whatever the reader thought of it', async () => {
+    await create();
+    const base = { ...component.examsList[0], grade: null, status: 'TO VALIDATE', tag: undefined,
+                   auto_grade: null, auto_grade_confidence: null, submitted: false };
+    const untouched = { ...base, annotated: false };
+    expect(component.getExamClass(untouched)).toContain('uncorrected-copy');
+    expect(component.tileColour(untouched)).toBeNull();
+    expect(component.tileTitle(untouched)).toBe('Non corrigée');
+    // something written on it: red to blue as before, by the reading's confidence
+    const written = { ...base, annotated: true, status: 'HIGH ACCURACY', auto_grade: 4, auto_grade_confidence: 1 };
+    expect(component.getExamClass(written)).not.toContain('uncorrected-copy');
+    expect(component.tileColour(written)).toBe('rgb(65, 65, 247)');
+    // a grade typed is enough; validating with nothing written on it is not
+    expect(component.getExamClass({ ...untouched, grade: 3 })).not.toContain('uncorrected-copy');
+    expect(component.getExamClass({ ...untouched, submitted: true })).toContain('uncorrected-copy');
+    expect(component.tileTitle({ ...untouched, submitted: true })).toBe('Non corrigée');
+    // validated is green; a copy the server said nothing about is not greyed
+    expect(component.getExamClass({ ...untouched, status: 'VALIDATED', grade: 4 })).toContain('validated-copy');
+    expect(component.getExamClass({ ...base, annotated: undefined })).not.toContain('uncorrected-copy');
+  });
+
+  it('a copy waiting for the reader is red until it is read, then shaded by its confidence', async () => {
+    await create();
+    const queued = { ...component.examsList[0], grade: null, status: 'HIGH ACCURACY', tag: undefined, annotated: true,
+                     auto_grade: 4, auto_grade_confidence: 1, auto_grade_status: 'PENDING', submitted: false };
+    // an earlier reading does not show while the new one is on its way
+    expect(component.getExamClass(queued)).toContain('to-validate-copy');
+    expect(component.tileColour(queued)).toBeNull();
+    expect(component.tileTitle(queued)).toBe('Lecture de la note en cours');
+    expect(component.getExamClass({ ...queued, auto_grade_status: 'RUNNING' })).toContain('to-validate-copy');
+    // read: back to its confidence
+    const read = { ...queued, auto_grade_status: 'DONE' };
+    expect(component.getExamClass(read)).toContain('high-precision-copy');
+    expect(component.tileColour(read)).toBe('rgb(65, 65, 247)');
+    // nothing written on it stays grey, a grade from the csv stays green
+    expect(component.getExamClass({ ...queued, annotated: false })).toContain('uncorrected-copy');
+    expect(component.getExamClass({ ...queued, status: 'VALIDATED', grade: 4 })).toContain('validated-copy');
+  });
+
+  it('the score box offers no earlier reading while the copy waits for the reader', async () => {
+    await create();
+    const exam = component.currentExam();
+    Object.assign(exam, { grade: null, auto_grade: 4, auto_grade_confidence: 1, auto_grade_status: 'PENDING' });
+    component.loadScore();
+    expect(component.currentGradeIsAuto).toBeFalse();
+    expect(component.currentGrade).toBeNull();
+    exam.auto_grade_status = 'DONE';
+    component.loadScore();
+    expect(component.currentGrade).toBe(4);
+  });
+
+  it('an unsure re-reading takes back the blue of an earlier one', async () => {
+    await create();
+    const exam = component.examsList[1];
+    Object.assign(exam, { status: 'HIGH ACCURACY', grade: null });
+    expect(component.applyReading({ document_index: exam.document_index, question_index: exam.question_index,
+                                    auto_grade: 7, auto_grade_confidence: 0.5 })).toBeTrue();
+    expect(exam.status).toBe('TO VALIDATE');
+  });
+
+  it('a copy left in this session takes what is written on it from the viewer', async () => {
+    await create();
+    const left = component.currentExam();
+    left.annotated = false;
+    viewer().hasAnnotations.and.resolveTo(true);
+    component.currentGrade = 8;
+    await component.validateCurrentCopy();
+    expect(left.annotated).toBeTrue();
   });
 
   it('stays on a copy the server did not accept', async () => {

@@ -17,9 +17,11 @@ export class ValidationService {
 
   /** Saves a copy: its status, grade and tag, and the pdf as the viewer
    *  rendered it, its annotations written in it (the server keeps that pdf
-   *  as the copy's new version). */
+   *  as the copy's new version). `submitted`: validated with no grade, the
+   *  copy is corrected and its grade is left to the reader. */
   async validateDocument(jobId: string, validatingCopy: number, file: File,
-                         questionIndex, grade, nMaxPointsPerQuestion, status, tag) {
+                         questionIndex, grade, nMaxPointsPerQuestion, status, tag,
+                         submitted: boolean = false) {
     const formData: FormData = new FormData();
     this.userService.addTokens(formData);
     formData.append('job_id', jobId);
@@ -34,6 +36,9 @@ export class ValidationService {
     formData.append('status', status);
     if (tag != undefined) {
       formData.append('tag', tag);
+    }
+    if (submitted) {
+      formData.append('submitted', 'true');
     }
 
     let response;

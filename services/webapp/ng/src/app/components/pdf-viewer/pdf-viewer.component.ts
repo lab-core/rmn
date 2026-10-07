@@ -26,9 +26,18 @@ interface PdfJsPointers {
 
 const POINTER_TYPES = ['mouse', 'pen', 'touch'];
 
+/** pdf.js annotation types a grader writes with: text note, free text,
+ *  lines and shapes, text markup, stamp, caret, ink (not links, popups,
+ *  attachments or form fields). */
+const WRITTEN_ANNOTATION_TYPES = new Set([1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+
 /** The pdf.js viewer application, as far as the viewer reaches into it. */
 interface PdfJsApplication {
-  pdfDocument?: { annotationStorage: Iterable<[string, PdfJsStored]> };
+  pdfDocument?: {
+    annotationStorage: Iterable<[string, PdfJsStored]>;
+    numPages: number;
+    getPage(pageNumber: number): Promise<{ getAnnotations(): Promise<{ id: string, annotationType: number }[]> }>;
+  };
   pdfViewer?: {
     annotationEditorMode: number;
     _pages?: { annotationEditorLayer?: { annotationEditorLayer?: { commitOrRemove(): boolean } | null } | null }[];
@@ -232,6 +241,31 @@ export class PDFViewerComponent implements OnChanges, OnDestroy {
       setTimeout(() => { this.initializePdfViewer() }, this.timeout);
       setTimeout(() => { this.loadAnnotations() }, this.timeout);
     }
+  }
+
+  /**
+   * Whether something is written on the copy shown: the annotations of the
+   * file the user has not erased, and those drawn in the app. The grading
+   * screen tells a copy nobody has corrected from the others with it.
+   */
+  async hasAnnotations(): Promise<boolean> {
+    const pdf = this.pdfApp?.pdfDocument;
+    if (!pdf) {
+      return false;
+    }
+    const editors = Array.from(pdf.annotationStorage, ([, editor]) => editor);
+    if (editors.some(editor => typeof editor?.serialize === 'function' && !editor.annotationElementId
+                               && !editor.deleted && editor.serialize(true, null))) {
+      return true;  // drawn in the app
+    }
+    const erased = new Set(editors.filter(editor => editor?.deleted).map(editor => editor.annotationElementId));
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const annotations = await (await pdf.getPage(pageNumber)).getAnnotations();
+      if (annotations.some(a => WRITTEN_ANNOTATION_TYPES.has(a.annotationType) && !erased.has(a.id))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Changed since it was opened: other annotations to save, or a local draft

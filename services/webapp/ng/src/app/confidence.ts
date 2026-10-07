@@ -10,6 +10,12 @@ const HIGH_ACCURACY_RGB: [number, number, number] = [65, 65, 247];
 // keeps getting wrong...) must never look confident, whatever the number.
 const TO_VALIDATE_MAX_SHADE = 0.6;
 
+// How fast the colour leaves the blue as the confidence leaves 100 %: the
+// share of blue is confidence^SHARPNESS. A straight line made 95 % look
+// almost as sure as 100 %; this way the readings that are not certain stand
+// out: 0.99 -> 74 % blue, 0.97 -> 40 %, 0.95 -> 21 %, 0.90 -> 4 %.
+const SHARPNESS = 30;
+
 /**
  * The colour of a machine reading of confidence `confidence` (0 to 1) on a
  * copy of status `status`, or null when the usual colour of the status
@@ -23,7 +29,7 @@ export function confidenceColour(confidence: number | null | undefined, status: 
   if (status !== DocumentStatus.TO_VALIDATE && status !== DocumentStatus.HIGH_ACCURACY) {
     return null;
   }
-  let shade = Math.min(1, Math.max(0, confidence));
+  let shade = Math.min(1, Math.max(0, confidence)) ** SHARPNESS;
   if (status === DocumentStatus.TO_VALIDATE) {
     shade = Math.min(shade, TO_VALIDATE_MAX_SHADE);
   }
@@ -31,10 +37,11 @@ export function confidenceColour(confidence: number | null | undefined, status: 
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-/** "confiance 73 %", or '' when there is no confidence to show. */
+/** "confiance 73 %", or '' when there is no confidence to show. Rounded
+ *  down: a reading short of certain never shows as "100 %". */
 export function confidenceLabel(confidence: number | null | undefined): string {
   if (confidence === null || confidence === undefined || Number.isNaN(confidence)) {
     return '';
   }
-  return `confiance ${Math.round(confidence * 100)} %`;
+  return `confiance ${Math.floor(Math.min(1, Math.max(0, confidence)) * 100 + 1e-9)} %`;
 }

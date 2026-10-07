@@ -339,11 +339,14 @@ def test_read_grades_reads_the_question_and_reports_each_copy(
     assert progress[-1]["job_infos"] == "Lecture des notes de Q3 : 1/1 (100 %)"
     assert all(e["status"] == "VALIDATION" for e in progress)
     ready = [e for name, e in events if name == "document_ready"]
+    # the first event opens the pass: the screen refetches and shows the
+    # copies waiting for it in red
+    assert ready[0] == {"job_id": "job", "user_id": "teacher", "questions": True}
     assert (
-        ready[0]["document_index"] == 5
-        and ready[0]["auto_grade"] == fixture["expected"]
+        ready[1]["document_index"] == 5
+        and ready[1]["auto_grade"] == fixture["expected"]
     )
-    assert ready[0]["question_index"] == 3
+    assert ready[1]["question_index"] == 3
     # the last event closes the pass: no document_index, the screen refetches
     assert ready[-1] == {"job_id": "job", "user_id": "teacher", "questions": True}
     assert (

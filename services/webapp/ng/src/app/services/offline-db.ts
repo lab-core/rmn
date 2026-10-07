@@ -17,6 +17,7 @@ export interface OfflineCopy {
   tag?: string;
   file64?: any;
   updated?: boolean;
+  submitted?: boolean;  // validated with no grade: corrected, left to the reader
   questionIndex: string;
   jobId?: string;
   index?: number;  // the document index, unique with jobId

@@ -942,7 +942,8 @@ def _bounded(readings, max_points):
     return None
 
 
-def pick(candidates, modal_centre, max_points, classifier, bonus=False):
+def pick(candidates, modal_centre, max_points, classifier, bonus=False,
+         lone_mark_trusted=False):
     """Choose between the marks of one page and read the grade off it.
 
     The signals are combined rather than used as filters, because a grader who
@@ -956,6 +957,12 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
         max_points: The question's maximum, or ``None``.
         classifier: The digit classifier, unused for typed annotations.
         bonus: True for a bonus question, which is always sent to review.
+        lone_mark_trusted: The teacher asked for this page to be read (it was
+            validated in the app with no grade typed), so a mark standing
+            alone in the top band is the grade they wrote. The ceiling for a
+            reading without a learned position does not apply to it then:
+            that ceiling stops a correction mark from being taken for the
+            grade, and a lone mark leaves nothing to confuse it with.
 
     Returns:
         A ``Reading``. ``grade is None`` means nothing was written here -- it
@@ -971,6 +978,7 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
     candidates = [c for c in candidates if c.centre[1] <= TOP_BAND]
     if not candidates:
         return Reading(reason="not_found", n_candidates=0)
+    unplaced = modal_centre is None and not (lone_mark_trusted and len(candidates) == 1)
 
     def distance(candidate):
         if modal_centre is None:
@@ -1005,7 +1013,7 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
             if ambiguous or bonus:
                 confidence = min(confidence, UNMEASURED_CEILING)
                 reason = "ambiguous" if ambiguous else "ok"
-            if modal_centre is None:
+            if unplaced:
                 confidence = min(confidence, NO_PRIOR_CEILING)
             return Reading(
                 grade=value,
@@ -1053,7 +1061,7 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False):
             probability = min(probability, RASTER_CEILING)
         if ambiguous:
             probability *= 0.5
-        if modal_centre is None:
+        if unplaced:
             probability = min(probability, NO_PRIOR_CEILING)
         if bonus or (max_points is not None and max_points < LOW_MAX_POINTS):
             probability = min(probability, UNMEASURED_CEILING)
