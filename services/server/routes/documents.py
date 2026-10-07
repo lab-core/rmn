@@ -59,6 +59,9 @@ def get_documents(validity):
                 "basename": doc["basename"],
                 "grade": doc["grade"],
                 "tag": doc.get("tag"),
+                # validated in the app with no grade: corrected, its grade
+                # left to the reader and to a human to confirm
+                "submitted": doc.get("submitted", False),
                 "n_total_doc": count,
                 # what the reader made of the page, for the correction screen
                 # to offer; absent on documents older than the feature
@@ -396,6 +399,15 @@ def update_document(validity):
         print(f"Saved new version ({last_version + 1}) for",
               {"job_id": job_id, "rel_filepath": rel_filepath,
                "version_filepath": version_filepath})
+
+    # Validated in the app with no grade typed: the copy is corrected, the
+    # grade written on it. Kept so the screen can tell it from a copy nobody
+    # has looked at, and so the reader trusts a mark standing alone on it.
+    if request_form.get("submitted", "").lower() == "true" and "question_index" in request_form:
+        db["job_questions"].update_one(
+            {"job_id": job_id, "document_index": document_index},
+            {"$set": {"submitted": True}},
+        )
 
     # The teacher annotated the copy in the app and saved it without typing a
     # grade: the mark they drew is on the page now, so read it. Only this copy

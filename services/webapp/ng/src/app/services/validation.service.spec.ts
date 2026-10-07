@@ -67,9 +67,21 @@ describe('ValidationService', () => {
     expect(form.get('grades')).toBe('0');
     expect(form.has('question_index')).toBeFalse();
     expect(form.has('tag')).toBeFalse();
+    expect(form.has('submitted')).toBeFalse();
 
     req.flush({ response: 'ok' });
     expect(await pending).toBe('ok');
+  });
+
+  it('says when a copy was validated with no grade, for the reader', async () => {
+    const pending = service.validateDocument(
+      'job', 2, new File(['%PDF'], 'c.pdf'), '3', undefined, 10, 'TO VALIDATE', undefined, true);
+    const req = http.expectOne('/api/documents/update');
+    const form = req.request.body as FormData;
+    expect(form.get('submitted')).toBe('true');
+    expect(form.has('grades')).toBeFalse();
+    req.flush({ response: 'OK' });
+    expect(await pending).toBe('OK');
   });
 
   it('resolves undefined instead of throwing when the server fails', async () => {

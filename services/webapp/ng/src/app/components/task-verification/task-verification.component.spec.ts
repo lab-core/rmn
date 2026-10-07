@@ -586,7 +586,7 @@ describe('TaskVerificationComponent', () => {
 
     expect(viewer().getRenderedPdfFile).toHaveBeenCalledWith('a_Q1.pdf', false);
     expect(validation.validateDocument).toHaveBeenCalledWith(
-      'job', 10, file, '1', 8, component.nMaxPointsPerQuestion, 'VALIDATED', undefined);
+      'job', 10, file, '1', 8, component.nMaxPointsPerQuestion, 'VALIDATED', undefined, false);
     expect(left.lastVersion).toBe(1);
     expect(left.version).toBe(1);
     expect(component.currentCopy).toBe(1);
@@ -604,13 +604,36 @@ describe('TaskVerificationComponent', () => {
     // grade is what queues the copy for the reader on the server
     expect(viewer().getRenderedPdfFile).toHaveBeenCalledWith('a_Q1.pdf', false);
     expect(validation.validateDocument).toHaveBeenCalledWith(
-      'job', 10, file, '1', undefined, component.nMaxPointsPerQuestion, 'TO VALIDATE', undefined);
+      'job', 10, file, '1', undefined, component.nMaxPointsPerQuestion, 'TO VALIDATE', undefined, true);
     expect(component.examsList[0].status).toBe('TO VALIDATE');
     expect(component.examsList[0].grade).toBeNull();
     expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('sera lue automatiquement'), 'Lecture de la note');
     expect(notification.showWarning).not.toHaveBeenCalledWith('Veuillez saisir une note.', 'Note invalide');
     expect(component.currentCopy).toBe(1);
     expect(component.readOnSave).toBeFalse();  // the next copy is saved as usual
+    // corrected: its tile is told apart from the copies nobody has looked at
+    const left = component.examsList[0];
+    expect(left.submitted).toBeTrue();
+    expect(component.getExamClass(left)).toContain('submitted-copy');
+    expect(component.getExamClass(left)).not.toContain('to-validate-copy');
+    expect(component.tileTitle(left)).toBe('Corrigée, note à confirmer');
+  });
+
+  it('a corrected copy keeps its own background, the reading goes to its border', async () => {
+    await create();
+    const corrected = { ...component.examsList[0], submitted: true, grade: null,
+                        status: 'HIGH ACCURACY', auto_grade: 4, auto_grade_confidence: 1 };
+    expect(component.tileColour(corrected)).toBeNull();
+    expect(component.tileBorder(corrected)).toBe('rgb(65, 65, 247)');
+    expect(component.tileTitle(corrected)).toBe('Corrigée, note à confirmer (confiance 100 %)');
+    // once validated it is green like any other
+    const validated = { ...corrected, status: 'VALIDATED', grade: 4 };
+    expect(component.getExamClass(validated)).toContain('validated-copy');
+    expect(component.tileBorder(validated)).toBeNull();
+    // a copy nobody has looked at stays as it was
+    const untouched = { ...corrected, submitted: false };
+    expect(component.getExamClass(untouched)).not.toContain('submitted-copy');
+    expect(component.tileBorder(untouched)).toBeNull();
   });
 
   it('stays on a copy the server did not accept', async () => {

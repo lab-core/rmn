@@ -288,6 +288,53 @@ def test_grading_a_copy_in_the_app_asks_for_its_mark_to_be_read(
     assert [d["document_index"] for d in pending] == [1], "only the saved copy"
 
 
+def test_a_copy_validated_with_no_grade_is_marked_corrected(
+    client, app_module_fixture, login, user_factory
+):
+    """Validated in the app with an empty score box: corrected, not validated.
+
+    The flag tells the correction screen it from a copy nobody has looked at,
+    and the reader trusts a mark standing alone on it. A plain save (moving
+    on after drawing) does not set it.
+    """
+    mongo = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    token = login("alice")
+    make_job(mongo)
+
+    def save(document_index, **extra):
+        return client.post(
+            "/documents/update",
+            data={
+                "job_id": JOB,
+                "document_index": document_index,
+                "question_index": 3,
+                "status": Document_Status.TO_VALIDATE.value,
+                "token": token,
+                "file": (io.BytesIO(PDF_BYTES), "Bob_7654321_Q3.pdf"),
+                **extra,
+            },
+            content_type="multipart/form-data",
+        )
+
+    assert save(1, submitted="true").status_code == 200
+    assert save(0).status_code == 200
+
+    def question(index):
+        return mongo["job_questions"].find_one({"job_id": JOB, "document_index": index})
+
+    assert question(1)["submitted"] is True
+    assert question(1)["status"] == Document_Status.TO_VALIDATE.value
+    assert question(1)["grade"] is None
+    assert not question(0).get("submitted")
+    listed = client.post(
+        "/documents", data={"job_id": JOB, "questions": "true", "token": token}
+    ).get_json(force=True)["response"]
+    flags = {d["document_index"]: d["submitted"] for d in listed}
+    assert flags[1] is True
+    assert flags[0] is False and flags[2] is False
+
+
 def test_typing_a_grade_in_the_app_asks_for_nothing(
     client, app_module_fixture, login, user_factory
 ):

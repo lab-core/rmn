@@ -365,6 +365,11 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     } else if (exam.status === DocumentStatus.DELETED) {
       examClass = 'deleted-copy';
     }
+    if (this.isCorrected(exam) && !(exam.status === DocumentStatus.TO_VALIDATE && this.availableTags.includes(exam.tag))) {
+      // corrected (validated with no grade) but not validated: neither red like
+      // a copy nobody has looked at nor green like a confirmed one
+      examClass = 'submitted-copy';
+    }
 
     if (exam.document_index === this.currentDocumentIndex) {
         examClass += ' chosen-copy';
@@ -406,10 +411,18 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  /** Validated with no grade typed and not confirmed since. */
+  isCorrected(exam: any): boolean {
+    return !!exam.submitted && exam.status !== DocumentStatus.VALIDATED && exam.status !== DocumentStatus.DELETED;
+  }
+
   /** The tile colour of a copy the reader read and nobody has graded yet. */
   tileColour(exam: any): string | null {
     if (exam.grade !== null && exam.grade !== undefined) {
       return null;
+    }
+    if (this.isCorrected(exam)) {
+      return null;  // its own background; the confidence goes to the border
     }
     if (exam.status === DocumentStatus.TO_VALIDATE && this.availableTags.includes(exam.tag)) {
       return null;  // the teacher's own tag colour wins
@@ -417,8 +430,17 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return confidenceColour(exam.auto_grade_confidence, exam.status);
   }
 
+  /** The border of a corrected copy carries the confidence of its reading. */
+  tileBorder(exam: any): string | null {
+    return this.isCorrected(exam) ? confidenceColour(exam.auto_grade_confidence, exam.status) : null;
+  }
+
   tileTitle(exam: any): string {
-    return exam.grade === null || exam.grade === undefined ? confidenceLabel(exam.auto_grade_confidence) : '';
+    const confidence = exam.grade === null || exam.grade === undefined ? confidenceLabel(exam.auto_grade_confidence) : '';
+    if (this.isCorrected(exam)) {
+      return 'Corrigée, note à confirmer' + (confidence ? ` (${confidence})` : '');
+    }
+    return confidence;
   }
 
   /** The score box border follows the tile while the value is a suggestion. */
@@ -951,6 +973,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           copy.file64 = await PDFSource.readBlobSync(file);
           copy.status = this.currentStatus;
           if (this.currentTagModified) copy.tag = this.currentTag;
+          if (this.readOnSave) copy.submitted = true;
           copy.updated = false;
           if (this.currentGradeModified) {
             copy.grade = this.currentGrade;
@@ -963,10 +986,14 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
             this.currentGradeModified ? this.currentGrade : undefined,
             this.currentStatus,
             this.currentQuestionIndex.slice(1),
-            this.currentTagModified ? this.currentTag : undefined);
+            this.currentTagModified ? this.currentTag : undefined,
+            this.readOnSave);
           if (result) {
             this.currentPdfSrc.lastVersion++;
             this.currentPdfSrc.version = this.currentPdfSrc.lastVersion;
+            if (this.readOnSave) {
+              currentExam.submitted = true;  // its tile turns at once
+            }
           }
           return result;
         }
@@ -975,7 +1002,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return true;  // nothing to do -> true
   }
 
-  async saveCopy(pdfSource, file, grade, status, questionIndex, tag = undefined): Promise<any> {
+  async saveCopy(pdfSource, file, grade, status, questionIndex, tag = undefined, submitted = false): Promise<any> {
     const jobId = this.tasksService.getvalidatingTaskId();
     pdfSource.save(jobId);
     const validationResponse = await this.validationService.validateDocument(
@@ -987,6 +1014,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         this.nMaxPointsPerQuestion,
         status,
         tag,
+        submitted,
     );
     if (validationResponse === 'OK') {
       pdfSource.clear(jobId);
@@ -1194,7 +1222,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
           cFile,
           copy.grade,
           copy.status,
-          copy.questionIndex);
+          copy.questionIndex,
+          undefined,
+          copy.submitted);
         if (!result) {
           this.notificationService.showError(
             `La copie ${this.formattedIndexes[copy.pdfSrc.index]} n'a pu être sauvegardée.`, 'Error');
