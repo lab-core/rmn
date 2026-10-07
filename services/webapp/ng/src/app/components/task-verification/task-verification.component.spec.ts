@@ -234,7 +234,8 @@ describe('TaskVerificationComponent', () => {
     // the open copy shows the suggestion at once, framed in its colour
     expect(component.currentGrade).toBe(6);
     expect(component.currentGradeIsAuto).toBeTrue();
-    expect(component.scoreBorderColour()).toBe('rgb(75, 62, 235)');
+    // 95 % is far from certain: mostly the "à valider" red
+    expect(component.scoreBorderColour()).toBe('rgb(214, 14, 53)');
   });
 
   it('a live reading never replaces a grade being typed, nor touches a validated copy', async () => {
@@ -321,10 +322,10 @@ describe('TaskVerificationComponent', () => {
 
   it('a refused grade leaves the copy to validate, not VALIDATED without a grade', async () => {
     await create();
-    component.currentGrade = null;
+    component.currentGrade = -1;
     await component.validateCurrentCopy();
     await settle();
-    expect(notification.showWarning).toHaveBeenCalledWith('Veuillez saisir une note.', 'Note invalide');
+    expect(notification.showWarning).toHaveBeenCalledWith('Veuillez saisir une note valide.', 'Note invalide');
     // the status was set to VALIDATED before the grade check and stayed so:
     // clicking another copy then saved VALIDATED with grade undefined
     expect(component.currentStatus).toBe('TO VALIDATE');
@@ -589,6 +590,27 @@ describe('TaskVerificationComponent', () => {
     expect(left.lastVersion).toBe(1);
     expect(left.version).toBe(1);
     expect(component.currentCopy).toBe(1);
+  });
+
+  it('validated with no grade, the copy is saved as it is, not validated, for the reader', async () => {
+    await create();
+    const file = new File(['%PDF-1.4'], 'a_Q1.pdf', { type: 'application/pdf' });
+    viewer().getRenderedPdfFile.and.resolveTo(file);
+    component.currentGrade = null;
+
+    await component.validateCurrentCopy();
+
+    // the pdf goes even if the viewer saw no change: a save with a pdf and no
+    // grade is what queues the copy for the reader on the server
+    expect(viewer().getRenderedPdfFile).toHaveBeenCalledWith('a_Q1.pdf', false);
+    expect(validation.validateDocument).toHaveBeenCalledWith(
+      'job', 10, file, '1', undefined, component.nMaxPointsPerQuestion, 'TO VALIDATE', undefined);
+    expect(component.examsList[0].status).toBe('TO VALIDATE');
+    expect(component.examsList[0].grade).toBeNull();
+    expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('sera lue automatiquement'), 'Lecture de la note');
+    expect(notification.showWarning).not.toHaveBeenCalledWith('Veuillez saisir une note.', 'Note invalide');
+    expect(component.currentCopy).toBe(1);
+    expect(component.readOnSave).toBeFalse();  // the next copy is saved as usual
   });
 
   it('stays on a copy the server did not accept', async () => {

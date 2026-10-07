@@ -81,6 +81,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   currentPdfSrc: PDFSource;
   currentGradeModified: boolean = false;
   currentTagModified: boolean = false;
+  // validated with an empty score box: the copy is saved as it is, not
+  // validated, and the grade written on it is read by the grade reader
+  readOnSave = false;
   currentVersion: number = 0;
   currentGrade: number | null;
   // the grade shown came from the reader, not from a human, and has not been
@@ -443,7 +446,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     const confidence = this.currentGradeConfidence;
     return confidence === null
       ? 'Note lue automatiquement, à confirmer.'
-      : `Note lue automatiquement (confiance ${Math.round(confidence * 100)} %), à confirmer.`;
+      : `Note lue automatiquement (${confidenceLabel(confidence)}), à confirmer.`;
   }
 
   gradeColor(): string {
@@ -769,6 +772,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     const pdfLoaded = await this.loadPdf();
     this.currentGradeModified = false;
     this.currentTagModified = false;
+    this.readOnSave = false;
     this.getCurrentStatus();
     // try to load the following copy
     if (!this.offline) {
@@ -826,11 +830,32 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   async validateCurrentCopy() {
+    if (this.currentGrade === null || this.currentGrade === undefined) {
+      await this.sendCurrentCopyToReading();
+      return;
+    }
     const statusChanged = this.setValidatedStatus();
     if (statusChanged) {
       this.currentGradeModified = true;  // ensure that the copy will be saved
     }
     await this.updateCurrentCopy(true);
+  }
+
+  /**
+   * Validate with no grade typed: nothing a human confirmed, so the copy is
+   * not validated. It is saved as it is (the pdf, with what was written on
+   * it in the app) and the server queues that copy for the grade reader,
+   * which suggests a grade when it can read one. Then the next copy.
+   */
+  async sendCurrentCopyToReading() {
+    if (!this.currentExam()) {
+      return;
+    }
+    this.readOnSave = true;
+    this.notificationService.showInfo(
+      'Aucune note saisie : la copie n\'est pas validée, la note écrite dessus sera lue automatiquement.',
+      'Lecture de la note');
+    await this.updateCurrentCopy(false);
   }
 
   async skipCurrentCopy(tag) {
@@ -909,7 +934,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       const filename = currentExam["filename"] + ".pdf";
       let file;
       try {
-        file = await this.pdfViewer.getRenderedPdfFile(filename, !(this.currentGradeModified || this.currentTagModified));
+        // the reader is queued by a save that carries the pdf and no grade
+        file = await this.pdfViewer.getRenderedPdfFile(filename, !(this.currentGradeModified || this.currentTagModified || this.readOnSave));
         this.isRestoreHiglighted = 0;
       } catch(err) {
         console.error(err);
