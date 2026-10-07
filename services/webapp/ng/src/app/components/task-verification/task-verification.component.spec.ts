@@ -655,6 +655,24 @@ describe('TaskVerificationComponent', () => {
     expect(component.getExamClass({ ...base, annotated: undefined })).not.toContain('uncorrected-copy');
   });
 
+  it('a copy waiting for the reader is red until it is read, then shaded by its confidence', async () => {
+    await create();
+    const queued = { ...component.examsList[0], grade: null, status: 'HIGH ACCURACY', tag: undefined, annotated: true,
+                     auto_grade: 4, auto_grade_confidence: 1, auto_grade_status: 'PENDING', submitted: false };
+    // an earlier reading does not show while the new one is on its way
+    expect(component.getExamClass(queued)).toContain('to-validate-copy');
+    expect(component.tileColour(queued)).toBeNull();
+    expect(component.tileTitle(queued)).toBe('Lecture de la note en cours');
+    expect(component.getExamClass({ ...queued, auto_grade_status: 'RUNNING' })).toContain('to-validate-copy');
+    // read: back to its confidence
+    const read = { ...queued, auto_grade_status: 'DONE' };
+    expect(component.getExamClass(read)).toContain('high-precision-copy');
+    expect(component.tileColour(read)).toBe('rgb(65, 65, 247)');
+    // nothing written on it stays grey, a grade from the csv stays green
+    expect(component.getExamClass({ ...queued, annotated: false })).toContain('uncorrected-copy');
+    expect(component.getExamClass({ ...queued, status: 'VALIDATED', grade: 4 })).toContain('validated-copy');
+  });
+
   it('a copy left in this session takes what is written on it from the viewer', async () => {
     await create();
     const left = component.currentExam();

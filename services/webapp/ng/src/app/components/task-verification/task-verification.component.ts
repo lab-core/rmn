@@ -369,6 +369,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       // not validated, no grade and nothing written on it: nobody has
       // corrected it yet, so it is not red like a copy waiting to be confirmed
       examClass = 'uncorrected-copy';
+    } else if (this.isBeingRead(exam) && !this.availableTags.includes(exam.tag)) {
+      // red until the reader is done with it, whatever an earlier pass said
+      examClass = 'to-validate-copy';
     }
 
     if (exam.document_index === this.currentDocumentIndex) {
@@ -426,6 +429,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       && exam.annotated === false;
   }
 
+  /** Something is written on it, no grade, and the reader has not read it
+   *  yet: queued after an import or after being validated with no grade. */
+  isBeingRead(exam: any): boolean {
+    return (exam.auto_grade_status === 'PENDING' || exam.auto_grade_status === 'RUNNING')
+      && (exam.status === DocumentStatus.TO_VALIDATE || exam.status === DocumentStatus.HIGH_ACCURACY)
+      && (exam.grade === null || exam.grade === undefined)
+      && !this.isUncorrected(exam);
+  }
+
   /** The tile colour of a copy the reader read and nobody has graded yet. */
   tileColour(exam: any): string | null {
     if (exam.grade !== null && exam.grade !== undefined) {
@@ -433,6 +445,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     }
     if (this.isUncorrected(exam)) {
       return null;  // the grey of a copy nobody has corrected
+    }
+    if (this.isBeingRead(exam)) {
+      return null;  // the red of its class, until the reader is done
     }
     if (exam.status === DocumentStatus.TO_VALIDATE && this.availableTags.includes(exam.tag)) {
       return null;  // the teacher's own tag colour wins
@@ -444,6 +459,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     const confidence = exam.grade === null || exam.grade === undefined ? confidenceLabel(exam.auto_grade_confidence) : '';
     if (this.isUncorrected(exam)) {
       return 'Non corrigée';
+    }
+    if (this.isBeingRead(exam)) {
+      return 'Lecture de la note en cours';
     }
     if (this.isCorrected(exam)) {
       return 'Corrigée, note à confirmer' + (confidence ? ` (${confidence})` : '');
