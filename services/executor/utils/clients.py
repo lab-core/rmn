@@ -4,6 +4,7 @@ from copy import copy
 import redis
 import socketio
 from pymongo import MongoClient
+from rmn_common.relay import BestEffortRelay
 
 
 mongodb_host = "mongo" if os.getenv("ENVIRONMENT") == "production" else "localhost"
@@ -57,11 +58,23 @@ def socketio_service_token():
 
 
 def socketio_client():
-    sio = socketio.Client()
-    # authenticate as the trusted backend so the socket server relays our events
-    sio.connect(f"http://{socketio_host}:7000",
-                auth={"service_token": socketio_service_token()})
-    return sio
+    """The relay client a job emits its progress through.
+
+    The token is read here, not in the connect callback: a missing secret is a
+    misconfiguration and must still fail the pod at start-up, while a relay
+    that is merely down must not cost us the whole job.
+    """
+    token = socketio_service_token()
+
+    def connect():
+        sio = socketio.Client()
+        # authenticate as the trusted backend so the relay forwards our events
+        sio.connect(f"http://{socketio_host}:7000", auth={"service_token": token})
+        return sio
+
+    relay = BestEffortRelay(connect)
+    relay.connect()
+    return relay
 
 
 def emit_job(sio, user_id, job_id, status, infos=None, sio_infos=None):

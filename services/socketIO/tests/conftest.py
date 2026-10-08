@@ -2,9 +2,9 @@
 
 ``app.py`` reads its configuration and creates the Mongo client at import
 time, so the environment is set and ``pymongo.MongoClient`` is swapped for
-``mongomock`` BEFORE the app is imported. eventlet's monkey patching is
-disabled: the tests run under plain threads with Flask-SocketIO's test client,
-which drives the handlers directly and needs no server loop.
+``mongomock`` BEFORE the app is imported. The app serves in ``threading``
+async mode, so the tests run under plain threads with Flask-SocketIO's test
+client, which drives the handlers directly and needs no server loop.
 """
 
 import datetime as dt
@@ -23,10 +23,6 @@ os.environ["ENVIRONMENT"] = "test"
 os.environ["SOCKETIO_SERVICE_TOKEN"] = SERVICE_TOKEN
 os.environ["TOKEN_TTL_DAYS"] = "30"
 os.environ["SOCKETIO_CORS_ORIGINS"] = "*"
-
-import eventlet  # noqa: E402
-
-eventlet.monkey_patch = lambda **kwargs: None
 
 import mongomock  # noqa: E402
 import pymongo  # noqa: E402
