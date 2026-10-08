@@ -42,8 +42,8 @@ def _load_app(monkeypatch, **env):
     """Import app.py afresh, as a separate module, under ``env``.
 
     The configuration is read at import time; the module the other tests use
-    is left alone (conftest already swapped pymongo for mongomock and disabled
-    eventlet's monkey patching, so a second import is cheap and offline).
+    is left alone (conftest already swapped pymongo for mongomock, so a second
+    import is cheap and offline).
     """
     for name in ("ENVIRONMENT", "SOCKETIO_SERVICE_TOKEN", "MONGODB_USER", "MONGODB_PASSWORD",
                  "SOCKETIO_CORS_ORIGINS"):

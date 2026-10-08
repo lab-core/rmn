@@ -71,3 +71,47 @@ def test_requests_is_a_runtime_dependency():
     names = {line.split("==")[0].strip().lower() for line in requirements.read_text().splitlines()
              if line.strip() and not line.startswith("#")}
     assert "requests" in names
+
+
+def test_a_relay_that_is_down_does_not_fail_the_job(monkeypatch, capsys):
+    """A socketIO outage used to kill the pod before it took a job.
+
+    ``socketio_client()`` connected at import of the job and let the
+    ConnectionError escape, so every executor started while socketIO was
+    restarting died with "Connection refused" (October 2026).
+    """
+    import utils.clients as clients
+
+    monkeypatch.setenv("SOCKETIO_SERVICE_TOKEN", "svc")
+
+    class RefusingClient:
+        connected = False
+
+        def connect(self, url, auth):
+            raise ConnectionError("Connection refused")
+
+    monkeypatch.setattr(clients.socketio, "Client", RefusingClient)
+    relay = clients.socketio_client()  # must not raise
+    assert relay.connected is False
+    assert relay.emit("job_status", "{}") is False
+    assert "relay unreachable" in capsys.readouterr().out
+
+
+def test_the_status_reaches_mongo_even_when_the_relay_is_down(mongo_db, monkeypatch):
+    """Only the notification is lost; the webapp reads the state on refresh."""
+    import utils.clients as clients
+
+    monkeypatch.setenv("SOCKETIO_SERVICE_TOKEN", "svc")
+
+    class RefusingClient:
+        connected = False
+
+        def connect(self, url, auth):
+            raise ConnectionError("Connection refused")
+
+    monkeypatch.setattr(clients.socketio, "Client", RefusingClient)
+    mongo_db["eval_jobs"].insert_one({"job_id": "job", "user_id": "alice"})
+
+    update_status(Database(), clients.socketio_client(), "alice", "job", Job_Status.ERROR)
+
+    assert mongo_db["eval_jobs"].find_one({"job_id": "job"})["job_status"] == "ERROR"

@@ -1,15 +1,10 @@
 from flask import Flask, request
-from flask_socketio import SocketIO, send, emit, join_room, leave_room
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from pymongo import MongoClient
 import datetime
 import hmac
 import os
 import json
-import eventlet
-# Patch networking for eventlet, but leave select/thread alone so pymongo can
-# still use select.poll and its own monitor threads (monkey_patch() otherwise
-# removes select.poll and breaks the Mongo driver under eventlet).
-eventlet.monkey_patch(select=False, thread=False)
 
 # --- configuration -----------------------------------------------------------
 
@@ -79,8 +74,14 @@ def token_expired(record):
 app = Flask(__name__)
 # logger/engineio_logger off: they dump raw handshake packets, which would leak
 # the service token and user tokens sent in the auth payload.
+# async_mode="threading": each connection is served by a real thread, so a
+# Mongo lookup in a handler blocks only that thread. Under eventlet the
+# handlers ran as greenthreads on a single hub while pymongo waited on the
+# unpatched select/threading primitives, so the FIRST query from a handler
+# could park the hub and freeze the whole process -- probes included -- until
+# the liveness probe killed the pod (the October 2026 crash loop).
 socketio = SocketIO(app, logger=False, engineio_logger=False, policy_server=False,
-                    async_mode='eventlet', manage_session=False,
+                    async_mode='threading', manage_session=False,
                     cors_allowed_origins=cors_allowed_origins)
 
 # Per-connection identity, keyed by socket id.
@@ -251,5 +252,7 @@ def handle_doc_validated(data):
 
 
 if __name__ == "__main__":
-    import eventlet.wsgi
-    eventlet.wsgi.server(eventlet.listen(('', 7000)), app)
+    # Development entry point only. In the image gunicorn serves this module
+    # (see the Dockerfile): one worker, because the rooms live in this
+    # process's memory, and threads for concurrency.
+    socketio.run(app, host="0.0.0.0", port=7000, allow_unsafe_werkzeug=True)

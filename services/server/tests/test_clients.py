@@ -63,9 +63,58 @@ def test_socketio_client_authenticates_as_the_backend(fresh, monkeypatch):
     connected = []
 
     class FakeClient:
+        connected = True
+
         def connect(self, url, auth):
             connected.append((url, auth))
 
     monkeypatch.setattr(fresh.socketio, "Client", FakeClient)
-    assert isinstance(fresh.socketio_client(), FakeClient)
+    relay = fresh.socketio_client()
+    assert relay.connected
     assert connected == [("http://localhost:7000", {"service_token": "svc"})]
+
+
+def test_a_relay_that_is_down_does_not_reach_the_caller(fresh, monkeypatch, capsys):
+    """A socketIO outage must not 500 the route that emitted."""
+    monkeypatch.setenv("SOCKETIO_SERVICE_TOKEN", "svc")
+
+    class RefusingClient:
+        connected = False
+
+        def connect(self, url, auth):
+            raise ConnectionError("Connection refused")
+
+    monkeypatch.setattr(fresh.socketio, "Client", RefusingClient)
+    relay = fresh.socketio_client()  # start-up must survive it
+    assert relay.connected is False
+    assert relay.emit("job_status", "{}") is False
+    out = capsys.readouterr().out
+    assert "relay unreachable" in out
+
+
+def test_the_relay_reconnects_once_the_socket_server_is_back(fresh, monkeypatch):
+    monkeypatch.setenv("SOCKETIO_SERVICE_TOKEN", "svc")
+    sent = []
+    up = {"value": False}
+
+    class Flaky:
+        def __init__(self):
+            self.connected = False
+
+        def connect(self, url, auth):
+            if not up["value"]:
+                raise ConnectionError("Connection refused")
+            self.connected = True
+
+        def emit(self, event, data):
+            sent.append((event, data))
+
+    monkeypatch.setattr(fresh.socketio, "Client", Flaky)
+    relay = fresh.socketio_client()
+    assert relay.emit("job_status", "{}") is False
+
+    up["value"] = True
+    relay.RETRY_COOLDOWN = 0  # do not wait out the cooldown in a test
+    relay._next_try = 0
+    assert relay.emit("job_status", "{}") is True
+    assert sent == [("job_status", "{}")]
