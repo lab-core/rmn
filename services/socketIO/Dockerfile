@@ -37,6 +37,11 @@ USER rmn
 # ~70 MB against the 256Mi limit: 56 MB idle, 62 MB with 40 live WebSockets.
 # --timeout 0 disables the arbiter's per-worker watchdog, which would kill the
 # worker while it holds an idle WebSocket or a 25 s poll.
+# --worker-tmp-dir: gunicorn puts each worker's heartbeat file in a temp
+# directory, and the pod runs with readOnlyRootFilesystem (see the
+# securityContext in deployment/socketio.yml), so /tmp is not writable and
+# the worker died on "No usable temporary directory found". /dev/shm is a
+# tmpfs the runtime mounts rw, and the file is a few bytes.
 CMD ["gunicorn", "--worker-class", "gthread", "--workers", "1", \
      "--threads", "128", "--timeout", "0", "--bind", "0.0.0.0:7000", \
-     "--access-logfile", "-", "app:app"]
+     "--worker-tmp-dir", "/dev/shm", "--access-logfile", "-", "app:app"]

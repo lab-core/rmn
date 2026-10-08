@@ -96,3 +96,20 @@ def test_eventlet_is_not_a_dependency_any_more():
     }
     assert "eventlet" not in names
     assert "gunicorn" in names  # what serves the app in the image
+
+
+def test_gunicorn_keeps_its_heartbeat_file_off_the_read_only_root():
+    """The pod runs with readOnlyRootFilesystem, so /tmp is not writable.
+
+    gunicorn creates a heartbeat file per worker through ``tempfile``, and
+    without ``--worker-tmp-dir`` pointing somewhere writable the worker dies
+    at boot with "No usable temporary directory found" -- which is how v1.6.6
+    first reached the cluster. Checked in the file: nothing in the test
+    environment has the image's filesystem.
+    """
+    from pathlib import Path
+
+    dockerfile = Path(__file__).resolve().parent.parent.joinpath("Dockerfile")
+    content = dockerfile.read_text()
+    assert "gunicorn" in content
+    assert '"--worker-tmp-dir", "/dev/shm"' in content
