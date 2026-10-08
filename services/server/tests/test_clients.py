@@ -90,31 +90,3 @@ def test_a_relay_that_is_down_does_not_reach_the_caller(fresh, monkeypatch, caps
     assert relay.emit("job_status", "{}") is False
     out = capsys.readouterr().out
     assert "relay unreachable" in out
-
-
-def test_the_relay_reconnects_once_the_socket_server_is_back(fresh, monkeypatch):
-    monkeypatch.setenv("SOCKETIO_SERVICE_TOKEN", "svc")
-    sent = []
-    up = {"value": False}
-
-    class Flaky:
-        def __init__(self):
-            self.connected = False
-
-        def connect(self, url, auth):
-            if not up["value"]:
-                raise ConnectionError("Connection refused")
-            self.connected = True
-
-        def emit(self, event, data):
-            sent.append((event, data))
-
-    monkeypatch.setattr(fresh.socketio, "Client", Flaky)
-    relay = fresh.socketio_client()
-    assert relay.emit("job_status", "{}") is False
-
-    up["value"] = True
-    relay.RETRY_COOLDOWN = 0  # do not wait out the cooldown in a test
-    relay._next_try = 0
-    assert relay.emit("job_status", "{}") is True
-    assert sent == [("job_status", "{}")]

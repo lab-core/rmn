@@ -1,10 +1,10 @@
 import os
 import json
-import time
 from copy import copy
 import redis
 import socketio
 from pymongo import MongoClient
+from rmn_common.relay import BestEffortRelay
 
 
 mongodb_host = "mongo" if os.getenv("ENVIRONMENT") == "production" else "localhost"
@@ -55,71 +55,6 @@ def socketio_service_token():
         print("WARNING: SOCKETIO_SERVICE_TOKEN is not set; socketIO events "
               "will be dropped", flush=True)
     return token
-
-
-class BestEffortRelay:
-    """The socketIO client, wrapped so a relay outage never reaches its caller.
-
-    Notifications are best effort: the database already holds the new state
-    and the webapp picks it up on its next request. A disconnected client
-    raised ``BadNamespaceError`` straight out of whatever was emitting, which
-    turned a socketIO restart into failed API calls and dead executor pods
-    (the October 2026 crash loop).
-    """
-
-    #: seconds before a relay that refused a connection is tried again
-    RETRY_COOLDOWN = 5.0
-
-    def __init__(self, connect):
-        self._connect = connect
-        self._client = None
-        self._next_try = 0.0
-
-    @property
-    def connected(self):
-        return self._client is not None and self._client.connected
-
-    def connect(self):
-        """(Re)connect if needed. Returns whether the relay is usable.
-
-        Never raises: callers treat a missing relay as a dropped notification.
-        """
-        if self.connected:
-            return True
-        if time.monotonic() < self._next_try:
-            return False
-        self.disconnect()
-        try:
-            self._client = self._connect()
-        except Exception as exc:
-            self._next_try = time.monotonic() + self.RETRY_COOLDOWN
-            print(f"WARNING: socketIO relay unreachable: {exc}", flush=True)
-            return False
-        return True
-
-    def emit(self, event, data):
-        """Send ``event`` to the relay. Returns whether it went out."""
-        if not self.connect():
-            print(f"WARNING: dropped socketIO event {event!r}: relay unreachable",
-                  flush=True)
-            return False
-        try:
-            self._client.emit(event, data)
-            return True
-        except Exception as exc:
-            print(f"WARNING: dropped socketIO event {event!r}: {exc}", flush=True)
-            self.disconnect()
-            return False
-
-    def disconnect(self):
-        """Drop the underlying client, if any. Never raises."""
-        if self._client is None:
-            return
-        try:
-            self._client.disconnect()
-        except Exception:
-            pass
-        self._client = None
 
 
 def socketio_client():

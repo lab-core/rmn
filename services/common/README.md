@@ -11,6 +11,11 @@ used to be copied into each service (and had started to drift):
 - `rmn_common.paths`: file-name safety for values coming from a csv.
 - `rmn_common.storage`: the per-job layout of the shared storage and the
   `Storage` class both services build on.
+- `rmn_common.relay`: `BestEffortRelay`, the socketIO client the server and
+  the executor push notifications through. It reconnects behind a cooldown
+  and turns an outage into a logged no-op, because the state is in MongoDB
+  before anything is emitted: a relay restart used to 500 the server's routes
+  and kill every executor pod that started during it.
 - `rmn_common.typescript`: renders the enums of `rmn_common.status` to
   `services/webapp/ng/src/app/generated/rmn-contracts.ts` (`JobStatus`,
   `DocumentStatus`, `OutputFile`, `UserRole`), the webapp's only copy of the
@@ -20,7 +25,8 @@ used to be copied into each service (and had started to drift):
   `ng test` and the IDE. Run `python -m rmn_common.typescript` after changing
   a status; the tests here and the webapp CI job run it with `--check`.
 
-No third-party dependency. Each service installs it from the repo:
+Stdlib only, apart from `rmn_common.auto_grade`, which needs pymongo (the pin
+both services already carry). Each service installs it from the repo:
 
 ```
 pip install -r requirements-dev.txt      # includes `-e ../common`
