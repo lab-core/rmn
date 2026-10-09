@@ -23,7 +23,9 @@
 #   rebuilds it from scratch after a config change.
 # * The 14-day cooldown (default 3) keeps a release from turning into a PR the
 #   day it comes out; the monthly run picks it up once it has aged. Angular is
-#   exempt (see the npm entry).
+#   exempt (see the npm entry). Dependabot security updates are enabled on the
+#   repository (2026-10-09) and obey neither the cooldown nor the monthly
+#   schedule, so an advisory arrives as its own PR within hours of publication.
 version: 2
 updates:
   - package-ecosystem: pip
@@ -35,10 +37,11 @@ updates:
     # October 2026: pymongo 4.18.1 picked up CVE-2026-96749 (CVSS 8.4, an
     # out-of-bounds write in BSON encoding, so on every write path of all
     # three services). Nothing here would have fixed it before November --
-    # monthly plus a 14-day cooldown, and Dependabot security updates are off
-    # for the repository -- so 4.18.2 and Werkzeug 3.1.9 were bumped by hand.
-    # Turning security updates on in the repository settings is what stops
-    # this recurring; the cooldown only ever delays the ordinary monthly batch.
+    # monthly plus a 14-day cooldown, and security updates were off for the
+    # repository at the time -- so 4.18.2 and Werkzeug 3.1.9 were bumped by
+    # hand in #222. Security updates have been enabled since (2026-10-09) and
+    # now raise an advisory on their own; the cooldown below only ever delays
+    # the ordinary monthly batch.
     cooldown: {default-days: 14}
     groups:
       # one PR for the three services; pypdf, pymongo, redis, ... are pinned in
@@ -58,8 +61,10 @@ updates:
       # the minor we are on: GHSA-ff3f-86qr-9cv3 (router, published 2026-09-30,
       # fixed in 22.2.0 of 2026-09-23 only), so the cooldown held the
       # angular group on a vulnerable 22.1.x and failed the audit on every PR
-      # (#211-#213). Security updates are off for the repo, so nothing else
-      # would bring the fix in.
+      # (#211-#213). Security updates (enabled 2026-10-09) would now raise such
+      # a fix on their own, but they bump the vulnerable package alone, which
+      # Angular's peer ranges refuse: the exclusion stays so that the angular
+      # group keeps moving in one piece.
       exclude: ["@angular/*", "@angular-devkit/*", "@angular-eslint/*", "angular-eslint"]
     groups:
       # Angular and its tooling move together (first matching group wins)
