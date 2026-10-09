@@ -230,39 +230,28 @@ Or delete the corresponding pods for a Replication Controller:
 kubectl delete pods <modified deployment pod>
 ```
 
-#### Preloading the images (pulls inside the node are broken)
+#### If deploys suddenly crawl again
 
-A `docker pull` from inside the minikube node runs at about **10 KB/s**, so a
-99 MB image takes six and a half minutes, and because the kubelet pulls one
-image at a time a three-service rollout takes thirteen. The same pull on the
-host runs at ~77 MB/s, and the host-to-node link at ~1.2 GB/s.
+Between roughly September and 2026-10-09, a `docker pull` inside the minikube
+node ran at about 10 KB/s: a 99 MB image took six and a half minutes, and a
+three-service rollout thirteen, because the kubelet pulls one image at a time.
+It was not minikube, Kubernetes, the registry or the disk — every bridged
+container on the host was affected, inbound only. Hyper-V's vSwitch coalesced
+inbound segments into pairs too large for the 1500-byte bridge, so the kernel
+dropped them while forwarding and counted them in `Ip.FragFails`. Fixed on the
+hypervisor with `Set-VMSwitch -EnableSoftwareRsc $false`; pulls went from
+6m45s to 2s. The images are pulled normally again, and the preload stopgap
+(#227) was removed in the pull request that added this note.
 
-The cause is not in this repository. Inbound packets for *any* container on
-that host are dropped while being forwarded: the kernel counts them in
-`Ip.FragFails`, having needed to fragment a forwarded packet whose DF bit is
-set. The segments arrive coalesced in pairs, too large for the 1500-byte
-bridge, because Hyper-V's vSwitch coalesces them before they reach the VM
-(`rx-gro-hw` reads `off [fixed]` on `hv_netvsc`, so nothing inside the guest
-can disable it). Reproduce it in one line, no Kubernetes involved:
+Two commands localise it if it ever returns, no Kubernetes needed:
 
 ```
 docker run --rm --network host   curlimages/curl -s -o /dev/null -w '%{speed_download}\n' https://speed.cloudflare.com/__down?bytes=10000000
 docker run --rm --network bridge curlimages/curl -s -o /dev/null -w '%{speed_download}\n' https://speed.cloudflare.com/__down?bytes=10000000
 ```
 
-The fix belongs on the hypervisor (`Set-VMSwitch -EnableSoftwareRsc $false`).
-Until then, pull on the host and load over the local link before rolling out:
-
-```
-scripts/preload-images.sh              # all four services, :main
-./minikube-helper.sh -p -r             # preload, then roll out
-./minikube-helper.sh -p -r -d socketio # one service
-```
-
-The deployments keep `imagePullPolicy: Always`: with the image already in the
-node the kubelet only fetches the manifest, which is small enough to cross the
-broken path in well under a second. Delete the script once the hypervisor is
-fixed.
+A large gap between the two, with `grep FragFails /proc/net/snmp` climbing on
+the host during the second, is the same fault. #227 has the full diagnosis.
 
 #### Cluster sentinel (health checks)
 `deployment/k8s-health.sh` (also `scripts/k8s-health.sh`) inspects the cluster
