@@ -14,7 +14,7 @@ pandas==3.0.6
 pdf2image==1.17.0
 pillow==12.3.0
 psutil==7.2.2
-pymongo==4.18.1
+pymongo==4.18.2
 PyMuPDF==1.28.2
 pypdf==6.19.0
 python-socketio==5.17.0
@@ -25,4 +25,4 @@ requests==2.34.2
 seaborn==0.13.2
 Unidecode==1.4.0
 websocket-client==1.9.2
-Werkzeug==3.1.8
+Werkzeug==3.1.9

@@ -32,6 +32,13 @@ updates:
       - /services/executor
       - /services/socketIO
     schedule: {interval: monthly}
+    # October 2026: pymongo 4.18.1 picked up CVE-2026-96749 (CVSS 8.4, an
+    # out-of-bounds write in BSON encoding, so on every write path of all
+    # three services). Nothing here would have fixed it before November --
+    # monthly plus a 14-day cooldown, and Dependabot security updates are off
+    # for the repository -- so 4.18.2 and Werkzeug 3.1.9 were bumped by hand.
+    # Turning security updates on in the repository settings is what stops
+    # this recurring; the cooldown only ever delays the ordinary monthly batch.
     cooldown: {default-days: 14}
     groups:
       # one PR for the three services; pypdf, pymongo, redis, ... are pinned in
