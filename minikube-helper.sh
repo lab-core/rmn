@@ -77,7 +77,7 @@ fi
 # scheduled, and a pull from inside the node crawls (see the script's header).
 if [[ ! -z $PRELOAD ]]; then
   SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
-  ${SCRIPT_DIR}/scripts/preload-images.sh ${DEPLOYMENT:-}
+"${SCRIPT_DIR}/scripts/preload-images.sh" ${DEPLOYMENT:-} || exit $?
 fi
 
 if [[ ! -z $ROLLOUT ]]; then
