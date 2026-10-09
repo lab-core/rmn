@@ -7,7 +7,6 @@ function printBashUsage {
   echo "-i | --install: install all the configurations."
   echo "-a | --apply: apply the yml files."
   echo "-r | --rollout: rollout deployments."
-  echo "-p | --preload: put the images in the node over the local link first (scripts/preload-images.sh)."
   echo "-d | --deployment: deployment name for rollout. Default: all deployments will be rollout."
   echo "-s | --start: start minikube."
   echo "-m | --memory: memory in MB for minikube. Default: 12268."
@@ -35,7 +34,6 @@ while [ ! -z ${A[${i}]} ]; do
     -i | --install) INSTALL="1"; ((i+=1));;
     -a | --apply) APPLY="1"; ((i+=1));;
     -r | --rollout) ROLLOUT="1"; ((i+=1));;
-    -p | --preload) PRELOAD="1"; ((i+=1));;
     -d | --deployment) DEPLOYMENT=${A[((i+1))]}; ((i+=2));;
     -s | --start) START="1"; ((i+=1));;
     -m | --memory) MEMORY=${A[((i+1))]}; ((i+=2));;
@@ -71,13 +69,6 @@ if [[ ! -z $APPLY ]]; then
   SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
   kubectl apply -k ${SCRIPT_DIR}/deployment
   kubectl get pods
-fi
-
-# Before the rollout, not after: the kubelet pulls as soon as the new pod is
-# scheduled, and a pull from inside the node crawls (see the script's header).
-if [[ ! -z $PRELOAD ]]; then
-  SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
-"${SCRIPT_DIR}/scripts/preload-images.sh" ${DEPLOYMENT:-} || exit $?
 fi
 
 if [[ ! -z $ROLLOUT ]]; then
