@@ -230,6 +230,40 @@ Or delete the corresponding pods for a Replication Controller:
 kubectl delete pods <modified deployment pod>
 ```
 
+#### Preloading the images (pulls inside the node are broken)
+
+A `docker pull` from inside the minikube node runs at about **10 KB/s**, so a
+99 MB image takes six and a half minutes, and because the kubelet pulls one
+image at a time a three-service rollout takes thirteen. The same pull on the
+host runs at ~77 MB/s, and the host-to-node link at ~1.2 GB/s.
+
+The cause is not in this repository. Inbound packets for *any* container on
+that host are dropped while being forwarded: the kernel counts them in
+`Ip.FragFails`, having needed to fragment a forwarded packet whose DF bit is
+set. The segments arrive coalesced in pairs, too large for the 1500-byte
+bridge, because Hyper-V's vSwitch coalesces them before they reach the VM
+(`rx-gro-hw` reads `off [fixed]` on `hv_netvsc`, so nothing inside the guest
+can disable it). Reproduce it in one line, no Kubernetes involved:
+
+```
+docker run --rm --network host   curlimages/curl -s -o /dev/null -w '%{speed_download}\n' https://speed.cloudflare.com/__down?bytes=10000000
+docker run --rm --network bridge curlimages/curl -s -o /dev/null -w '%{speed_download}\n' https://speed.cloudflare.com/__down?bytes=10000000
+```
+
+The fix belongs on the hypervisor (`Set-VMSwitch -EnableSoftwareRsc $false`).
+Until then, pull on the host and load over the local link before rolling out:
+
+```
+scripts/preload-images.sh              # all four services, :main
+./minikube-helper.sh -p -r             # preload, then roll out
+./minikube-helper.sh -p -r -d socketio # one service
+```
+
+The deployments keep `imagePullPolicy: Always`: with the image already in the
+node the kubelet only fetches the manifest, which is small enough to cross the
+broken path in well under a second. Delete the script once the hypervisor is
+fixed.
+
 #### Cluster sentinel (health checks)
 `deployment/k8s-health.sh` (also `scripts/k8s-health.sh`) inspects the cluster
 with `kubectl` and reports anything unhealthy: API readiness, node
