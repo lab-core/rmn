@@ -113,3 +113,6 @@ def test_gunicorn_keeps_its_heartbeat_file_off_the_read_only_root():
     content = dockerfile.read_text()
     assert "gunicorn" in content
     assert '"--worker-tmp-dir", "/dev/shm"' in content
+    # gunicorn 26 also opens a management socket under $HOME/.gunicorn, which
+    # is on the same read-only filesystem; nothing here uses it
+    assert '"--no-control-socket"' in content

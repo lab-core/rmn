@@ -38,8 +38,18 @@ def _origins(value):
     return origins
 
 
+# The server and the executor reach the relay by its in-cluster name, and
+# their WebSocket client sends that as the Origin where their polling client
+# sends none. Without it here the upgrade is refused with a 400 and every
+# backend connection silently falls back to long-polling. Nothing is granted
+# by it: a backend still has to present the service token, and no browser can
+# reach a cluster-internal name.
+BACKEND_ORIGINS = ["http://socketio:7000", "http://localhost:7000"]
+
 _cors = os.getenv("SOCKETIO_CORS_ORIGINS", "*")
-cors_allowed_origins = "*" if _cors.strip() == "*" else _origins(_cors)
+cors_allowed_origins = (
+    "*" if _cors.strip() == "*" else _origins(_cors) + BACKEND_ORIGINS
+)
 
 # Mongo is used to validate user tokens and authorize room joins. In
 # production the credentials must be set (the sample defaults are for dev).

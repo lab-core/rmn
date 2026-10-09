@@ -90,3 +90,17 @@ def test_a_relay_that_is_down_does_not_reach_the_caller(fresh, monkeypatch, caps
     assert relay.emit("job_status", "{}") is False
     out = capsys.readouterr().out
     assert "relay unreachable" in out
+
+
+def test_job_questions_is_indexed_by_job(app_module_fixture):
+    """Every job_questions query starts with job_id; none of them had an index.
+
+    A job of 6041 documents was a 141 ms COLLSCAN in Mongo's slow query log.
+    """
+    from service.indexes import ensure_job_question_indexes
+
+    db = app_module_fixture.mongo["RMN"]
+    ensure_job_question_indexes(db)
+    indexes = db["job_questions"].index_information()
+    assert [("job_id", 1), ("document_index", 1)] == indexes["job_document"]["key"]
+    assert [("job_id", 1), ("question_index", 1)] == indexes["job_question"]["key"]

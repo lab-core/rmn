@@ -78,4 +78,34 @@ def test_production_uses_the_cluster_mongo_and_the_configured_origins(monkeypatc
     module = _load_app(monkeypatch, ENVIRONMENT="production", SOCKETIO_SERVICE_TOKEN="svc",
                        MONGODB_USER="u", MONGODB_PASSWORD="p", SOCKETIO_CORS_ORIGINS="rmn.example.ca")
     assert module.mongodb_host == "mongo"
-    assert module.cors_allowed_origins == ["https://rmn.example.ca", "http://rmn.example.ca"]
+    # the configured host comes first; the relay's own in-cluster names follow
+    # it, so that the backend may upgrade to WebSocket (see the test below)
+    assert module.cors_allowed_origins[:2] == ["https://rmn.example.ca", "http://rmn.example.ca"]
+
+
+def test_the_backend_may_upgrade_to_websocket(monkeypatch):
+    """The relay's own in-cluster name has to be an accepted origin.
+
+    The server and the executor connect to ``http://socketio:7000``, and
+    their WebSocket client sends that as the Origin where their polling
+    client sends none. Without it the upgrade is refused with a 400 and every
+    backend connection falls back to long-polling -- which is what the
+    cluster did once the server gained ``websocket-client``.
+    """
+    module = _load_app(monkeypatch, ENVIRONMENT="production", SOCKETIO_SERVICE_TOKEN="svc",
+                       MONGODB_USER="u", MONGODB_PASSWORD="p",
+                       SOCKETIO_CORS_ORIGINS="rmn.example.ca")
+    assert module.cors_allowed_origins == [
+        "https://rmn.example.ca",
+        "http://rmn.example.ca",
+        "http://socketio:7000",
+        "http://localhost:7000",
+    ]
+
+
+def test_a_wildcard_still_allows_everything(monkeypatch):
+    """"*" must stay a wildcard, not become a four-entry list."""
+    module = _load_app(monkeypatch, ENVIRONMENT="production", SOCKETIO_SERVICE_TOKEN="svc",
+                       MONGODB_USER="u", MONGODB_PASSWORD="p",
+                       SOCKETIO_CORS_ORIGINS="*")
+    assert module.cors_allowed_origins == "*"

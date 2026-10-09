@@ -6,6 +6,7 @@ each of those import the routes back. They live here so nothing has to.
 """
 
 from pathlib import Path
+from service.indexes import ensure_job_question_indexes
 from service.user_service import UserService
 from utils.clients import mongo_client, redis_client, socketio_client
 from utils.storage import Storage
@@ -18,6 +19,11 @@ try:
 except Exception as e:  # Mongo unreachable at start-up: verify_token still
     print(f"WARNING: could not create the token TTL index: {e}", flush=True)
     # enforces the TTL on every request, so this is not fatal
+try:
+    # the job_questions lookups behind the correction screen
+    ensure_job_question_indexes(mongo["RMN"])
+except Exception as e:  # only a slower query, never a wrong answer
+    print(f"WARNING: could not create the job_questions indexes: {e}", flush=True)
 redis = redis_client()
 sio = socketio_client()
 storage = Storage()
