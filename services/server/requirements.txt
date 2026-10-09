@@ -25,12 +25,12 @@ pillow==12.3.0
 pymongo==4.18.2
 PyMuPDF==1.28.2
 PyMuPDFb==1.24.10
-pyparsing==3.3.2
+pyparsing==3.3.3
 pypdf==6.19.0
 python-dateutil==2.9.0.post0
 python-engineio==4.14.0
 python-socketio==5.17.0
-pytz==2026.3.post1
+pytz==2026.4
 redis==8.1.0
 requests==2.34.2
 scipy==1.18.1
