@@ -42,6 +42,11 @@ USER rmn
 # securityContext in deployment/socketio.yml), so /tmp is not writable and
 # the worker died on "No usable temporary directory found". /dev/shm is a
 # tmpfs the runtime mounts rw, and the file is a few bytes.
+# --no-control-socket: gunicorn 26 opens a management socket under
+# $HOME/.gunicorn, which is on the same read-only filesystem, so every boot
+# logged "Control server error: [Errno 30] Read-only file system". Nothing
+# here uses that interface.
 CMD ["gunicorn", "--worker-class", "gthread", "--workers", "1", \
      "--threads", "128", "--timeout", "0", "--bind", "0.0.0.0:7000", \
-     "--worker-tmp-dir", "/dev/shm", "--access-logfile", "-", "app:app"]
+     "--worker-tmp-dir", "/dev/shm", "--no-control-socket", \
+     "--access-logfile", "-", "app:app"]
