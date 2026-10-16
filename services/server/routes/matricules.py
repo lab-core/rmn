@@ -1,6 +1,6 @@
 """Reading the student number off a copy, and correcting what was read."""
 
-import json
+from flask import json
 import uuid
 from flask import Blueprint, Response, request
 from flask_cors import cross_origin

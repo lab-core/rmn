@@ -1,7 +1,7 @@
 """Deleting a job, and the jobs nobody came back for."""
 
 import datetime as dt
-import json
+from flask import json
 from context import mongo, redis, storage
 
 

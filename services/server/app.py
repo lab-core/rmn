@@ -4,7 +4,7 @@ The routes themselves live in ``routes/``, one module per part of the API,
 and what they all talk to lives in ``context.py``. This file is the wiring.
 """
 
-import json
+from flask import json
 import os
 
 from flask import Flask, Response
@@ -27,6 +27,14 @@ from service.health_check import start_health_check
 from utils.clients import redis_client
 
 app = Flask(__name__)
+
+# The API answers in French. Flask's json provider escapes every non-ascii
+# character by default, so "modifié" left as "modifi\u00e9": valid json, but
+# unreadable in a log, a curl or anything that does not parse it. The provider
+# also sorts the keys, which would change the strings job_cleanup matches the
+# queue entries on, so that one stays off.
+app.json.ensure_ascii = False
+app.json.sort_keys = False
 
 
 def cors_origins(value):

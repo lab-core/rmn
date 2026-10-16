@@ -5,7 +5,6 @@ from pdf2image import convert_from_path
 from werkzeug.utils import secure_filename
 import uuid
 import os
-import json
 
 from rmn_common.storage import TEMPLATE_DIR
 from utils.box_converter import convert_box_to_dict, convert_box_to_list
