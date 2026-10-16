@@ -1,4 +1,6 @@
-from flask import Flask, request, Response, json, send_file
+from flask import Flask, request, json, send_file
+
+from utils.responses import Response
 from werkzeug.security import generate_password_hash, check_password_hash
 import datetime as dt
 import os

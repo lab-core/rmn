@@ -214,3 +214,15 @@ def test_username_field_is_checked_even_with_user_id(client, user_factory, login
     )
     assert resp.status_code == 401
     assert resp.get_json(force=True)["code"] == "token_invalid"
+
+
+# Only the 413 handler named its type; everything else took Flask's text/html.
+def test_the_answers_declare_json_and_the_root_stays_html(client):
+    error = client.post("/users/login", data={})
+    assert error.status_code == 400
+    assert error.mimetype == "application/json"
+    assert error.get_json()["response"].startswith("Error")
+
+    root = client.get("/")
+    assert root.status_code == 200
+    assert root.mimetype == "text/html"

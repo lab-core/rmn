@@ -3,7 +3,9 @@
 from flask import json
 import math
 
-from flask import Response, abort
+from flask import abort
+
+from utils.responses import Response
 
 
 def form_int(request_form, field, default=None):

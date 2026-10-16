@@ -4,11 +4,12 @@ The routes themselves live in ``routes/``, one module per part of the API,
 and what they all talk to lives in ``context.py``. This file is the wiring.
 """
 
-from flask import json
+from flask import Flask, json
 import os
 
-from flask import Flask, Response
 from flask_cors import CORS
+
+from utils.responses import Response
 
 from routes.admin import bp as admin_bp
 from routes.documents import bp as documents_bp
@@ -27,6 +28,8 @@ from service.health_check import start_health_check
 from utils.clients import redis_client
 
 app = Flask(__name__)
+# for what Flask builds itself, out of a dict or a string a route returned
+app.response_class = Response
 
 # The API answers in French. Flask's json provider escapes every non-ascii
 # character by default, so "modifié" left as "modifi\u00e9": valid json, but
@@ -110,7 +113,8 @@ def request_too_large(_error):
 
 @app.route(os.sep)
 def say_hello():
-    return "<h1>Hi Andy, I'm on fire !</h1>"
+    # the one page of the api that is really html
+    return Response(response="<h1>Hi Andy, I'm on fire !</h1>", mimetype="text/html")
 
 
 if __name__ == "__main__":

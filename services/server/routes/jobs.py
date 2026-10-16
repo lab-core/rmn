@@ -12,7 +12,9 @@ from io import FileIO
 from threading import Thread
 from zipfile import ZipFile
 import pandas as pd
-from flask import Blueprint, Response, request, send_file
+from flask import Blueprint, request, send_file
+
+from utils.responses import Response
 from flask_cors import cross_origin
 from werkzeug.utils import secure_filename
 from rmn_common import auto_grade
@@ -344,7 +346,7 @@ def evaluate(user_id):
         print(e)
         # no orphan: a SPLIT job without files would sit in the history forever
         collection.delete_one({"job_id": job_id})
-        return Response(response="Error: Failed to download files.", status=500)
+        return Response(response=json.dumps({"response": "Error: Failed to download files."}), status=500)
 
     # add to Redis Queue
     redis.rpush("job_queue", json.dumps({"job_id": job["job_id"]}))

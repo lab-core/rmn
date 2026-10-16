@@ -9,7 +9,9 @@ import hmac
 from flask import json
 import os
 from functools import wraps
-from flask import Response, request
+from flask import request
+
+from utils.responses import Response
 from context import mongo
 from service.user_service import UserService
 
