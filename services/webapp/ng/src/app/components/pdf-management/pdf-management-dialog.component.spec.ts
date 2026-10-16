@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { HttpEventType } from '@angular/common/http';
 import JSZip from 'jszip';
-import { PDFArray, PDFDict, PDFDocument, PDFName, PDFString } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFString } from 'pdf-lib';
 
 import { PdfManagementDialogComponent } from './pdf-management-dialog.component';
 import { DocumentsService } from 'src/app/services/documents.service';
@@ -19,6 +19,26 @@ function markerNumbers(doc: PDFDocument): string[] {
     const annot = page.doc.context.lookup(annots.get(0)) as PDFDict;
     return (annot.get(PDFName.of('Name')) as PDFString).decodeText();
   });
+}
+
+/** The marker of one page, as the dialog reads it. */
+function marker(doc: PDFDocument, pageIndex: number): PDFDict {
+  const page = doc.getPages()[pageIndex];
+  const annots = page.node.lookup(PDFName.of('Annots')) as PDFArray;
+  return page.doc.context.lookup(annots.get(0)) as PDFDict;
+}
+
+/** Signs the marker of a page the way another pdf tool would. */
+function signMarker(doc: PDFDocument, pageIndex: number, author: PDFString | PDFHexString): void {
+  marker(doc, pageIndex).set(PDFName.of('T'), author);
+}
+
+/** An exported pdf whose markers another tool signed again, as an editor that
+ *  writes the whole file does. */
+async function resignMarkers(bytes: Uint8Array, author: () => PDFString | PDFHexString): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(bytes);
+  doc.getPages().forEach((_, i) => signMarker(doc, i, author()));
+  return doc.save();
 }
 
 /** Rewrites the markers of a document the way the export numbered them before. */
@@ -133,6 +153,42 @@ describe('PdfManagementDialogComponent', () => {
     expect(base).toBe(0);
     expect(component.checkAnnotationAndRemove(doc, 0, base)).toBeTrue();
     expect(component.checkAnnotationAndRemove(doc, 1, base)).toBeTrue();
+  });
+
+  // An editor that writes the file again can rename the author of the markers,
+  // or only re-encode it, which pdf-lib then reads as another class. Neither
+  // used to be recognised: the page was not checked and the marker stayed in
+  // the copy, where it counts as something the grader wrote.
+  it('recognises a marker whose author was re-encoded or renamed', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage();
+    doc.addPage();
+    component.addAnnotation(doc, 0);
+    component.addAnnotation(doc, 1);
+    signMarker(doc, 0, PDFHexString.fromText('RMN'));  // the same author, in hexadecimal
+    signMarker(doc, 1, PDFString.of('Aperçu'));  // renamed by the editor
+
+    const renamed: number[] = [];
+    const base = component.markerBase(doc);
+    expect(component.checkAnnotationAndRemove(doc, 0, base, renamed)).toBeTrue();
+    expect(component.checkAnnotationAndRemove(doc, 1, base, renamed)).toBeTrue();
+    expect(renamed).toEqual([2]);  // only the one that is not ours any more
+    for (const page of doc.getPages()) {
+      expect((page.node.lookup(PDFName.of('Annots')) as PDFArray).size()).toBe(0);
+    }
+  });
+
+  it('leaves what the grader wrote alone, whoever signed it', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage();
+    component.addAnnotation(doc, 0);
+    marker(doc, 0).set(PDFName.of('Contents'), PDFString.of('Bravo'));
+    signMarker(doc, 0, PDFString.of('Aperçu'));
+
+    const renamed: number[] = [];
+    expect(component.checkAnnotationAndRemove(doc, 0, 1, renamed)).toBeTrue();
+    expect(renamed).toEqual([]);
+    expect((doc.getPages()[0].node.lookup(PDFName.of('Annots')) as PDFArray).size()).toBe(1);
   });
 
   it('detects a page that was moved to another position', async () => {
@@ -525,6 +581,36 @@ describe('PdfManagementDialogComponent export and import', () => {
       jasmine.stringContaining('pdf document Q2.pdf has been changed: page 1 is not at the right place'), 'Error');
     expect(component.processing).toBeFalse();
     expect(matchReplace()).toEqual([]);
+  });
+
+  it('warns once for a document whose markers are signed by someone else', async () => {
+    data.allExamsList = [{ document_index: 0, question: 'Q2', filename: 'Q2_0', status: 'TO VALIDATE' }];
+    const back = await resignMarkers(await exportedPdf('Q2.pdf', 2), () => PDFString.of('Aperçu'));
+    await component.uploadZipFile(await zipFile({ 'Q2.pdf': back }));
+    const req = await waitForUpload();
+
+    expect(notification.showWarning).toHaveBeenCalledTimes(1);
+    expect(notification.showWarning).toHaveBeenCalledWith(
+      jasmine.stringContaining('The marker of Q2.pdf is no longer signed by RMN on page 1, 2 (2 of 2)'), 'Warning');
+    expect(notification.showError).not.toHaveBeenCalled();
+    // the markers are still removed from the copies sent back
+    const split = await sentZip(req.request.body);
+    const copy = await PDFDocument.load(await split.file('Q2_0.pdf').async('arraybuffer'));
+    expect((copy.getPages()[0].node.lookup(PDFName.of('Annots')) as PDFArray).size()).toBe(0);
+    req.flush({ response: 'OK' });
+  });
+
+  it('names only the first pages of a document signed by someone else', async () => {
+    data.allExamsList = Array.from({length: 6}, (_, i) =>
+      ({ document_index: i, question: 'Q2', filename: `Q2_${i}`, status: 'TO VALIDATE' }));
+    const back = await resignMarkers(await exportedPdf('Q2.pdf', 12), () => PDFString.of('Aperçu'));
+    await component.uploadZipFile(await zipFile({ 'Q2.pdf': back }));
+    const req = await waitForUpload();
+
+    expect(notification.showWarning).toHaveBeenCalledTimes(1);
+    expect(notification.showWarning).toHaveBeenCalledWith(
+      jasmine.stringContaining('on page 1, 2, 3, 4, 5, ... (12 of 12)'), 'Warning');
+    req.flush({ response: 'OK' });
   });
 
   it('refuses a question whose number of pages the task does not know', async () => {

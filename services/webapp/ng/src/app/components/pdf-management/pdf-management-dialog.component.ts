@@ -6,11 +6,27 @@ import { UserService } from 'src/app/services/user.service';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
 import { OfflineCopy } from 'src/app/services/offline-db';
-import { PDFDocument, PDFArray, PDFDict, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, PDFArray, PDFDict, PDFHexString, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import { csvLines, detectSeparator, splitCsvLine } from 'src/app/csv';
 import JSZip from 'jszip';
+
 import { DocumentStatus } from '../../generated/rmn-contracts';
+
+/** The text addAnnotation stamps on every page of an export, number aside. */
+const MARKER_CONTENTS = /^Page(\d+) - NE PAS TOUCHER!$/;
+
+/** Author addAnnotation signs the markers with. */
+const MARKER_AUTHOR = 'RMN';
+
+/** Pages named in the warning about markers signed by someone else. */
+const RENAMED_MARKERS_LISTED = 5;
+
+/** A pdf string as pdf-lib reads it: a file written again by another tool can
+ *  carry it in hexadecimal, another class that decodes to the same text. */
+function decodedText(value: unknown): string | undefined {
+  return value instanceof PDFString || value instanceof PDFHexString ? value.decodeText() : undefined;
+}
 
 
 export interface DialogData {
@@ -311,18 +327,36 @@ export class PdfManagementDialogComponent {
     }
   }
 
+  /// @brief Author an annotation is signed with.
+  ///
+  /// @param annot Annotation dictionary to read.
+  /// @return The author, or undefined when the annotation carries none.
+  markerAuthor(annot: PDFDict | undefined): string | undefined {
+    return decodedText(annot?.get(PDFName.of('T')));
+  }
+
+  /// @brief Whether an annotation is one of the markers addAnnotation stamps.
+  ///
+  /// The author alone used to say so, and an editor that writes the file again
+  /// can rename it (or only re-encode it, which pdf-lib then reads as another
+  /// class). An unrecognised marker is neither checked nor removed: it stays
+  /// in the copy, where it counts as something the grader wrote. The text is
+  /// the marker's own, so it answers for the author when that one is gone.
+  ///
+  /// @param annot Annotation dictionary to read.
+  /// @return True for a marker, whoever signed it.
+  isMarker(annot: PDFDict | undefined): boolean {
+    return this.markerAuthor(annot) === MARKER_AUTHOR
+      || MARKER_CONTENTS.test(decodedText(annot?.get(PDFName.of('Contents'))) ?? '');
+  }
+
   /// @brief Number stamped in the marker annotation added by addAnnotation.
   ///
   /// @param annot Annotation dictionary to read.
   /// @return The number of a `Page<n> - NE PAS TOUCHER!` marker, or undefined
-  ///   when the annotation is not one of ours or carries no number.
+  ///   when the annotation carries no number any more.
   markerPageNumber(annot: PDFDict | undefined): number | undefined {
-    const title = annot?.get(PDFName.of('T'));
-    if (!(title instanceof PDFString) || title.decodeText() !== 'RMN') {
-      return undefined;
-    }
-    const contents = annot.get(PDFName.of('Contents'));
-    const match = contents instanceof PDFString ? contents.decodeText().match(/^Page(\d+)/) : null;
+    const match = MARKER_CONTENTS.exec(decodedText(annot?.get(PDFName.of('Contents'))) ?? '');
     return match ? parseInt(match[1]) : undefined;
   }
 
@@ -342,7 +376,8 @@ export class PdfManagementDialogComponent {
         continue;
       }
       for (let i = 0; i < annots.size(); i++) {
-        if (this.markerPageNumber(page.doc.context.lookup(annots.get(i))) === 0) {
+        const annot = page.doc.context.lookup(annots.get(i)) as PDFDict;
+        if (this.isMarker(annot) && this.markerPageNumber(annot) === 0) {
           return 0;
         }
       }
@@ -355,17 +390,21 @@ export class PdfManagementDialogComponent {
   /// @param pdfDoc Document sent back by the user.
   /// @param pageNumber Index of the page to check.
   /// @param base Numbering base of the markers, from markerBase.
+  /// @param renamed Collects the pages whose marker is signed by someone else,
+  ///   to warn about the document once instead of page by page.
   /// @return False when the page carries the marker of another page, which
   ///   means the pages were moved, inserted or removed.
-  checkAnnotationAndRemove(pdfDoc, pageNumber, base: number) {
+  checkAnnotationAndRemove(pdfDoc, pageNumber, base: number, renamed: number[] = []) {
     const page = pdfDoc.getPages()[pageNumber];
     const annots = page.node.lookup(PDFName.of('Annots'));
     const newAnnotsArray = PDFArray.withContext(pdfDoc.context);
     for (let i = 0; i < annots.size(); i++) {
       const annotRef = annots.get(i);
-      const annot = page.doc.context.lookup(annotRef);
-      const title = annot.get(PDFName.of('T'));
-      if (title instanceof PDFString && title.decodeText() === 'RMN') {
+      const annot = page.doc.context.lookup(annotRef) as PDFDict;
+      if (this.isMarker(annot)) {
+        if (this.markerAuthor(annot) !== MARKER_AUTHOR) {
+          renamed.push(pageNumber + 1);
+        }
         // compare the whole number: Page1 used to be a prefix of Page10 and up
         const marker = this.markerPageNumber(annot);
         if (marker !== undefined && marker !== pageNumber + base) {
@@ -570,9 +609,10 @@ export class PdfManagementDialogComponent {
             return;
           }
           const markerBase = this.markerBase(pdfDoc);
+          const renamedMarkers: number[] = [];
           for (let j = 0; j < pdfDoc.getPageCount(); j++) {
             try {
-              if (!this.checkAnnotationAndRemove(pdfDoc, j, markerBase)) {
+              if (!this.checkAnnotationAndRemove(pdfDoc, j, markerBase, renamedMarkers)) {
                 this.notificationService.showError(`The page order of the pdf document ${pdfFile} has been changed: page ${j + 1} is not at the right place.`, 'Error');
                 this.processing = false;
                 return;
@@ -586,6 +626,15 @@ export class PdfManagementDialogComponent {
               console.error(errorMessage, pdfError);
               errorMessagesDoc.push(j);
             }
+          }
+
+          // one warning for the whole document: a pdf editor that renames the
+          // markers renames them all, and a page per notification would bury
+          // the rest of the import under them
+          if (renamedMarkers.length > 0) {
+            const pages = renamedMarkers.slice(0, RENAMED_MARKERS_LISTED).join(', ');
+            const more = renamedMarkers.length > RENAMED_MARKERS_LISTED ? ', ...' : '';
+            this.notificationService.showWarning(`The marker of ${pdfFile} is no longer signed by ${MARKER_AUTHOR} on page ${pages}${more} (${renamedMarkers.length} of ${pdfDoc.getPageCount()}): a pdf editor wrote the file again. The pages were checked and the markers removed.`, 'Warning');
           }
 
           const totalPageCount = pdfDoc.getPageCount();
