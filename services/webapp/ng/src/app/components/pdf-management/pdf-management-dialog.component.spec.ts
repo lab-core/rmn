@@ -442,12 +442,14 @@ describe('PdfManagementDialogComponent export and import', () => {
       { document_index: 0, question: 'Q1', filename: 'Q1_0' },
       { document_index: 1, question: 'Q1', filename: 'Q1_1' },
       { document_index: 2, question: 'Q3', filename: 'Q3_2' },
+      { document_index: 3, question: 'Q1', filename: 'Q1_3' },
     ];
     await component.uploadZipFile(await zipFile({ 'Q1.pdf': await exportedPdf('Q1.pdf', 1) }));
     const req = await waitForUpload();
 
+    // every copy short is counted, not only the first one that does not fit
     expect(notification.showWarning).toHaveBeenCalledWith(
-      jasmine.stringContaining('missing: 1 copies'), 'Warning');
+      jasmine.stringContaining('Required: 3, available: 1, missing: 2 copies'), 'Warning');
     expect(Object.keys((await sentZip(req.request.body)).files)).toEqual(['Q1_0.pdf']);
     req.flush('boom', { status: 500, statusText: 'Server Error' });
     expect(notification.showError).toHaveBeenCalledWith('Erreur lors du remplacement des fichiers', 'Erreur');
@@ -456,10 +458,10 @@ describe('PdfManagementDialogComponent export and import', () => {
   });
 
   it('refuses a pdf whose name no longer matches the one it was exported under', async () => {
-    await component.uploadZipFile(await zipFile({ 'Q1_1.pdf': await exportedPdf('Q1.pdf', 1) }));
+    await component.uploadZipFile(await zipFile({ 'Q1.pdf': await exportedPdf('Q1_1.pdf', 1) }));
 
     expect(notification.showError).toHaveBeenCalledWith(
-      jasmine.stringContaining('Q1_1.pdf instead of Q1.pdf'), 'Error');
+      jasmine.stringContaining('Q1.pdf instead of Q1_1.pdf'), 'Error');
     expect(component.processing).toBeFalse();
     expect(matchReplace()).toEqual([]);
   });
@@ -468,7 +470,7 @@ describe('PdfManagementDialogComponent export and import', () => {
     await component.uploadZipFile(await zipFile({ 'Q2.pdf': await exportedPdf('Q2.pdf', 2, [1, 0]) }));
 
     expect(notification.showError).toHaveBeenCalledWith(
-      jasmine.stringContaining('page 1 is not at the right place'), 'Error');
+      jasmine.stringContaining('pdf document Q2.pdf has been changed: page 1 is not at the right place'), 'Error');
     expect(component.processing).toBeFalse();
     expect(matchReplace()).toEqual([]);
   });
@@ -497,13 +499,31 @@ describe('PdfManagementDialogComponent export and import', () => {
     req.flush({ response: 'OK' });
   });
 
-  it('reports a pdf of the zip it cannot read', async () => {
-    await component.uploadZipFile(await zipFile({ 'Q1.pdf': 'not a pdf' }));
-    const req = await waitForUpload();
+  it('replaces nothing when a pdf of the zip cannot be read', async () => {
+    data.allExamsList = [0, 1, 2].map((d) => ({ document_index: d, question: 'Q1', filename: `Q1_${d}` }));
+    await component.uploadZipFile(await zipFile({
+      'Q1.pdf': await exportedPdf('Q1.pdf', 1),
+      'Q1_1.pdf': 'not a pdf',
+      'Q1_2.pdf': await exportedPdf('Q1_2.pdf', 1),
+    }));
 
-    expect(notification.showError).toHaveBeenCalledWith('Error processing merged file: Q1.pdf.', 'Erreur');
-    expect(Object.keys((await sentZip(req.request.body)).files)).toEqual([]);
-    req.flush({ response: 'OK' });
+    expect(notification.showError).toHaveBeenCalledWith(
+      jasmine.stringMatching(/^Error processing merged file: Q1_1\.pdf\. .*Nothing was replaced\.$/), 'Erreur');
+    expect(component.processing).toBeFalse();
+    expect(matchReplace()).toEqual([]);
+  });
+
+  it('replaces nothing when a batch is missing in the middle of a question', async () => {
+    data.allExamsList = [0, 1, 2].map((d) => ({ document_index: d, question: 'Q1', filename: `Q1_${d}` }));
+    await component.uploadZipFile(await zipFile({
+      'Q1/Q1.pdf': await exportedPdf('Q1.pdf', 1),
+      'Q1/Q1_2.pdf': await exportedPdf('Q1_2.pdf', 1),
+    }));
+
+    expect(notification.showError).toHaveBeenCalledWith(
+      jasmine.stringMatching(/^The zip is missing Q1_1\.pdf: .*Nothing was replaced\.$/), 'Erreur');
+    expect(component.processing).toBeFalse();
+    expect(matchReplace()).toEqual([]);
   });
 
   it('reports a file that is not a zip', async () => {
