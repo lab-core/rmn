@@ -1,6 +1,6 @@
 """The output archive of a finished task, and the links that share it."""
 
-import json
+from flask import json
 import os
 import uuid
 from flask import Blueprint, Response, request, send_file, url_for

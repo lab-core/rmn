@@ -1,6 +1,6 @@
 """The copies themselves: what is served, replaced, annotated and graded."""
 
-import json
+from flask import json
 import os
 import re
 import tempfile

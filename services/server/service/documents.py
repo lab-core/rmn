@@ -1,6 +1,6 @@
 """Putting graded copies back: where their files go, and what is read from them."""
 
-import json
+from flask import json
 import os
 import re
 import shutil

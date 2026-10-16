@@ -1,6 +1,6 @@
 """Reading the fields of a request form."""
 
-import json
+from flask import json
 import math
 
 from flask import Response, abort
