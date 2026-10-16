@@ -466,6 +466,27 @@ export class PdfManagementDialogComponent {
       // sort names to process them in the right order
       const keys = Object.keys(pdfFilesByIndex);
       keys.sort();
+
+      // the copies are matched to the merged pages by position only, so a
+      // batch missing in the middle (Q5_7.pdf absent, Q5_8.pdf present) would
+      // hand every copy after it the pages of another student
+      const batchesByQuestion = new Map<number, number[]>();
+      for (const index of keys) {
+        const questionIndex = Math.floor(Number(index) / 1e6);
+        const batches = batchesByQuestion.get(questionIndex) ?? [];
+        batches.push(Number(index) % 1e6);
+        batchesByQuestion.set(questionIndex, batches);
+      }
+      for (const [questionIndex, batches] of batchesByQuestion) {
+        const absent = Array.from({length: Math.max(...batches)}, (_, b) => b)
+          .filter((b) => !batches.includes(b))
+          .map((b) => `Q${questionIndex}${b > 0 ? `_${b}` : ''}.pdf`);
+        if (absent.length > 0) {
+          this.notificationService.showError(`The zip is missing ${absent.join(', ')}: the copies after it would get the pages of other copies. Nothing was replaced.`, 'Erreur');
+          this.processing = false;
+          return;
+        }
+      }
       i = 0;
       for (const index of keys) {
         const pdfFile = pdfFilesByIndex[index];
@@ -502,7 +523,7 @@ export class PdfManagementDialogComponent {
           for (let j = 0; j < pdfDoc.getPageCount(); j++) {
             try {
               if (!this.checkAnnotationAndRemove(pdfDoc, j)) {
-                this.notificationService.showError(`The page order of the pdf document has been changed: page ${j + 1} is not at the right place.`, 'Error');
+                this.notificationService.showError(`The page order of the pdf document ${pdfFile} has been changed: page ${j + 1} is not at the right place.`, 'Error');
                 this.processing = false;
                 return;
               }
@@ -530,8 +551,14 @@ export class PdfManagementDialogComponent {
             mergedPDFDocs[questionIndex].addPage(page);
           });
         } catch (pdfError) {
+          // going on without its pages would shift every later copy onto the
+          // pages of another student, so nothing is replaced. The usual cause
+          // is a pdf editor that re-saved the file and left stale objects in
+          // it: pdf-lib reads them, unlike most viewers.
           console.error(`Error processing merged file: ${pdfFile}`, pdfError);
-          this.notificationService.showError(`Error processing merged file: ${pdfFile}.`, 'Erreur');
+          this.notificationService.showError(`Error processing merged file: ${pdfFile}. It was probably re-saved by a pdf editor: repair it (e.g. qpdf in.pdf out.pdf) or export it again. Nothing was replaced.`, 'Erreur');
+          this.processing = false;
+          return;
         }
         i++;
         this.percentageDone = 50 + Math.round(50 * i / keys.length);
@@ -564,8 +591,10 @@ export class PdfManagementDialogComponent {
             const endPage = startPage + pagesPerQuestion;
 
             if (totalPageCount < endPage) {
-              const miss = (endPage - totalPageCount) / pagesPerQuestion;
-              const message = `The merged document for ${questionIndex} does not have enough pages for ${originalDoc.filename}.pdf. Required: ${endPage}, available: ${totalPageCount}, missing: ${miss} copies.`;
+              // counted over every copy still to come, not only the first one
+              // that does not fit (which always read "missing: 1 copies")
+              const miss = originalDocs.length - j;
+              const message = `The merged document for ${questionIndex} does not have enough pages for ${originalDoc.filename}.pdf and the copies after it. Required: ${originalDocs.length * pagesPerQuestion}, available: ${totalPageCount}, missing: ${miss} copies.`;
               console.warn(message);
               this.notificationService.showWarning(message, 'Warning');
               break;
