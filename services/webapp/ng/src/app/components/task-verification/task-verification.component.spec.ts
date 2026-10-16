@@ -389,7 +389,11 @@ describe('TaskVerificationComponent', () => {
   });
 
   const viewer = () => component.pdfViewer as unknown as PdfViewerStubComponent;
-  const key = (name: string) => document.dispatchEvent(new KeyboardEvent('keydown', { key: name }));
+  const key = (name: string) => {
+    const event = new KeyboardEvent('keydown', { key: name, cancelable: true });
+    document.dispatchEvent(event);
+    return event;
+  };
   const dialogClosingWith = (result: any) => ({ afterClosed: () => of(result) } as any);
 
   it('a task that cannot be loaded sends the user back to the history', async () => {
@@ -548,6 +552,23 @@ describe('TaskVerificationComponent', () => {
     expect(component.currentDocumentIndex).toBe(10);
   });
 
+  // Left and right turn the page of the document in pdf.js whatever the zoom,
+  // and the browser scrolls the viewer with the arrows it is left: the copy
+  // changed and the document moved under it at the same time.
+  it('the arrow keys do not reach the viewer, which would move inside the copy', async () => {
+    await create();
+    expect(key('ArrowRight').defaultPrevented).toBeTrue();
+    expect(key('ArrowLeft').defaultPrevented).toBeTrue();
+    expect(key('ArrowUp').defaultPrevented).toBeTrue();
+    expect(key('ArrowDown').defaultPrevented).toBeTrue();
+    await settle();
+
+    // the viewer is the one writing: the key is none of our business
+    spyOn(viewer(), 'isWriting').and.returnValue(true);
+    expect(key('ArrowRight').defaultPrevented).toBeFalse();
+    expect(key('ArrowLeft').defaultPrevented).toBeFalse();
+  });
+
   it('the arrow keys leave the copy alone while the score is being typed', async () => {
     await create();
     const score = fixture.nativeElement.querySelector('#score') as HTMLInputElement;
@@ -560,6 +581,7 @@ describe('TaskVerificationComponent', () => {
     await settle();
     expect(change).not.toHaveBeenCalled();
     expect(component.currentCopy).toBe(0);
+    expect(key('ArrowRight').defaultPrevented).toBeFalse();  // the caret moves in the input
   });
 
   it('Enter validates the copy and puts the cursor back in the score', async () => {

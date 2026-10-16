@@ -73,6 +73,11 @@ export class PDFViewerComponent implements OnChanges, OnDestroy {
   @Input({required: true}) pdfUrl: string;
   @Input() hideToolbar: boolean = false;
 
+  /** The arrow keys belong to the screen around the viewer: both screens that
+   *  embed it move between the copies with them, and pdf.js turned the page of
+   *  the document at the same time (left and right turn it whatever the zoom). */
+  readonly ignoredKeys = ['left', 'right', 'up', 'down'];
+
   pdfAnnotations: SavedAnnotation[] = [];
   pdfViewerInitialized: boolean = false;
   pdfModified: boolean = false;

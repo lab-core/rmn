@@ -270,6 +270,8 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown.arrowright', ['$event'])
   onKeydownArrowRightHandler(event: KeyboardEvent) {
     if (!this.pdfViewer.isWriting() && !this.isScoreActive()) {
+      // the copy is ours: the viewer must not scroll the document as well
+      event.preventDefault();
       this.nextCopy();
     }
   }
@@ -277,6 +279,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown.arrowleft', ['$event'])
   onKeydownArrowLeftHandler(event: KeyboardEvent) {
     if (!this.pdfViewer.isWriting() && !this.isScoreActive()) {
+      event.preventDefault();
       this.previousCopy();
     }
   }
@@ -286,6 +289,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (this.isScoreActive()) {
       return;
     }
+    event.preventDefault();
     // move up (-> 4 copies)
     let tempIndex = this.previousCopyIndex();
     let i = 1;
@@ -306,6 +310,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (this.isScoreActive()) {
       return;
     }
+    event.preventDefault();
 
     // move down (-> 4 copies)
     let tempIndex = this.nextCopyIndex();

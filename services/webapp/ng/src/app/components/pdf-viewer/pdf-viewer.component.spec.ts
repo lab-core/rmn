@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService, pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
+import { By } from '@angular/platform-browser';
+import { NgxExtendedPdfViewerComponent, NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService, pdfDefaultOptions } from 'ngx-extended-pdf-viewer';
 
 import { PDFViewerComponent } from './pdf-viewer.component';
 import { MATERIAL_MODULES, waitUntil } from '../../testing/helpers';
@@ -31,6 +32,16 @@ describe('PDFViewerComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain("Cette copie n'est pas disponible.");
     expect(fixture.nativeElement.querySelector('ngx-extended-pdf-viewer')).toBeNull();
+  });
+
+  // pdf.js binds the arrow keys itself: left and right turn the page of the
+  // document whatever the zoom, under the screen that moves between the copies.
+  it('leaves the arrow keys to the screen around it', () => {
+    expect(fixture.componentInstance.ignoredKeys).toEqual(['left', 'right', 'up', 'down']);
+    fixture.componentRef.setInput('pdfUrl', 'copy.pdf');
+    fixture.detectChanges();
+    const viewer = fixture.debugElement.query(By.directive(NgxExtendedPdfViewerComponent));
+    expect(viewer.componentInstance.ignoreKeys()).toEqual(['left', 'right', 'up', 'down']);
   });
 
   it('resets its state when the pdf changes', () => {

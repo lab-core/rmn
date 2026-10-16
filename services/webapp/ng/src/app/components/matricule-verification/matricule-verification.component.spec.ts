@@ -319,6 +319,31 @@ describe('MatriculeVerificationComponent', () => {
     expect(component.previousCopy).toHaveBeenCalled();
   });
 
+  // pdf.js turns the page of the copy with the left and right arrows, and the
+  // browser scrolls the viewer with the ones it is left.
+  it('the arrow keys do not reach the viewer, which would move inside the copy', async () => {
+    await create();
+    spyOn(component, 'nextCopy');
+    const arrow = (name: string) => {
+      const event = new KeyboardEvent('keydown', { key: name, cancelable: true, bubbles: true });
+      document.dispatchEvent(event);
+      return event;
+    };
+    expect(arrow('ArrowRight').defaultPrevented).toBeTrue();
+    expect(arrow('ArrowLeft').defaultPrevented).toBeTrue();
+    expect(arrow('ArrowUp').defaultPrevented).toBeTrue();
+    expect(arrow('ArrowDown').defaultPrevented).toBeTrue();
+
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+    try {
+      expect(arrow('ArrowRight').defaultPrevented).toBeFalse();  // the caret moves in the input
+    } finally {
+      input.remove();
+    }
+  });
+
   it('the arrow keys are left to a focused text field', async () => {
     await create();
     spyOn(component, 'nextCopy');
