@@ -4,13 +4,32 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { HttpEventType } from '@angular/common/http';
 import JSZip from 'jszip';
-import { PDFArray, PDFDocument, PDFName } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFString } from 'pdf-lib';
 
 import { PdfManagementDialogComponent } from './pdf-management-dialog.component';
 import { DocumentsService } from 'src/app/services/documents.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { MATERIAL_MODULES, dialogRefSpy, notificationSpy, userServiceStub, waitUntil } from '../../testing/helpers';
+
+/** The `Name` of the marker of every page, in page order. */
+function markerNumbers(doc: PDFDocument): string[] {
+  return doc.getPages().map((page) => {
+    const annots = page.node.lookup(PDFName.of('Annots')) as PDFArray;
+    const annot = page.doc.context.lookup(annots.get(0)) as PDFDict;
+    return (annot.get(PDFName.of('Name')) as PDFString).decodeText();
+  });
+}
+
+/** Rewrites the markers of a document the way the export numbered them before. */
+function renumberMarkersFromZero(doc: PDFDocument): void {
+  doc.getPages().forEach((page, i) => {
+    const annots = page.node.lookup(PDFName.of('Annots')) as PDFArray;
+    const annot = page.doc.context.lookup(annots.get(0)) as PDFDict;
+    annot.set(PDFName.of('Contents'), PDFString.of(`Page${i} - NE PAS TOUCHER!`));
+    annot.set(PDFName.of('Name'), PDFString.of(`Page${i}`));
+  });
+}
 
 describe('PdfManagementDialogComponent', () => {
   let fixture: ComponentFixture<PdfManagementDialogComponent>;
@@ -90,23 +109,43 @@ describe('PdfManagementDialogComponent', () => {
     component.addAnnotation(doc, 0);
     component.addAnnotation(doc, 1);
 
-    expect(component.checkAnnotationAndRemove(doc, 0)).toBeTrue();
-    expect(component.checkAnnotationAndRemove(doc, 1)).toBeTrue();
+    expect(markerNumbers(doc)).toEqual(['Page1', 'Page2']);  // numbered from 1
+    const base = component.markerBase(doc);
+    expect(base).toBe(1);
+    expect(component.checkAnnotationAndRemove(doc, 0, base)).toBeTrue();
+    expect(component.checkAnnotationAndRemove(doc, 1, base)).toBeTrue();
     const annots = doc.getPages()[0].node.lookup(PDFName.of('Annots')) as PDFArray;
     expect(annots.size()).toBe(0);  // the marker is stripped once checked
+  });
+
+  // Documents exported before the markers were numbered from 1 are still out
+  // there in the hands of the correctors, numbered from 0.
+  it('reads back a document whose markers start at page 0', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage();
+    doc.addPage();
+    component.addAnnotation(doc, 0);
+    component.addAnnotation(doc, 1);
+    renumberMarkersFromZero(doc);
+
+    expect(markerNumbers(doc)).toEqual(['Page0', 'Page1']);
+    const base = component.markerBase(doc);
+    expect(base).toBe(0);
+    expect(component.checkAnnotationAndRemove(doc, 0, base)).toBeTrue();
+    expect(component.checkAnnotationAndRemove(doc, 1, base)).toBeTrue();
   });
 
   it('detects a page that was moved to another position', async () => {
     const source = await PDFDocument.create();
     source.addPage();
-    component.addAnnotation(source, 0);  // marked as page 0
+    component.addAnnotation(source, 0);  // marked as page 1
 
     const dest = await PDFDocument.create();
     dest.addPage();
     const [copied] = await dest.copyPages(source, [0]);
     dest.addPage(copied);  // now at position 1
 
-    expect(component.checkAnnotationAndRemove(dest, 1)).toBeFalse();
+    expect(component.checkAnnotationAndRemove(dest, 1, component.markerBase(dest))).toBeFalse();
   });
 
   it('stamps the copy number on the first page without changing the page count', async () => {
@@ -469,6 +508,19 @@ describe('PdfManagementDialogComponent export and import', () => {
   it('refuses a pdf whose pages were reordered', async () => {
     await component.uploadZipFile(await zipFile({ 'Q2.pdf': await exportedPdf('Q2.pdf', 2, [1, 0]) }));
 
+    expect(notification.showError).toHaveBeenCalledWith(
+      jasmine.stringContaining('pdf document Q2.pdf has been changed: page 1 is not at the right place'), 'Error');
+    expect(component.processing).toBeFalse();
+    expect(matchReplace()).toEqual([]);
+  });
+
+  // "Page12" starts with "Page1": comparing the prefix accepted a page that had
+  // moved, as soon as the merged document was ten pages long or more.
+  it('refuses a reordered pdf whose marker only shares a prefix with the page', async () => {
+    const order = [11, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0];  // page 12 lands first
+    await component.uploadZipFile(await zipFile({ 'Q2.pdf': await exportedPdf('Q2.pdf', 12, order) }));
+
+    // the prefix comparison only noticed it eleven pages later, on page 12
     expect(notification.showError).toHaveBeenCalledWith(
       jasmine.stringContaining('pdf document Q2.pdf has been changed: page 1 is not at the right place'), 'Error');
     expect(component.processing).toBeFalse();
