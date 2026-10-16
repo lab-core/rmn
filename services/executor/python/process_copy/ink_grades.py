@@ -42,8 +42,11 @@ CLUSTER_TOL = 0.035
 # ticks, crosses and sentences, not numbers.
 MIN_CLUSTER_W = 0.04
 # wide enough for a grade written as a stacked fraction inside a drawn box,
-# which one grader does and which measured 0.19 of the page
-MAX_CLUSTER_W = 0.22
+# which one grader does and which measured 0.19 of the page, and for a grade
+# inside a generously drawn circle, which the 2026 corpus has at 0.24 -- at
+# 0.22 those marks were dropped and the page fell back to a correction mark in
+# the body of the answer
+MAX_CLUSTER_W = 0.26
 
 # Rendering. A vector digit 300 px tall drawn with a hairline almost vanishes
 # once make_square resizes it to 28x28, so the thickness follows the size of
@@ -60,6 +63,14 @@ MERGE_OVERLAP = 0.5
 # fraction slash, long and flat with glyphs above and below is a vinculum.
 SEPARATOR_MAX = 0.28
 SEPARATOR_MIN_Y = 0.55
+# A comma is the other decimal separator, and in French it is the usual one.
+# Written by hand it is not a dot: it is a thin descending tick, measured on
+# the 2026 corpus at up to half the mark's height and well under a tenth of it
+# wide. It has to be allowed to be that tall, so the width is what keeps a
+# digit out -- no digit of the same number is a hairline -- together with
+# ``SEPARATOR_MIN_Y`` and the decimals that must follow it.
+COMMA_MAX_HEIGHT = 0.6
+COMMA_MAX_WIDTH = 0.18
 SLASH_MIN_HEIGHT = 0.6
 SLASH_STRAIGHTNESS = 0.25
 # a slash leans; the upright stroke of a handwritten "4" is straight and tall
@@ -71,6 +82,10 @@ SLASH_MIN_ASPECT = 0.25
 # the mark's height threw every stacked fraction away.
 VINCULUM_MIN_ASPECT = 2.0
 VINCULUM_MIN_WIDTH = 0.6
+# An underline is measured against the glyphs it sits under rather than
+# against the whole mark, which it widens itself: the rule under a "1" ran the
+# width of the digit and a little past it, 0.55 of a mark it had stretched.
+UNDERLINE_MIN_WIDTH = 0.8
 
 # ``/FreeText`` contents carry an author prefix ("u:8.5"). A grade is a bare
 # number or a fraction; "ok", "bon raisonnement" and the signed adjustments
@@ -395,18 +410,55 @@ def split_separator(members: Sequence[Stroke], box: Tuple[float, float, float, f
                 above, dot = _decimal_point(above, _union([s.bbox for s in above]))
                 return above, below, dot
 
-    glyphs, dot = _decimal_point(members, box)
+    glyphs, dot = _decimal_point(_without_underline(members), box)
     return glyphs, [], dot
 
 
+def _without_underline(members: Sequence[Stroke]) -> List[Stroke]:
+    """``members`` without the rule the grader drew under the grade.
+
+    Some graders underline the number they wrote. The stroke is flat, straight
+    and sits wholly below every glyph, which is what tells it from a fraction
+    bar -- a vinculum has a denominator under it, and ``split_separator`` has
+    already returned by the time this runs. Left in, it reaches the classifier
+    as one more digit: an underlined "1" read as 71, was divided down by the
+    question maximum and came back as 0.75.
+    """
+    members = list(members)
+    if len(members) < 2:
+        return members
+    for stroke in members:
+        sx0, sy0, sx1, sy1 = stroke.bbox
+        others = [s for s in members if s is not stroke]
+        span = _union([s.bbox for s in others])
+        if (
+            sy0 >= span[3]  # wholly below the glyphs
+            and (sx1 - sx0) >= VINCULUM_MIN_ASPECT * max(sy1 - sy0, 1e-6)
+            and (sx1 - sx0) >= UNDERLINE_MIN_WIDTH * max(span[2] - span[0], 1e-6)
+            and _straightness(stroke) < SLASH_STRAIGHTNESS
+        ):
+            return others
+    return members
+
+
 def _decimal_point(strokes, box):
-    """The decimal point among ``strokes``, and the rest.
+    """The decimal separator among ``strokes``, and the rest.
 
     A decimal point is small and sits low in the mark. Splitting a fraction
     has to look for one inside the numerator as well: "4.5 over 8" was losing
     its point, reading 495, being divided down to 4.95 by the maximum, and
     then having a decimal *invented* for it by ``random_allowed_decimals``.
     Every grade of that question came back a quarter point out.
+
+    A comma counts too, and is what a French-speaking grader writes. It is far
+    taller than a dot -- half the height of the mark is ordinary -- so being
+    small cannot be what identifies it; being a hairline can, because no digit
+    of the same number is one. It must also carry decimals: a tick with
+    nothing to its right is the tail of a glyph, not a separator, and removing
+    it would cost a digit rather than save one.
+
+    Returns:
+        ``(glyph_strokes, separator_stroke_or_None)``.
     """
     height = max(box[3] - box[1], 1e-6)
     dot = None
@@ -415,8 +467,13 @@ def _decimal_point(strokes, box):
         small = (sx1 - sx0) <= SEPARATOR_MAX * height and (
             sy1 - sy0
         ) <= SEPARATOR_MAX * height
+        comma = (
+            (sy1 - sy0) <= COMMA_MAX_HEIGHT * height
+            and (sx1 - sx0) <= COMMA_MAX_WIDTH * height
+            and any(s.bbox[0] >= sx1 for s in strokes if s is not stroke)
+        )
         low = ((sy0 + sy1) / 2 - box[1]) / height >= SEPARATOR_MIN_Y
-        if small and low:
+        if (small or comma) and low:
             dot = stroke
             break
     return [s for s in strokes if s is not dot], dot

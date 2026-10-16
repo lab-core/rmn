@@ -98,6 +98,50 @@
       "note": "nothing written: must read not_found, never 0"
     },
     {
+      "file": "ink_comma_decimal.pdf",
+      "max_points": 3.5,
+      "expected": 2.5,
+      "modal": [
+        0.82,
+        0.2
+      ],
+      "known_miss": false,
+      "note": "the decimal is a comma, drawn as a tick half the height of the mark; read as a bare 2 until _decimal_point learned to see one"
+    },
+    {
+      "file": "ink_comma_left_margin.pdf",
+      "max_points": 11.0,
+      "expected": 10.5,
+      "modal": [
+        0.06,
+        0.18
+      ],
+      "known_miss": false,
+      "note": "two digits and a comma, in the left margin against the page edge"
+    },
+    {
+      "file": "ink_wide_circle.pdf",
+      "max_points": 3.5,
+      "expected": 2.5,
+      "modal": [
+        0.82,
+        0.2
+      ],
+      "known_miss": false,
+      "note": "the circle around the grade spans 0.24 of the page: over the old cluster bound, so the mark was dropped and a correction in the answer was read instead"
+    },
+    {
+      "file": "ink_underlined_grade.pdf",
+      "max_points": 3.5,
+      "expected": 1.0,
+      "modal": [
+        0.82,
+        0.2
+      ],
+      "known_miss": false,
+      "note": "the grade is underlined; the rule was read as a second digit"
+    },
+    {
       "file": "freetext_grade.pdf",
       "max_points": 9.0,
       "expected": 8.5,
