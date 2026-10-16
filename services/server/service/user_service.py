@@ -360,6 +360,6 @@ class UserService:
         )
 
         return Response(
-                response=json.dumps({"response": 'Le mot de Passe a été modifié!'}),
+                response=json.dumps({"response": 'Le mot de passe a été modifié!'}),
                 status=200
                 )
