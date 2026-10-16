@@ -6,7 +6,7 @@ import { UserService } from 'src/app/services/user.service';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { SERVER_URL } from 'src/app/utils';
 import { OfflineCopy } from 'src/app/services/offline-db';
-import { PDFDocument, PDFArray, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, PDFArray, PDFDict, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import { csvLines, detectSeparator, splitCsvLine } from 'src/app/csv';
 import JSZip from 'jszip';
@@ -285,12 +285,14 @@ export class PdfManagementDialogComponent {
     colorArray.push(PDFNumber.of(0)); // G
     colorArray.push(PDFNumber.of(0)); // B
 
+    // the marker is numbered from 1, as the pages are shown to the user
+    const markerNumber = pageNumber + 1;
     const textAnnotation = pdfDoc.context.obj({
       Type: PDFName.of('Annot'),
       Subtype: PDFName.of('Text'),
       Rect: rectArray, // Position (x1, y1, x2, y2)
-      Contents: PDFString.of(`Page${pageNumber} - NE PAS TOUCHER!`),
-      Name: PDFString.of(`Page${pageNumber}`),
+      Contents: PDFString.of(`Page${markerNumber} - NE PAS TOUCHER!`),
+      Name: PDFString.of(`Page${markerNumber}`),
       T: PDFString.of('RMN'),
       C: colorArray, // RGB color for the icon (red)
       Open: false,
@@ -309,7 +311,53 @@ export class PdfManagementDialogComponent {
     }
   }
 
-  checkAnnotationAndRemove(pdfDoc, pageNumber) {
+  /// @brief Number stamped in the marker annotation added by addAnnotation.
+  ///
+  /// @param annot Annotation dictionary to read.
+  /// @return The number of a `Page<n> - NE PAS TOUCHER!` marker, or undefined
+  ///   when the annotation is not one of ours or carries no number.
+  markerPageNumber(annot: PDFDict | undefined): number | undefined {
+    const title = annot?.get(PDFName.of('T'));
+    if (!(title instanceof PDFString) || title.decodeText() !== 'RMN') {
+      return undefined;
+    }
+    const contents = annot.get(PDFName.of('Contents'));
+    const match = contents instanceof PDFString ? contents.decodeText().match(/^Page(\d+)/) : null;
+    return match ? parseInt(match[1]) : undefined;
+  }
+
+  /// @brief First number used by the markers of an exported document.
+  ///
+  /// The export numbered the pages from 0 up to v1.6.8 and numbers them from 1
+  /// since. A document is checked against one base only: accepting both on
+  /// every page would also accept a page that moved by exactly one position.
+  /// It has to be read before checkAnnotationAndRemove strips any marker.
+  ///
+  /// @param pdfDoc Document sent back by the user.
+  /// @return 0 for a document exported with the old numbering, 1 otherwise.
+  markerBase(pdfDoc): number {
+    for (const page of pdfDoc.getPages()) {
+      const annots = page.node.lookup(PDFName.of('Annots'));
+      if (!(annots instanceof PDFArray)) {
+        continue;
+      }
+      for (let i = 0; i < annots.size(); i++) {
+        if (this.markerPageNumber(page.doc.context.lookup(annots.get(i))) === 0) {
+          return 0;
+        }
+      }
+    }
+    return 1;
+  }
+
+  /// @brief Checks that a page still carries its own marker and removes it.
+  ///
+  /// @param pdfDoc Document sent back by the user.
+  /// @param pageNumber Index of the page to check.
+  /// @param base Numbering base of the markers, from markerBase.
+  /// @return False when the page carries the marker of another page, which
+  ///   means the pages were moved, inserted or removed.
+  checkAnnotationAndRemove(pdfDoc, pageNumber, base: number) {
     const page = pdfDoc.getPages()[pageNumber];
     const annots = page.node.lookup(PDFName.of('Annots'));
     const newAnnotsArray = PDFArray.withContext(pdfDoc.context);
@@ -318,8 +366,9 @@ export class PdfManagementDialogComponent {
       const annot = page.doc.context.lookup(annotRef);
       const title = annot.get(PDFName.of('T'));
       if (title instanceof PDFString && title.decodeText() === 'RMN') {
-        const contents = annot.get(PDFName.of('Contents')).decodeText();
-        if (contents.startsWith('Page') && !contents.startsWith(`Page${pageNumber}`)) {
+        // compare the whole number: Page1 used to be a prefix of Page10 and up
+        const marker = this.markerPageNumber(annot);
+        if (marker !== undefined && marker !== pageNumber + base) {
           return false;
         }
       } else {
@@ -520,9 +569,10 @@ export class PdfManagementDialogComponent {
             this.processing = false;
             return;
           }
+          const markerBase = this.markerBase(pdfDoc);
           for (let j = 0; j < pdfDoc.getPageCount(); j++) {
             try {
-              if (!this.checkAnnotationAndRemove(pdfDoc, j)) {
+              if (!this.checkAnnotationAndRemove(pdfDoc, j, markerBase)) {
                 this.notificationService.showError(`The page order of the pdf document ${pdfFile} has been changed: page ${j + 1} is not at the right place.`, 'Error');
                 this.processing = false;
                 return;

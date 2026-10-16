@@ -165,6 +165,8 @@ export class MatriculeVerificationComponent implements OnInit {
     if (this.typingInAField()) {
       return;
     }
+    // the copy is ours: the viewer must not scroll the document as well
+    event.preventDefault();
     this.nextCopy();
   }
 
@@ -173,6 +175,7 @@ export class MatriculeVerificationComponent implements OnInit {
     if (this.typingInAField()) {
       return;
     }
+    event.preventDefault();
     this.previousCopy();
   }
 
@@ -181,6 +184,7 @@ export class MatriculeVerificationComponent implements OnInit {
     if (this.typingInAField()) {
       return;
     }
+    event.preventDefault();
     // move up (-> 4 copies)
     let tempIndex = this.previousCopyIndex();
     let i = 1;
@@ -201,6 +205,7 @@ export class MatriculeVerificationComponent implements OnInit {
     if (this.typingInAField()) {
       return;
     }
+    event.preventDefault();
     // move down (-> 4 copies)
     let tempIndex = this.nextCopyIndex();
     let i = 1;
