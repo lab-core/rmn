@@ -72,6 +72,16 @@ CORPUS_B = os.path.join(
     "documents",
     "a9b59d93-5201-4fd7-a0e8-fd15ee8e791f",
 )
+# A third per-question tree, from the autumn 2026 intra. Its grader writes the
+# decimal as a comma and circles the result generously, which is what the
+# comma, underline and cluster-width rules were measured against.
+CORPUS_C = os.path.join(
+    os.path.dirname(EXECUTOR),
+    "..",
+    "storage",
+    "documents",
+    "d98c2837-c1ee-4ba7-ad43-6fdae3bd11a0",
+)
 
 # (name, source pdf, page index, max points, expected, modal centre, note)
 # ``expected`` None means "nothing is written on this page": the reader must
@@ -162,6 +172,45 @@ FIXTURES = [
         None,
         None,
         "nothing written: must read not_found, never 0",
+    ),
+    (
+        "ink_comma_decimal",
+        "C/Q1/MTH1106_CP_AUTOMNE2026_GROUPE01-10_Q1.pdf",
+        0,
+        3.5,
+        2.5,
+        (0.82, 0.20),
+        "the decimal is a comma, drawn as a tick half the height of the mark; "
+        "read as a bare 2 until _decimal_point learned to see one",
+    ),
+    (
+        "ink_comma_left_margin",
+        "C/Q4/MTH1106_CP_AUTOMNE2026_GROUPE01-19_Q4.pdf",
+        0,
+        11.0,
+        10.5,
+        (0.06, 0.18),
+        "two digits and a comma, in the left margin against the page edge",
+    ),
+    (
+        "ink_wide_circle",
+        "C/Q1/MTH1106_CP_AUTOMNE2026_GROUPE01-50_Q1.pdf",
+        0,
+        3.5,
+        2.5,
+        (0.82, 0.20),
+        "the circle around the grade spans 0.24 of the page: over the old "
+        "cluster bound, so the mark was dropped and a correction in the "
+        "answer was read instead",
+    ),
+    (
+        "ink_underlined_grade",
+        "C/Q1/MTH1106_CP_AUTOMNE2026_GROUPE01-13_Q1.pdf",
+        0,
+        3.5,
+        1.0,
+        (0.82, 0.20),
+        "the grade is underlined; the rule was read as a second digit",
     ),
     (
         "freetext_grade",
@@ -555,8 +604,9 @@ def main() -> int:
     parser.add_argument("--model", help="classifier file (.tflite or .h5)")
     parser.add_argument("--corpus-a", default=CORPUS_A, help="whole graded copies")
     parser.add_argument("--corpus-b", default=CORPUS_B, help="per-question tree")
+    parser.add_argument("--corpus-c", default=CORPUS_C, help="per-question tree")
     args = parser.parse_args()
-    roots = {"A": args.corpus_a, "B": args.corpus_b}
+    roots = {"A": args.corpus_a, "B": args.corpus_b, "C": args.corpus_c}
     failures = build(args.out, roots, args.check_only, args.model)
     if failures:
         print(f"\n{failures} fixture(s) still show a matricule")

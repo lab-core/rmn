@@ -416,3 +416,104 @@ def test_the_denominator_of_a_fraction_never_reaches_the_digit_bank(
         crops = data["crops"]
     # the one stroke of the grade, not the two of the denominator
     assert len(crops) == 1
+
+
+def _stroke(points):
+    return ink_grades.Stroke(points=np.array(points, dtype=float))
+
+
+def test_a_comma_is_a_decimal_separator_not_a_digit():
+    """The comma French graders write is a tick, far taller than a dot.
+
+    Measured on a real mark: the "2" and the "5" are 17 and 13 points wide in
+    a mark 25 tall, and the comma between them is a hairline 13 points tall.
+    Left among the glyphs it became a third digit and the grade read 2.
+    """
+    two = _stroke([(0, 0), (12, 2), (4, 20), (16, 22)])
+    comma = _stroke([(26, 12), (26, 25)])
+    five = _stroke([(34, 0), (46, 1), (36, 11), (48, 22)])
+    glyphs, denominator, dot = ink_grades.split_separator(
+        [two, comma, five], ink_grades._union([s.bbox for s in (two, comma, five)])
+    )
+    assert denominator == []
+    assert dot is comma
+    assert glyphs == [two, five]
+
+
+def test_a_tick_with_nothing_after_it_stays_a_glyph():
+    """A separator carries decimals; a lone tick is part of what was written.
+
+    Dropping it would cost a digit rather than save one, so the comma rule
+    asks for a glyph to its right.
+    """
+    two = _stroke([(0, 0), (12, 2), (4, 20), (16, 22)])
+    tail = _stroke([(26, 12), (26, 25)])
+    glyphs, _, dot = ink_grades.split_separator(
+        [two, tail], ink_grades._union([s.bbox for s in (two, tail)])
+    )
+    assert dot is None
+    assert glyphs == [two, tail]
+
+
+def test_a_digit_is_never_taken_for_a_comma():
+    """A "1" drawn as a bare upright is thin, but it is not low and not short."""
+    one = _stroke([(0, 0), (0, 24)])
+    five = _stroke([(12, 0), (24, 1), (14, 11), (26, 22)])
+    glyphs, _, dot = ink_grades.split_separator(
+        [one, five], ink_grades._union([s.bbox for s in (one, five)])
+    )
+    assert dot is None
+    assert glyphs == [one, five]
+
+
+def test_the_rule_drawn_under_a_grade_is_not_a_digit():
+    """Some graders underline the number; the rule is not part of it."""
+    one = _stroke([(4, 0), (8, 0), (8, 20)])
+    underline = _stroke([(0, 23), (24, 23)])
+    glyphs, denominator, dot = ink_grades.split_separator(
+        [one, underline], ink_grades._union([s.bbox for s in (one, underline)])
+    )
+    assert denominator == []
+    assert dot is None
+    assert glyphs == [one]
+
+
+def test_a_fraction_bar_is_not_mistaken_for_an_underline():
+    """A bar with a denominator under it still splits the mark in two."""
+    nine = _stroke([(4, 0), (16, 2), (6, 12), (18, 14)])
+    bar = _stroke([(0, 20), (24, 20)])
+    denominator_digit = _stroke([(4, 26), (16, 28), (6, 38), (18, 40)])
+    members = [nine, bar, denominator_digit]
+    glyphs, denominator, _ = ink_grades.split_separator(
+        members, ink_grades._union([s.bbox for s in members])
+    )
+    assert glyphs == [nine]
+    assert denominator == [denominator_digit]
+
+
+@pytest.mark.parametrize(
+    "name, expected, confident",
+    [
+        ("ink_comma_decimal.pdf", 2.5, True),
+        ("ink_comma_left_margin.pdf", 10.5, True),
+        ("ink_wide_circle.pdf", 2.5, True),
+        # the grade itself is a "1" drawn with a top flag, which the model
+        # reads as a 7; the question maximum rejects that and leaves the 1 of
+        # ``known_mistmatch``, which carries no probability of its own. Right
+        # answer, and right to send it to the teacher rather than prefill it
+        ("ink_underlined_grade.pdf", 1.0, False),
+    ],
+)
+def test_the_2026_corpus_is_read_and_graded_for_trust(
+    name, expected, confident, classifier
+):
+    """The job that motivated these rules, read and scored for confidence.
+
+    A grade the teacher has to correct by hand is a nuisance; one that arrives
+    prefilled and wrong is worse, and before these rules every comma grade of
+    this batch came back whole and confident.
+    """
+    entry = next(e for e in EXPECTED if e["file"] == name)
+    reading, _ = _read(entry, classifier)
+    assert reading.grade == expected
+    assert reading.confident is confident
