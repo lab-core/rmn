@@ -858,6 +858,16 @@ def matricule_region(page_size: Tuple[float, float]) -> Tuple[float, ...]:
 
 # ---------------------------------------------------------------- selection --
 MIN_UNAMBIGUOUS = 5
+# A grade is written within this distance of its grader's usual spot, as a
+# fraction of the page; it decides which pages a learned position explains.
+POSITION_RADIUS = 0.08
+# Up to this many graders' spots per question, each used by at least this
+# share of the pages that carry marks.
+MAX_POSITIONS = 3
+MIN_POSITION_SHARE = 0.10
+# marks looked at when searching for the densest one; a batch has a few
+# thousand, and every one costs a pass over the pages
+DENSITY_SAMPLE = 400
 # grades live in the margin at the top or the right of the page
 TOP_BAND = 0.6
 CIRCLE_BONUS = 0.06
@@ -887,13 +897,98 @@ def _median_centre(centres):
     return (xs[len(xs) // 2], ys[len(ys) // 2])
 
 
+def _near(page, centre, radius):
+    """Whether one of the page's marks sits within ``radius`` of ``centre``."""
+    return any(
+        math.hypot(c.centre[0] - centre[0], c.centre[1] - centre[1]) <= radius
+        for c in page
+    )
+
+
+def _refine(pages, centre, rounds):
+    """Move ``centre`` to the median of the mark nearest to it on each page.
+
+    Only the pages with a mark within ``POSITION_RADIUS`` take part: a page of
+    another grader, who writes elsewhere, has its nearest mark far away, and
+    counting it pulled the median half way to that grader's corner -- onto
+    nothing, or onto the per-part breakdown.
+    """
+    for _ in range(rounds):
+        nearest = []
+        for page in pages:
+            mark = min(
+                page,
+                key=lambda c: math.hypot(
+                    c.centre[0] - centre[0], c.centre[1] - centre[1]
+                ),
+            )
+            if math.hypot(mark.centre[0] - centre[0], mark.centre[1] - centre[1]) <= (
+                POSITION_RADIUS
+            ):
+                nearest.append(mark.centre)
+        if not nearest:
+            break
+        moved = _median_centre(nearest)
+        if moved == centre:
+            break
+        centre = moved
+    return centre
+
+
+def _densest_mark(pages):
+    """The mark with the most pages carrying a mark near it."""
+    marks = [c.centre for page in pages for c in page]
+    if len(marks) > DENSITY_SAMPLE:
+        marks = marks[:: math.ceil(len(marks) / DENSITY_SAMPLE)]
+    return max(
+        marks, key=lambda m: sum(_near(page, m, POSITION_RADIUS) for page in pages)
+    )
+
+
+def _learn_position(pages, rounds):
+    """The one place most of ``pages`` put their grade.
+
+    Seeded from the pages with a single mark when there are any (that mark can
+    only be the grade), else from each page's top-most, right-most mark. When
+    the pages come from several graders that seed can belong to a handful of
+    them -- one grader's few copies graded in the other margin -- so the
+    densest mark is tried as well, and the seed that explains more pages wins;
+    on a tie the first one, which is what a single grader always got.
+    """
+    singles = [page[0].centre for page in pages if len(page) == 1]
+    if singles:
+        seed = _median_centre(singles)
+    else:
+        seed = _median_centre(
+            [
+                max(page, key=lambda c: c.centre[0] - c.centre[1]).centre
+                for page in pages
+            ]
+        )
+    best = _refine(pages, seed, rounds)
+    explained = sum(_near(page, best, POSITION_RADIUS) for page in pages)
+    if explained < len(pages):
+        other = _refine(pages, _densest_mark(pages), rounds)
+        if sum(_near(page, other, POSITION_RADIUS) for page in pages) > explained:
+            best = other
+    return best
+
+
 def learn_modal_positions(candidates_by_question, rounds: int = 3):
-    """Where this grader puts the grade, per question, learned from the batch.
+    """Where the graders put the grade, per question, learned from the batch.
 
     Graders repeat themselves within a batch but not between jobs: one exam has
     its grades two thirds down the right margin, another jams them into the top
     right corner over the matricule box. So this is measured per (job,
     question) from the batch itself, and never carried over.
+
+    A question is often split between graders, each with a spot of their own
+    (one in the top left margin, the other circled in the top right with a
+    per-part breakdown under it). So several positions are learned: the first
+    from every page, the next from the pages that have no mark near any
+    position found so far, up to ``MAX_POSITIONS``. A position has to explain
+    ``MIN_UNAMBIGUOUS`` pages and ``MIN_POSITION_SHARE`` of them, so that a few
+    stray pages do not make one of their own.
 
     Only marks in the top band of the page are considered. Graders write the
     grade in the margin at the top or the right; the rest of the page is the
@@ -904,47 +999,33 @@ def learn_modal_positions(candidates_by_question, rounds: int = 3):
 
     Args:
         candidates_by_question: ``{question: [candidates of one page, ...]}``.
-        rounds: Refinement passes.
+        rounds: Refinement passes per position.
 
     Returns:
-        ``{question: (cx, cy)}``; a question with too little to go on is left
-        out, and ``pick`` then falls back to the top-most, right-most mark.
+        ``{question: [(cx, cy), ...]}``, the most used position first; a
+        question with too little to go on is left out, and ``pick`` then falls
+        back to the top-most, right-most mark.
     """
     modal = {}
     for question, pages in candidates_by_question.items():
-        in_band = [
-            [c for c in page if c.centre[1] <= TOP_BAND]
-            for page in candidates_by_question[question]
-        ]
+        in_band = [[c for c in page if c.centre[1] <= TOP_BAND] for page in pages]
         in_band = [page for page in in_band if page]
-        if len(in_band) < MIN_UNAMBIGUOUS:
-            continue
-        singles = [page[0].centre for page in in_band if len(page) == 1]
-        if singles:
-            centre = _median_centre(singles)
-        else:
-            centre = _median_centre(
-                [
-                    max(page, key=lambda c: c.centre[0] - c.centre[1]).centre
-                    for page in in_band
-                ]
-            )
-        for _ in range(rounds):
-            nearest = [
-                min(
-                    page,
-                    key=lambda c: math.hypot(
-                        c.centre[0] - centre[0], c.centre[1] - centre[1]
-                    ),
-                ).centre
-                for page in in_band
-            ]
-            moved = _median_centre(nearest)
-            if moved == centre:
+        enough = max(MIN_UNAMBIGUOUS, math.ceil(MIN_POSITION_SHARE * len(in_band)))
+        positions = []
+        remaining = in_band
+        while len(positions) < MAX_POSITIONS and len(remaining) >= enough:
+            centre = _learn_position(remaining, rounds)
+            if centre[1] > TOP_BAND:
                 break
-            centre = moved
-        if centre[1] <= TOP_BAND:
-            modal[question] = centre
+            left = [
+                page for page in remaining if not _near(page, centre, POSITION_RADIUS)
+            ]
+            if len(remaining) - len(left) < enough:
+                break
+            positions.append(centre)
+            remaining = left
+        if positions:
+            modal[question] = positions
     return modal
 
 
@@ -999,8 +1080,14 @@ def _bounded(readings, max_points):
     return None
 
 
-def pick(candidates, modal_centre, max_points, classifier, bonus=False,
-         lone_mark_trusted=False):
+def pick(
+    candidates,
+    modal_centre,
+    max_points,
+    classifier,
+    bonus=False,
+    lone_mark_trusted=False,
+):
     """Choose between the marks of one page and read the grade off it.
 
     The signals are combined rather than used as filters, because a grader who
@@ -1010,7 +1097,9 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False,
 
     Args:
         candidates: What ``grade_candidates`` returned for the page.
-        modal_centre: Where this question's grades usually sit, or ``None``.
+        modal_centre: Where this question's grades usually sit, or ``None``:
+            one ``(cx, cy)`` or a list of them, one per grader's spot, when the
+            question was split between graders.
         max_points: The question's maximum, or ``None``.
         classifier: The digit classifier, unused for typed annotations.
         bonus: True for a bonus question, which is always sent to review.
@@ -1035,14 +1124,16 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False,
     candidates = [c for c in candidates if c.centre[1] <= TOP_BAND]
     if not candidates:
         return Reading(reason="not_found", n_candidates=0)
-    unplaced = modal_centre is None and not (lone_mark_trusted and len(candidates) == 1)
+    if modal_centre is not None and not isinstance(modal_centre[0], Sequence):
+        modal_centre = [modal_centre]
+    unplaced = not modal_centre and not (lone_mark_trusted and len(candidates) == 1)
 
     def distance(candidate):
-        if modal_centre is None:
-            cx, cy = candidate.centre
-            return (1 - cx) + cy  # fall back to top-most, right-most
         cx, cy = candidate.centre
-        return math.hypot(cx - modal_centre[0], cy - modal_centre[1])
+        if not modal_centre:
+            return (1 - cx) + cy  # fall back to top-most, right-most
+        # the grader of this page is unknown: the nearest of the spots
+        return min(math.hypot(cx - mx, cy - my) for mx, my in modal_centre)
 
     ordered = sorted(candidates, key=distance)
     ambiguous = (
@@ -1101,8 +1192,10 @@ def pick(candidates, modal_centre, max_points, classifier, bonus=False,
 
         if candidate.denominator_strokes:
             den = read_number(
-                candidate.denominator_strokes, candidate.denominator_dot_x,
-                classifier, stage=False,
+                candidate.denominator_strokes,
+                candidate.denominator_dot_x,
+                classifier,
+                stage=False,
             )
             if den and max_points is not None:
                 if abs(den[0][1] - max_points) > 1e-6:

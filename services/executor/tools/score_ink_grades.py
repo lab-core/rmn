@@ -187,8 +187,12 @@ def report(results, truth, modal, dump=None):
     print("\nper question:")
     for question in sorted(per_question, key=lambda q: int(q[1:])):
         g, n = per_question[question]
-        centre = modal.get(question)
-        where = f"modal ({centre[0]:.2f}, {centre[1]:.2f})" if centre else "no prior"
+        centres = modal.get(question)
+        where = (
+            "modal " + ", ".join(f"({x:.2f}, {y:.2f})" for x, y in centres)
+            if centres
+            else "no prior"
+        )
         print(f"  {question}: {g:3d}/{n:3d}  {100 * g / n:5.1f}%   {where}")
     print(f"\noverall: {good}/{total} = {100 * good / total:.1f}%")
 

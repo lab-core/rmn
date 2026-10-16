@@ -271,6 +271,64 @@ def test_the_learned_position_stays_in_the_top_band():
     assert "Q1" not in modal
 
 
+# Where the two graders of a 2026 question put their marks, as a fraction of
+# the page: one writes the grade alone near the top right, the other circles
+# it further left and lists the parts under the first grader's spot.
+ALONE = (0.75, 0.29)
+CIRCLED = (0.40, 0.13)
+BREAKDOWN = (0.78, 0.54)
+
+
+def _mark(centre, i=0, text=None):
+    """A 30 x 20 pt mark centred near ``centre``, jittered by page ``i``."""
+    width, height = 612.0, 792.0
+    cx = (centre[0] + 0.004 * (i % 5 - 2)) * width
+    cy = (centre[1] + 0.003 * (i % 3 - 1)) * height
+    return ink_grades.Candidate(
+        bbox=(cx - 15, cy - 10, cx + 15, cy + 10), page_size=(width, height), text=text
+    )
+
+
+def _near(position, centre):
+    return abs(position[0] - centre[0]) < 0.02 and abs(position[1] - centre[1]) < 0.02
+
+
+def test_a_question_split_between_graders_learns_both_spots():
+    """One position for the whole batch landed between the two, on neither."""
+    pages = [[_mark(ALONE, i)] for i in range(30)]
+    pages += [[_mark(CIRCLED, i), _mark(BREAKDOWN, i)] for i in range(30)]
+    positions = ink_grades.learn_modal_positions({"Q5": pages})["Q5"]
+    assert len(positions) == 2
+    assert any(_near(p, ALONE) for p in positions)
+    assert any(_near(p, CIRCLED) for p in positions)
+
+
+def test_each_page_is_read_at_the_nearest_spot():
+    """The grader of a page is unknown: its mark nearest to any spot wins."""
+    positions = [ALONE, CIRCLED]
+    circled = ink_grades.pick(
+        [_mark(CIRCLED, text="6"), _mark(BREAKDOWN, text="0.5")], positions, 7.5, None
+    )
+    alone = ink_grades.pick([_mark(ALONE, text="4.75")], positions, 7.5, None)
+    assert (circled.grade, alone.grade) == (6.0, 4.75)
+    assert circled.confidence > ink_grades.NO_PRIOR_CEILING
+
+
+def test_one_grader_with_a_breakdown_learns_one_spot():
+    """The parts are on every page too, but the grade's spot explains them all."""
+    pages = [[_mark(CIRCLED, i), _mark(BREAKDOWN, i)] for i in range(30)]
+    positions = ink_grades.learn_modal_positions({"Q5": pages})["Q5"]
+    assert len(positions) == 1 and _near(positions[0], CIRCLED)
+
+
+def test_a_few_stray_pages_make_no_spot_of_their_own():
+    """A handful of copies graded in the other margin is not another grader."""
+    pages = [[_mark(ALONE, i)] for i in range(40)]
+    pages += [[_mark((0.06, 0.23), i)] for i in range(3)]
+    positions = ink_grades.learn_modal_positions({"Q5": pages})["Q5"]
+    assert len(positions) == 1 and _near(positions[0], ALONE)
+
+
 # ------------------------------------------------- flattened, colour path --
 RASTER = [e for e in EXPECTED if e.get("source") == "raster"]
 
