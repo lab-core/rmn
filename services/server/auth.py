@@ -6,7 +6,7 @@ guard.
 """
 
 import hmac
-import json
+from flask import json
 import os
 from functools import wraps
 from flask import Response, request

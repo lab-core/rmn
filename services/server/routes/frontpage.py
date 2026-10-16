@@ -1,6 +1,6 @@
 """Adding a cover page to every copy of an export."""
 
-import json
+from flask import json
 import os
 import shutil
 import tempfile

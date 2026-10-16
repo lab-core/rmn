@@ -1,6 +1,6 @@
 """Operator commands, guarded by the shared admin key rather than a session."""
 
-import json
+from flask import json
 import math
 
 from flask import Blueprint, Response, request

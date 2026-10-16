@@ -95,7 +95,12 @@ def test_change_password_checks_the_old_one(client, user_factory, login):
     assert client.post("/users/password", data={**base, "old_password": "pass123", "new_password": "bad space"}).status_code == 400
     assert client.post("/users/password", data={**base, "old_password": "pass123"}).status_code == 400
 
-    assert client.post("/users/password", data={**base, "old_password": "pass123", "new_password": "NewPass1"}).status_code == 200
+    resp = client.post("/users/password", data={**base, "old_password": "pass123", "new_password": "NewPass1"})
+    assert resp.status_code == 200
+    # the accents of a French message travel as utf-8, not as \u00e9 escapes
+    body = resp.data.decode("utf-8")
+    assert "été modifié" in body
+    assert "\\u00e9" not in body
     assert client.post("/users/login", data={"username": "alice", "password": "pass123"}).status_code == 404
     login("alice", "NewPass1")
 
