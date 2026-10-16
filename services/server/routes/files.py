@@ -3,7 +3,9 @@
 from flask import json
 import os
 import uuid
-from flask import Blueprint, Response, request, send_file, url_for
+from flask import Blueprint, request, send_file, url_for
+
+from utils.responses import Response
 from flask_cors import cross_origin
 from rmn_common.status import Output_File
 from auth import verify_share_token, verify_token

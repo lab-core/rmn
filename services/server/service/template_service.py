@@ -1,4 +1,6 @@
-from flask import Response, json, send_file
+from flask import json, send_file
+
+from utils.responses import Response
 from pathlib import Path
 from pypdf import PdfWriter, PdfReader
 from pdf2image import convert_from_path
@@ -48,16 +50,16 @@ class TemplateService():
                     template_file.save(f)
             except Exception as e:
                 print(e)
-                return Response(response="Error: Failed to download files.", status=500)
+                return Response(response=json.dumps({"response": "Error: Failed to download files."}), status=500)
 
             response, code = TemplateService.create_template(request.form, temp_template_file_name, db, storage)
         finally:
             for temp_file in temp_files:
                 if os.path.exists(temp_file):
                     os.remove(temp_file)
-        if code == 200:
-            response = json.dumps({"response": response})
-        return Response(response=response, status=code)
+        # create_template answers an error with a bare message and a success
+        # with the template: both belong in the usual envelope
+        return Response(response=json.dumps({"response": response}), status=code)
 
     def create_template(request_form, template_file_name, db, storage, locked=False, dpi=300):
 
@@ -482,7 +484,7 @@ class TemplateService():
 
             resp, code = TemplateService.create_template(req, filename, db, storage, True)
             if code != 200:
-                return Response(response=resp, status=code)
+                return Response(response=json.dumps({"response": resp}), status=code)
 
             template_added.append(resp)
 

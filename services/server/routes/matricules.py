@@ -2,7 +2,9 @@
 
 from flask import json
 import uuid
-from flask import Blueprint, Response, request
+from flask import Blueprint, request
+
+from utils.responses import Response
 from flask_cors import cross_origin
 from rmn_common.status import Document_Status
 from auth import verify_share_token, verify_token

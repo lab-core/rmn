@@ -164,6 +164,8 @@ def test_owner_downloads_the_cover_page_of_a_copy(client, job, owner):
     resp = _download(client, job, owner, document_index="0")
     assert resp.status_code == 200
     assert resp.data == b"%PDF cover"
+    # a file keeps its own type, whatever the json default of the api
+    assert resp.mimetype == "application/pdf"
 
 
 def test_a_question_download_serves_the_base_of_the_last_version(client, job, owner):
