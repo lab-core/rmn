@@ -452,30 +452,41 @@ def _decimal_point(strokes, box):
 
     A comma counts too, and is what a French-speaking grader writes. It is far
     taller than a dot -- half the height of the mark is ordinary -- so being
-    small cannot be what identifies it; being a hairline can, because no digit
-    of the same number is one. It must also carry decimals: a tick with
-    nothing to its right is the tail of a glyph, not a separator, and removing
-    it would cost a digit rather than save one.
+    small cannot be what identifies it; being a hairline can.
+
+    That hairline is the trap, because the upright of a "4" and the stem of a
+    "1" are hairlines too, and taking the first stroke that could be a
+    separator ate the bar of a 4: the diagonal left alone read as a 6, the
+    real dot stayed in as a digit of its own, and the decimal landed one
+    place too far left -- 4.75 came back as 6.975. So the strokes are weighed
+    rather than scanned in order, and a dot, small in both directions, wins
+    over any hairline; between equals, the smaller one.
+
+    A comma must also carry decimals: a tick with nothing to its right is the
+    tail of a glyph, not a separator, and removing it would cost a digit
+    rather than save one.
 
     Returns:
         ``(glyph_strokes, separator_stroke_or_None)``.
     """
     height = max(box[3] - box[1], 1e-6)
-    dot = None
+    dots, commas = [], []
     for stroke in strokes:
         sx0, sy0, sx1, sy1 = stroke.bbox
-        small = (sx1 - sx0) <= SEPARATOR_MAX * height and (
-            sy1 - sy0
-        ) <= SEPARATOR_MAX * height
-        comma = (
-            (sy1 - sy0) <= COMMA_MAX_HEIGHT * height
-            and (sx1 - sx0) <= COMMA_MAX_WIDTH * height
-            and any(s.bbox[0] >= sx1 for s in strokes if s is not stroke)
-        )
+        width, tall = sx1 - sx0, sy1 - sy0
         low = ((sy0 + sy1) / 2 - box[1]) / height >= SEPARATOR_MIN_Y
-        if (small or comma) and low:
-            dot = stroke
-            break
+        if not low:
+            continue
+        if width <= SEPARATOR_MAX * height and tall <= SEPARATOR_MAX * height:
+            dots.append((width * tall, stroke))
+        elif (
+            tall <= COMMA_MAX_HEIGHT * height
+            and width <= COMMA_MAX_WIDTH * height
+            and any(s.bbox[0] >= sx1 for s in strokes if s is not stroke)
+        ):
+            commas.append((width * tall, stroke))
+    pool = dots or commas
+    dot = min(pool, key=lambda weighed: weighed[0])[1] if pool else None
     return [s for s in strokes if s is not dot], dot
 
 
