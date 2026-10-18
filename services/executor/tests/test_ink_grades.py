@@ -205,6 +205,52 @@ def test_the_enclosing_circle_is_told_from_the_digits():
             assert ink_grades._contains(circle.bbox, stroke.bbox)
 
 
+# A "4" is written as a diagonal and an upright, and that upright is a
+# hairline sitting in the lower half of the mark with the decimals to its
+# right -- the very description the comma rule carried. Taking the first
+# stroke that matched ate it: the diagonal alone read as a 6, the real dot
+# stayed in as a digit, and 4.75 came back as 6.975 on the autumn 2026 Q5.
+def test_the_upright_of_a_four_is_not_taken_for_a_separator():
+    """A dot beats a hairline, wherever each sits in the stroke list."""
+    def stroke(x0, y0, x1, y1, steps=8):
+        xs = np.linspace(x0, x1, steps)
+        ys = np.linspace(y0, y1, steps)
+        return ink_grades.Stroke(points=np.stack([xs, ys], axis=1))
+
+    diagonal = stroke(0.0, 0.0, 5.0, 11.5)
+    upright = stroke(5.0, 4.0, 5.2, 11.6)   # the bar of the 4: a hairline
+    point = stroke(7.5, 17.4, 7.9, 17.8)    # the decimal point, low and tiny
+    seven = stroke(10.0, 2.0, 13.7, 17.7)
+    five = stroke(16.0, 2.0, 22.9, 12.7)
+    members = [diagonal, upright, point, seven, five]
+    box = ink_grades._union([s.bbox for s in members])
+
+    glyphs, separator = ink_grades._decimal_point(members, box)
+
+    assert separator is point
+    assert upright in glyphs
+    assert len(glyphs) == 4
+
+
+def test_a_comma_is_still_the_separator_when_no_dot_was_written():
+    """The hairline rule stays: a comma is what a French grader writes."""
+    def stroke(x0, y0, x1, y1, steps=8):
+        xs = np.linspace(x0, x1, steps)
+        ys = np.linspace(y0, y1, steps)
+        return ink_grades.Stroke(points=np.stack([xs, ys], axis=1))
+
+    four = stroke(0.0, 0.0, 5.0, 11.5)
+    comma = stroke(7.0, 12.0, 7.4, 17.0)
+    five = stroke(10.0, 2.0, 16.0, 12.0)
+    members = [four, comma, five]
+    box = ink_grades._union([s.bbox for s in members])
+
+    glyphs, separator = ink_grades._decimal_point(members, box)
+
+    assert separator is comma
+    assert glyphs == [four, five]
+
+
 def test_a_grade_far_above_the_maximum_is_refused(classifier):
     """A reading the question cannot yield is dropped, not clamped."""
     entry = next(e for e in EXPECTED if e["file"] == "ink_circled_single.pdf")
