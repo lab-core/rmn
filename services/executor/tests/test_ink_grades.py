@@ -251,6 +251,28 @@ def test_a_comma_is_still_the_separator_when_no_dot_was_written():
     assert glyphs == [four, five]
 
 
+# Graders circle the grade in one sweep: the oval overshoots, crosses itself
+# and trails off, so its ends sit far apart and it is not closed. Three copies
+# of the autumn 2026 Q5 were read 0 because of it -- the oval stayed among the
+# glyphs, welded them into one blob, and a ring reads as a confident zero.
+def test_a_circle_that_never_closes_is_still_the_circle():
+    """An open oval around the digits is an enclosure, a digit is not."""
+    angles = np.linspace(0, 2 * np.pi, 120)
+    ring = np.stack([30 + 28 * np.cos(angles), 20 + 16 * np.sin(angles)], axis=1)
+    # the pen carries on past the start and trails away: the ends are apart
+    tail = np.stack([np.linspace(58, 44, 20), np.linspace(20, 52, 20)], axis=1)
+    oval = ink_grades.Stroke(points=np.concatenate([ring, tail]))
+    assert not oval.closed
+    digits = [
+        ink_grades.Stroke(points=np.array([[20.0, 12.0], [24.0, 28.0]])),
+        ink_grades.Stroke(points=np.array([[34.0, 12.0], [40.0, 28.0]])),
+    ]
+
+    assert ink_grades.enclosing_stroke([oval] + digits) is oval
+    # the biggest glyph of a bare number holds no turn around the others
+    assert ink_grades.enclosing_stroke(digits) is None
+
+
 def test_a_grade_far_above_the_maximum_is_refused(classifier):
     """A reading the question cannot yield is dropped, not clamped."""
     entry = next(e for e in EXPECTED if e["file"] == "ink_circled_single.pdf")

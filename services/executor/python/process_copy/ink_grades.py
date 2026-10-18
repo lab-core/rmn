@@ -58,6 +58,13 @@ PAD = 14
 # two ink blobs belong to the same digit when they share this much of the
 # narrower one's columns
 MERGE_OVERLAP = 0.5
+# Enclosure: how much of the turn around what it holds a stroke must cover to
+# count as the circle, in bins of 10 degrees. A generous oval leaves gaps
+# where the pen lifted; a digit of the same mark covers a third of the turn at
+# most, so the bar is set high enough to tell them apart without demanding a
+# perfect ring.
+SURROUND_BINS = 36
+SURROUND_MIN_BINS = 30
 
 # A separator stroke: small and low is a decimal point, long and diagonal is a
 # fraction slash, long and flat with glyphs above and below is a vinculum.
@@ -320,19 +327,54 @@ def cluster_strokes(
     return list(zip(boxes, groups))
 
 
+def _surrounds(stroke: Stroke, others: Sequence[Stroke]) -> bool:
+    """Whether ``stroke`` was drawn around ``others``, closed or not.
+
+    A circle drawn in one sweep seldom closes: it overshoots, crosses itself
+    and trails off, which leaves its ends far apart and ``closed`` saying no.
+    What makes it an enclosure is that it goes *around* what it holds, so what
+    is measured is the angle its points take around them -- counted in bins,
+    the points being far from evenly spaced.
+
+    Args:
+        stroke: The candidate enclosure.
+        others: The strokes it is supposed to hold.
+
+    Returns:
+        True when the stroke covers most of the turn around them.
+    """
+    inner = _union([s.bbox for s in others])
+    cx = (inner[0] + inner[2]) / 2
+    cy = (inner[1] + inner[3]) / 2
+    angles = np.arctan2(stroke.points[:, 1] - cy, stroke.points[:, 0] - cx)
+    visited = np.unique(
+        ((angles + math.pi) / (2 * math.pi) * SURROUND_BINS).astype(int)
+        % SURROUND_BINS
+    )
+    return len(visited) >= SURROUND_MIN_BINS
+
+
 def enclosing_stroke(members: Sequence[Stroke]) -> Optional[Stroke]:
     """The stroke drawn around the others, i.e. the circle, if there is one.
 
     The grade is often circled, which is a strong hint that a mark is the
     grade -- but only a hint: graders do not always circle, so this never
     decides on its own.
+
+    An unrecognised circle costs far more than the hint: it stays among the
+    glyphs, where it touches every digit it holds, so the whole mark renders
+    as one blob -- and a ring reads as a confident ``0``. Three copies of the
+    autumn 2026 Q5 were graded 0 that way, the circle having been drawn in one
+    sweep with a tail that left its ends apart.
     """
     if len(members) < 2:
         return None
     biggest = max(members, key=lambda s: _area(s.bbox))
     box = biggest.bbox
     others = [s for s in members if s is not biggest]
-    if all(_contains(box, s.bbox) for s in others) and biggest.closed:
+    if not all(_contains(box, s.bbox) for s in others):
+        return None
+    if biggest.closed or _surrounds(biggest, others):
         return biggest
     return None
 
