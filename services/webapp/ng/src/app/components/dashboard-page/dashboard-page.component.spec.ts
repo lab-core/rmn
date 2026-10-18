@@ -377,10 +377,12 @@ describe('DashboardPageComponent', () => {
     expect(socket.leave).toHaveBeenCalledWith('job');
   });
 
+  // the fields computeHistogram reads, around the grades of one question
+  const stats = (question: any): any => ({ name: 'Q1', index: 0, bonus: false, count: 0, validatedCount: 0,
+    total: 0, average: 0, stdDev: 0, histogram: [], validatedFilenames: new Set<string>(), ...question });
+
   it('the histogram copes with a zero maximum and out-of-range grades', async () => {
     await create();
-    const stats = (question: any): any => ({ name: 'Q1', index: 0, bonus: false, count: 0, validatedCount: 0,
-      total: 0, average: 0, stdDev: 0, histogram: [], validatedFilenames: new Set<string>(), ...question });
     // max 0 gave NaN bins and threw inside the socket handler
     const zero = component['computeHistogram'](stats({ grades: [0, 0], max: 0 }));
     expect(zero.length).toBe(1);
@@ -390,6 +392,19 @@ describe('DashboardPageComponent', () => {
     const bins = component['computeHistogram'](stats({ grades: [-1, 3, 12], max: 10 }));
     expect(bins.map(b => b.value)).toEqual([0, 2, 4, 6, 8, 10, 12]);
     expect(bins.map(b => b.count)).toEqual([1, 1, 0, 0, 0, 0, 1]);
+  });
+
+  it('the histogram stops at the maximum when no grade goes over it', async () => {
+    await create();
+    // a question on 3.5 points ended on a 4 nobody could reach
+    const half = component['computeHistogram'](stats({ grades: [0.5, 2.5, 3.25, 3.5], max: 3.5 }));
+    expect(half.map(b => b.value)).toEqual([0, 1, 2, 3, 3.5]);
+    // the top grade counts in the last bin, the one just under it keeps 3.25
+    expect(half.map(b => b.count)).toEqual([1, 0, 1, 1, 1]);
+    // same with a bin range over one: 11 points, a bin every 2, and no 12
+    const wide = component['computeHistogram'](stats({ grades: [10.5, 11], max: 11 }));
+    expect(wide.map(b => b.value)).toEqual([0, 2, 4, 6, 8, 10, 11]);
+    expect(wide.map(b => b.count)).toEqual([0, 0, 0, 0, 0, 1, 1]);
   });
 
   it('toggling the bonus of a single-question task does not add its max to itself', async () => {

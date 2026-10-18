@@ -430,13 +430,21 @@ export class DashboardPageComponent {
     // negative grade indexed bins[-1]
     const maxGrade = Math.max(...question.grades, question.max, 0);
     const binRange = Math.max(Math.ceil(maxGrade / maxBins), 1);
-    const nBins = Math.ceil(maxGrade / binRange);
+    // the last bin is the top grade itself, the ones before it stop below it:
+    // rounding the last bin up gave an axis past a maximum no copy can reach
+    // (a question on 3.5 points ended on a 4 that stayed empty for ever)
     const bins = [];
-    for (let i = 0; i <= nBins; i++) {
-      bins.push({value: i * binRange, count: 0});
+    for (let value = 0; value < maxGrade; value += binRange) {
+      bins.push({value, count: 0});
     }
+    bins.push({value: maxGrade, count: 0});
+    const lastBin = bins.length - 1;
     question.grades.forEach(value => {
-      const binIndex = Math.min(Math.max(Math.floor(value / binRange), 0), nBins);
+      // >= and not a division: the top grade belongs to the last bin, which is
+      // shorter than the others whenever the maximum is not a multiple of the
+      // bin range
+      const binIndex = value >= maxGrade ? lastBin
+        : Math.min(Math.max(Math.floor(value / binRange), 0), lastBin);
       bins[binIndex].count++;
     });
     return bins;
