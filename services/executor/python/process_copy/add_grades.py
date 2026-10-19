@@ -41,7 +41,7 @@ MAX_WORKER_DEATHS = 10
 # two grades) only redraws the pages that would come out different. Bump this
 # whenever what is drawn changes -- the grades alone do not say whether the
 # page on disk is the page this code would write now.
-COVER_WRITER_VERSION = 2
+COVER_WRITER_VERSION = 3
 
 
 def grades_to_write(grades, n_questions, ignored):
