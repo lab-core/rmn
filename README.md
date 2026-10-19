@@ -39,8 +39,8 @@ You should deploy an nginx reverse proxy to point to the kubernetes server. You 
 ##### Mongo
 Mongo is run within the kubernetes cluster now.
 
-##### Firebase
-Firebase has been removed: the server and the executors share files, and keep them persistently, in one directory of the node (`/data/nfs`), mounted directly or, on a multi-node cluster, served by an in-cluster NFS server (see "Storage").
+##### File storage
+The server and the executors share the copies, and keep them persistently, in one directory of the node (`/data/nfs`), mounted directly or, on a multi-node cluster, served by an in-cluster NFS server (see "Storage").
 
 ## Tests
 
