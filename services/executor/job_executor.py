@@ -3,6 +3,11 @@
 The tasks themselves live in ``tasks/``, one module per kind of job, and are
 given the clients created here. What they share with no state of their own is
 in ``runtime.py``. This file is the loop.
+
+The tasks are imported once a job has been taken, not at start-up: importing
+them is two and a half seconds of OpenCV and LiteRT, and the queue still
+shows the job during that time, which is long enough for the scaler to start
+a second executor for work this one has already taken.
 """
 
 import os
@@ -15,9 +20,6 @@ from utils.storage import Storage
 from sweep import check_for_idle_jobs_to_requeue
 from utils.clients import redis_client, socketio_client
 from runtime import MAX_IDLE_TIME, timestamped_print
-from tasks.cleanup import delete_job
-from tasks.dispatch import process
-from tasks.templates import process_template
 
 
 # the executor timestamps every line it prints (see runtime.timestamped_print)
@@ -74,6 +76,12 @@ if __name__ == "__main__":
                 job = json.loads(job)
 
                 if job:
+                    # the recognition stack, loaded now that the job is ours
+                    # (see the module docstring)
+                    from tasks.cleanup import delete_job
+                    from tasks.dispatch import process
+                    from tasks.templates import process_template
+
                     # create tmp work dir
                     jid = job["template_id"] if "template_id" in job else job.get("job_id")
                     if not valid_job_id(jid):
