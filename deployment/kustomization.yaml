@@ -30,6 +30,8 @@ resources:
   - ingress.yml
   # maintenance
   - daily-rollout.yml
+  # requeues the jobs whose executor died (every 10 min)
+  - idle-sweep.yml
   # cluster sentinel (k8s-health.sh every 15 min, Slack alerts)
   - health-sentinel.yml
   # monthly storage report (orphans + disk usage by age, Slack; never deletes)
