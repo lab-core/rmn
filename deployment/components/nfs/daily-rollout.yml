@@ -1,7 +1,7 @@
 # Daily rollout of the server Deployment (works around NFS mounts that hang).
 #
 # The `cron` ServiceAccount used to be bound to the cluster-wide `edit` role by
-# hand (README "Cron job"); it now gets exactly one permission: patch the
+# hand (README "Storage"); it now gets exactly one permission: patch the
 # `server` Deployment in this namespace. Migration: `kubectl delete
 # clusterrolebinding cron` after applying.
 apiVersion: v1

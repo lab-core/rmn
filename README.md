@@ -39,8 +39,8 @@ You should deploy an nginx reverse proxy to point to the kubernetes server. You 
 ##### Mongo
 Mongo is run within the kubernetes cluster now.
 
-##### Firebase
-Firebase has been removed and a NFS (run inside the cluster) is instead used to synchronize and share files between containers, as well as persistent storage.
+##### File storage
+The server and the executors share the copies, and keep them persistently, in one directory of the node (`/data/nfs`), mounted directly or, on a multi-node cluster, served by an in-cluster NFS server (see "Storage").
 
 ## Tests
 
@@ -91,7 +91,7 @@ To start minikube with 2 cpus and 10G of memory:
 minikube start --vm-driver=docker --memory=10986 --cpus=2
 ```
 
-The folder used on the host path by the Mongo database and the NFS needs to be creted the first time:
+The node folders of the Mongo database and of the shared storage need to be created the first time:
 ```
 minikube ssh
 sudo mkdir -p /data/nfs /data/mongo
@@ -289,15 +289,90 @@ so they stop showing up for 24 h:
 kubectl get jobs -o name | grep health-sentinel | while read -r j; do kubectl delete "$j"; done
 ```
 
-#### NFS server hardening
-The in-cluster NFS server must run privileged, so `deployment/nfs.yml` limits its
+#### Storage
+The server and the executors read and write the same tree (`STORAGE=/mnt/storage`
+in both pods). Two backends, picked at deploy time:
+
+- **hostPath (default)**: both pods mount the node directory `/data/nfs`
+  directly (`server.yml`, `executor.yml`). Single-node clusters only: every pod
+  must run on the node that holds the directory. The name `nfs` is historical
+  and kept so that switching backends never moves a file.
+- **NFS (opt-in, `deployment/components/nfs`)**: an in-cluster NFS server
+  exports that same `/data/nfs`, and both pods mount it over NFS. Needed once
+  server and executors can land on different nodes. The component also brings
+  back the daily server rollout (see "Daily rollout" below).
+
+Select NFS either for one deploy, or permanently by uncommenting `components:`
+in `deployment/kustomization.yaml` (not both: the resources would be
+duplicated):
+```
+scripts/deploy.sh --storage nfs [--dry-run] [host]
+```
+
+hostPath is the default because on a single node NFS is a loopback: the node
+kernel is at the same time the NFS client and the NFS server, the likely cause
+of the stalls the daily rollout worked around (uploads accepted, nothing
+reaching the share until the server pod was restarted). On top of that every
+`stat`/`open`/listing paid a network round trip on a `sync` export; with
+hostPath they are plain local filesystem calls.
+
+The directory is never created by Kubernetes (`type: Directory`): a missing
+`/data/nfs` keeps the pods in `ContainerCreating` rather than handing them an
+empty folder. Create it once (see "Minikube") and keep it owned by UID 1000
+(see "Non-root containers").
+
+##### Migrating an existing cluster from NFS to hostPath
+`kubectl apply -k` creates and updates, it never deletes, so the NFS objects
+are removed by hand, **after** no pod mounts the share any more (a pod whose
+NFS server is gone hangs in `Terminating`).
+
+1. Pick a quiet moment: no exam being processed (`kubectl get pods` shows no
+   running `job-executor-*`). Running executors keep their NFS mount until
+   they finish; new ones get the hostPath.
+2. Check the ownership (both commands should print `1000` and `0`):
+   ```
+   minikube ssh -- "stat -c %u /data/nfs; sudo find /data/nfs -xdev ! -uid 1000 | wc -l"
+   ```
+3. Preview, then apply. The storage part of the diff is the `server`
+   Deployment and the `job-executor` ScaledJob (volume `nfs-storage` becomes
+   the hostPath `storage`) and `rmn-config` (its `nfs-ip` and `node-cidr` keys
+   go away); anything else is another change not applied yet:
+   ```
+   kubectl kustomize deployment/ | kubectl diff -f -
+   kubectl apply -k deployment/
+   kubectl rollout status deployment/server
+   ```
+4. Check that the new server pod writes on the node directory: the first
+   command prints `ext2/ext3` (a local ext4) and not `nfs`, and a file created
+   in the pod shows up on the node:
+   ```
+   kubectl exec deploy/server -- stat -f -c %T /mnt/storage
+   kubectl exec deploy/server -- touch /mnt/storage/.hostpath-check
+   minikube ssh -- ls -ln /data/nfs/.hostpath-check
+   kubectl exec deploy/server -- rm /mnt/storage/.hostpath-check
+   ```
+   Then upload an exam from the web application and let it finish.
+5. Once no pod mounts NFS any more (`minikube ssh -- mount -t nfs4` prints
+   nothing), delete the NFS server and the daily rollout:
+   ```
+   kubectl delete rc/nfs svc/nfs networkpolicy/nfs-server
+   kubectl delete cronjob/daily-rollout serviceaccount/cron role/cron-rollout rolebinding/cron-rollout
+   ```
+
+Going back (to NFS, or rolling this change back) is the same in reverse:
+`scripts/deploy.sh --storage nfs` recreates the NFS server, the daily rollout
+and the NFS mounts, and it keeps the Service on the same `nfs-ip`. The files
+stay where they are in both directions.
+
+##### NFS server hardening
+The in-cluster NFS server must run privileged, so `deployment/components/nfs/nfs.yml` limits its
 blast radius: the image is pinned by digest, the Service is `ClusterIP` only (no
 NodePort), a `NetworkPolicy` allows only TCP/2049 from the node network and no
 egress at all, and the pod refuses to share a node with any other pod labelled
 `rmn.polymtl.ca/privileged=true` (label your other privileged workloads that
 way). Two things to set up per cluster:
 
-- `node-cidr` in `deployment/kustomization.yaml` **must** be your node network
+- `node-cidr` in `deployment/components/nfs/kustomization.yaml` **must** be your node network
   (`kubectl get nodes -o wide`); the kubelet mounts NFS from the node, so this is
   the only legitimate source. The default is minikube's `192.168.49.0/24`.
 - The policy is enforced only by a CNI with NetworkPolicy support (see
@@ -335,9 +410,10 @@ kubectl exec deploy/server -- python3 -c "import socket; s = socket.socket(); s.
 
 ##### The NFS service IP (`nfs-ip`)
 The kubelet mounts NFS volumes from the node and does not use cluster DNS, so
-`server.yml` / `executor.yml` must give the NFS server as an **IP**, not as the
-`nfs` Service name. `deployment/kustomization.yaml` therefore pins the Service's
-`clusterIP` and injects the same value into both mounts (`nfs-ip`, default
+the NFS mounts of the server and the executor must give the NFS server as an
+**IP**, not as the `nfs` Service name. `deployment/components/nfs/kustomization.yaml`
+therefore pins the Service's `clusterIP` and injects the same value into both
+mounts (`rmn-nfs.nfs-ip`, default
 `10.105.99.184`). It is an arbitrary address you choose, with two constraints:
 
 - inside the cluster's service range: `kubectl get pod -n kube-system -l
@@ -356,15 +432,15 @@ images create a `rmn` user (UID/GID 1000) and switch to it; the webapp uses
 `nginxinc/nginx-unprivileged` (nginx user, port 8080 behind a Service on 80).
 The Deployments pin this with `runAsNonRoot`, `runAsUser: 1000`, no privilege
 escalation and all capabilities dropped. Only the NFS server (privileged by
-necessity, see above) is exempt.
+necessity, NFS storage only, see above) is exempt.
 
-`server` and `executor` share UID 1000 because they read and write the same NFS
-share, and Kubernetes does not apply `fsGroup` to NFS volumes. **When upgrading a
-cluster whose share was written by the old root-running images, chown it once
-before rolling the new images**, otherwise they cannot overwrite or delete the
-existing files:
+`server` and `executor` share UID 1000 because they read and write the same
+storage, and Kubernetes applies `fsGroup` neither to hostPath nor to NFS
+volumes. **When upgrading a cluster whose share was written by the old
+root-running images, chown it once before rolling the new images**, otherwise
+they cannot overwrite or delete the existing files:
 ```
-kubectl exec rc/nfs -- chown -R 1000:1000 /mnt/nfs_share
+minikube ssh -- sudo chown -R 1000:1000 /data/nfs
 ```
 The same applies to files copied onto the share by hand.
 
@@ -406,10 +482,10 @@ The same applies to files copied onto the share by hand.
   `build-images` label, which builds the images the PR touches without
   publishing. Remove and re-add the label to rebuild after new commits.
 
-#### Persistent volume: NFS server
-WARNING: you need to mount a persistent volume that correspond to the path given to the nfs server, otherwise you will have an error as docker is not able to mount other paths for a nsf server. Furthermore, if using minikube, the path of the persistent volume needs also to be persistent in minikube: you can use a default persistent path like "/data" or any other path that has been mounted in minikube to communicate with the host.
+#### Persistent volumes
+The node directories `/data/nfs` (storage) and `/data/mongo` must survive a restart of the node: with minikube, keep them under a persistent path such as `/data` (see the [minikube docs](https://minikube.sigs.k8s.io/docs/handbook/persistent_volumes/)) or under a folder mounted from the host.
 
-Access to nsf pods from outside
+With NFS storage, the share can also be reached from outside the cluster:
 ```
 kubectl port-forward <nfs pod> :2049
 ```
@@ -434,10 +510,9 @@ Then, mount the volume into minikube:
 minikube mount --port=35475 ./k8s_storage:/mnt/k8s_storage
 ```
 
-#### Cron job
-The nfs connection may hang from time to time. To avoid this issue, we rollout the server pod every day with a cron job that will patch the server by modifying the date and trigger a rollout. `deployment/daily-rollout.yml` (part of `kubectl apply -k deployment/`) carries the CronJob, the `cron` ServiceAccount and a Role that only allows patching the `server` Deployment. Older clusters bound that ServiceAccount to the cluster-wide `edit` role by hand; drop that binding once the manifest is applied:
+##### Daily rollout (NFS storage only)
+The NFS mount may hang from time to time, so the nfs component rolls the server out every day: `deployment/components/nfs/daily-rollout.yml` carries the CronJob, the `cron` ServiceAccount and a Role that only allows patching the `server` Deployment. hostPath storage does not need it. Older clusters bound that ServiceAccount to the cluster-wide `edit` role by hand; drop that binding:
 ```
-kubectl apply -f deployment/daily-rollout.yml
 kubectl delete clusterrolebinding cron --ignore-not-found
 ```
 

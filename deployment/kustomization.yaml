@@ -15,8 +15,6 @@ kind: Kustomization
 namespace: default
 
 resources:
-  # storage
-  - nfs.yml
   # data stores
   - mongo.yml
   - redis.yml
@@ -28,8 +26,6 @@ resources:
   - executor.yml
   # routing
   - ingress.yml
-  # maintenance
-  - daily-rollout.yml
   # requeues the jobs whose executor died (every 10 min)
   - idle-sweep.yml
   # cluster sentinel (k8s-health.sh every 15 min, Slack alerts)
@@ -37,10 +33,16 @@ resources:
   # monthly storage report (orphans + disk usage by age, Slack; never deletes)
   - storage-report.yml
 
+# Storage: server and executors mount the node directory /data/nfs directly
+# (hostPath, single-node clusters). For a multi-node cluster, enable the NFS
+# component, which serves that directory over NFS instead (README "Storage"),
+# either here or per deploy with `scripts/deploy.sh --storage nfs`:
+# components:
+#   - components/nfs
+
 # Cluster-specific values are defined ONCE here: the public hostname (injected
 # into every Ingress rule, read by socketIO for CORS and by the sentinel for
-# its HTTP probes), the Slack channel, the node CIDR (NFS NetworkPolicy) and
-# the NFS service IP (Service clusterIP + the server/executor NFS mounts).
+# its HTTP probes) and the Slack channel. The nfs component adds its own.
 # Override the host without editing this file via scripts/deploy.sh <host>.
 generatorOptions:
   # keep a stable name so the Deployments' configMapKeyRef can reference it
@@ -55,26 +57,6 @@ configMapGenerator:
       # TZ of the server and executor containers: log timestamps and the
       # Slack dead-man's-switch alert are written in this zone (an IANA name)
       - timezone=America/Montreal
-      # Node network of the cluster: the ONLY source allowed to reach the NFS
-      # server (the kubelet mounts NFS from the node, see nfs.yml). MUST match
-      # your cluster; 192.168.49.0/24 is minikube's docker-driver network
-      # (`kubectl get nodes -o wide` shows the node IPs).
-      - node-cidr=192.168.49.0/24
-      # ClusterIP of the NFS Service, also the address server/executor mount
-      # (the kubelet mounts NFS from the node without cluster DNS, so it has
-      # to be an IP, not the Service name). Pick it yourself:
-      #   - inside the cluster's service range:
-      #       kubectl get pod -n kube-system -l component=kube-apiserver \
-      #         -o jsonpath='{.items[0].spec.containers[0].command}' \
-      #         | tr , '\n' | grep service-cluster-ip-range
-      #     (minikube: 10.96.0.0/12)
-      #   - not used by another Service:
-      #       kubectl get svc -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,IP:.spec.clusterIP
-      #   - on an existing cluster KEEP the current one (a clusterIP is
-      #     immutable: changing it means recreating the Service and rolling
-      #     every pod that mounts it):
-      #       kubectl get svc nfs -o jsonpath='{.spec.clusterIP}'
-      - nfs-ip=10.105.99.184
   # the sentinel script, mounted into the health-sentinel CronJob
   - name: k8s-health-script
     files:

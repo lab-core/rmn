@@ -24,12 +24,12 @@ spec:
         # inside the pod (pdflatex \input of a csv value) could return to a user
         automountServiceAccountToken: false
         volumes:
-          - name: nfs-storage
-            nfs:
-              # placeholder: kustomize replaces it with rmn-config.data.nfs-ip
-              server: NFS_IP
-              path: /
-              readOnly: false
+          # same node directory as the server (see server.yml); the nfs
+          # component swaps it for an NFS mount
+          - name: storage
+            hostPath:
+              path: /data/nfs
+              type: Directory
         containers:
           - name: executor
             image: rmni/executor:main
@@ -40,7 +40,7 @@ spec:
             resources:
               limits:
                 memory: 5G
-            # UID/GID 1000 == the rmn user baked into the image; the NFS share
+            # UID/GID 1000 == the rmn user baked into the image; the storage
             # must be owned by it (README "Non-root containers"). No read-only
             # root filesystem: the executor writes tmp_<job> under /Executor.
             securityContext:
@@ -51,7 +51,7 @@ spec:
               capabilities: {drop: [ALL]}
             volumeMounts:
               - mountPath: /mnt/storage
-                name: nfs-storage
+                name: storage
             env:
               - name: STORAGE
                 value: /mnt/storage
