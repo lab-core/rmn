@@ -273,3 +273,109 @@ def test_the_grades_are_written_where_the_cells_were_found(tmp_path, pdf_factory
     # the fourth crop reaches 0.03 further left and 0.02 higher, and that
     # corner is where the grades are written from
     assert offsets == [(int(0.57 * 2550), int(0.18 * 3300))]
+
+
+# ------------------------------------- what a run that starts again redoes
+
+
+def _written_by(monkeypatch, drawn):
+    """An overlay that records the copy it was called for."""
+    def fake_add_grades(grades, pdf_path, box, img_path, add_border, shape):
+        drawn.append(pdf_path)
+        _overlay_written(img_path)
+
+    monkeypatch.setattr(module, "add_grades", fake_add_grades)
+
+
+def test_a_second_run_leaves_the_pages_it_already_wrote_alone(
+        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
+    # a finalization whose executor was killed used to redraw all 546 cover
+    # pages of the job, a quarter of an hour of work already done
+    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a", "b"))
+    drawn = []
+    _written_by(monkeypatch, drawn)
+
+    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
+    assert len(drawn) == 2
+    first = _graded(storage_root, "a").read_bytes()
+    recorded = mongo_db["job_documents"].find_one({"document_index": 0})["graded_cover"]
+    assert recorded["texts"] == ["4", "4"]  # the grade of Q1, then the total
+
+    drawn.clear()
+    failed = module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
+
+    assert drawn == []
+    assert failed == []
+    assert _graded(storage_root, "a").read_bytes() == first
+
+
+def test_a_copy_whose_grade_changed_is_drawn_again(
+        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
+    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a", "b"))
+    drawn = []
+    _written_by(monkeypatch, drawn)
+    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
+
+    mongo_db["job_documents"].update_one({"document_index": 1}, {"$set": {"grades": [5]}})
+    drawn.clear()
+    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
+
+    assert drawn == [str(_scan(storage_root, "b"))]
+
+
+def test_a_page_drawn_by_an_older_version_is_drawn_again(
+        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
+    # the grades alone do not say whether the page on disk is the page this
+    # code would write: the overlay moved once already (the offset fix)
+    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a",))
+    drawn = []
+    _written_by(monkeypatch, drawn)
+    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
+
+    monkeypatch.setattr(module, "COVER_WRITER_VERSION", module.COVER_WRITER_VERSION + 1)
+    drawn.clear()
+    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
+
+    assert drawn == [str(_scan(storage_root, "a"))]
+
+
+def test_a_graded_page_that_is_gone_is_drawn_again(
+        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
+    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a",))
+    drawn = []
+    _written_by(monkeypatch, drawn)
+    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
+    _graded(storage_root, "a").unlink()
+
+    drawn.clear()
+    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
+
+    assert drawn == [str(_scan(storage_root, "a"))]
+
+
+def test_a_copy_whose_overlay_failed_is_tried_again_by_the_next_run(
+        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
+    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a",))
+
+    def no_overlay(grades, pdf_path, box, img_path, add_border, shape):
+        raise RuntimeError("box not found")
+
+    monkeypatch.setattr(module, "add_grades", no_overlay)
+    assert module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches()) == [0]
+    assert "graded_cover" not in mongo_db["job_documents"].find_one({"document_index": 0})
+
+    drawn = []
+    _written_by(monkeypatch, drawn)
+    assert module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches()) == []
+    assert drawn == [str(_scan(storage_root, "a"))]
+
+
+def test_a_deleted_copy_is_not_recorded_as_having_a_graded_page(
+        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
+    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a",))
+    mongo_db["job_documents"].update_one({"document_index": 0}, {"$set": {"status": "DELETED"}})
+    _written_by(monkeypatch, [])
+
+    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
+
+    assert "graded_cover" not in mongo_db["job_documents"].find_one({"document_index": 0})

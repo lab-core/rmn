@@ -6,6 +6,11 @@ the original as ``_cover_nograde.pdf``, so what the validation screen showed
 depended on whether the job had been finalized, and a second finalization
 read back what the first one had written. The merge picks the graded page up
 when it exists (see utils.merge).
+
+Because the page is a file of its own, a run that is interrupted does not
+have to start over: every graded page carries, in its copy's record, what it
+was drawn from, and a copy whose page is already the page this code would
+write is left alone.
 """
 
 import os
@@ -31,6 +36,14 @@ storage = Storage()
 MAX_WORKER_DEATHS = 10
 
 
+# What a graded page was drawn from is recorded with the copy, so a
+# finalization that starts again (its executor was killed, its owner changed
+# two grades) only redraws the pages that would come out different. Bump this
+# whenever what is drawn changes -- the grades alone do not say whether the
+# page on disk is the page this code would write now.
+COVER_WRITER_VERSION = 2
+
+
 def grades_to_write(grades, n_questions, ignored):
     """
     Build the list of texts to write in the grade boxes of a cover page.
@@ -50,6 +63,25 @@ def grades_to_write(grades, n_questions, ignored):
     total = sum(g for i, g in enumerate(grades) if i not in ignored and g is not None)
     texts.append(str(total))
     return texts
+
+
+def cover_signature(texts, box_grades):
+    """
+    What a graded cover page was drawn from.
+
+    Args:
+        texts (list): The grades written in the boxes (see grades_to_write).
+        box_grades (tuple): The grade box of the template it was written in.
+
+    Returns:
+        dict: Recorded with the copy; a page whose signature still matches is
+              not drawn again.
+    """
+    return {
+        "version": COVER_WRITER_VERSION,
+        "box": [round(float(side), 6) for side in box_grades],
+        "texts": list(texts),
+    }
 
 
 def scan_path(rel_filepath):
@@ -141,8 +173,9 @@ def write_batch(documents, start, n_docs, settings, events):
         n_docs (int): Number of copies of the job, for the progress lines.
         settings (dict): img_path, box_grades, dpi, shape, n_questions,
             ignored and max_RAM_GB.
-        events (queue): ("done"|"failed", position) per copy, then
-            ("next", position) when the batch stops.
+        events (queue): ("done"|"kept"|"failed", position) per copy -- written,
+            left as it was, or no overlay -- then ("next", position) when the
+            batch stops.
     """
     position = start - 1
     for position, doc in enumerate(documents, start=start):
@@ -150,11 +183,20 @@ def write_batch(documents, start, n_docs, settings, events):
             # a deleted copy is never graded (grades are [None, ...]); skip it
             # instead of falling through and summing None (which crashed finalize)
             print(f"({position + 1}/{n_docs}) PDF is deleted {doc['rel_filepath']}")
-            events.put(("done", position))
+            events.put(("kept", position))
             continue
 
         # an ignored question keeps its (blank) box so the other grades stay aligned
         grades = grades_to_write(doc["grades"], settings["n_questions"], settings["ignored"])
+        if (doc.get("graded_cover") == cover_signature(grades, settings["box_grades"])
+                and os.path.exists(graded_path(doc["rel_filepath"]))):
+            # same grades, same box, same way of drawing them: the page of the
+            # run that was interrupted is the page this one would write
+            print(f"({position + 1}/{n_docs}) Graded cover page already written for "
+                  f"{doc['rel_filepath']}")
+            events.put(("kept", position))
+            continue
+
         written = write_cover_page(doc, grades, settings["img_path"], settings["box_grades"],
                                    settings["dpi"], settings["shape"])
         if written:
@@ -203,9 +245,9 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
         n_pages_per_question = db.eval_jobs_collection().find_one({"job_id": job_id})["n_pages_per_question"]
 
     # the batches are separate processes with no database of their own:
-    # everything they need is read now and sent to them
+    # everything they need is read now and sent to them, and what they wrote
+    # is recorded here when they come back
     documents = list(db.documents_collection().find({"job_id": job_id}).sort("document_index", 1))
-    db.close()
 
     settings = {
         "img_path": str(TMP_DIR.joinpath('intermediate_image.jpg')),
@@ -217,9 +259,46 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
         "max_RAM_GB": max_ram_gb(),
     }
 
-    n_docs = len(documents)
     print("Adding grades to copies ...")
     failed = []
+    try:
+        _write_all(db, job_id, documents, settings, failed, batches)
+    finally:
+        db.close()
+    if failed:
+        print(f"Grades could not be written on {len(failed)} cover page(s): documents {failed}")
+    return failed
+
+
+def _record_cover(db, job_id, doc, signature):
+    """Record what the graded page of a copy was drawn from, or that it has none.
+
+    Args:
+        db (Database): The database.
+        job_id (str): The job.
+        doc (dict): The copy.
+        signature (dict): See cover_signature; None when the copy has no
+            graded page any more.
+    """
+    change = ({"$set": {"graded_cover": signature}} if signature
+              else {"$unset": {"graded_cover": ""}})
+    db.documents_collection().update_one(
+        {"job_id": job_id, "document_index": doc["document_index"]}, change)
+
+
+def _write_all(db, job_id, documents, settings, failed, batches):
+    """Write the copies batch after batch, and record what each one wrote.
+
+    Args:
+        db (Database): Where the signature of a written page is recorded.
+        job_id (str): The job.
+        documents (list): Its copies, by document_index.
+        settings (dict): What a batch needs, see process_writing.
+        failed (list): Filled with the document_index of the copies whose
+            graded page could not be written.
+        batches (ProcessBatches|InlineBatches): how to run a batch.
+    """
+    n_docs = len(documents)
     deaths = 0
     position = 0
     while position < n_docs:
@@ -233,8 +312,16 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
                 resume = value
                 continue
             last_done = value
-            if kind == "failed":
-                failed.append(documents[value]["document_index"])
+            doc = documents[value]
+            if kind == "done":
+                # what the page was drawn from, so a run that starts again
+                # leaves it alone
+                texts = grades_to_write(doc["grades"], settings["n_questions"], settings["ignored"])
+                _record_cover(db, job_id, doc, cover_signature(texts, settings["box_grades"]))
+            elif kind == "failed":
+                failed.append(doc["document_index"])
+                # there is no graded page any more: the next run must try again
+                _record_cover(db, job_id, doc, None)
 
         if resume is None:
             # killed (the container ran out of memory, a page the imaging
@@ -248,9 +335,6 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
                 raise RuntimeError(f"{deaths} batches died while writing the cover pages of {job_id}")
             if dead_at < n_docs:
                 failed.append(documents[dead_at]["document_index"])
+                _record_cover(db, job_id, documents[dead_at], None)
             resume = dead_at + 1
         position = resume
-
-    if failed:
-        print(f"Grades could not be written on {len(failed)} cover page(s): documents {failed}")
-    return failed
