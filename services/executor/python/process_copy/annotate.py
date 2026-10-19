@@ -1,9 +1,8 @@
 """Writing back onto a copy: its grades, and the boxes that were read."""
 
 import cv2
-import numpy as np
+import pymupdf
 from colorama import Fore, Style
-from pdf2image import convert_from_path
 from process_copy.config import len_mat
 from process_copy.imaging import fetch_box, imwrite_png
 from process_copy.pages import gray_images
@@ -33,38 +32,85 @@ def format_grade_text(number):
     return str(int(value)) if value.is_integer() else str(value)
 
 
+# The grades are written in the page, in red, with the font every pdf reader
+# has. Helvetica digits are this fraction of the font size tall, which is
+# what the size is computed from.
+GRADE_FONT = "helv"
+GRADE_COLOR = (1, 0, 0)
+CAP_HEIGHT = 0.72
 
 
-def write_grade_texts(img, boxes, numbers, offset=(0, 0), grade_ratio=0.5, color=0, thickness=2):
-    """Print the grades in the boxes of a grade table (the overlay of a finalised copy).
+def grade_font_size(texts, cells, grade_ratio=0.5):
+    """The size every grade of a table is written at.
 
-    ``boxes`` are the contours found by ``find_grade_boxes`` on the table cropped
-    at ``offset`` in ``img``. The font scale is set once from the first printed
-    grade so every box uses the same size; an empty text (ignored question or
-    missing grade) leaves its box blank and does not set the scale.
+    The first grade there is sets it, as it did when the grades were drawn on
+    a picture of the page: one size for the whole table, large enough to fill
+    ``grade_ratio`` of its cell without touching the sides.
+
+    Args:
+        texts (list): One text per cell, empty where nothing is written.
+        cells (list): The cells, pymupdf.Rect, in page points.
+        grade_ratio (float): How much of a cell a grade fills.
+
+    Returns:
+        float: The font size, or None when there is nothing to write.
+    """
+    for text, cell in zip(texts, cells):
+        if not text:
+            continue
+        width = pymupdf.get_text_length(text, fontname=GRADE_FONT, fontsize=1)
+        return grade_ratio / max(CAP_HEIGHT / cell.height, width / cell.width)
+    return None
+
+
+def write_grade_texts(page, cells, numbers, grade_ratio=0.5):
+    """Write the grades in the cells of a grade table, centred in each.
+
+    Args:
+        page (pymupdf.Page): The cover page, written in place.
+        cells (list): The cells of the table, pymupdf.Rect, in page points.
+        numbers (list): The grades, one per cell; an ignored question or a
+            missing grade leaves its cell blank.
+        grade_ratio (float): How much of a cell a grade fills.
+    """
+    texts = [format_grade_text(number) for number in numbers]
+    size = grade_font_size(texts, cells, grade_ratio)
+    if size is None:
+        return
+    for text, cell in zip(texts, cells):
+        if not text:
+            continue
+        width = pymupdf.get_text_length(text, fontname=GRADE_FONT, fontsize=size)
+        point = pymupdf.Point(cell.x0 + (cell.width - width) / 2,
+                              cell.y0 + (cell.height + CAP_HEIGHT * size) / 2)
+        # the cells were found on the page as it is displayed; a page that
+        # carries a /Rotate is stored turned the other way, and the text has
+        # to be turned with it
+        page.insert_text(point * page.derotation_matrix, text, fontname=GRADE_FONT,
+                         fontsize=size, color=GRADE_COLOR, rotate=page.rotation)
+
+
+def cells_in_points(boxes, offset, raster, page_rect):
+    """Where the cells found on the raster are on the page itself.
+
+    Args:
+        boxes (list): The cell contours, in the coordinates of the crop.
+        offset (tuple): Where that crop starts in the raster, in pixels.
+        raster (tuple): Width and height of the raster, in pixels.
+        page_rect (pymupdf.Rect): The page as it is displayed, in points.
+
+    Returns:
+        list: One pymupdf.Rect per cell, in page points.
     """
     x0, y0 = offset
-    font_scale = None
-    for b, number in zip(boxes, numbers):
+    width, height = raster
+    sx, sy = page_rect.width / width, page_rect.height / height
+    cells = []
+    for b in boxes:
         (x, y, w, h) = cv2.boundingRect(b)
-        number_text = format_grade_text(number)
-        if number_text == "":
-            continue
-        (nw, nh), _ = cv2.getTextSize(number_text, cv2.FONT_HERSHEY_SIMPLEX, 1, thickness)
-        if font_scale is None:
-            font_scale = grade_ratio / max(nh / h, nw / w)
-        x_anchor = int(x + (w - nw * font_scale) / 2)
-        y_anchor = int(y + (h + nh * font_scale) / 2)
-        cv2.putText(img, number_text, (x0 + x_anchor, y0 + y_anchor),
-                    cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
-
-
-# The page is rasterised to draw the grades on it, so it is re-encoded on the
-# way out. Measured on the scans kept as fixtures (letter at 300 dpi): the 5
-# this used to be -- a png compression level in a jpeg quality -- gave 175 kB
-# at 29 dB PSNR, visibly blocked around the text, where 85 gives 515 kB at
-# 45 dB and 95 only buys 3 dB more for half as many bytes again.
-COVER_JPEG_QUALITY = 85
+        cells.append(pymupdf.Rect((x0 + x) * sx, (y0 + y) * sy,
+                                  (x0 + x + w) * sx, (y0 + y + h) * sy))
+    return cells
 
 
 # How the crop is tried when the template box does not give one cell per
@@ -99,33 +145,35 @@ def box_candidates(box, attempts=BOX_ATTEMPTS):
         yield (box[0] + dx0, box[1] + dx1, box[2] + dy0, box[3] + dy1)
 
 
-def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'intermediate_image.jpg',
+def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
                trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11),
-               jpg_quality: int = COVER_JPEG_QUALITY, grade_ratio: float = 0.5):
-    """Draw the grades of a copy in the boxes of its grade table.
+               grade_ratio: float = 0.5):
+    """Write the grades of a copy in the boxes of its grade table.
+
+    The table is found on a raster of the page, and the grades are written in
+    the page itself: the cover page used to be rasterised at 300 dpi and
+    re-encoded as a jpeg, which turned a 94 kB scan into 1.4 MB and lost what
+    the scanner had captured.
 
     Args:
         numbers (list): One text per box of the table, the total last.
         pdf_path (str): The cover page to read the table from.
         box (tuple): The grade box of the template, (x0, x1, y0, y1).
-        img_path (str): Where the page with the grades on it is written.
-        jpg_quality (int): Quality of that page, see COVER_JPEG_QUALITY.
+        out_path (str): Where the page carrying the grades is written; it is
+            only written when the table was found.
+        shape (tuple): The size the raster is expected to have, in pixels.
+        grade_ratio (float): How much of a cell a grade fills.
 
     Returns:
-        bool: True when the overlay was written, False when no crop gave one
+        bool: True when the page was written, False when no crop gave one
               cell per grade -- the caller then keeps the page as it is.
     """
     grays = gray_images(pdf_path, [0], straighten=False, shape=shape)
-    img = convert_from_path(pdf_path, dpi=300, first_page=0, last_page=1)[0]
-    # pdf2image gives RGB and cv2 writes BGR: without this the red and the
-    # blue of the scan are swapped in the page written back -- the grader's
-    # ink came out blue -- and the grades below are drawn in the colour that
-    # happened to cancel it
-    np_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-    if grays is None:
+    if not grays:
         print(Fore.RED + "%s: No valid pdf" % pdf_path + Style.RESET_ALL)
         return False
     gray = grays[0]
+    height, width = gray.shape[:2]
 
     def grade_cells(candidate):
         """The cells of the table in this crop, or None when it is not one."""
@@ -147,18 +195,20 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
             continue
         if attempt:
             print(f"Grade table found on try {attempt + 1}, at {tuple(round(c, 3) for c in candidate)}")
-        # the offset is the crop the cells were found in, not the box the
-        # template records: every copy that needed a wider crop had its
-        # grades written that far off their boxes
-        offset = (int(candidate[0] * np_img.shape[1]), int(candidate[2] * np_img.shape[0]))
-        # (0, 0, 255) is red now that the page is BGR, as it was before by accident
-        write_grade_texts(np_img, boxes, numbers, offset, grade_ratio, color=(0, 0, 255))
-        cv2.imwrite(img_path, np_img, [cv2.IMWRITE_JPEG_QUALITY, jpg_quality])
+        # the crop the cells were found in is where they are on the page:
+        # every copy that needed a wider crop used to have its grades written
+        # the difference away from its boxes
+        offset = (int(candidate[0] * width), int(candidate[2] * height))
+        with pymupdf.open(pdf_path) as document:
+            page = document[0]
+            cells = cells_in_points(boxes, offset, (width, height), page.rect)
+            write_grade_texts(page, cells, numbers, grade_ratio)
+            document.save(out_path, garbage=3, deflate=True)
         return True
 
-    # no image when the boxes were not found: the caller keeps the scanned
-    # cover page and flags the copy (a page without grades used to be written
-    # silently)
+    # nothing written when the boxes were not found: the caller keeps the
+    # scanned cover page and flags the copy (a page without grades used to be
+    # written silently)
     print(Fore.RED + "%s: grade boxes not found, no overlay written" % pdf_path + Style.RESET_ALL)
     return False
 
