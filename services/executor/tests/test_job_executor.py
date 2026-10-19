@@ -3,6 +3,8 @@
 import datetime as dt
 import json
 import os
+import subprocess
+import sys
 import time
 from unittest.mock import MagicMock
 
@@ -221,3 +223,25 @@ def test_defused_grades_csv_survives_the_pandas_round_trip(tmp_path):
     assert back[MF.grade].fillna(0).tolist() == [12.5, 0]
     assert (back[MF.mdate] == "-").all()
     assert defuse_csv(path) == 0
+
+
+# -------------------------------------------------- what start-up loads
+
+
+def test_the_executor_claims_a_job_before_loading_what_runs_it():
+    """Importing the recognition stack takes seconds, and the queue shows the
+    job for all of them -- long enough for the scaler to start a second
+    executor for work this one has already taken."""
+    executor_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join([executor_dir, os.path.join(executor_dir, "python"),
+                                         env.get("PYTHONPATH", "")])
+    heavy = ("cv2", "process_copy.recognize", "tasks.dispatch")
+    probe = ("import job_executor, sys; "
+             f"print([m for m in {heavy!r} if m in sys.modules])")
+
+    loaded = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True,
+                            env=env, cwd=executor_dir, timeout=120)
+
+    assert loaded.returncode == 0, loaded.stderr
+    assert loaded.stdout.strip() == "[]", f"start-up loaded {loaded.stdout.strip()}"
