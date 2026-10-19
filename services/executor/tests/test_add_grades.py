@@ -1,5 +1,6 @@
 """Writing the grades on the cover pages (process_writing)."""
 
+import os
 import shutil
 
 import numpy as np
@@ -379,3 +380,34 @@ def test_a_deleted_copy_is_not_recorded_as_having_a_graded_page(
     module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
 
     assert "graded_cover" not in mongo_db["job_documents"].find_one({"document_index": 0})
+
+
+@pytest.mark.skipif(shutil.which("pdftoppm") is None, reason="poppler not installed")
+def test_the_written_page_is_not_degraded_by_its_encoding(tmp_path, monkeypatch):
+    # the page is rasterised to draw on it, so it is re-encoded on the way
+    # out; the quality used to be 5 (a png compression level in a jpeg
+    # quality), which blocked up the text of every cover page
+    import cv2
+    from pdf2image import convert_from_path
+
+    from process_copy import annotate
+
+    scan = os.path.join(os.path.dirname(__file__), "fixtures", "ink_grades", "ink_busy_page.pdf")
+    cells = [np.array([[[0, 0]], [[50, 0]], [[50, 40]], [[0, 40]]]),
+             np.array([[[0, 50]], [[50, 50]], [[50, 90]], [[0, 90]]])]
+    monkeypatch.setattr(annotate, "find_grade_boxes", lambda *a, **k: cells)
+    monkeypatch.setattr(annotate, "write_grade_texts", lambda *a, **k: None)
+    written = tmp_path / "overlay.jpg"
+
+    assert annotate.add_grades([1, 2], scan, (0.1, 0.9, 0.1, 0.9), str(written),
+                               add_border=False, shape=(2550, 3300))
+
+    rendered = np.array(convert_from_path(scan, dpi=300, first_page=0, last_page=1)[0])
+    grey = (cv2.cvtColor(rendered, cv2.COLOR_RGB2GRAY),
+            cv2.imread(str(written), cv2.IMREAD_GRAYSCALE))
+    mse = np.mean((grey[0].astype(np.float64) - grey[1].astype(np.float64)) ** 2)
+    psnr = 10 * np.log10(255.0 ** 2 / mse)
+    # quality 5 measured 29 dB on this page, quality 85 measures 45; a page
+    # whose channels were swapped on the way out floors at 37 whatever the
+    # quality, so this covers both
+    assert psnr > 42, f"the page came back at {psnr:.1f} dB"

@@ -59,6 +59,14 @@ def write_grade_texts(img, boxes, numbers, offset=(0, 0), grade_ratio=0.5, color
                     cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
 
 
+# The page is rasterised to draw the grades on it, so it is re-encoded on the
+# way out. Measured on the scans kept as fixtures (letter at 300 dpi): the 5
+# this used to be -- a png compression level in a jpeg quality -- gave 175 kB
+# at 29 dB PSNR, visibly blocked around the text, where 85 gives 515 kB at
+# 45 dB and 95 only buys 3 dB more for half as many bytes again.
+COVER_JPEG_QUALITY = 85
+
+
 # How the crop is tried when the template box does not give one cell per
 # grade: as the template records it, then a little wider on every side (what
 # is missing is usually the frame of the table, cut by a box drawn tight
@@ -93,7 +101,7 @@ def box_candidates(box, attempts=BOX_ATTEMPTS):
 
 def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'intermediate_image.jpg',
                trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11),
-               jpg_quality: int = 5, grade_ratio: float = 0.5):
+               jpg_quality: int = COVER_JPEG_QUALITY, grade_ratio: float = 0.5):
     """Draw the grades of a copy in the boxes of its grade table.
 
     Args:
@@ -101,6 +109,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
         pdf_path (str): The cover page to read the table from.
         box (tuple): The grade box of the template, (x0, x1, y0, y1).
         img_path (str): Where the page with the grades on it is written.
+        jpg_quality (int): Quality of that page, see COVER_JPEG_QUALITY.
 
     Returns:
         bool: True when the overlay was written, False when no crop gave one
@@ -108,7 +117,11 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
     """
     grays = gray_images(pdf_path, [0], straighten=False, shape=shape)
     img = convert_from_path(pdf_path, dpi=300, first_page=0, last_page=1)[0]
-    np_img = np.array(img)
+    # pdf2image gives RGB and cv2 writes BGR: without this the red and the
+    # blue of the scan are swapped in the page written back -- the grader's
+    # ink came out blue -- and the grades below are drawn in the colour that
+    # happened to cancel it
+    np_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
     if grays is None:
         print(Fore.RED + "%s: No valid pdf" % pdf_path + Style.RESET_ALL)
         return False
@@ -138,6 +151,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'interm
         # template records: every copy that needed a wider crop had its
         # grades written that far off their boxes
         offset = (int(candidate[0] * np_img.shape[1]), int(candidate[2] * np_img.shape[0]))
+        # (0, 0, 255) is red now that the page is BGR, as it was before by accident
         write_grade_texts(np_img, boxes, numbers, offset, grade_ratio, color=(0, 0, 255))
         cv2.imwrite(img_path, np_img, [cv2.IMWRITE_JPEG_QUALITY, jpg_quality])
         return True
