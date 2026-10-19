@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 
 import process_copy.batch as batch
+from process_copy.batching import FinishedBatch, InlineBatches
 import process_copy.matricules as matricules
 import runtime
 from process_copy.database import Database
@@ -49,28 +50,11 @@ ROSTER = pd.DataFrame(
 )
 
 
-class InlineProcess:
-    """``multiprocessing.Process`` that runs its target in the calling process."""
-
-    def __init__(self, target: Callable[..., Any], args: Any) -> None:
-        self._target = target
-        self._args = args
-        self.exitcode = None
-
-    def start(self) -> None:
-        """Run the target to completion, as a worker that exits normally."""
-        self._target(*self._args)
-        self.exitcode = 0
-
-    def join(self, timeout: float | None = None) -> None:
-        """Nothing to wait for: the target already ran in ``start``."""
-
-
 @pytest.fixture
 def recognition(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
     """Run the recognition workers inline; return the socket they emit on."""
     sio = MagicMock()
-    monkeypatch.setattr(batch, "Process", InlineProcess)
+    monkeypatch.setattr(batch, "ProcessBatches", lambda context=None: InlineBatches())
     monkeypatch.setattr(batch, "socketio_client", lambda: sio)
     monkeypatch.setattr(matricules, "socketio_client", lambda: sio)
     yield sio
@@ -353,13 +337,13 @@ def test_a_worker_that_dies_stops_the_job_instead_of_looping(
     recognition: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class DeadProcess(InlineProcess):
+    class DeadBatches(InlineBatches):
         """A worker killed before it reported anything."""
 
-        def start(self) -> None:
-            self.exitcode = -9  # killed before it reported anything
+        def start(self, target: Any, args: Any) -> FinishedBatch:
+            return FinishedBatch(-9)
 
-    monkeypatch.setattr(batch, "Process", DeadProcess)
+    monkeypatch.setattr(batch, "ProcessBatches", lambda context=None: DeadBatches())
     job = _new_job(mongo_db, storage_root, retry=runtime.MAX_RETRY)
     _upload(tmp_path, scanned_copy_factory, {"alice": None})
 

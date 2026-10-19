@@ -3,17 +3,17 @@
 import json
 import os
 from datetime import datetime
-from multiprocessing import Process, SimpleQueue
 import numpy as np
 import pandas as pd
 from colorama import Fore, Style
+from process_copy.batching import FORK, InlineBatches, ProcessBatches, max_ram_gb, run_batch
 from process_copy.config import min_documents_for_max_questions
 from process_copy.database import Database
+from process_copy.imaging import memory_used_gb
 from process_copy.mcc import load_csv
 from rmn_common.moodle import MoodleFields as MF
 from rmn_common.status import Document_Status, Job_Status
 from utils.clients import socketio_client
-from process_copy.imaging import memory_used_gb
 
 
 
@@ -101,8 +101,12 @@ def process_all(
     eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
     default_status = Document_Status.HIGH_ACCURACY if eval_job["validate_matricule"] else Document_Status.VALIDATED
 
-    # get max RAM (see memory_used_gb: the container's usage, not the node's)
-    max_RAM_GB = int(os.getenv("MAX_RAM_GB", "1000"))
+    # the reader stops a batch when it has used this much and the next one
+    # starts in a new process (see process_copy.batching)
+    max_RAM_GB = max_ram_gb()
+    # it still forks: the worker reads the boxes of this job from
+    # process_copy.config, which a spawned child would not inherit
+    batches = ProcessBatches(FORK) if detach else InlineBatches()
     doc_index = 0
     batch = 1
     matricules_data = {}
@@ -118,33 +122,19 @@ def process_all(
                   dpi, shape, max_RAM_GB, default_status)
         print(f"[{datetime.now()}]", "Run batch", batch, f"from {doc_index} (/{last_index})")
 
-        if detach:
-            q_results = SimpleQueue()
-            g_args = (*g_args, q_results)
-            p = Process(target=process_func, args=g_args)
-            p.start()
-            # wait for the result but notice a worker that died without
-            # reporting (OOM kill, segfault): q_results.get() alone blocked
-            # forever while the heartbeat kept the job looking alive
-            result = None
-            while result is None:
-                p.join(timeout=1)
-                if not q_results.empty():
-                    result = q_results.get()
-                elif p.exitcode is not None:
-                    break
-            if result is None:
-                print(
-                    Fore.RED
-                    + f"Recognition worker died (exit code {p.exitcode}) at document {batch_start}."
-                    + Style.RESET_ALL
-                )
-                stalled_at = batch_start
-                break
-            doc_index, matricules_data = result
-            p.join()
-        else:
-            doc_index = process_func(*g_args)
+        received, exitcode = run_batch(process_func, g_args, batches)
+        # the worker reports (doc_index, matricules_data) once, at the end; no
+        # report means it died (OOM kill, segfault) and nothing will ever come
+        result = received[-1] if received else None
+        if result is None:
+            print(
+                Fore.RED
+                + f"Recognition worker died (exit code {exitcode}) at document {batch_start}."
+                + Style.RESET_ALL
+            )
+            stalled_at = batch_start
+            break
+        doc_index, matricules_data = result
 
         print(f"[{datetime.now()}]", doc_index, "files have been processed.")
         print(f"[{datetime.now()}]", 'RAM Used - end batch', batch, '(GB):', memory_used_gb())

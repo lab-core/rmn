@@ -11,6 +11,13 @@ import shutil
 import stat
 from pathlib import Path
 
+# Inside cover_pages/<job_id>: the cover pages a finalization wrote the grades
+# on. They sit next to the scans rather than over them, so the page the
+# validation screen shows is always the scan and a second finalization does
+# not read back what the first one wrote (utils.merge prefers this one).
+GRADED_COVER_DIR = "graded"
+
+
 # Template images live outside the per-job layout: they are owned by a row of
 # the ``template`` collection, not by a job, and outlive the jobs using them.
 TEMPLATE_DIR = "template"

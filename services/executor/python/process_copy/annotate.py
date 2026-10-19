@@ -59,59 +59,94 @@ def write_grade_texts(img, boxes, numbers, offset=(0, 0), grade_ratio=0.5, color
                     cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
 
 
+# How the crop is tried when the template box does not give one cell per
+# grade: as the template records it, then a little wider on every side (what
+# is missing is usually the frame of the table, cut by a box drawn tight
+# around it), then further out on one side only. Widening alone never found
+# the table of three copies of job d98c2837 whose frame sits left of the
+# recorded box, and 472 of its 546 copies needed the first widening.
+BOX_ATTEMPTS = (
+    (0.00, 0.00, 0.00, 0.00),
+    (-0.01, 0.01, -0.01, 0.01),
+    (-0.02, 0.02, -0.02, 0.02),
+    (-0.03, 0.00, -0.02, 0.02),
+    (-0.04, 0.00, -0.02, 0.02),
+    (0.00, 0.03, -0.02, 0.02),
+    (-0.05, 0.01, -0.03, 0.03),
+)
+
+
+def box_candidates(box, attempts=BOX_ATTEMPTS):
+    """Yield the crops to try for a grade table, closest to the template first.
+
+    Args:
+        box (tuple): The grade box of the template, (x0, x1, y0, y1) in
+            fractions of the page.
+        attempts (tuple): What to add to each side, one set of margins per try.
+
+    Yields:
+        tuple: The box to crop, in the order the crops are worth trying.
+    """
+    for dx0, dx1, dy0, dy1 in attempts:
+        yield (box[0] + dx0, box[1] + dx1, box[2] + dy0, box[3] + dy1)
 
 
 def add_grades(numbers: list, pdf_path: str, box: tuple, img_path: str = 'intermediate_image.jpg',
                trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11),
                jpg_quality: int = 5, grade_ratio: float = 0.5):
+    """Draw the grades of a copy in the boxes of its grade table.
+
+    Args:
+        numbers (list): One text per box of the table, the total last.
+        pdf_path (str): The cover page to read the table from.
+        box (tuple): The grade box of the template, (x0, x1, y0, y1).
+        img_path (str): Where the page with the grades on it is written.
+
+    Returns:
+        bool: True when the overlay was written, False when no crop gave one
+              cell per grade -- the caller then keeps the page as it is.
+    """
     grays = gray_images(pdf_path, [0], straighten=False, shape=shape)
     img = convert_from_path(pdf_path, dpi=300, first_page=0, last_page=1)[0]
     np_img = np.array(img)
-    x0 = int(box[0] * np_img.shape[1])
-    y0 = int(box[2] * np_img.shape[0])
     if grays is None:
         print(Fore.RED + "%s: No valid pdf" % pdf_path + Style.RESET_ALL)
         return False
     gray = grays[0]
 
-    def find_right_boxes(box, retry=5):
-        cropped = fetch_box(gray, box)
-        boxes = find_grade_boxes(cropped, add_border, thick=0)
-        # print(f"Number of boxes : {len(boxes)}")
-
+    def grade_cells(candidate):
+        """The cells of the table in this crop, or None when it is not one."""
+        boxes = find_grade_boxes(fetch_box(gray, candidate), add_border, thick=0)
         if len(boxes) != len(numbers):
-            print(f'The number of boxes ({len(boxes)}) found is different from the number of grades ({len(numbers)})')
-            if retry > 0:
-                print("Retry grading", retry)
-                box2 = (box[0]-.01, box[1]+.01, box[2]-.01, box[3]+.01)
-                return find_right_boxes(box2, retry-1)
-            return False, cropped, [], boxes
-
-        number_images = []
+            print(f'The number of boxes ({len(boxes)}) found is different from '
+                  f'the number of grades ({len(numbers)})')
+            return None
         for b in boxes:
             (x, y, w, h) = cv2.boundingRect(b)
             if h <= 10 or w <= 10:
                 print("An invalid box number has been found (too small or too thin)")
-                if retry > 0:
-                    print("Retry grading", retry)
-                    box2 = (box[0]-.01, box[1]+.01, box[2]-.01, box[3]+.01)
-                    return find_right_boxes(box2, retry-1)
-                return False, cropped, number_images, boxes
+                return None
+        return boxes
 
-        write_grade_texts(np_img, boxes, numbers, (x0, y0), grade_ratio, color=(0, 0, 255))
-        return True, cropped, number_images, boxes
+    for attempt, candidate in enumerate(box_candidates(box)):
+        boxes = grade_cells(candidate)
+        if boxes is None:
+            continue
+        if attempt:
+            print(f"Grade table found on try {attempt + 1}, at {tuple(round(c, 3) for c in candidate)}")
+        # the offset is the crop the cells were found in, not the box the
+        # template records: every copy that needed a wider crop had its
+        # grades written that far off their boxes
+        offset = (int(candidate[0] * np_img.shape[1]), int(candidate[2] * np_img.shape[0]))
+        write_grade_texts(np_img, boxes, numbers, offset, grade_ratio, color=(0, 0, 255))
+        cv2.imwrite(img_path, np_img, [cv2.IMWRITE_JPEG_QUALITY, jpg_quality])
+        return True
 
-    # no image when the boxes were not found: the caller keeps the original
+    # no image when the boxes were not found: the caller keeps the scanned
     # cover page and flags the copy (a page without grades used to be written
     # silently)
-    found, *_ = find_right_boxes(box)
-    if not found:
-        print(Fore.RED + "%s: grade boxes not found, no overlay written" % pdf_path + Style.RESET_ALL)
-        return False
-    cv2.imwrite(img_path, np_img, [cv2.IMWRITE_JPEG_QUALITY, jpg_quality])
-    return True
-
-
+    print(Fore.RED + "%s: grade boxes not found, no overlay written" % pdf_path + Style.RESET_ALL)
+    return False
 
 
 def write_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False, matricule=True):

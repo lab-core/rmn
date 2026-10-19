@@ -1,41 +1,34 @@
-"""Writing the grades of a validated job on the cover pages of its copies."""
+"""Writing the grades of a validated job on the cover pages of its copies.
 
-import multiprocessing
+The graded page is written beside the scan, under ``graded/``, and the scan
+itself is never touched: finalizing used to overwrite the cover page and keep
+the original as ``_cover_nograde.pdf``, so what the validation screen showed
+depended on whether the job had been finalized, and a second finalization
+read back what the first one had written. The merge picks the graded page up
+when it exists (see utils.merge).
+"""
+
 import os
-import shutil
 
 import img2pdf
+from process_copy.batching import max_ram_gb, run_batch
 from process_copy.config import grade_box as def_grade_box
 from process_copy.database import Database
 from process_copy.imaging import memory_used_gb
 from process_copy.recognize import add_grades
 from rmn_common.questions import ignored_positions
 from rmn_common.status import Document_Status
+from rmn_common.storage import GRADED_COVER_DIR
 from utils.storage import Storage
 
 storage = Storage()
 
 
 # A cover page costs about 100 MB of page images and the imaging libraries do
-# not give all of it back, so one process writing hundreds of copies grows out
-# of the container: job d98c2837 (546 copies) was OOM-killed at copy 314 and
-# its finalisation never resumed. The copies are written in batches, each in a
-# process of its own, and a batch ends as soon as it has used MAX_RAM_GB: what
-# it did not release goes back to the system when it exits.
-#
-# A batch that dies anyway (a page the imaging libraries choke on) costs its
-# copy, not the finalisation; past this many deaths something else is wrong and
-# finalising is pointless.
+# not give all of it back (see process_copy.batching). A batch that dies
+# anyway costs its copy, not the finalisation; past this many deaths
+# something else is wrong and finalising is pointless.
 MAX_WORKER_DEATHS = 10
-
-
-# spawn, never fork: the heartbeat that keeps the job from looking idle runs
-# in a thread of this process while finalization goes on, and a fork only
-# copies the thread that called it -- a child that inherits a lock the
-# heartbeat held deadlocks on its first allocation (on macOS it segfaults as
-# soon as the imaging libraries are loaded). A batch pays an import to start,
-# a second or two every few hundred copies.
-MP_CONTEXT = multiprocessing.get_context("spawn")
 
 
 def grades_to_write(grades, n_questions, ignored):
@@ -59,28 +52,56 @@ def grades_to_write(grades, n_questions, ignored):
     return texts
 
 
+def scan_path(rel_filepath):
+    """
+    The cover page as it was scanned, whatever an older run did to it.
+
+    Args:
+        rel_filepath (str): The cover page of the copy, as recorded.
+
+    Returns:
+        str: The absolute path to read the page from: the ``_nograde`` backup
+             when a finalization that still overwrote the scan left one, the
+             recorded page otherwise.
+    """
+    path = storage.abs_path(rel_filepath)
+    backup = path.replace(".pdf", "_nograde.pdf")
+    return backup if os.path.exists(backup) else path
+
+
+def graded_path(rel_filepath):
+    """
+    Where the graded version of a cover page goes.
+
+    Args:
+        rel_filepath (str): The cover page of the copy, as recorded.
+
+    Returns:
+        str: The absolute path of the graded page, under ``graded/``.
+    """
+    path = storage.abs_path(rel_filepath)
+    return os.path.join(os.path.dirname(path), GRADED_COVER_DIR, os.path.basename(path))
+
+
 def write_cover_page(doc, grades, img_path, box_grades, dpi, shape):
     """
-    Write the grades of one copy on its cover page.
+    Write the grades of one copy on a copy of its cover page.
 
     Args:
         doc (dict): The copy, as stored in job_documents.
         grades (list): One text per grade box (see grades_to_write).
         img_path (str): Scratch image the overlay is drawn into.
         box_grades (tuple): The grade table of the template, in page fractions.
-        dpi (int): Resolution of the page written back.
+        dpi (int): Resolution of the page written.
         shape (tuple): Page size in pixels.
 
     Returns:
-        bool: True when the pdf was rewritten, False when the overlay failed
-              and the original cover page was kept.
+        bool: True when the graded page was written, False when the overlay
+              failed -- the scan is then the only page there is, and the merge
+              falls back to it.
     """
-    input_pdf_path = storage.abs_path(doc["rel_filepath"])
-
-    # copy a backup of the original cover page
-    input_pdf_path_backup = input_pdf_path.replace(".pdf", "_nograde.pdf")
-    if not os.path.exists(input_pdf_path_backup):
-        shutil.copy(input_pdf_path, input_pdf_path_backup)
+    source = scan_path(doc["rel_filepath"])
+    target = graded_path(doc["rel_filepath"])
 
     # one scratch image serves every copy: remove it first, so a failed
     # overlay cannot leave the previous student's cover page in place and
@@ -88,15 +109,19 @@ def write_cover_page(doc, grades, img_path, box_grades, dpi, shape):
     if os.path.exists(img_path):
         os.remove(img_path)
     try:
-        # use backup to add grades (not to overwrite grades if re-processing)
-        add_grades(grades, input_pdf_path_backup, box_grades, img_path, add_border=False, shape=shape)
+        add_grades(grades, source, box_grades, img_path, add_border=False, shape=shape)
     except Exception as e:
-        print(f"Error while adding grades to {input_pdf_path}: {e}")
+        print(f"Error while adding grades to {source}: {e}")
     if not os.path.exists(img_path):
+        # an earlier run may have written one: it belongs to grades that are
+        # no longer the grades of this copy
+        if os.path.exists(target):
+            os.remove(target)
         return False
 
+    os.makedirs(os.path.dirname(target), exist_ok=True)
     layout = img2pdf.get_fixed_dpi_layout_fun((dpi, dpi))
-    with open(input_pdf_path, "wb") as f:
+    with open(target, "wb") as f:
         f.write(img2pdf.convert(img_path, layout_fun=layout))
     return True
 
@@ -105,10 +130,10 @@ def write_batch(documents, start, n_docs, settings, events):
     """
     Write the cover pages of ``documents``, until the memory guard stops it.
 
-    Runs in a process of its own (see MAX_WORKER_DEATHS). Every copy it
+    Runs in a process of its own (see process_copy.batching). Every copy it
     finishes is reported on ``events`` as it goes, so a parent whose batch is
-    killed knows where to resume, and the last event says where the next batch
-    starts.
+    killed knows where to resume, and the last event says where the next
+    batch starts.
 
     Args:
         documents (list): The copies to write, from ``start`` on.
@@ -116,16 +141,15 @@ def write_batch(documents, start, n_docs, settings, events):
         n_docs (int): Number of copies of the job, for the progress lines.
         settings (dict): img_path, box_grades, dpi, shape, n_questions,
             ignored and max_RAM_GB.
-        events (SimpleQueue): ("done"|"failed", position) per copy, then
+        events (queue): ("done"|"failed", position) per copy, then
             ("next", position) when the batch stops.
     """
     position = start - 1
     for position, doc in enumerate(documents, start=start):
-        path = storage.abs_path(doc["rel_filepath"])
         if doc["status"] == Document_Status.DELETED.value:
             # a deleted copy is never graded (grades are [None, ...]); skip it
             # instead of falling through and summing None (which crashed finalize)
-            print(f"({position + 1}/{n_docs}) PDF is deleted {path}")
+            print(f"({position + 1}/{n_docs}) PDF is deleted {doc['rel_filepath']}")
             events.put(("done", position))
             continue
 
@@ -134,9 +158,11 @@ def write_batch(documents, start, n_docs, settings, events):
         written = write_cover_page(doc, grades, settings["img_path"], settings["box_grades"],
                                    settings["dpi"], settings["shape"])
         if written:
-            print(f"({position + 1}/{n_docs}) Modified PDF saved as {path}")
+            print(f"({position + 1}/{n_docs}) Graded cover page saved as "
+                  f"{graded_path(doc['rel_filepath'])}")
         else:
-            print(f"({position + 1}/{n_docs}) Grades NOT written on {path}: original cover page kept")
+            print(f"({position + 1}/{n_docs}) Grades NOT written for "
+                  f"{doc['rel_filepath']}: the scanned cover page is used as it is")
         events.put(("done" if written else "failed", position))
 
         used = memory_used_gb()
@@ -146,22 +172,21 @@ def write_batch(documents, start, n_docs, settings, events):
     events.put(("next", position + 1))
 
 
-def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batch_runner=None):
+def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
     """
-    Write the grades on the cover page of every copy of a job.
+    Write the graded cover page of every copy of a job.
 
     Args:
         job (dict): The job.
         TMP_DIR (Path): Working directory of this job.
-        dpi (int): Resolution of the pages written back.
+        dpi (int): Resolution of the pages written.
         shape (tuple): Page size in inches.
-        batch_runner (callable): How a batch is run, ``Process``-like
-            (target, args, start, join, exitcode). The default forks, which is
-            what gives the memory back; the tests run a batch in-process.
+        batches (ProcessBatches|InlineBatches): how to run a batch; a process
+            of its own by default, which is what gives the memory back.
 
     Returns:
-        list: The document_index of the copies whose cover page could not be
-              written; those keep their original cover page.
+        list: The document_index of the copies whose graded page could not be
+              written; those are merged from their scanned cover page.
     """
     job_id = job["job_id"]
     box_grades = def_grade_box["exam"]["grade"]  # default box for grades recognition
@@ -189,8 +214,7 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batch_runner=None):
         "shape": shape,
         "n_questions": len(n_pages_per_question),
         "ignored": ignored_positions(n_pages_per_question),
-        # the guard measures the container, so it must stay under its memory limit
-        "max_RAM_GB": int(os.getenv("MAX_RAM_GB", "1000")),
+        "max_RAM_GB": max_ram_gb(),
     }
 
     n_docs = len(documents)
@@ -199,33 +223,18 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batch_runner=None):
     deaths = 0
     position = 0
     while position < n_docs:
-        events = MP_CONTEXT.SimpleQueue()
-        batch = (batch_runner or MP_CONTEXT.Process)(
-            target=write_batch,
-            args=(documents[position:], position, n_docs, settings, events))
-        batch.start()
-        last_done = position - 1
+        received, exitcode = run_batch(
+            write_batch, (documents[position:], position, n_docs, settings), batches)
+
         resume = None
-
-        def drain():
-            """Read what the batch reported; sets resume when it says it is done."""
-            nonlocal last_done, resume
-            while not events.empty():
-                kind, value = events.get()
-                if kind == "next":
-                    resume = value
-                    continue
-                last_done = value
-                if kind == "failed":
-                    failed.append(documents[value]["document_index"])
-
-        while resume is None:
-            batch.join(timeout=1)
-            drain()
-            if resume is None and batch.exitcode is not None:
-                drain()  # what it wrote just before dying
-                break
-        batch.join()
+        last_done = position - 1
+        for kind, value in received:
+            if kind == "next":
+                resume = value
+                continue
+            last_done = value
+            if kind == "failed":
+                failed.append(documents[value]["document_index"])
 
         if resume is None:
             # killed (the container ran out of memory, a page the imaging
@@ -233,7 +242,7 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batch_runner=None):
             # copy it died on, instead of restarting on it for ever
             deaths += 1
             dead_at = last_done + 1
-            print(f"The batch writing the cover pages died (exit code {batch.exitcode}) "
+            print(f"The batch writing the cover pages died (exit code {exitcode}) "
                   f"at copy {dead_at + 1}/{n_docs}")
             if deaths >= MAX_WORKER_DEATHS:
                 raise RuntimeError(f"{deaths} batches died while writing the cover pages of {job_id}")
