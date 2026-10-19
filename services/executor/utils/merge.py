@@ -4,6 +4,7 @@ from python.process_copy.database import Database
 from utils.storage import Storage
 from rmn_common.status import Document_Status
 from rmn_common.questions import active_question_keys
+from rmn_common.storage import GRADED_COVER_DIR
 
 
 storage = Storage()
@@ -38,13 +39,17 @@ def merge_parts(job_id, n_pages_per_question):
         n_pages_per_question: The pages per question (dict or [[key, pages], ...]).
 
     Returns:
-        list: (folder, filename suffix) couples: the cover page first, then one
-              entry per question that is not ignored, in numeric order.
+        list: (folders, filename suffix) couples: the cover page first, then
+              one entry per question that is not ignored, in numeric order.
+              The file merged is the first of the folders that has it, which
+              for the cover page means the graded one when the finalization
+              managed to write it, and the scan when it did not.
     """
-    parts = [(storage.abs_path(os.path.join('cover_pages', job_id)), "_cover.pdf")]
+    cover_pages = storage.abs_path(os.path.join('cover_pages', job_id))
+    parts = [([os.path.join(cover_pages, GRADED_COVER_DIR), cover_pages], "_cover.pdf")]
     for question in active_question_keys(n_pages_per_question):
         folder = storage.abs_path(os.path.join('documents', job_id, question))
-        parts.append((folder, f"_{question}.pdf"))
+        parts.append(([folder], f"_{question}.pdf"))
     return parts
 
 
@@ -54,8 +59,9 @@ def merge_pdfs_by_base_name(base_names, parts, output_folder):
 
     Args:
         base_names (list): A list of base names of the PDF files to be merged.
-        parts (list): (folder, suffix) couples, see merge_parts; the file merged
-                      for a copy is folder/<base_name><suffix>.
+        parts (list): (folders, suffix) couples, see merge_parts; the file
+                      merged for a copy is the first <folder>/<base_name><suffix>
+                      there is.
         output_folder (str): The folder path where the merged PDF files will be saved.
 
     Returns:
@@ -70,8 +76,12 @@ def merge_pdfs_by_base_name(base_names, parts, output_folder):
         writer = PdfWriter()
         output_path = os.path.join(output_folder, f"{base_name}.pdf")
 
-        for folder, suffix in parts:
-            reader = PdfReader(os.path.join(folder, base_name + suffix))
+        for folders, suffix in parts:
+            candidates = [os.path.join(folder, base_name + suffix) for folder in folders]
+            # the last one is the page that must be there: let PdfReader say
+            # which file is missing when none of them is
+            path = next((c for c in candidates if os.path.exists(c)), candidates[-1])
+            reader = PdfReader(path)
             for page in reader.pages:
                 writer.add_page(page)
 

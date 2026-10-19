@@ -19,6 +19,7 @@ import pandas as pd
 import pytest
 
 import process_copy.batch as batch
+from process_copy.batching import InlineBatches
 import process_copy.grades as grades
 import process_copy.matricules as matricules
 from process_copy import mcc
@@ -33,29 +34,11 @@ SPEC = json.loads(
 GRADE_BOX = SPEC["grade_box"]
 
 
-class InlineProcess:
-    """``multiprocessing.Process`` run in the calling process.
-
-    A real child process would not see the in-memory MongoDB.
-    """
-
-    def __init__(self, target: Callable[..., Any], args: Any) -> None:
-        self._target, self._args, self.exitcode = target, args, None
-
-    def start(self) -> None:
-        """Run the target to completion, as a worker that exits normally."""
-        self._target(*self._args)
-        self.exitcode = 0
-
-    def join(self, timeout: float | None = None) -> None:
-        """Nothing to wait for: the target already ran in ``start``."""
-
-
 @pytest.fixture
 def inline_workers(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     """Run the recognition workers inline; return the socket they emit on."""
     sio = MagicMock()
-    monkeypatch.setattr(batch, "Process", InlineProcess)
+    monkeypatch.setattr(batch, "ProcessBatches", lambda context=None: InlineBatches())
     for module in (batch, grades, matricules):
         monkeypatch.setattr(module, "socketio_client", lambda: sio)
     return sio

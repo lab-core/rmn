@@ -324,8 +324,14 @@ def test_the_grades_are_written_on_the_cover_page_and_read_back(
     # the ignored Q2 box is left blank (read as 0); the total includes the bonus
     assert matched
     assert numbers == [3, 0, 2.5, 1, 1.5, 8]
-    # the original cover page is kept to write the grades again on a rerun
-    assert (storage_root / "cover_pages" / "job" / "alice_cover_nograde.pdf").is_file()
+    # the scan is untouched: the graded page is written beside it, and the
+    # merge is what picks it up
+    assert (storage_root / "cover_pages" / "job" / "graded" / "alice_cover.pdf").is_file()
+    scan = gray_images(str(storage_root / "cover_pages" / "job" / "alice_cover.pdf"),
+                       [0], straighten=False)[0]
+    # nothing written in its boxes, where the merged copy carries the grades
+    assert recognize.grade(scan, GRADE_BOX, classifier=classifier,
+                           max_grade=30, max_question=12)[1] == [0, 0, 0, 0, 0, 0]
 
 
 def test_moodle_zip_has_one_folder_per_student_with_copy_and_stats(

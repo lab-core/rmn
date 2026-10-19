@@ -1,4 +1,4 @@
-"""Worker-side helpers of job_executor: heartbeat, digit images and the idle-job sweep."""
+"""Worker-side helpers of the executor: heartbeat, digit images and the idle-job sweep."""
 
 import datetime as dt
 import json
@@ -10,7 +10,7 @@ import fakeredis
 
 import job_executor
 import runtime
-from job_executor import check_for_idle_jobs_to_requeue
+from sweep import check_for_idle_jobs_to_requeue
 from runtime import Heartbeat
 from process_copy.database import Database
 
@@ -37,16 +37,16 @@ def test_heartbeat_refreshes_alive_time_until_stopped(mongo_db):
     assert not heartbeat._thread.is_alive()
 
 
-def test_heartbeat_beats_before_the_job_is_processed(mongo_db, monkeypatch):
+def test_heartbeat_beats_before_the_job_is_processed(mongo_db):
     # a job left with the alive_time of an old run and set to FINALIZING must
     # not look idle to another executor's sweep while the first interval runs
     stale = dt.datetime(2000, 1, 1)
     mongo_db["eval_jobs"].insert_one({"job_id": "job", "user_id": "u", "job_status": "FINALIZING",
                                       "alive_time": stale})
-    redis, _ = _fake_backends(monkeypatch)
+    redis, sio = _fake_backends()
 
     with Heartbeat(Database(), "job"):  # 40 s interval: only the first beat runs
-        check_for_idle_jobs_to_requeue(Database(), sleep=False)
+        check_for_idle_jobs_to_requeue(Database(), redis, sio, sleep=False)
 
     job = mongo_db["eval_jobs"].find_one({"job_id": "job"})
     assert job["job_status"] == "FINALIZING"
@@ -72,21 +72,17 @@ def test_heartbeat_survives_a_failing_database():
 # -------------------------------------------------------------- idle-job sweep
 
 
-def _fake_backends(monkeypatch):
-    """The sweep uses the module-level redis/sio created under __main__."""
-    redis = fakeredis.FakeStrictRedis()
-    sio = MagicMock()
-    monkeypatch.setattr(job_executor, "redis", redis, raising=False)
-    monkeypatch.setattr(job_executor, "sio", sio, raising=False)
-    return redis, sio
+def _fake_backends():
+    """The queue and the socket the sweep is given."""
+    return fakeredis.FakeStrictRedis(), MagicMock()
 
 
 def _queue(redis):
     return sorted(json.loads(p)["job_id"] for p in redis.lrange("job_queue", 0, -1))
 
 
-def test_idle_jobs_are_requeued_and_the_lock_released(mongo_db, monkeypatch):
-    redis, _ = _fake_backends(monkeypatch)
+def test_idle_jobs_are_requeued_and_the_lock_released(mongo_db):
+    redis, sio = _fake_backends()
     now = dt.datetime.now(dt.UTC)
     stale = now - dt.timedelta(seconds=runtime.MAX_IDLE_TIME + 60)
     mongo_db["eval_jobs"].insert_many(
@@ -98,20 +94,21 @@ def test_idle_jobs_are_requeued_and_the_lock_released(mongo_db, monkeypatch):
         ]
     )
 
-    check_for_idle_jobs_to_requeue(Database(), sleep=False)
+    check_for_idle_jobs_to_requeue(Database(), redis, sio, sleep=False)
 
     jobs = {j["job_id"]: j for j in mongo_db["eval_jobs"].find()}
     assert jobs["run-idle"]["job_status"] == "QUEUED"
     assert jobs["run-idle"]["retry"] == 1
-    assert jobs["fin-idle"]["job_status"] == "VALIDATION"
+    # VALIDATED, the status the executor finalizes on: VALIDATION was a no-op
+    assert jobs["fin-idle"]["job_status"] == "VALIDATED"
     assert jobs["run-alive"]["job_status"] == "RUN"
     assert jobs["done"]["job_status"] == "VALIDATION"
     assert _queue(redis) == ["fin-idle", "run-idle"]
     assert mongo_db["check"].find_one()["locked"] is False
 
 
-def test_a_job_out_of_retries_fails_instead_of_being_requeued(mongo_db, monkeypatch):
-    redis, sio = _fake_backends(monkeypatch)
+def test_a_job_out_of_retries_fails_instead_of_being_requeued(mongo_db):
+    redis, sio = _fake_backends()
     stale = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=runtime.MAX_IDLE_TIME + 60)
     mongo_db["eval_jobs"].insert_one(
         {
@@ -123,7 +120,7 @@ def test_a_job_out_of_retries_fails_instead_of_being_requeued(mongo_db, monkeypa
         }
     )
 
-    check_for_idle_jobs_to_requeue(Database(), sleep=False)
+    check_for_idle_jobs_to_requeue(Database(), redis, sio, sleep=False)
 
     job = mongo_db["eval_jobs"].find_one({"job_id": "stuck"})
     assert job["job_status"] == "ERROR"
@@ -134,11 +131,11 @@ def test_a_job_out_of_retries_fails_instead_of_being_requeued(mongo_db, monkeypa
     assert mongo_db["check"].find_one()["locked"] is False
 
 
-def test_ignored_job_goes_back_to_validation(mongo_db, monkeypatch):
-    redis, sio = _fake_backends(monkeypatch)
+def test_ignored_job_goes_back_to_validation(mongo_db):
+    redis, sio = _fake_backends()
     mongo_db["eval_jobs"].insert_one({"job_id": "ign", "user_id": "alice", "job_status": "IGNORED"})
 
-    check_for_idle_jobs_to_requeue(Database(), sleep=False)
+    check_for_idle_jobs_to_requeue(Database(), redis, sio, sleep=False)
 
     assert mongo_db["eval_jobs"].find_one({"job_id": "ign"})["job_status"] == "VALIDATION"
     event, payload = sio.emit.call_args.args
@@ -147,12 +144,12 @@ def test_ignored_job_goes_back_to_validation(mongo_db, monkeypatch):
     assert redis.llen("job_queue") == 0
 
 
-def test_nothing_to_do_leaves_the_queue_alone(mongo_db, monkeypatch):
-    redis, sio = _fake_backends(monkeypatch)
+def test_nothing_to_do_leaves_the_queue_alone(mongo_db):
+    redis, sio = _fake_backends()
     mongo_db["eval_jobs"].insert_one(
         {"job_id": "live", "user_id": "alice", "job_status": "RUN", "alive_time": dt.datetime.now(dt.UTC)}
     )
-    check_for_idle_jobs_to_requeue(Database(), sleep=False)
+    check_for_idle_jobs_to_requeue(Database(), redis, sio, sleep=False)
     assert redis.llen("job_queue") == 0
     assert not sio.emit.called
     assert mongo_db["check"].find_one()["locked"] is False
@@ -161,13 +158,13 @@ def test_nothing_to_do_leaves_the_queue_alone(mongo_db, monkeypatch):
 # ------------------------------------------------------- idle sweep lock (X16)
 
 
-def test_a_pod_that_did_not_get_the_lock_leaves_it_alone(mongo_db, monkeypatch):
+def test_a_pod_that_did_not_get_the_lock_leaves_it_alone(mongo_db):
     # the finally used to unlock unconditionally, so the pod that lost the race
     # released the holder's lock and two executors swept concurrently
-    _fake_backends(monkeypatch)
+    redis, sio = _fake_backends()
     mongo_db["check"].insert_one({"locked": True})
 
-    check_for_idle_jobs_to_requeue(Database(), sleep=False)
+    check_for_idle_jobs_to_requeue(Database(), redis, sio, sleep=False)
 
     assert mongo_db["check"].find_one()["locked"] is True
 
@@ -175,7 +172,7 @@ def test_a_pod_that_did_not_get_the_lock_leaves_it_alone(mongo_db, monkeypatch):
 # --------------------------------------------------- template boxes (X11)
 
 
-def test_template_boxes_fall_back_to_the_defaults(monkeypatch):
+def test_template_boxes_fall_back_to_the_defaults():
     from process_copy.config import DEFAULT_GRADE_BOX, DEFAULT_MATRICULE_BOX
 
     runtime.apply_template_boxes([0.1, 0.9, 0.6, 0.9], [0.2, 0.8, 0.1, 0.3], None)

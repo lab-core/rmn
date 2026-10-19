@@ -32,7 +32,7 @@ def test_merge_pdfs_concatenates_the_parts_in_order(tmp_path, pdf_factory):
     pdf_factory(q1 / "bob_Q1.pdf", 2)
     pdf_factory(q2 / "bob_Q2.pdf", 1)
 
-    parts = [(str(cover), "_cover.pdf"), (str(q1), "_Q1.pdf"), (str(q2), "_Q2.pdf")]
+    parts = [([str(cover)], "_cover.pdf"), ([str(q1)], "_Q1.pdf"), ([str(q2)], "_Q2.pdf")]
     merge_pdfs_by_base_name(["alice", "bob"], parts, str(out))
 
     assert sorted(os.listdir(out)) == ["alice.pdf", "bob.pdf"]
@@ -59,3 +59,19 @@ def test_process_merge_skips_deleted_documents_and_ignored_questions(
     assert out == str(storage_root / "corrected_copies" / "job")
     assert sorted(os.listdir(out)) == ["alice.pdf"]
     assert len(PdfReader(os.path.join(out, "alice.pdf")).pages) == 3
+
+
+def test_merge_takes_the_graded_cover_page_when_there_is_one(tmp_path, pdf_factory):
+    # the graded page is written beside the scan, not over it: the merge takes
+    # it when the finalization managed to write it, the scan when it did not
+    cover, graded, q1, out = (tmp_path / d for d in ("cover", "cover/graded", "q1", "out"))
+    for name, pages in (("alice", 3), ("bob", 1)):
+        pdf_factory(cover / f"{name}_cover.pdf", 1)
+        pdf_factory(q1 / f"{name}_Q1.pdf", pages)
+    pdf_factory(graded / "alice_cover.pdf", 2)  # only alice was graded
+
+    parts = [([str(graded), str(cover)], "_cover.pdf"), ([str(q1)], "_Q1.pdf")]
+    merge_pdfs_by_base_name(["alice", "bob"], parts, str(out))
+
+    assert len(PdfReader(str(out / "alice.pdf")).pages) == 5  # graded cover + Q1
+    assert len(PdfReader(str(out / "bob.pdf")).pages) == 2  # scanned cover + Q1

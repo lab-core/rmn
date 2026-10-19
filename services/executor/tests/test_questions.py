@@ -47,8 +47,9 @@ def test_merge_parts_use_question_keys():
         "_Q2.pdf",
         "_Q4.pdf",
     ]
-    assert os.path.basename(parts[0][0]) == "job"
-    assert [os.path.basename(folder) for folder, _ in parts[1:]] == ["Q1", "Q2", "Q4"]
+    # the cover page is looked for in the graded folder first, then the scans
+    assert [os.path.basename(f) for f in parts[0][0]] == ["graded", "job"]
+    assert [os.path.basename(folders[0]) for folders, _ in parts[1:]] == ["Q1", "Q2", "Q4"]
 
 
 def test_grades_to_write_leaves_ignored_box_blank():

@@ -1,0 +1,75 @@
+# Requeues the jobs whose executor died, every ten minutes.
+#
+# The executor sweeps for idle jobs when it ends, and KEDA only starts an
+# executor when the Redis queue is not empty: a job killed mid-run (an OOM
+# kill while finalizing, a node reboot) was requeued only when somebody else
+# submitted a job. Job d98c2837 sat in FINALIZING for eleven hours that way.
+# This CronJob runs the same sweep (services/executor/sweep.py) on a clock of
+# its own. It takes the same Mongo lock as the executors, so two sweeps at the
+# same time cannot requeue the same job twice.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: idle-sweep
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # a sweep is a handful of Mongo queries: far longer than this means
+      # something is wrong and the next run will try again anyway
+      activeDeadlineSeconds: 300
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          # it talks to Mongo, Redis and socketIO, never to the Kubernetes API
+          automountServiceAccountToken: false
+          containers:
+            - name: sweep
+              image: rmni/executor:main
+              imagePullPolicy: Always
+              # the image runs the executor loop; this one only sweeps, and
+              # needs neither the storage share nor a job of its own
+              command: ["python3", "-m", "sweep"]
+              resources:
+                limits:
+                  memory: 1G
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+                capabilities: {drop: [ALL]}
+              env:
+                - name: TZ
+                  valueFrom:
+                    configMapKeyRef:
+                      name: rmn-config
+                      key: timezone
+                      optional: true
+                - name: MAX_RETRY
+                  value: "5"
+                - name: MONGODB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: mongodb-user
+                - name: MONGODB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: mongodb-password
+                - name: REDIS_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: redis-password
+                - name: SOCKETIO_SERVICE_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: socketio-service-token
+              terminationMessagePolicy: FallbackToLogsOnError
