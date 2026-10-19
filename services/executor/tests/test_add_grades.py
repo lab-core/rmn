@@ -4,12 +4,15 @@ import os
 import shutil
 
 import numpy as np
+import pymupdf
 import pytest
-
-from PIL import Image
 
 from process_copy import add_grades as module
 from process_copy.batching import FinishedBatch, InlineBatches
+
+
+SCAN_FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "fixtures", "ink_grades", "ink_busy_page.pdf")
 
 
 class Killed(BaseException):
@@ -27,8 +30,10 @@ class KilledBatches(InlineBatches):
             return FinishedBatch(-9)
 
 
-def _overlay_written(img_path):
-    Image.new("RGB", (20, 30), "white").save(img_path)
+def _page_written(out_path):
+    """What the real add_grades leaves behind: the page, with the grades on it."""
+    shutil.copy(SCAN_FIXTURE, out_path)
+    return True
 
 
 def _job_with_copies(mongo_db, storage_root, pdf_factory, names):
@@ -67,7 +72,7 @@ def test_the_graded_page_is_written_beside_the_scan_not_over_it(
     # rerun read back what the previous run had written
     job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a",))
     monkeypatch.setattr(module, "add_grades",
-                        lambda grades, pdf, box, img_path, add_border, shape: _overlay_written(img_path))
+                        lambda grades, pdf, box, out_path, add_border, shape: _page_written(out_path))
     original = _scan(storage_root, "a").read_bytes()
 
     failed = module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
@@ -88,9 +93,9 @@ def test_a_page_a_previous_run_overwrote_is_read_from_its_backup(
     _scan(storage_root, "a").write_bytes(b"%PDF already graded")
     read_from = []
 
-    def fake_add_grades(grades, pdf_path, box, img_path, add_border, shape):
+    def fake_add_grades(grades, pdf_path, box, out_path, add_border, shape):
         read_from.append(pdf_path)
-        _overlay_written(img_path)
+        return _page_written(out_path)
 
     monkeypatch.setattr(module, "add_grades", fake_add_grades)
 
@@ -104,11 +109,10 @@ def test_a_failed_overlay_leaves_the_copy_to_its_scanned_page(
         mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
     job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a", "b"))
 
-    def fake_add_grades(grades, pdf_path, box, img_path, add_border, shape):
+    def fake_add_grades(grades, pdf_path, box, out_path, add_border, shape):
         if pdf_path.endswith("a_cover.pdf"):
-            _overlay_written(img_path)
-            return
-        raise RuntimeError("box not found")  # copy b: the scratch image still holds copy a
+            return _page_written(out_path)
+        raise RuntimeError("box not found")
 
     monkeypatch.setattr(module, "add_grades", fake_add_grades)
 
@@ -127,7 +131,7 @@ def test_a_graded_page_of_an_earlier_run_does_not_outlive_its_grades(
     stale.parent.mkdir(parents=True, exist_ok=True)
     stale.write_bytes(b"%PDF the grades of the previous run")
 
-    def no_overlay(grades, pdf_path, box, img_path, add_border, shape):
+    def no_overlay(grades, pdf_path, box, out_path, add_border, shape):
         raise RuntimeError("box not found")
 
     monkeypatch.setattr(module, "add_grades", no_overlay)
@@ -146,7 +150,7 @@ def test_the_copies_are_written_in_batches_the_memory_guard_closes(
     monkeypatch.setenv("MAX_RAM_GB", "4")
     monkeypatch.setattr(module, "memory_used_gb", lambda: 4.2)  # over the guard, always
     monkeypatch.setattr(module, "add_grades",
-                        lambda grades, pdf, box, img_path, add_border, shape: _overlay_written(img_path))
+                        lambda grades, pdf, box, out_path, add_border, shape: _page_written(out_path))
     starts = []
 
     class Counting(InlineBatches):
@@ -168,10 +172,10 @@ def test_a_batch_that_is_killed_skips_its_copy_and_the_others_are_written(
     job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a", "b", "c"))
     monkeypatch.setattr(module, "memory_used_gb", lambda: 0.1)
 
-    def fake_add_grades(grades, pdf_path, box, img_path, add_border, shape):
+    def fake_add_grades(grades, pdf_path, box, out_path, add_border, shape):
         if pdf_path.endswith("b_cover.pdf"):
             raise Killed("the kernel took the batch down on this page")
-        _overlay_written(img_path)
+        return _page_written(out_path)
 
     monkeypatch.setattr(module, "add_grades", fake_add_grades)
 
@@ -190,7 +194,7 @@ def test_batches_stop_being_restarted_once_too_many_die(
                            tuple(f"c{i}" for i in range(module.MAX_WORKER_DEATHS + 2)))
     monkeypatch.setattr(module, "memory_used_gb", lambda: 0.1)
 
-    def always_killed(grades, pdf_path, box, img_path, add_border, shape):
+    def always_killed(grades, pdf_path, box, out_path, add_border, shape):
         raise Killed("every page kills its batch")
 
     monkeypatch.setattr(module, "add_grades", always_killed)
@@ -220,12 +224,12 @@ def test_add_grades_writes_nothing_when_the_boxes_are_not_found(tmp_path, pdf_fa
     from process_copy import recognize
 
     pdf = pdf_factory(tmp_path / "blank.pdf")
-    img_path = tmp_path / "overlay.jpg"
+    out_path = tmp_path / "graded.pdf"
     ok = recognize.add_grades(
-        [1, 2], str(pdf), (0.82, 0.96, 0.15, 0.55), str(img_path), add_border=False, shape=(1275, 1650)
+        [1, 2], str(pdf), (0.82, 0.96, 0.15, 0.55), str(out_path), add_border=False, shape=(1275, 1650)
     )
     assert ok is False
-    assert not img_path.exists()
+    assert not out_path.exists()
 
 
 # ------------------------------------------- finding the table on the page
@@ -244,170 +248,75 @@ def test_the_crops_tried_start_with_the_box_the_template_records():
     assert len(set(tried)) == len(tried)
 
 
+CELLS = [np.array([[[0, 0]], [[50, 0]], [[50, 40]], [[0, 40]]]),
+         np.array([[[0, 50]], [[50, 50]], [[50, 90]], [[0, 90]]])]
+
+
+def _red_pixels(pdf_path, dpi=150):
+    """Where the red ink is on the first page, in page points."""
+    with pymupdf.open(str(pdf_path)) as document:
+        page = document[0]
+        pix = page.get_pixmap(dpi=dpi)
+        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+    red = (img[:, :, 0] > 150) & (img[:, :, 1] < 100) & (img[:, :, 2] < 100)
+    ys, xs = np.nonzero(red)
+    if not len(xs):
+        return None
+    scale = 72.0 / dpi
+    return pymupdf.Rect(xs.min() * scale, ys.min() * scale, xs.max() * scale, ys.max() * scale)
+
+
 @pytest.mark.skipif(shutil.which("pdftoppm") is None, reason="poppler not installed")
-def test_the_grades_are_written_where_the_cells_were_found(tmp_path, pdf_factory, monkeypatch):
-    # the offset used to come from the box the template records while the
-    # cells came from the crop that matched, so every copy that needed a
-    # wider crop had its grades written that far off their boxes (472 of the
-    # 546 copies of job d98c2837)
+@pytest.mark.parametrize("rotation", [0, 90])
+def test_the_grades_land_in_the_cells_that_were_found(tmp_path, monkeypatch, rotation):
+    # the cells are found on a raster of the page and written in the page
+    # itself: the mapping between the two is what this checks, including for
+    # a page stored turned (a /Rotate the scanner left behind)
     from process_copy import annotate
 
-    pdf = pdf_factory(tmp_path / "page.pdf")
+    pdf = tmp_path / "page.pdf"
+    with pymupdf.open() as document:
+        page = document.new_page(width=612, height=792)  # letter
+        page.set_rotation(rotation)
+        document.save(str(pdf))
+    monkeypatch.setattr(annotate, "find_grade_boxes", lambda *a, **k: CELLS)
+
     box = (0.60, 0.70, 0.20, 0.40)
-    cells = [np.array([[[0, 0]], [[50, 0]], [[50, 40]], [[0, 40]]]),
-             np.array([[[0, 50]], [[50, 50]], [[50, 90]], [[0, 90]]])]
-    tried = []
-
-    def found_on_the_fourth_try(cropped, add_border, thick=0):
-        tried.append(cropped.shape)
-        return cells if len(tried) == 4 else []
-
-    offsets = []
-    monkeypatch.setattr(annotate, "find_grade_boxes", found_on_the_fourth_try)
-    monkeypatch.setattr(annotate, "write_grade_texts",
-                        lambda img, boxes, numbers, offset, *a, **k: offsets.append(offset))
-
-    ok = annotate.add_grades([1, 2], str(pdf), box, str(tmp_path / "overlay.jpg"),
-                             add_border=False, shape=(2550, 3300))
-
-    assert ok
-    # the fourth crop reaches 0.03 further left and 0.02 higher, and that
-    # corner is where the grades are written from
-    assert offsets == [(int(0.57 * 2550), int(0.18 * 3300))]
-
-
-# ------------------------------------- what a run that starts again redoes
-
-
-def _written_by(monkeypatch, drawn):
-    """An overlay that records the copy it was called for."""
-    def fake_add_grades(grades, pdf_path, box, img_path, add_border, shape):
-        drawn.append(pdf_path)
-        _overlay_written(img_path)
-
-    monkeypatch.setattr(module, "add_grades", fake_add_grades)
-
-
-def test_a_second_run_leaves_the_pages_it_already_wrote_alone(
-        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
-    # a finalization whose executor was killed used to redraw all 546 cover
-    # pages of the job, a quarter of an hour of work already done
-    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a", "b"))
-    drawn = []
-    _written_by(monkeypatch, drawn)
-
-    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
-    assert len(drawn) == 2
-    first = _graded(storage_root, "a").read_bytes()
-    recorded = mongo_db["job_documents"].find_one({"document_index": 0})["graded_cover"]
-    assert recorded["texts"] == ["4", "4"]  # the grade of Q1, then the total
-
-    drawn.clear()
-    failed = module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
-
-    assert drawn == []
-    assert failed == []
-    assert _graded(storage_root, "a").read_bytes() == first
-
-
-def test_a_copy_whose_grade_changed_is_drawn_again(
-        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
-    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a", "b"))
-    drawn = []
-    _written_by(monkeypatch, drawn)
-    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
-
-    mongo_db["job_documents"].update_one({"document_index": 1}, {"$set": {"grades": [5]}})
-    drawn.clear()
-    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
-
-    assert drawn == [str(_scan(storage_root, "b"))]
-
-
-def test_a_page_drawn_by_an_older_version_is_drawn_again(
-        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
-    # the grades alone do not say whether the page on disk is the page this
-    # code would write: the overlay moved once already (the offset fix)
-    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a",))
-    drawn = []
-    _written_by(monkeypatch, drawn)
-    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
-
-    monkeypatch.setattr(module, "COVER_WRITER_VERSION", module.COVER_WRITER_VERSION + 1)
-    drawn.clear()
-    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
-
-    assert drawn == [str(_scan(storage_root, "a"))]
-
-
-def test_a_graded_page_that_is_gone_is_drawn_again(
-        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
-    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a",))
-    drawn = []
-    _written_by(monkeypatch, drawn)
-    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
-    _graded(storage_root, "a").unlink()
-
-    drawn.clear()
-    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
-
-    assert drawn == [str(_scan(storage_root, "a"))]
-
-
-def test_a_copy_whose_overlay_failed_is_tried_again_by_the_next_run(
-        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
-    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a",))
-
-    def no_overlay(grades, pdf_path, box, img_path, add_border, shape):
-        raise RuntimeError("box not found")
-
-    monkeypatch.setattr(module, "add_grades", no_overlay)
-    assert module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches()) == [0]
-    assert "graded_cover" not in mongo_db["job_documents"].find_one({"document_index": 0})
-
-    drawn = []
-    _written_by(monkeypatch, drawn)
-    assert module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches()) == []
-    assert drawn == [str(_scan(storage_root, "a"))]
-
-
-def test_a_deleted_copy_is_not_recorded_as_having_a_graded_page(
-        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
-    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a",))
-    mongo_db["job_documents"].update_one({"document_index": 0}, {"$set": {"status": "DELETED"}})
-    _written_by(monkeypatch, [])
-
-    module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
-
-    assert "graded_cover" not in mongo_db["job_documents"].find_one({"document_index": 0})
-
-
-@pytest.mark.skipif(shutil.which("pdftoppm") is None, reason="poppler not installed")
-def test_the_written_page_is_not_degraded_by_its_encoding(tmp_path, monkeypatch):
-    # the page is rasterised to draw on it, so it is re-encoded on the way
-    # out; the quality used to be 5 (a png compression level in a jpeg
-    # quality), which blocked up the text of every cover page
-    import cv2
-    from pdf2image import convert_from_path
-
-    from process_copy import annotate
-
-    scan = os.path.join(os.path.dirname(__file__), "fixtures", "ink_grades", "ink_busy_page.pdf")
-    cells = [np.array([[[0, 0]], [[50, 0]], [[50, 40]], [[0, 40]]]),
-             np.array([[[0, 50]], [[50, 50]], [[50, 90]], [[0, 90]]])]
-    monkeypatch.setattr(annotate, "find_grade_boxes", lambda *a, **k: cells)
-    monkeypatch.setattr(annotate, "write_grade_texts", lambda *a, **k: None)
-    written = tmp_path / "overlay.jpg"
-
-    assert annotate.add_grades([1, 2], scan, (0.1, 0.9, 0.1, 0.9), str(written),
+    out_path = tmp_path / "graded.pdf"
+    assert annotate.add_grades([7, 8], str(pdf), box, str(out_path),
                                add_border=False, shape=(2550, 3300))
 
-    rendered = np.array(convert_from_path(scan, dpi=300, first_page=0, last_page=1)[0])
-    grey = (cv2.cvtColor(rendered, cv2.COLOR_RGB2GRAY),
-            cv2.imread(str(written), cv2.IMREAD_GRAYSCALE))
-    mse = np.mean((grey[0].astype(np.float64) - grey[1].astype(np.float64)) ** 2)
-    psnr = 10 * np.log10(255.0 ** 2 / mse)
-    # quality 5 measured 29 dB on this page, quality 85 measures 45; a page
-    # whose channels were swapped on the way out floors at 37 whatever the
-    # quality, so this covers both
-    assert psnr > 42, f"the page came back at {psnr:.1f} dB"
+    # the cells sit at the top left of the crop, which starts at (0.60, 0.20)
+    # of a 612 x 792 page as it is displayed
+    with pymupdf.open(str(out_path)) as document:
+        displayed = document[0].rect
+    expected = pymupdf.Rect(0.60 * displayed.width, 0.20 * displayed.height,
+                            0.60 * displayed.width + 52 * displayed.width / 2550,
+                            0.20 * displayed.height + 92 * displayed.height / 3300)
+    ink = _red_pixels(out_path)
+    assert ink is not None, "nothing was written on the page"
+    assert expected.contains(ink), f"the grades landed at {ink}, outside the cells at {expected}"
+
+
+@pytest.mark.skipif(shutil.which("pdftoppm") is None, reason="poppler not installed")
+def test_the_scan_is_carried_over_untouched(tmp_path, monkeypatch):
+    # the page used to be rasterised at 300 dpi and re-encoded as a jpeg,
+    # which turned a 94 kB scan into 1.4 MB and lost what the scanner saw
+    import cv2
+
+    from process_copy import annotate
+    from process_copy.pages import gray_images
+
+    monkeypatch.setattr(annotate, "find_grade_boxes", lambda *a, **k: CELLS)
+    out_path = tmp_path / "graded.pdf"
+
+    assert annotate.add_grades([7, 8], SCAN_FIXTURE, (0.1, 0.2, 0.1, 0.2), str(out_path),
+                               add_border=False, shape=(2550, 3300))
+
+    grew = os.path.getsize(out_path) / os.path.getsize(SCAN_FIXTURE)
+    assert grew < 1.2, f"the page grew {grew:.1f} times"
+    # the scan itself is the same image, not a re-encoding of a picture of it
+    before, after = (gray_images(p, [0], straighten=False)[0] for p in (SCAN_FIXTURE, str(out_path)))
+    assert before.shape == after.shape
+    untouched = np.s_[:, before.shape[1] // 2:]  # away from the cells and the grades
+    assert cv2.PSNR(before[untouched], after[untouched]) > 60

@@ -15,7 +15,6 @@ write is left alone.
 
 import os
 
-import img2pdf
 from process_copy.batching import max_ram_gb, run_batch
 from process_copy.config import grade_box as def_grade_box
 from process_copy.database import Database
@@ -41,7 +40,7 @@ MAX_WORKER_DEATHS = 10
 # two grades) only redraws the pages that would come out different. Bump this
 # whenever what is drawn changes -- the grades alone do not say whether the
 # page on disk is the page this code would write now.
-COVER_WRITER_VERSION = 3
+COVER_WRITER_VERSION = 4
 
 
 def grades_to_write(grades, n_questions, ignored):
@@ -115,47 +114,35 @@ def graded_path(rel_filepath):
     return os.path.join(os.path.dirname(path), GRADED_COVER_DIR, os.path.basename(path))
 
 
-def write_cover_page(doc, grades, img_path, box_grades, dpi, shape):
+def write_cover_page(doc, grades, box_grades, shape):
     """
     Write the grades of one copy on a copy of its cover page.
 
     Args:
         doc (dict): The copy, as stored in job_documents.
         grades (list): One text per grade box (see grades_to_write).
-        img_path (str): Scratch image the overlay is drawn into.
         box_grades (tuple): The grade table of the template, in page fractions.
-        dpi (int): Resolution of the page written.
-        shape (tuple): Page size in pixels.
+        shape (tuple): The size the raster of the page should have, in pixels.
 
     Returns:
-        bool: True when the graded page was written, False when the overlay
-              failed -- the scan is then the only page there is, and the merge
-              falls back to it.
+        bool: True when the graded page was written, False when the table was
+              not found -- the scan is then the only page there is, and the
+              merge falls back to it.
     """
     source = scan_path(doc["rel_filepath"])
     target = graded_path(doc["rel_filepath"])
+    os.makedirs(os.path.dirname(target), exist_ok=True)
 
-    # one scratch image serves every copy: remove it first, so a failed
-    # overlay cannot leave the previous student's cover page in place and
-    # have it written into this copy's pdf below
-    if os.path.exists(img_path):
-        os.remove(img_path)
+    written = False
     try:
-        add_grades(grades, source, box_grades, img_path, add_border=False, shape=shape)
+        written = add_grades(grades, source, box_grades, target, add_border=False, shape=shape)
     except Exception as e:
         print(f"Error while adding grades to {source}: {e}")
-    if not os.path.exists(img_path):
+    if not written and os.path.exists(target):
         # an earlier run may have written one: it belongs to grades that are
         # no longer the grades of this copy
-        if os.path.exists(target):
-            os.remove(target)
-        return False
-
-    os.makedirs(os.path.dirname(target), exist_ok=True)
-    layout = img2pdf.get_fixed_dpi_layout_fun((dpi, dpi))
-    with open(target, "wb") as f:
-        f.write(img2pdf.convert(img_path, layout_fun=layout))
-    return True
+        os.remove(target)
+    return written
 
 
 def write_batch(documents, start, n_docs, settings, events):
@@ -171,8 +158,8 @@ def write_batch(documents, start, n_docs, settings, events):
         documents (list): The copies to write, from ``start`` on.
         start (int): Position of the first copy in the job.
         n_docs (int): Number of copies of the job, for the progress lines.
-        settings (dict): img_path, box_grades, dpi, shape, n_questions,
-            ignored and max_RAM_GB.
+        settings (dict): box_grades, shape, n_questions, ignored and
+            max_RAM_GB.
         events (queue): ("done"|"kept"|"failed", position) per copy -- written,
             left as it was, or no overlay -- then ("next", position) when the
             batch stops.
@@ -197,8 +184,7 @@ def write_batch(documents, start, n_docs, settings, events):
             events.put(("kept", position))
             continue
 
-        written = write_cover_page(doc, grades, settings["img_path"], settings["box_grades"],
-                                   settings["dpi"], settings["shape"])
+        written = write_cover_page(doc, grades, settings["box_grades"], settings["shape"])
         if written:
             print(f"({position + 1}/{n_docs}) Graded cover page saved as "
                   f"{graded_path(doc['rel_filepath'])}")
@@ -221,7 +207,8 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
     Args:
         job (dict): The job.
         TMP_DIR (Path): Working directory of this job.
-        dpi (int): Resolution of the pages written.
+        dpi (int): Resolution the pages are rasterised at to find their
+            grade table; the pages themselves are not rasterised any more.
         shape (tuple): Page size in inches.
         batches (ProcessBatches|InlineBatches): how to run a batch; a process
             of its own by default, which is what gives the memory back.
@@ -250,9 +237,7 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
     documents = list(db.documents_collection().find({"job_id": job_id}).sort("document_index", 1))
 
     settings = {
-        "img_path": str(TMP_DIR.joinpath('intermediate_image.jpg')),
         "box_grades": box_grades,
-        "dpi": dpi,
         "shape": shape,
         "n_questions": len(n_pages_per_question),
         "ignored": ignored_positions(n_pages_per_question),
