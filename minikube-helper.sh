@@ -12,7 +12,7 @@ function printBashUsage {
   echo "-m | --memory: memory in MB for minikube. Default: 12268."
   echo "-c | --cpus: cpus for minikube. Default: 3."
   echo "-n | --nohup: run minikube start with nohup."
-  echo "-j | --cron-job: create service account for the cron jobs."
+  echo "-j | --cron-job: install the daily server rollout (NFS storage only, README \"Storage\")."
 }
 
 # load config arguments in one line
@@ -93,8 +93,9 @@ if [[ ! -z $ROLLOUT ]]; then
 fi
 
 if [[ ! -z $CRON ]]; then
-  # ServiceAccount + scoped Role/RoleBinding live in deployment/daily-rollout.yml
-  kubectl apply -f deployment/daily-rollout.yml
+  # only needed with NFS storage (works around hanging NFS mounts); the
+  # CronJob, its ServiceAccount and scoped Role live in the nfs component
+  kubectl apply -n default -f deployment/components/nfs/daily-rollout.yml
   kubectl delete clusterrolebinding cron --ignore-not-found
 fi
 

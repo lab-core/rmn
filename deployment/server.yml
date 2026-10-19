@@ -32,12 +32,14 @@ spec:
             com.docker.project: server
     spec:
       volumes:
-        - name: nfs-storage
-          nfs:
-            # placeholder: kustomize replaces it with rmn-config.data.nfs-ip
-            server: NFS_IP
-            path: /
-            readOnly: false
+        # the shared storage, a directory of the node (README "Storage"). The
+        # nfs component (deployment/components/nfs) swaps it for an NFS mount.
+        - name: storage
+          hostPath:
+            path: /data/nfs
+            # never auto-created: a missing directory must fail the pod, not
+            # hand it an empty folder the executors cannot see
+            type: Directory
       containers:
         - image: rmni/server:main
           name: server
@@ -56,7 +58,7 @@ spec:
               port: 5000
             initialDelaySeconds: 30
             periodSeconds: 10
-          # UID/GID 1000 == the rmn user baked into the image; the NFS share
+          # UID/GID 1000 == the rmn user baked into the image; the storage
           # must be owned by it (README "Non-root containers"). No read-only
           # root filesystem: the server writes its temp folders under /Server.
           securityContext:
@@ -67,7 +69,7 @@ spec:
             capabilities: {drop: [ALL]}
           volumeMounts:
             - mountPath: /mnt/storage
-              name: nfs-storage
+              name: storage
           env:
             - name: STORAGE
               value: /mnt/storage

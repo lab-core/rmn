@@ -1,4 +1,5 @@
-# In-cluster NFS server backing the shared storage of server + executor.
+# In-cluster NFS server backing the shared storage of server + executor, only
+# deployed with the nfs component (README "Storage").
 #
 # It has to run privileged (it mounts/exports a host directory), so its blast
 # radius is limited in other ways:
@@ -10,7 +11,8 @@
 #     mounts from the node's network namespace, so the source of legitimate
 #     traffic is a NODE address, not a pod: a podSelector on the server /
 #     executor pods would block the mounts. The node CIDR is set once in
-#     kustomization.yaml (rmn-config.node-cidr) and injected by replacements.yaml.
+#     components/nfs/kustomization.yaml (rmn-nfs.node-cidr) and injected by
+#     its replacements.yaml.
 #     The policy is only enforced by a CNI that supports NetworkPolicy (calico,
 #     cilium, ...); on the default minikube CNI it is accepted but a no-op.
 #   - scheduling: prefers nodes labelled rmn.polymtl.ca/nfs-node=true and
@@ -26,7 +28,7 @@ metadata:
 spec:
   # fixed IP so server.yml / executor.yml can mount it by address (NFS volumes
   # take an IP, not a Service name). Placeholder: kustomize replaces it with
-  # rmn-config.data.nfs-ip.
+  # rmn-nfs.data.nfs-ip.
   clusterIP: NFS_IP
   ports:
     - port: 2049
@@ -47,7 +49,7 @@ spec:
   policyTypes: [Ingress, Egress]
   ingress:
     - from:
-        # placeholder: kustomize replaces it with rmn-config.data.node-cidr
+        # placeholder: kustomize replaces it with rmn-nfs.data.node-cidr
         - ipBlock:
             cidr: NODE_CIDR
       ports:

@@ -1,0 +1,78 @@
+# NFS storage for a multi-node cluster: an in-cluster NFS server exports the
+# node directory /data/nfs, and server + executors mount it over NFS instead of
+# as a hostPath. Enable it in deployment/kustomization.yaml (`components:`) or
+# per deploy with `scripts/deploy.sh --storage nfs` (README "Storage").
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - nfs.yml
+  # works around NFS mounts that hang: rolls the server out every day
+  - daily-rollout.yml
+
+# the NFS values live in their own ConfigMap: a component is built before the
+# base generates rmn-config, so it cannot merge into it
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: rmn-nfs
+    literals:
+      # Node network of the cluster: the ONLY source allowed to reach the NFS
+      # server (the kubelet mounts NFS from the node, see nfs.yml). MUST match
+      # your cluster; 192.168.49.0/24 is minikube's docker-driver network
+      # (`kubectl get nodes -o wide` shows the node IPs).
+      - node-cidr=192.168.49.0/24
+      # ClusterIP of the NFS Service, also the address server/executor mount
+      # (the kubelet mounts NFS from the node without cluster DNS, so it has
+      # to be an IP, not the Service name). Pick it yourself:
+      #   - inside the cluster's service range:
+      #       kubectl get pod -n kube-system -l component=kube-apiserver \
+      #         -o jsonpath='{.items[0].spec.containers[0].command}' \
+      #         | tr , '\n' | grep service-cluster-ip-range
+      #     (minikube: 10.96.0.0/12)
+      #   - not used by another Service:
+      #       kubectl get svc -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,IP:.spec.clusterIP
+      #   - on an existing cluster KEEP the current one (a clusterIP is
+      #     immutable: changing it means recreating the Service and rolling
+      #     every pod that mounts it):
+      #       kubectl get svc nfs -o jsonpath='{.spec.clusterIP}'
+      - nfs-ip=10.105.99.184
+
+# swap the storage hostPath of server and executor for the NFS mount; the test
+# op fails the build if volume 0 is no longer the storage volume
+patches:
+  - target:
+      kind: Deployment
+      name: server
+    patch: |-
+      - op: test
+        path: /spec/template/spec/volumes/0/name
+        value: storage
+      - op: replace
+        path: /spec/template/spec/volumes/0
+        value:
+          name: storage
+          nfs:
+            # placeholder: replacements.yaml sets rmn-nfs.data.nfs-ip
+            server: NFS_IP
+            path: /
+            readOnly: false
+  - target:
+      kind: ScaledJob
+      name: job-executor
+    patch: |-
+      - op: test
+        path: /spec/jobTargetRef/template/spec/volumes/0/name
+        value: storage
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/volumes/0
+        value:
+          name: storage
+          nfs:
+            # placeholder: replacements.yaml sets rmn-nfs.data.nfs-ip
+            server: NFS_IP
+            path: /
+            readOnly: false
+
+replacements:
+  - path: replacements.yaml

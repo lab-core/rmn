@@ -308,6 +308,10 @@ jobs:
       - uses: actions/checkout@v7
       - name: Render the kustomization
         run: kubectl kustomize deployment/ > /dev/null
+      - name: Render the kustomization with the nfs storage component
+        # the overlay scripts/deploy.sh builds for --storage nfs, so the
+        # opt-in component cannot rot while the hostPath default is deployed
+        run: scripts/deploy.sh --storage nfs --dry-run > /dev/null
       - name: Shell scripts parse and pass shellcheck (errors only)
         run: |
           for f in scripts/*.sh minikube-helper.sh deployment/k8s-health.sh; do

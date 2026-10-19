@@ -22,7 +22,7 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      # the sweep walks the whole NFS share; the script's curl gives up after
+      # the sweep walks the whole storage tree; the script's curl gives up after
       # 15 min, this deadline catches anything else that hangs
       activeDeadlineSeconds: 1200
       backoffLimit: 0

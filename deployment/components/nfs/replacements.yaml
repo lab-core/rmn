@@ -1,0 +1,32 @@
+# The values of the rmn-nfs ConfigMap (kustomization.yaml next to this file) copied
+# into the NetworkPolicy, the Service and the two NFS mounts.
+- source:
+    kind: ConfigMap
+    name: rmn-nfs
+    fieldPath: data.node-cidr
+  targets:
+    - select:
+        kind: NetworkPolicy
+        name: nfs-server
+      fieldPaths:
+        - spec.ingress.0.from.0.ipBlock.cidr
+- source:
+    kind: ConfigMap
+    name: rmn-nfs
+    fieldPath: data.nfs-ip
+  targets:
+    - select:
+        kind: Service
+        name: nfs
+      fieldPaths:
+        - spec.clusterIP
+    - select:
+        kind: Deployment
+        name: server
+      fieldPaths:
+        - spec.template.spec.volumes.[name=storage].nfs.server
+    - select:
+        kind: ScaledJob
+        name: job-executor
+      fieldPaths:
+        - spec.jobTargetRef.template.spec.volumes.[name=storage].nfs.server
