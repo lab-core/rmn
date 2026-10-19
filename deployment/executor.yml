@@ -100,7 +100,15 @@ spec:
   successfulJobsHistoryLimit: 5
   failedJobsHistoryLimit: 5
   scalingStrategy:
-    strategy: "accurate"
+    # "accurate" is for a queue that only shrinks when the work finishes: it
+    # counts the jobs that are still pending, so the moment a pod starts
+    # running it stops counting, and the item it has not popped yet looks
+    # like work for somebody else. One queued job therefore produced two
+    # executors, the second finding nothing (job d98c2837: pod A Running at
+    # 17:58:48, job B created at 17:58:49, A popped the item at 17:58:49.6).
+    # This queue shrinks when a job is taken, not when it ends, so counting
+    # what is running is the right thing.
+    strategy: "default"
   triggers:
   - type: redis
     metadata:
