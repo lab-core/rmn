@@ -44,3 +44,14 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+.settings-above-max {
+  border-left: 4px solid #f9a825;
+  background: #fff8e1;
+  padding: 8px 12px;
+}
+
+.settings-above-max p,
+.settings-above-max ul {
+  margin: 0 0 8px;
+}

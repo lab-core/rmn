@@ -243,6 +243,27 @@ describe('DashboardPageComponent', () => {
     expect(tasks.setvalidatingTaskId).toHaveBeenCalledWith('job');
   });
 
+  it('counts the validated grades above the maximum and opens them', async () => {
+    await create();
+    docs.questions[0].grade = 12;  // Q1 is on 10
+    docs.questions[2].grade = 7;  // Q3 is on 5, but a bonus question
+    component.computeQuestions();
+    fixture.detectChanges();
+    const [q1, q3] = component.questions;
+    expect([q1.aboveMax, q3.aboveMax]).toEqual([1, 1]);
+    const links = fixture.nativeElement.querySelectorAll('.above-max');
+    expect(links.length).toBe(1);  // not for the bonus question
+    expect(links[0].textContent).toContain('1 note(s) > max');
+
+    links[0].click();
+    expect(router.navigate).toHaveBeenCalledWith(['/task-validation', 'job', 1], { queryParams: { above_max: true } });
+    user.shared = () => true;
+    component.correctQuestion(q1, true);
+    expect(router.navigate).toHaveBeenCalledWith(['/task-validation'], {
+      queryParams: { job_id: 'job', all: true, question_index: 1, above_max: true, token: 'share-1' },
+    });
+  });
+
   it('a share-link visitor navigates with the token in the query string', async () => {
     await create();
     user.shared = () => true;

@@ -93,12 +93,27 @@ describe('TasksService', () => {
     expect(body.get('n_max_points_per_question')).toBe('[["Q1",12]]');
     expect(body.has('n_pages_per_question')).toBeFalse();
     req.flush({ response: 'OK', flagged: 2, resplit: 0 });
-    expect(await renamed).toEqual({ flagged: 2, resplit: 0 });
+    expect(await renamed).toEqual({ flagged: 2, kept: 0, resplit: 0 });
 
     const refused = service.updateTaskSettings('job', { nPagesPerQuestion: [['Q1', 2]] });
     req = http.expectOne('/api/jobs/update/settings');
     req.flush({ response: 'Error: des copies ont déjà été découpées.' }, { status: 409, statusText: 'Conflict' });
     await expectAsync(refused).toBeRejectedWithError('des copies ont déjà été découpées.');
+  });
+
+  it('grades above a lowered maximum come back as a choice to make, and the choice is sent', async () => {
+    const asked = service.updateTaskSettings('job', { nMaxPointsPerQuestion: [['Q1', 7]] });
+    let req = http.expectOne('/api/jobs/update/settings');
+    expect((req.request.body as FormData).has('above_max')).toBeFalse();
+    const aboveMax = [{ question: 'Q1', max: 7, count: 73, highest: 12 }];
+    req.flush({ response: 'Error: des copies validées…', above_max: aboveMax }, { status: 409, statusText: 'Conflict' });
+    expect(await asked).toEqual({ flagged: 0, kept: 0, resplit: 0, aboveMax });
+
+    const kept = service.updateTaskSettings('job', { nMaxPointsPerQuestion: [['Q1', 7]], aboveMax: 'keep' });
+    req = http.expectOne('/api/jobs/update/settings');
+    expect((req.request.body as FormData).get('above_max')).toBe('keep');
+    req.flush({ response: 'OK', flagged: 0, kept: 73, resplit: 0 });
+    expect(await kept).toEqual({ flagged: 0, kept: 73, resplit: 0 });
   });
 
   it('addTask serialises the maps, reports progress and resolves on the response', async () => {

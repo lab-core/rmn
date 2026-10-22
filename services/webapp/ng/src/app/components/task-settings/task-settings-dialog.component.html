@@ -3,7 +3,7 @@
 
   <label class="settings-field">
     Nom de la tâche
-    <input id="task-name" type="text" maxlength="200" [(ngModel)]="name" [disabled]="saving">
+    <input id="task-name" type="text" maxlength="200" [(ngModel)]="name" [disabled]="!editable">
   </label>
 
   @if (pointsEditable || pagesEditable) {
@@ -22,9 +22,9 @@
           <tr>
             <td>{{ row.key }}</td>
             @if (pagesEditable) {
-              <td><input type="number" min="0" step="1" [attr.id]="'pages-' + row.key" [(ngModel)]="row.pages" [disabled]="saving"></td>
+              <td><input type="number" min="0" step="1" [attr.id]="'pages-' + row.key" [(ngModel)]="row.pages" [disabled]="!editable"></td>
             }
-            <td><input type="number" min="0" step="any" [attr.id]="'points-' + row.key" [(ngModel)]="row.points" [disabled]="saving || !pointsEditable"></td>
+            <td><input type="number" min="0" step="any" [attr.id]="'points-' + row.key" [(ngModel)]="row.points" [disabled]="!editable || !pointsEditable"></td>
           </tr>
         }
       </tbody>
@@ -40,8 +40,24 @@
     <p class="settings-error" id="settings-error">{{ error }}</p>
   }
 
-  <div class="settings-buttons">
-    <button mat-flat-button (click)="cancel()" [disabled]="saving">Annuler</button>
-    <button mat-flat-button color="primary" id="save-settings" (click)="save()" [disabled]="saving || loading">Enregistrer</button>
-  </div>
+  @if (aboveMax.length > 0) {
+    <div class="settings-above-max" id="settings-above-max">
+      <p>Des copies validées ont une note au-dessus du nouveau maximum :</p>
+      <ul>
+        @for (q of aboveMax; track q.question) {
+          <li>{{ q.question }} : {{ q.count }} copie(s), jusqu'à {{ q.highest }} / {{ q.max }}</li>
+        }
+      </ul>
+      <div class="settings-buttons">
+        <button mat-flat-button id="above-max-cancel" (click)="cancelAboveMax()" [disabled]="saving">Annuler</button>
+        <button mat-flat-button id="above-max-review" (click)="save('review')" [disabled]="saving">Repasser à valider</button>
+        <button mat-flat-button color="primary" id="above-max-keep" (click)="save('keep')" [disabled]="saving">Garder validées</button>
+      </div>
+    </div>
+  } @else {
+    <div class="settings-buttons">
+      <button mat-flat-button (click)="cancel()" [disabled]="saving">Annuler</button>
+      <button mat-flat-button color="primary" id="save-settings" (click)="save()" [disabled]="saving || loading">Enregistrer</button>
+    </div>
+  }
 </div>

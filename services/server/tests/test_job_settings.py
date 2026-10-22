@@ -72,27 +72,68 @@ def test_points_that_do_not_fit_the_task_are_refused(alice, job_factory, app_mod
     assert _job(app_module_fixture)["n_max_points_per_question"] == QUESTIONS["n_max_points_per_question"]
 
 
-def test_a_grade_above_a_lowered_maximum_goes_back_to_validation(alice, job_factory, app_module_fixture):
+ABOVE_MAX_ROWS = [
+    (0, 1, 9, "VALIDATED"),  # above the new max of Q1: the teacher is asked
+    (1, 1, 6, "VALIDATED"),  # still within it
+    (2, 1, 8, "HIGH ACCURACY"),  # a machine reading: always back to validation
+    (3, 2, 7, "VALIDATED"),  # Q2 is a bonus question: may go above
+    (4, 1, None, "TO VALIDATE"),
+    (5, 1, 9.5, "VALIDATED"),
+]
+LOWERED = json.dumps([["Q1", 7], ["Q2", 3], ["Q3", 0]])
+
+
+@pytest.fixture
+def above_max(job_factory, app_module_fixture):
     job_factory("j1", "alice", status="VALIDATION", **QUESTIONS)
     questions = app_module_fixture.mongo["RMN"]["job_questions"]
-    rows = [
-        (0, 1, 9, "VALIDATED"),  # above the new max of Q1: flagged
-        (1, 1, 6, "VALIDATED"),  # still within it
-        (2, 1, 8, "HIGH ACCURACY"),  # flagged too
-        (3, 2, 7, "VALIDATED"),  # Q2 is a bonus question: may go above
-        (4, 1, None, "TO VALIDATE"),
-    ]
     questions.insert_many([
         {"job_id": "j1", "document_index": i, "question_index": q, "question": f"Q{q}", "grade": g, "status": st}
-        for i, q, g, st in rows
+        for i, q, g, st in ABOVE_MAX_ROWS
     ])
+    return lambda: {d["document_index"]: d["status"] for d in questions.find({"job_id": "j1"})}
 
-    resp = alice(job_id="j1", n_max_points_per_question=json.dumps([["Q1", 7], ["Q2", 3], ["Q3", 0]]))
+
+def test_lowering_a_maximum_below_validated_grades_asks_first(alice, above_max, app_module_fixture):
+    resp = alice(job_id="j1", n_max_points_per_question=LOWERED)
+
+    assert resp.status_code == 409
+    assert resp.get_json(force=True)["above_max"] == [{"question": "Q1", "max": 7, "count": 2, "highest": 9.5}]
+    # nothing saved, nothing flagged
+    assert _job(app_module_fixture)["n_max_points_per_question"] == QUESTIONS["n_max_points_per_question"]
+    assert above_max()[0] == "VALIDATED" and above_max()[2] == "HIGH ACCURACY"
+
+
+def test_validated_grades_above_a_lowered_maximum_can_stay_validated(alice, above_max, app_module_fixture):
+    resp = alice(job_id="j1", n_max_points_per_question=LOWERED, above_max="keep")
 
     assert resp.status_code == 200
-    assert resp.get_json(force=True)["flagged"] == 2
-    status = {d["document_index"]: d["status"] for d in questions.find({"job_id": "j1"})}
-    assert status == {0: "TO VALIDATE", 1: "VALIDATED", 2: "TO VALIDATE", 3: "VALIDATED", 4: "TO VALIDATE"}
+    assert resp.get_json(force=True)["flagged"] == 1
+    assert resp.get_json(force=True)["kept"] == 2
+    assert _job(app_module_fixture)["n_max_points_per_question"] == json.loads(LOWERED)
+    assert above_max() == {0: "VALIDATED", 1: "VALIDATED", 2: "TO VALIDATE", 3: "VALIDATED", 4: "TO VALIDATE",
+                           5: "VALIDATED"}
+
+    # kept once, not asked again when another question changes
+    resp = alice(job_id="j1", n_max_points_per_question=json.dumps([["Q1", 7], ["Q2", 2], ["Q3", 0]]))
+    assert resp.status_code == 200
+
+
+def test_validated_grades_above_a_lowered_maximum_go_back_when_asked(alice, above_max):
+    resp = alice(job_id="j1", n_max_points_per_question=LOWERED, above_max="review")
+
+    assert resp.status_code == 200
+    assert resp.get_json(force=True)["flagged"] == 3
+    assert resp.get_json(force=True)["kept"] == 0
+    assert above_max() == {0: "TO VALIDATE", 1: "VALIDATED", 2: "TO VALIDATE", 3: "VALIDATED", 4: "TO VALIDATE",
+                           5: "TO VALIDATE"}
+
+
+def test_raising_a_maximum_or_an_unknown_choice_does_not_ask(alice, above_max):
+    # nothing is above a maximum that went up
+    resp = alice(job_id="j1", n_max_points_per_question=json.dumps([["Q1", 12], ["Q2", 5], ["Q3", 0]]))
+    assert resp.status_code == 200
+    assert alice(job_id="j1", n_max_points_per_question=LOWERED, above_max="drop").status_code == 400
 
 
 def test_new_pages_split_the_rejected_copies_again(alice, job_factory, app_module_fixture):
