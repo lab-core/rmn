@@ -74,3 +74,20 @@ def test_box_candidates_are_tried_by_probability_then_drawn():
     # no dot: whole numbers pass through, best first
     digits = [(None, [(0.6, 1), (0.4, 7)]), (None, [(0.9, 0)])]
     assert [n for _, n in recognize.process_digits_combinations(digits, dot=2)] == [10.0, 70.0]
+
+
+def test_a_decimal_part_that_was_drawn_is_worth_half_a_read_one():
+    """A decimal nobody could read is a guess, and a guess must not be filled
+    in for the teacher: of the 132 pages of the autumn 2026 intra whose
+    decimals were invented, 80 came back wrong."""
+    from process_copy.recognize import process_digits_combinations
+
+    # one digit, read as a 9, sitting after the separator: "0.9" is not a
+    # grade anybody writes, so an allowed decimal is drawn instead
+    (confidence, value), = process_digits_combinations([(None, [(1.0, 9)])], 0)
+    assert value in (0.25, 0.5, 0.75)
+    assert confidence == 0.5
+
+    # the same digit where the decimal it gives is allowed is read, not drawn
+    (confidence, value), = process_digits_combinations([(None, [(1.0, 5)])], 0)
+    assert (confidence, value) == (1.0, 0.5)
