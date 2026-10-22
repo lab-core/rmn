@@ -10,6 +10,7 @@ import numpy as np
 # pdflatex is fed strings from the uploaded csv (student names). Escaped, they
 # are typeset literally; unescaped, "\\input{...}" in a cell is executed. The
 # escaper and the pdflatex flags are shared with the server's front pages.
+from rmn_common.grades import format_points
 from rmn_common.tex import LATEX_ENV, LATEX_FLAGS, tex_escape
 
 
@@ -46,13 +47,18 @@ def create_stats_latex(nom, index, n_questions, all_notes, totals, boxplots, lat
     boxplots = [local_copy(b, TMP_DIR) for b in boxplots]
     with open(TMP_DIR.joinpath("stats.tex"), "w") as f:
         for i in range(n_questions):
-            f.write(latex_line.format("%s (/ %d)" % (question_names[i][1:], totals[i]),
-                                      all_notes[i][index] if index is not None else "",
+            # the points of a question and the grade in them are printed the
+            # way the cover page prints them: "%d" of a question out of 3.5
+            # told the student it was out of 3, and a grade of 3 read "3.0".
+            # The class average keeps its two decimals, being an average
+            f.write(latex_line.format("%s (/ %s)" % (question_names[i][1:], format_points(totals[i])),
+                                      format_points(all_notes[i][index]) if index is not None else "",
                                       averages[i], boxplots[i])+"\n")
         if n_questions > 0:
             averages = np.average(all_notes, axis=1)
-            f.write(n_latex_line.format("Total (/ %d)" % totals[-1],
-                                        sum(notes[index] for notes in all_notes) if index is not None else "",
+            total = sum(notes[index] for notes in all_notes) if index is not None else ""
+            f.write(n_latex_line.format("Total (/ %s)" % format_points(totals[-1]),
+                                        format_points(total),
                                         sum(averages), boxplots[-1])+"\n")
 
     TEX_DIR = Path(latex_dir).resolve()

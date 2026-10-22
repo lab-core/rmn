@@ -6,6 +6,7 @@ from colorama import Fore, Style
 from process_copy.config import len_mat
 from process_copy.imaging import fetch_box, imwrite_png
 from process_copy.pages import gray_images
+from rmn_common.grades import format_points as format_grade_text
 from process_copy.contours import (
     find_digit_contours,
     find_grade_boxes,
@@ -16,20 +17,6 @@ from process_copy.contours import (
 
 
 
-
-
-def format_grade_text(number):
-    """Text written in a grade box: 5.0 -> "5", 4.5 -> "4.5", None or "" -> "".
-
-    The server stores validated grades as floats, so str() would print "5.0".
-    """
-    if number is None or number == "":
-        return ""
-    try:
-        value = float(number)
-    except (TypeError, ValueError):
-        return str(number)
-    return str(int(value)) if value.is_integer() else str(value)
 
 
 # The grades are written in the page, in red, with the font every pdf reader

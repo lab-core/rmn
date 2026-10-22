@@ -362,17 +362,17 @@ def test_moodle_zip_has_one_folder_per_student_with_copy_and_stats(
     lines = [line.split(" & ")[:3] for line in notes.splitlines()[2:]]
     # question label (/ max points), the student's grade, the class average
     assert lines == [
-        ["1 (/ 5)", "3.0", "3.50"],
+        ["1 (/ 5)", "3", "3.50"],  # the grade is printed as the box has it
         ["3 (/ 5)", "2.5", "1.25"],
-        ["4 (/ 5)", "1.0", "1.50"],
+        ["4 (/ 5)", "1", "1.50"],
         ["5 (/ 2)", "1.5", "0.75"],
-        ["Total (/ 15)", "8.0", "7.00"],  # the bonus is not in the maximum
+        ["Total (/ 15)", "8", "7.00"],  # the bonus is not in the maximum
     ]
     carol = _read_zip(
         moodle_zip, carol_folder + "Tremblay_Carol_3333333_notes.pdf"
     ).decode()
     assert "\\renewcommand{\\nom}{Tremblay Carol}" in carol
-    assert "Total (/ 15) & 6.0 & 7.00" in carol
+    assert "Total (/ 15) & 6 & 7.00" in carol
 
 
 def test_teacher_stats_have_the_averages_and_no_student_column(
@@ -695,7 +695,7 @@ def test_a_deleted_copy_stays_deleted_when_the_job_is_finalized_again(
         storage_root / "output_zip" / "job_1.zip",
         ALICE_MOODLE_FOLDER + "Martin_Alice_1111111_notes.pdf",
     ).decode()
-    assert "Total (/ 15) & 8.0 & 7.00" in notes
+    assert "Total (/ 15) & 8 & 7.00" in notes
 
 
 # --------------------------------------------------- stops and failures
