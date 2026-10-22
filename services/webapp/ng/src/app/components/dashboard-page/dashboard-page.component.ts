@@ -29,6 +29,8 @@ interface Question {
   average: number;
   stdDev: number;
   grades: number[];
+  // validated grades above the maximum, kept when it was lowered
+  aboveMax: number;
   histogram: Array<{value: number, count: number}>;
   validatedFilenames: Set<string>;
 }
@@ -370,6 +372,7 @@ export class DashboardPageComponent {
         average: 0,
         stdDev: 0,
         grades: [],
+        aboveMax: 0,
         histogram: [],
         validatedFilenames: new Set<string>(),
       };
@@ -387,6 +390,9 @@ export class DashboardPageComponent {
         stats.validatedCount++;
         stats.grades.push(doc.grade);
         stats.total += doc.grade;
+        if (doc.grade > stats.max) {
+          stats.aboveMax++;
+        }
         stats.validatedFilenames.add(doc.basename);
       }
     });
@@ -466,6 +472,7 @@ export class DashboardPageComponent {
       average: 0,
       stdDev: 0,
       grades: [],
+      aboveMax: 0,
       histogram: [],
       validatedFilenames: null,
     };
@@ -577,7 +584,11 @@ export class DashboardPageComponent {
     this.updateViewOnStatus();
   }
 
-  public correctQuestion(question: Question) {
+  /**
+   * Open the correction screen on a question; with `aboveMax`, on its
+   * validated grades above the maximum only.
+   */
+  public correctQuestion(question: Question, aboveMax = false) {
     this.tasksService.setvalidatingTaskId(this.task.job_id);
     // the question number comes from its index, not from its position in the
     // table: an ignored question leaves a hole in the numbering
@@ -591,11 +602,19 @@ export class DashboardPageComponent {
         // task-verification and the share-token payload read question_index
         queryParams['question_index'] = question.index + 1;
       }
+      if (aboveMax) {
+        queryParams['above_max'] = true;
+      }
       this.userService.addShareToken(queryParams);
       this.router.navigate([`/task-validation`], { queryParams });
     } else {
       if (!isTotal) {
-        this.router.navigate([`/task-validation`, this.taskId, question.index + 1]);
+        const path = [`/task-validation`, this.taskId, question.index + 1];
+        if (aboveMax) {
+          this.router.navigate(path, { queryParams: { above_max: true } });
+        } else {
+          this.router.navigate(path);
+        }
       } else {
         this.router.navigate([`/task-validation`, this.taskId]);
       }

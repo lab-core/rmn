@@ -609,6 +609,43 @@ def _settings_error(message, status=400):
     return Response(response=json.dumps({"response": f"Error: {message}"}), status=status)
 
 
+# what to do with the validated grades above a lowered maximum
+ABOVE_MAX_CHOICES = ("keep", "review")
+
+
+def _above_lowered_max(db, job_id, old_points, new_points, bonus):
+    """The validated grades left above the maximum of a question that went down.
+
+    Only the questions whose maximum went down: a grade kept above its maximum
+    once is not asked about again when another question changes. Bonus
+    questions are meant to go above their points.
+
+    Returns:
+        ``[{"question", "max", "count", "highest"}]``, one entry per question
+        with such grades.
+    """
+    old = dict(old_points)
+    found = []
+    for key, max_points in new_points:
+        if bonus.get(key) or old.get(key) is None or max_points >= old[key]:
+            continue
+        grades = [
+            d["grade"]
+            for d in db["job_questions"].find(
+                {
+                    "job_id": job_id,
+                    "question_index": int(key[1:]),
+                    "grade": {"$gt": max_points},
+                    "status": Document_Status.VALIDATED.value,
+                },
+                {"grade": 1},
+            )
+        ]
+        if grades:
+            found.append({"question": key, "max": max_points, "count": len(grades), "highest": max(grades)})
+    return found
+
+
 def _resplit_rejected_copies(job_id):
     """Queue the copies rejected for their page count to be split again.
 
@@ -640,8 +677,12 @@ def update_job_settings(user_id):
 
     - the name is only displayed: it can always change;
     - the points are read by the grade reader and at finalization: they can
-      change until the task is validated. A grade now above its question's
-      maximum (bonus questions aside) goes back to "à valider";
+      change until the task is validated. A machine reading now above a
+      lowered maximum (bonus questions aside) goes back to "à valider". A
+      grade a person validated only does with ``above_max=review``; with
+      ``above_max=keep`` it stays validated, and without ``above_max`` nothing
+      is saved: the answer is a 409 listing them (``above_max``), so that the
+      teacher is asked first instead of told afterwards;
     - the pages decide how every copy is cut: they can only change while no
       copy has been split, i.e. when all were rejected for their page count
       (RETRY). The rejected copies are then split again.
@@ -696,6 +737,22 @@ def update_job_settings(user_id):
     if not updates:
         return _settings_error("rien à modifier.")
 
+    above_max_choice = form.get("above_max")
+    if above_max_choice is not None and above_max_choice not in ABOVE_MAX_CHOICES:
+        return _settings_error(f"above_max must be one of {', '.join(ABOVE_MAX_CHOICES)}.")
+    bonus = dict(job.get("bonus_enabled_map", []))
+    above_max = []
+    if "n_max_points_per_question" in updates:
+        above_max = _above_lowered_max(db, job_id, job.get("n_max_points_per_question", []), points, bonus)
+        if above_max and above_max_choice is None:
+            return Response(
+                response=json.dumps({
+                    "response": "Error: des copies validées ont une note au-dessus du nouveau maximum.",
+                    "above_max": above_max,
+                }),
+                status=409,
+            )
+
     query = {"$set": updates}
     if "n_pages_per_question" in updates:
         query["$set"]["job_status"] = Job_Status.CORRECTED.value
@@ -708,23 +765,31 @@ def update_job_settings(user_id):
 
     flagged = 0
     if "n_max_points_per_question" in updates:
-        bonus = dict(job.get("bonus_enabled_map", []))
+        # a validated grade is the teacher's: it only goes back when asked to,
+        # on the questions asked about (not those kept above their max before)
+        review = {q["question"] for q in above_max} if above_max_choice == "review" else set()
         for key, max_points in points:
             if bonus.get(key):
                 continue  # a bonus question is meant to go above its points
+            statuses = [Document_Status.HIGH_ACCURACY.value]
+            if key in review:
+                statuses.append(Document_Status.VALIDATED.value)
             flagged += db["job_questions"].update_many(
                 {
                     "job_id": job_id,
                     "question_index": int(key[1:]),
                     "grade": {"$gt": max_points},
-                    "status": {"$in": [Document_Status.VALIDATED.value, Document_Status.HIGH_ACCURACY.value]},
+                    "status": {"$in": statuses},
                 },
                 {"$set": {"status": Document_Status.TO_VALIDATE.value}},
             ).modified_count
+    kept = sum(q["count"] for q in above_max) if above_max_choice == "keep" else 0
 
     resplit = _resplit_rejected_copies(job_id) if "n_pages_per_question" in updates else 0
 
-    return Response(response=json.dumps({"response": "OK", "flagged": flagged, "resplit": resplit}), status=200)
+    return Response(
+        response=json.dumps({"response": "OK", "flagged": flagged, "kept": kept, "resplit": resplit}), status=200
+    )
 
 
 @bp.route("/update/stats", methods=["POST"])

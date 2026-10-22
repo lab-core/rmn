@@ -25,6 +25,14 @@
           </mat-form-field>
         </div>
       }
+      @if (aboveMaxOnly) {
+        <div class="above-max-filter" id="above-max-filter">
+          <span>Notes au-dessus du maximum{{ subExamsList?.length === 0 ? ' : aucune' : '' }}</span>
+          <button type="button" id="show-all-copies" (click)="showAllCopies()" title="Voir toutes les copies">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      }
       <div class="files-list-container" [ngStyle]="{'height': filesListHeight()}" id="files-list-container">
         @for (exam of subExamsList; track exam; let i = $index) {
           <div class="file-container"

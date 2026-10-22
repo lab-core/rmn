@@ -1,6 +1,6 @@
 import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { TasksService } from 'src/app/services/tasks.service';
+import { AboveMaxChoice, AboveMaxQuestion, TasksService } from 'src/app/services/tasks.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { JobStatus } from '../../generated/rmn-contracts';
 
@@ -40,6 +40,9 @@ export class TaskSettingsDialogComponent implements OnInit {
   loading = false;
   saving = false;
   error = '';
+  // validated grades above a lowered maximum: nothing is saved until the
+  // teacher says whether they stay validated
+  aboveMax: AboveMaxQuestion[] = [];
 
   constructor(public dialogRef: MatDialogRef<TaskSettingsDialogComponent>,
     private tasksService: TasksService,
@@ -79,7 +82,17 @@ export class TaskSettingsDialogComponent implements OnInit {
     return this.pagesEditable ? this.rows : this.rows.filter((row) => row.pages > 0);
   }
 
-  async save(): Promise<void> {
+  /** The form is frozen while the teacher chooses for the grades above the maximum. */
+  get editable(): boolean {
+    return !this.saving && this.aboveMax.length === 0;
+  }
+
+  /**
+   * Save what changed. A maximum lowered below validated grades is first
+   * refused by the server with the list of them; the teacher then saves again
+   * with `aboveMax`, what to do with them.
+   */
+  async save(aboveMax?: AboveMaxChoice): Promise<void> {
     const changes: any = {};
     const name = (this.name || '').trim();
     if (name !== this.data.taskName) {
@@ -101,10 +114,19 @@ export class TaskSettingsDialogComponent implements OnInit {
     this.saving = true;
     this.error = '';
     try {
-      const result = await this.tasksService.updateTaskSettings(this.data.taskId, changes);
+      const result = await this.tasksService.updateTaskSettings(
+        this.data.taskId, aboveMax ? { ...changes, aboveMax } : changes);
+      if (result.aboveMax?.length) {
+        this.aboveMax = result.aboveMax;
+        return;
+      }
+      this.aboveMax = [];
       let message = 'Tâche modifiée.';
       if (result.flagged) {
         message += ` ${result.flagged} note(s) au-dessus du nouveau maximum repassent à valider.`;
+      }
+      if (result.kept) {
+        message += ` ${result.kept} note(s) validée(s) restent au-dessus du nouveau maximum.`;
       }
       if (result.resplit) {
         message += ` ${result.resplit} copie(s) vont être redécoupées.`;
@@ -116,6 +138,11 @@ export class TaskSettingsDialogComponent implements OnInit {
     } finally {
       this.saving = false;
     }
+  }
+
+  /** Back to the form, nothing saved. */
+  cancelAboveMax(): void {
+    this.aboveMax = [];
   }
 
   cancel(): void {

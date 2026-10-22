@@ -107,6 +107,56 @@ describe('TaskSettingsDialogComponent', () => {
     expect(notification.showSuccess).toHaveBeenCalledWith(jasmine.stringContaining('3 note(s)'), 'Succès');
   });
 
+  it('lowering a maximum below validated grades asks what to do with them first', async () => {
+    await create(task('VALIDATION'));
+    const aboveMax = [{ question: 'Q1', max: 7, count: 73, highest: 12 }];
+    tasks.updateTaskSettings.and.resolveTo({ flagged: 0, kept: 0, resplit: 0, aboveMax });
+    component.rows[0].points = 7;
+    await component.save();
+    fixture.detectChanges();
+    await fixture.whenStable();  // ngModel applies [disabled] a tick later
+    fixture.detectChanges();
+
+    // nothing saved yet: the dialog stays open on the question
+    expect(dialogRef.close).not.toHaveBeenCalled();
+    const html: HTMLElement = fixture.nativeElement;
+    expect(html.querySelector('#settings-above-max').textContent).toContain('Q1 : 73 copie(s), jusqu\'à 12 / 7');
+    expect(html.querySelector('#save-settings')).toBeNull();
+    expect((html.querySelector('#points-Q1') as HTMLInputElement).disabled).toBeTrue();
+
+    tasks.updateTaskSettings.and.resolveTo({ flagged: 0, kept: 73, resplit: 0 });
+    (html.querySelector('#above-max-keep') as HTMLElement).click();
+    await settle();
+    expect(tasks.updateTaskSettings).toHaveBeenCalledWith('job', {
+      nMaxPointsPerQuestion: [['Q1', 7], ['Q2', 5], ['Q3', 0]], aboveMax: 'keep',
+    });
+    expect(notification.showSuccess).toHaveBeenCalledWith(jasmine.stringContaining('73 note(s) validée(s) restent'), 'Succès');
+    expect(dialogRef.close).toHaveBeenCalled();
+  });
+
+  it('the grades above a lowered maximum can go back to validation, or the change be dropped', async () => {
+    await create(task('VALIDATION'));
+    tasks.updateTaskSettings.and.resolveTo({ flagged: 0, kept: 0, resplit: 0,
+      aboveMax: [{ question: 'Q1', max: 7, count: 2, highest: 9 }] });
+    component.rows[0].points = 7;
+    await component.save();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('#above-max-cancel') as HTMLElement).click();
+    fixture.detectChanges();
+    expect(component.aboveMax).toEqual([]);
+    expect(fixture.nativeElement.querySelector('#save-settings')).not.toBeNull();
+    expect(dialogRef.close).not.toHaveBeenCalled();
+
+    await component.save();
+    fixture.detectChanges();
+    tasks.updateTaskSettings.and.resolveTo({ flagged: 2, kept: 0, resplit: 0 });
+    (fixture.nativeElement.querySelector('#above-max-review') as HTMLElement).click();
+    await settle();
+    expect(tasks.updateTaskSettings).toHaveBeenCalledWith('job', jasmine.objectContaining({ aboveMax: 'review' }));
+    expect(notification.showSuccess).toHaveBeenCalledWith(jasmine.stringContaining('2 note(s) au-dessus'), 'Succès');
+  });
+
   it('a refusal is shown and the dialog stays open', async () => {
     await create(task('VALIDATION'));
     tasks.updateTaskSettings.and.rejectWith(new Error('la tâche a changé d\'état entre-temps, réessayez.'));

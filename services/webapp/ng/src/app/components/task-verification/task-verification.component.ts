@@ -128,6 +128,9 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   // copy label by document index: the tiles iterate the filtered list, so a
   // label stored by position pointed at another copy once a filter was on
   formattedIndexes: Record<number, string> = {};
+  // only the grades above their question's maximum (the dashboard's
+  // "note(s) > max" link): those kept validated when the maximum went down
+  aboveMaxOnly = false;
   availableTags: Array<string> = ["1", "2"]; // ["1", "2", "3"];
   tagFilter: string = "";
 
@@ -147,6 +150,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     if (this.route.snapshot.queryParams['all']) {
       this.shareAll = true;
     }
+    this.aboveMaxOnly = !!this.route.snapshot.queryParams['above_max'];
 
     try {
       this.job = await this.tasksService.getTask();
@@ -667,14 +671,30 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   /**
    * The copies listed, numbered and visited: those of the group and of the
    * question picked. Both filters apply together, so changing one keeps the
-   * other (the question used to be taken from the whole task).
+   * other (the question used to be taken from the whole task). With
+   * `aboveMaxOnly`, only the grades above their maximum: a copy corrected
+   * back under it leaves the list at the next refresh.
    */
   getSubExamsList(): void {
     const question = this.index === "Tout sélectionner" ? null : `Q${this.index}`;
     this.subExamsList = this.examsList.filter((exam: any) =>
       (!this.group || exam['group'] == this.group) &&
-      (question === null || exam.question === question));
+      (question === null || exam.question === question) &&
+      (!this.aboveMaxOnly || this.isAboveMax(exam)));
     this.generateFormattedIndexes();
+  }
+
+  /** A grade above its question's maximum; a bonus question may go above. */
+  isAboveMax(exam: any): boolean {
+    const max = this.nMaxPointsPerQuestion.get(exam.question);
+    return max !== undefined && !this.bonusEnabledMap.get(exam.question) &&
+      exam.grade !== null && exam.grade !== undefined && exam.grade > max;
+  }
+
+  /** Back to every copy of the question. */
+  showAllCopies(): void {
+    this.aboveMaxOnly = false;
+    this.loadSubExamsList();
   }
 
   loadSubExamsList(): void {
@@ -1164,6 +1184,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     let height = 80;
     if (!this.userService.shared()) height += 10;
     if (!this.showFilter()) height += 10;
+    if (this.aboveMaxOnly) height -= 5;  // the filter's banner
     return height + '%';
   }
 
