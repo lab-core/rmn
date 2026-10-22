@@ -76,6 +76,11 @@
               @if (readingState(question)) {
                 <div [ngClass]="'reading-state ' + readingClass(question)">{{ readingState(question) }}</div>
               }
+              @if (question.aboveMax > 0 && !question.bonus) {
+                <button type="button" class="above-max" [disabled]="disableButtons"
+                        title="Notes validées au-dessus du maximum de la question : les voir"
+                        (click)="correctQuestion(question, true)">{{ question.aboveMax }} note(s) &gt; max</button>
+              }
             </td>
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
             <td>{{ question.stdDev | number:'1.2-2' }}</td>

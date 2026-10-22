@@ -411,6 +411,30 @@ describe('TaskVerificationComponent', () => {
     expect(component.currentCopy).toBe(-1);
   });
 
+  it('the dashboard\'s "> max" link lists only the grades above the maximum', async () => {
+    const docList = JSON.parse(JSON.stringify(QUESTION_DOCS));
+    docList[1].grade = 12;  // b's Q1, on 10
+    docList[3].grade = 7;  // b's Q3, on 5, but a bonus question
+    await create(JOB, { above_max: 'true' }, { index: '1' }, docList);
+    expect(component.aboveMaxOnly).toBeTrue();
+    expect(component.subExamsList.map(e => e.filename)).toEqual(['b_Q1']);
+    expect(component.currentExam().filename).toBe('b_Q1');
+    expect(fixture.nativeElement.querySelector('#above-max-filter').textContent).toContain('au-dessus du maximum');
+
+    // corrected back under the maximum: it leaves the list
+    component.examsList.find(e => e.filename === 'b_Q1').grade = 9;
+    component.getSubExamsList();
+    expect(component.subExamsList).toEqual([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#above-max-filter').textContent).toContain('aucune');
+
+    fixture.nativeElement.querySelector('#show-all-copies').click();
+    fixture.detectChanges();
+    expect(component.aboveMaxOnly).toBeFalse();
+    expect(component.subExamsList.map(e => e.filename)).toEqual(['a_Q1', 'b_Q1']);
+    expect(fixture.nativeElement.querySelector('#above-max-filter')).toBeNull();
+  });
+
   it('a question given in the path selects it', async () => {
     await create(JOB, {}, { index: '3' });
     expect(component.index).toBe('3');

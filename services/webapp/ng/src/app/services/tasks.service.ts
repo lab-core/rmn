@@ -7,6 +7,25 @@ import { SERVER_URL } from '../utils';
 import { firstValueFrom } from 'rxjs';
 import { first, map, tap } from 'rxjs/operators';
 
+/** What to do with validated grades left above a lowered maximum. */
+export type AboveMaxChoice = 'keep' | 'review';
+
+/** A question whose lowered maximum is below some of its validated grades. */
+export interface AboveMaxQuestion {
+  question: string;
+  max: number;
+  count: number;
+  highest: number;
+}
+
+export interface TaskSettingsResult {
+  flagged: number;
+  kept: number;
+  resplit: number;
+  // set when nothing was saved: the teacher has to choose for these grades
+  aboveMax?: AboveMaxQuestion[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -148,14 +167,20 @@ export class TasksService {
 
   /**
    * Change the name, points or pages per question of a task (each optional).
-   * Resolves with how many grades went back to validation and how many
-   * rejected copies are split again; rejects with the server's message.
+   * Resolves with how many grades went back to validation, how many validated
+   * grades stayed above a lowered maximum and how many rejected copies are
+   * split again; rejects with the server's message.
+   *
+   * Lowering a maximum below validated grades needs `aboveMax`, what to do
+   * with them: without it nothing is saved and the result lists them in
+   * `aboveMax`, for the teacher to choose.
    */
   async updateTaskSettings(jobId: string, changes: {
     jobName?: string,
     nMaxPointsPerQuestion?: Array<[string, number]>,
     nPagesPerQuestion?: Array<[string, number]>,
-  }): Promise<{ flagged: number, resplit: number }> {
+    aboveMax?: AboveMaxChoice,
+  }): Promise<TaskSettingsResult> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
@@ -168,10 +193,16 @@ export class TasksService {
     if (changes.nPagesPerQuestion !== undefined) {
       formdata.append('n_pages_per_question', JSON.stringify(changes.nPagesPerQuestion));
     }
+    if (changes.aboveMax !== undefined) {
+      formdata.append('above_max', changes.aboveMax);
+    }
     try {
       const resp = await firstValueFrom(this.http.post<any>(`${SERVER_URL}jobs/update/settings`, formdata));
-      return { flagged: resp.flagged ?? 0, resplit: resp.resplit ?? 0 };
+      return { flagged: resp.flagged ?? 0, kept: resp.kept ?? 0, resplit: resp.resplit ?? 0 };
     } catch (error) {
+      if (error?.status === 409 && Array.isArray(error?.error?.above_max)) {
+        return { flagged: 0, kept: 0, resplit: 0, aboveMax: error.error.above_max };
+      }
       const message = error?.error?.response;
       throw new Error(typeof message === 'string' ? message.replace(/^Error: /, '') : 'la modification a échoué.');
     }

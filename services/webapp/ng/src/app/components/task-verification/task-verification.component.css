@@ -758,3 +758,26 @@ app-pdf-viewer {
   font-weight: 500;
   white-space: nowrap;
 }
+
+/* the dashboard's "note(s) > max" link: only the grades above the maximum */
+.above-max-filter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 4px 8px;
+    padding: 2px 4px 2px 8px;
+    border-radius: 4px;
+    background-color: #fdecea;
+    color: #c62828;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.above-max-filter button {
+    display: flex;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+}
