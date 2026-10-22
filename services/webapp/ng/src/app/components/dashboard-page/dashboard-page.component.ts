@@ -293,6 +293,10 @@ export class DashboardPageComponent {
     const total = this.questions[this.questions.length - 1];
     if (this.questions.length > 1 && total.name === 'Total') {
       total.max += question.bonus ? -question.max : question.max;
+      // the axis of a histogram ends at the maximum of its row, unless a
+      // grade goes over it: a maximum that just moved leaves it on the
+      // figure it was built with, hiding the copies the bonus took past it
+      this.computeStats(total);
     }
     this.tasksService.updateTaskBonus(this.taskId, this.task.bonus_enabled_map);
   }

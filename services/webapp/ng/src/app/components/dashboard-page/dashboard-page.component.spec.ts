@@ -407,6 +407,24 @@ describe('DashboardPageComponent', () => {
     expect(wide.map(b => b.count)).toEqual([0, 0, 0, 0, 0, 1, 1]);
   });
 
+  it('toggling the bonus follows through to the histogram of the total', async () => {
+    // the bonus is not in the maximum of the total, so toggling it moves the
+    // axis: it ends at the maximum unless a grade goes over it
+    await create();
+    const total = component.getTotalQuestion();
+    expect([total.max, total.grades]).toEqual([10, [13]]);
+    // Q3 is the bonus: 13 of 10 goes over, so the axis ends at the grade
+    expect(total.histogram[total.histogram.length - 1].value).toBe(13);
+
+    const q3 = component.questions[1];
+    q3.bonus = false;
+    component.questionBonusChange(q3);
+
+    // with Q3 counted, nothing reaches 15 any more: the axis ends there
+    expect(total.max).toBe(15);
+    expect(total.histogram[total.histogram.length - 1].value).toBe(15);
+  });
+
   it('toggling the bonus of a single-question task does not add its max to itself', async () => {
     await create({ ...TASK, n_max_points_per_question: [['Q1', 10]], bonus_enabled_map: [['Q1', false]], n_pages_per_question: [['Q1', 2]] });
     await settle();
