@@ -186,3 +186,20 @@ def test_stats_compile_with_boxplots_made_in_the_parent_dir(tmp_path):
         latex_dir=str(tex_dir), TMP_DIR=str(tmp_path / "tex"),
     )
     assert out.is_file()
+
+
+def test_a_question_out_of_half_points_says_so(tmp_path, monkeypatch):
+    # "%d" of a question out of 3.5 told the student it was out of 3, and a
+    # total out of 42.5 that it was out of 42
+    monkeypatch.setattr(stats, "create_tex_pdf", lambda *a, **k: "main.pdf")
+    notes = np.array([[3.5, 2.0], [8.0, 7.0]])
+
+    stats.create_stats_latex(
+        "Martin Alice", 0, 2, notes, [3.5, 8, 11.5], ["Q1.png", "Q2.png", "Total.png"],
+        latex_dir=str(tmp_path / "tex"), TMP_DIR=str(tmp_path / "tmp"),
+    )
+
+    lines = (tmp_path / "tmp" / "stats.tex").read_text().splitlines()
+    assert lines[0].startswith("1 (/ 3.5) & 3.5 &")
+    assert lines[1].startswith("2 (/ 8) & 8.0 &")  # a whole maximum keeps no decimals
+    assert lines[2].startswith("Total (/ 11.5) & 11.5 &")
