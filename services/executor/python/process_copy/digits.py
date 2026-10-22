@@ -143,6 +143,13 @@ def random_allowed_decimals(recognised, allowed=None, rng=random):
     return chosen
 
 
+# A decimal part nobody could read is drawn from the allowed ones rather than
+# recognised, which is a guess wearing the clothes of a reading. Measured over
+# the 2730 pages of the autumn 2026 intra: of the 132 whose decimals had to be
+# invented, 80 came back wrong (61 %), against 6 % of the pages whose decimals
+# were read. Halving keeps the value as a suggestion and takes it under the
+# confidence the executor fills a grade in with.
+INVENTED_DECIMALS_PENALTY = 0.5
 
 
 def process_digits_combinations(all_digits, dot):
@@ -189,7 +196,8 @@ def process_digits_combinations(all_digits, dot):
         p, digits = ranked[0]
         integer, decimals = split_digits(digits, dot)
         decimals = random_allowed_decimals(decimals)
-        numbers.append((p / len(digits), float("%s.%s" % (integer, decimals or "0"))))
+        numbers.append((INVENTED_DECIMALS_PENALTY * p / len(digits),
+                        float("%s.%s" % (integer, decimals or "0"))))
 
     if not numbers:
         return [(1.0, 0)]
