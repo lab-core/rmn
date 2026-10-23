@@ -12,7 +12,7 @@ numpy==2.5.3
 opencv-python-headless==5.0.0.93
 pandas==3.0.6
 pdf2image==1.17.0
-pillow==12.3.0
+pillow==13.0.0
 psutil==7.2.2
 pymongo==4.18.2
 PyMuPDF==1.28.2
