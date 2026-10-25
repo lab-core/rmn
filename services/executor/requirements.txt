@@ -16,7 +16,7 @@ pillow==13.0.0
 psutil==7.2.2
 pymongo==4.18.2
 PyMuPDF==1.28.2
-pypdf==6.19.0
+pypdf==6.21.2
 python-socketio==5.17.0
 redis==8.1.0
 # python-socketio's client opens with HTTP long-polling through requests; without
