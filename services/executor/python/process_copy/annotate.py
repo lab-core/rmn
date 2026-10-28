@@ -11,6 +11,7 @@ from process_copy.contours import (
     find_digit_contours,
     find_grade_boxes,
     find_matricule_box_contours,
+    find_matricule_digit_boxes,
 )
 
 
@@ -256,6 +257,13 @@ def write_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False
         return True
 
     if matricule:
+        # the row of digit boxes, as find_matricule reads it on any page
+        cnts = find_matricule_digit_boxes(fetch_box(gray, box), len_mat)
+        if cnts:
+            for c in cnts:
+                draw_contour_on_img(b_x, b_y, c)
+            imwrite_png("rendered", img)
+            return None, True
         return find_matricule_box_contours(gray, box, draw_contour, biggest_child)
 
     cropped = fetch_box(gray, box)

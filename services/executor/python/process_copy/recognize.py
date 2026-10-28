@@ -23,8 +23,9 @@ from process_copy.annotate import (  # noqa: F401
     add_grades, format_grade_text, write_box_contours, write_grade_texts)
 from process_copy.batch import process_all  # noqa: F401
 from process_copy.contours import (  # noqa: F401
-    biggest_children, clean_and_sort_digit_contours, find_digit_contours,
-    find_edges, find_grade_boxes, find_matricule_box_contours,
+    biggest_children, biggest_contour, clean_and_sort_digit_contours,
+    edge_coverage, find_digit_contours, find_edges, find_grade_boxes,
+    find_matricule_box_contours, find_matricule_digit_boxes, find_rectangles,
     get_clean_thresh, ink_rects)
 from process_copy.digits import (  # noqa: F401
     allowed_decimals_with_digits, correct_decimals, extract_all_digits,
