@@ -231,3 +231,51 @@ def test_the_digits_of_a_matricule_are_staged_and_banked_with_what_a_human_confi
     # confirmed, and nothing else lands in the bank
     assert set(banked) == set(case["matricule"])
     assert len(banked) == counts["samples"]
+
+
+# ------------------------------------------------- the boxes of a later page
+
+# the matricule printed on every page of a booklet (job 22fb713e): a title
+# over seven tall boxes, no colon, no table; its frame as the template gave it
+LATER_PAGE_BOX = (0.57, 0.87, 0.03, 0.11)
+
+
+def later_page_with(crop_file):
+    """A later page whose header boxes hold the digits written on the cover
+    page of ``crop_file`` (each box interior moved as is)."""
+    from tests.test_matricule_boxes import later_page_frame
+
+    cover = page_with(crop_file, SPEC["matricule_box"])
+    cropped = recognize.fetch_box(cover, SPEC["matricule_box"])
+    digits = [
+        recognize.get_image_from_contour(cropped, c, border=7)
+        for c in recognize.find_matricule_digit_boxes(cropped, 7)
+    ]
+    frame, rects = later_page_frame()
+    for digit, (x, y, w, h) in zip(digits, rects):
+        dh, dw = digit.shape
+        top, left = y + (h - dh) // 2, x + (w - dw) // 2
+        frame[top : top + dh, left : left + dw] = np.minimum(
+            frame[top : top + dh, left : left + dw], digit)
+
+    width, height = SPEC["page_shape"]
+    page = np.full((height, width), 255, np.uint8)
+    x1, y1 = int(LATER_PAGE_BOX[0] * width), int(LATER_PAGE_BOX[2] * height)
+    page[y1 : y1 + frame.shape[0], x1 : x1 + frame.shape[1]] = frame
+    return page
+
+
+@pytest.mark.parametrize(
+    "case", [c for c in SPEC["matricules"] if not c.get("known_miss")], ids=lambda c: c["file"])
+def test_the_matricule_of_a_later_page_is_read_from_its_boxes(case, classifier):
+    # the cover page is left blank: the later page alone gives the matricule
+    blank = np.full(tuple(reversed(SPEC["page_shape"])), 255, np.uint8)
+    found, _id_box, _index = recognize.find_matricule(
+        [blank, later_page_with(case["file"])],
+        SPEC["matricule_box"],
+        LATER_PAGE_BOX,
+        classifier,
+        [],
+        separate_box=True,
+    )
+    assert found == case["matricule"]
