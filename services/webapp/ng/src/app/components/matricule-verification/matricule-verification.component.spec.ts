@@ -205,6 +205,19 @@ describe('MatriculeVerificationComponent', () => {
     expect(component.tileTitle(unread)).toBe('confiance 0 %');
   });
 
+  it('says nothing of the confidence when the class list is empty', async () => {
+    // the field lists the class list's rows: without any, it stays empty,
+    // whatever matricule the executor read
+    await create({ ...JOB, students_list: [] });
+    const read = component.examsList.find(e => e.status === 'HIGH ACCURACY');
+    read.matricule_confidence = 0.8;
+    component.currentCopy = read.document_index;
+    expect(component.currentMatriculeSelection).toBeUndefined();
+    expect(component.tileTitle(read)).toBe('');
+    expect(component.tileColour(read)).toBeNull();
+    expect(component.currentConfidence()).toBeNull();
+  });
+
   it('warns when the matricule is already used by other copies', async () => {
     await create();
     component.examsList[1].matricule = '1234567';

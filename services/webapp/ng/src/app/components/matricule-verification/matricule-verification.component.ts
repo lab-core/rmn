@@ -398,13 +398,15 @@ export class MatriculeVerificationComponent implements OnInit {
 
   /** Whether the reader proposed one of the class list's matricules for the
    *  copy: a confidence about nothing ("NA", a number that is no student's)
-   *  means nothing to the teacher, who has an empty field to fill. */
+   *  means nothing to the teacher, who has an empty field to fill. The field
+   *  only shows a row of the class list, so an empty class list proposes
+   *  nothing either. */
   proposesAMatricule(exam: any): boolean {
     const matricule = String(exam?.matricule ?? '');
     if (!matricule || matricule === 'NA') {
       return false;
     }
-    return !this.matriculeList?.length || this.matriculeList.some((x) => x.matricule === matricule);
+    return (this.matriculeList ?? []).some((x) => x.matricule === matricule);
   }
   getMatriculeList() {
     let tempList = this.job["students_list"];
