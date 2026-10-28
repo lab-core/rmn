@@ -17,7 +17,8 @@
             <div class="file-container"
               (click)="changeCurrentCopy(exam.document_index, exam.status, false)">
               @if (exam.status == DocumentStatus.NOT_READY) {
-                <div class="disabled-copy">
+                <div [ngClass]="exam.document_index == this.currentCopy ? 'disabled-copy chosen-copy' : 'disabled-copy'"
+                  title="Pas encore lue">
                   <strong>{{i + 1}}</strong>
                 </div>
               }

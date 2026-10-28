@@ -103,10 +103,18 @@ export class MatriculeVerificationComponent implements OnInit {
 
       this.socketService.join(this.job["job_id"]);
       this.onDocumentReady = async (params: any) => {
+        const wasNotRead = this.currentExam()?.status === DocumentStatus.NOT_READY;
         await this.getDocuments();
         this.getSubExamsList();
         if (this.disabledValidationcontainer) {
           this.nextCopy();
+        } else if (wasNotRead && this.currentExam()?.status !== DocumentStatus.NOT_READY
+                   && !this.currentMatriculeSelection) {
+          // the copy on screen was just read and nothing was picked for it
+          // yet: show what the reader found
+          this.getCurrentMatricule();
+          this.getCurrentStatus();
+          this.setChosenColor(this.currentStatus);
         }
       };
       this.socketService.on('document_ready', this.onDocumentReady);
@@ -281,8 +289,9 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   async loadPdf(version: number = undefined): Promise<void> {
-    const exam = this.currentExam();
-    if (exam && exam["status"] !== DocumentStatus.NOT_READY) {
+    // a copy not read yet has its cover page already: its matricule can be
+    // given by hand, and the reader then skips it
+    if (this.currentExam()) {
       this.pdfLoadStarts();
       try {
         const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false);
@@ -297,7 +306,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   async changeCurrentCopy(copyIndex: number, status: string, updateScroll: boolean=true) {
     const exam = this.examsList[copyIndex-this.initialCopyIndex];
-    if (exam && status !== DocumentStatus.NOT_READY) {
+    if (exam) {
         this.currentCopyName = exam.filename;
         this.setCurrentCopy(copyIndex);
         this.disabledValidationcontainer = false;
@@ -358,32 +367,45 @@ export class MatriculeVerificationComponent implements OnInit {
     if(status === DocumentStatus.VALIDATED) {
       this.colorChosen = "green";
     }
+    if(status === DocumentStatus.NOT_READY) {
+      this.colorChosen = "";
+    }
   }
 
   checkForAvailableCopies(): boolean {
-    if (this.subExamsList.length == 0) return false;
-    const exam = this.subExamsList.find((exam: any) => exam["status"] != DocumentStatus.NOT_READY);
-    return exam != undefined;
+    return this.subExamsList.length > 0;
   }
 
 
   /** The tile colour of a copy whose matricule the executor read. */
   tileColour(exam: any): string | null {
-    return confidenceColour(exam.matricule_confidence, exam.status);
+    return this.proposesAMatricule(exam) ? confidenceColour(exam.matricule_confidence, exam.status) : null;
   }
 
   tileTitle(exam: any): string {
-    return exam.status === DocumentStatus.VALIDATED ? '' : confidenceLabel(exam.matricule_confidence);
+    return exam.status === DocumentStatus.VALIDATED || !this.proposesAMatricule(exam)
+      ? '' : confidenceLabel(exam.matricule_confidence);
   }
 
   /** How sure the executor was of the current copy's matricule, until a human validates it. */
   currentConfidence(): { label: string, colour: string | null } | null {
     const exam = (this.examsList || []).find((e) => e.document_index === this.currentCopy);
-    if (!exam || exam.status === DocumentStatus.VALIDATED) {
+    if (!exam || exam.status === DocumentStatus.VALIDATED || !this.proposesAMatricule(exam)) {
       return null;
     }
     const label = confidenceLabel(exam.matricule_confidence);
     return label ? { label, colour: confidenceColour(exam.matricule_confidence, exam.status) } : null;
+  }
+
+  /** Whether the reader proposed one of the class list's matricules for the
+   *  copy: a confidence about nothing ("NA", a number that is no student's)
+   *  means nothing to the teacher, who has an empty field to fill. */
+  proposesAMatricule(exam: any): boolean {
+    const matricule = String(exam?.matricule ?? '');
+    if (!matricule || matricule === 'NA') {
+      return false;
+    }
+    return !this.matriculeList?.length || this.matriculeList.some((x) => x.matricule === matricule);
   }
   getMatriculeList() {
     let tempList = this.job["students_list"];
@@ -403,7 +425,7 @@ export class MatriculeVerificationComponent implements OnInit {
 
   getCurrentMatricule() {
     const currentExam = this.currentExam();
-    if (currentExam && currentExam["status"] !== DocumentStatus.NOT_READY && currentExam["status"] !== DocumentStatus.DELETED) {
+    if (currentExam && currentExam["status"] !== DocumentStatus.DELETED) {
       this.currentMatricule = currentExam["matricule"];
       this.getDuplicatedMatricules();
       const matriculeRow = this.matriculeList.find(
@@ -438,11 +460,14 @@ export class MatriculeVerificationComponent implements OnInit {
   }
 
   async updateMatricule(): Promise<string> {
-    if (!this.currentMatriculeSelection) {
+    const matricule = this.selectedMatricule();
+    if (!matricule) {
       this.notificationService.showWarning('Veuillez fournir un matricule!', 'Matricule manquante');
       return;
     }
-    this.getCurrentMatricule();
+    // the field, not the copy's entry: a copy read while it was on screen got
+    // a new entry from the server, without the matricule picked here
+    this.changeMatricule({ matricule });
     await this.updateStatusOfAllDuplicatedMatricules(this.currentMatricule);
     this.pdfLoadStarts();
     const formdata: FormData = new FormData();
@@ -571,6 +596,14 @@ export class MatriculeVerificationComponent implements OnInit {
       });
   }
 
+  /** The matricule of the class-list row shown in the field: the row itself
+   *  once picked, its label when set from the copy. */
+  selectedMatricule(): string | undefined {
+    const selection: any = this.currentMatriculeSelection;
+    const label = typeof selection === 'string' ? selection : selection?.identifiant;
+    return this.matriculeList?.find((x) => x.identifiant === label)?.matricule;
+  }
+
   changeMatricule(selection): void {
     this.currentMatricule = Number(selection.matricule);
     // currentCopy is a document index; the list position is currentIndex()
@@ -615,8 +648,9 @@ export class MatriculeVerificationComponent implements OnInit {
     const wanted = matricule === undefined || matricule === null ? undefined : String(matricule);
     const matricules = new Map<string, Array<any>>();
     this.examsList.forEach((exam: any) => {
+      // the copy being validated counts even if the reader has not got to it
       if (exam.status !== DocumentStatus.DELETED &&
-        exam.status !== DocumentStatus.NOT_READY &&
+        (exam.status !== DocumentStatus.NOT_READY || exam.document_index === this.currentCopy) &&
         (!wanted || String(exam.matricule) === wanted)) {
         if (!matricules[exam.matricule]) {
           matricules[exam.matricule] = [];
@@ -628,7 +662,8 @@ export class MatriculeVerificationComponent implements OnInit {
     for (const exams of Object.values(matricules)) {
       if (exams.length > 1) {
         for (const exam of exams) {
-          if (exam.status !== DocumentStatus.TO_VALIDATE) {
+          // a copy not read yet is about to be validated: no flag for it
+          if (exam.status !== DocumentStatus.TO_VALIDATE && exam.status !== DocumentStatus.NOT_READY) {
             exam.status = DocumentStatus.TO_VALIDATE;
             await this.updateExamStatus(exam.status, exam.document_index);
           }
@@ -659,7 +694,7 @@ export class MatriculeVerificationComponent implements OnInit {
   previousCopyIndex(currentIndex = undefined): number {
     let tempIndex = currentIndex != undefined ? currentIndex : this.currentIndex();
     tempIndex--;
-    while (tempIndex >= 0 && (!this.subExamsList.includes(this.examsList[tempIndex]) || this.examsList[tempIndex].status == DocumentStatus.NOT_READY)) {
+    while (tempIndex >= 0 && !this.subExamsList.includes(this.examsList[tempIndex])) {
       tempIndex --;
     }
     return tempIndex;
@@ -676,7 +711,6 @@ export class MatriculeVerificationComponent implements OnInit {
     currentIndex++;
     while (currentIndex < this.examsList.length && (
       !this.subExamsList.includes(this.examsList[currentIndex])
-      || this.examsList[currentIndex].status === DocumentStatus.NOT_READY
       || (notValidated && this.examsList[currentIndex].status === DocumentStatus.VALIDATED)
     )) {
       currentIndex++;

@@ -226,26 +226,32 @@ export class DashboardPageComponent {
     return this.userService.shared();
   }
 
-  /** One entry per student of the class list. A student whose copy was
-   *  recognised carries the copy's document index and file name (the name is
-   *  shared with its per-question documents) and its position among the
-   *  recognised copies; without a copy the entry shows N/A and cannot be
-   *  selected. */
+  /** One entry per student of the class list, and one per copy whose
+   *  student is not known (yet): a copy is found by its file name, and by
+   *  its student's name once its matricule is read. A copy carries its
+   *  document index, its file name (shared with its per-question documents)
+   *  and its position in the task; a student without a copy shows N/A and
+   *  cannot be selected. */
   public getCopiesList(): void {
     const tempDict = {};
+    const names = {};
     this.task.students_list.forEach((x) => {
-      tempDict[x.matricule] = { identifiant: x.matricule + ' - ' + x['Nom complet'] };
+      names[x.matricule] = x.matricule + ' - ' + x['Nom complet'];
+      tempDict[x.matricule] = { identifiant: names[x.matricule] };
     });
-    let copy = 0;
-    this.examsList.forEach((exam) => {
-      if (exam.matricule && tempDict[exam.matricule]) {
-        tempDict[exam.matricule].index = exam.document_index;
-        tempDict[exam.matricule].basename = exam.filename;
-        tempDict[exam.matricule].copy = copy;
-        copy += 1;
+    const entries: any[] = [];
+    this.examsList.forEach((exam, copy) => {
+      const student = exam.matricule ? tempDict[exam.matricule] : undefined;
+      const entry = student && student.copy === undefined ? student : {};
+      entry.identifiant = student ? `${names[exam.matricule]} (${exam.filename})` : exam.filename;
+      entry.index = exam.document_index;
+      entry.basename = exam.filename;
+      entry.copy = copy;
+      if (entry !== student) {
+        entries.push(entry);  // unknown student, or a second copy of the same one
       }
     });
-    this.copiesList = Object.values(tempDict);
+    this.copiesList = [...Object.values(tempDict), ...entries];
     // restore the selection the correction pages are pointed at
     const selected = selectedCopy(this.taskId);
     this.copySelection = selected

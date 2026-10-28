@@ -143,11 +143,11 @@ describe('MatriculeVerificationComponent', () => {
     expect(component.currentCopy).toBe(1);
   });
 
-  it('navigation skips copies that are not ready', async () => {
+  it('navigation goes through every copy, the ones not read yet included', async () => {
     await create();
-    expect(component.nextCopyIndex(1)).toBe(3);
+    expect(component.nextCopyIndex(1)).toBe(2);
     expect(component.nextCopyIndex(0, true)).toBe(1);  // skips validated copies when asked
-    expect(component.previousCopyIndex(3)).toBe(1);
+    expect(component.previousCopyIndex(3)).toBe(2);
     expect(component.nextCopyIndex(3)).toBe(4);  // past the end
 
     component.nextCopy();
@@ -188,6 +188,21 @@ describe('MatriculeVerificationComponent', () => {
     expect(component.currentConfidence()).toBeNull();
     const older = component.examsList.find(e => e.status === 'TO VALIDATE');
     expect(component.tileColour(older)).toBeNull();
+  });
+
+  it('says nothing of the confidence when no matricule was proposed', async () => {
+    await create();
+    const unread = component.examsList.find(e => e.status === 'TO VALIDATE');
+    unread.matricule_confidence = 0;
+    component.currentCopy = unread.document_index;
+    for (const matricule of ['NA', '', '9999999']) {  // nothing read, or no student's
+      unread.matricule = matricule;
+      expect(component.tileTitle(unread)).toBe('');
+      expect(component.tileColour(unread)).toBeNull();
+      expect(component.currentConfidence()).toBeNull();
+    }
+    unread.matricule = '2345678';
+    expect(component.tileTitle(unread)).toBe('confiance 0 %');
   });
 
   it('warns when the matricule is already used by other copies', async () => {
@@ -231,6 +246,70 @@ describe('MatriculeVerificationComponent', () => {
     await component.updateMatricule();
     expect(notification.showWarning).toHaveBeenCalledWith(jasmine.any(String), 'Matricule manquante');
     http.expectNone('/api/matricules/update');
+  });
+
+  it('a copy not read yet opens, and its matricule can be validated by hand', async () => {
+    await create();
+    const tile = fixture.nativeElement.querySelectorAll('.file-container')[2] as HTMLElement;
+    tile.click();
+    await settle();
+    fixture.detectChanges();
+    expect(component.currentCopy).toBe(2);
+    expect(component.pdfUrl).toBe('blob:2');
+    expect(component.currentMatriculeSelection).toBeUndefined();
+    expect(component.disabledValidationButton).toBeFalse();
+    expect(component.colorChosen).toBe('');
+    expect(tile.querySelector('.disabled-copy').classList).toContain('chosen-copy');
+
+    component.currentMatriculeSelection = component.matriculeList[2];  // as ng-select sets it
+    component.updateMatricule();
+    await settle();
+    // Carol's other copy (3) is flagged first: this one counts though unread
+    let req = http.expectOne('/api/matricules/status/update');
+    expect((req.request.body as FormData).get('document_index')).toBe('3');
+    req.flush({ response: 'OK' });
+    await settle();
+    req = http.expectOne('/api/matricules/update');
+    expect((req.request.body as FormData).get('document_index')).toBe('2');
+    expect((req.request.body as FormData).get('matricule')).toBe('3456789');
+    req.flush({ response: 'OK' });
+    await settle();
+    expect(component.examsList[2].status).toBe('VALIDATED');
+    expect(component.examsList[3].status).toBe('TO VALIDATE');
+  });
+
+  it('a copy read while it is on screen shows the reading, unless a matricule was picked', async () => {
+    await create();
+    await component.changeCurrentCopy(2, DocumentStatus.NOT_READY);
+    const reread = () => {
+      const exams = JSON.parse(JSON.stringify(EXAMS));
+      Object.assign(exams[2], { status: 'HIGH ACCURACY', matricule: '2345678' });
+      exams[1].status = 'DELETED';  // Bob's other copy: no duplicate to flag
+      docs.documentsList = exams;
+      return (component as any).onDocumentReady('{}');
+    };
+    await reread();
+    expect(component.currentMatriculeSelection).toBe('2345678 - Bob B');
+    expect(component.colorChosen).toBe('blue');
+
+    await component.changeCurrentCopy(2, DocumentStatus.NOT_READY);
+    component.examsList[2].status = DocumentStatus.NOT_READY;
+    component.currentMatriculeSelection = component.matriculeList[0];
+    await reread();
+    expect((component.currentMatriculeSelection as any).matricule).toBe('1234567');
+    component.updateMatricule();
+    await settle();
+    // the copies now carrying Alice's matricule are flagged first, one at a time
+    for (const index of ['0', '2']) {
+      const flag = http.expectOne('/api/matricules/status/update');
+      expect((flag.request.body as FormData).get('document_index')).toBe(index);
+      flag.flush({ response: 'OK' });
+      await settle();
+    }
+    const req = http.expectOne('/api/matricules/update');
+    expect((req.request.body as FormData).get('matricule')).toBe('1234567');  // the pick, not the reading
+    req.flush({ response: 'OK' });
+    await settle();
   });
 
   it('a failed update is reported and keeps the copy', async () => {

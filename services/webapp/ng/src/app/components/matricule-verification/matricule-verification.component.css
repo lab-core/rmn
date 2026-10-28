@@ -220,6 +220,12 @@
     background-color: rgb(116, 116, 116);
 }
 
+/* not read yet, but its matricule can be given by hand */
+.disabled-copy:hover {
+    cursor: pointer;
+    transform: scale(1.05, 1.05);
+}
+
 .chosen-copy {
     transform: scale(1.15, 1.15);
     border: 3px solid black;
