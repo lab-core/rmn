@@ -279,3 +279,31 @@ def test_the_matricule_of_a_later_page_is_read_from_its_boxes(case, classifier):
         separate_box=True,
     )
     assert found == case["matricule"]
+
+
+class _ReadPages(list):
+    """Pages that remember which ones the reader looked at."""
+
+    def __init__(self, pages):
+        super().__init__(pages)
+        self.read = set()
+
+    def __getitem__(self, i):
+        self.read.add(i)
+        return super().__getitem__(i)
+
+
+def test_a_booklet_is_read_until_enough_pages_agree(classifier, class_list):
+    case = next(c for c in SPEC["matricules"] if not c.get("known_miss"))
+    # the same boxes on every page of the booklet, as the job that hit the
+    # executor's deadline had
+    page = page_with(case["file"], SPEC["matricule_box"])
+    pages = _ReadPages([page] * 16)
+
+    found, _id_box, index = recognize.find_matricule(
+        pages, SPEC["matricule_box"], SPEC["matricule_box"], classifier,
+        [class_list], separate_box=True)
+
+    assert found == case["matricule"] and index is not None
+    # five agreeing readings are enough: the rest of the booklet is not needed
+    assert pages.read == set(range(5))

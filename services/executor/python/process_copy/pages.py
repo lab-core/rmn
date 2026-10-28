@@ -8,7 +8,7 @@ not the name, and keep the one it saw at import time.
 import os
 import cv2
 import numpy as np
-from pdf2image import convert_from_path
+from pdf2image import convert_from_path, pdfinfo_from_path
 from PIL import Image
 from process_copy.imaging import BLACK, GREEN, ORANGE, RED, hough_segments, imwrite_png
 
@@ -120,28 +120,69 @@ def gray_images(fpdf, pages=None, dpi=300, straighten=True, shape=None):
             except Image.DecompressionBombError as e:
                 print("Decompression issue on page %d for %s." % (p, fpdf))
                 return None
-    gray_images = []
-    for i, img in enumerate(images):
-        np_img = np.array(img)
-        gray = cv2.cvtColor(np_img, cv2.COLOR_BGR2GRAY)
-        if straighten:
-            try:
-                gray = imstraighten(gray)
-            except ValueError as e:
-                print("For %s, page %d: %s" % (fpdf, i, str(e)))
-        if shape:
-            if (
-                abs(gray.shape[0] - shape[1]) > 0.1 * shape[1]
-                or abs(gray.shape[1] - shape[0]) > 0.1 * shape[0]
-            ):
-                print(
-                    "Resizing %s, wrong format: %.1f by %.1f in."
-                    % (fpdf, gray.shape[0] / dpi, gray.shape[1] / dpi)
-                )
-                gray = cv2.resize(gray, shape, interpolation=cv2.INTER_LINEAR)
-        imwrite_png("page_%d" % i, gray)
-        gray_images.append(gray)
+    gray_images = [_gray_page(img, i, fpdf, dpi, straighten, shape) for i, img in enumerate(images)]
     return gray_images
+
+
+def _gray_page(img, i, fpdf, dpi, straighten, shape):
+    """Page ``i`` of ``fpdf`` rendered as ``img``, in gray, straight and at ``shape``."""
+    np_img = np.array(img)
+    gray = cv2.cvtColor(np_img, cv2.COLOR_BGR2GRAY)
+    if straighten:
+        try:
+            gray = imstraighten(gray)
+        except ValueError as e:
+            print("For %s, page %d: %s" % (fpdf, i, str(e)))
+    if shape:
+        if (
+            abs(gray.shape[0] - shape[1]) > 0.1 * shape[1]
+            or abs(gray.shape[1] - shape[0]) > 0.1 * shape[0]
+        ):
+            print(
+                "Resizing %s, wrong format: %.1f by %.1f in."
+                % (fpdf, gray.shape[0] / dpi, gray.shape[1] / dpi)
+            )
+            gray = cv2.resize(gray, shape, interpolation=cv2.INTER_LINEAR)
+    imwrite_png("page_%d" % i, gray)
+    return gray
+
+
+class GrayPages:
+    """The gray pages of a pdf, each rendered the first time it is read.
+
+    The matricule is searched page after page until enough readings agree:
+    a 16-page booklet rendered whole at 300 dpi cost ~30 s a copy, most of
+    it on pages never looked at. Indexed like the list ``gray_images``
+    returns, up to ``MAX_RASTERISED_PAGES`` pages.
+    """
+
+    def __init__(self, fpdf, dpi=300, straighten=True, shape=None):
+        self.fpdf = fpdf
+        self.dpi = dpi
+        self.straighten = straighten
+        self.shape = shape
+        self.n_pages = min(int(pdfinfo_from_path(fpdf)["Pages"]), MAX_RASTERISED_PAGES)
+        self.pages = {}
+
+    def __len__(self):
+        return self.n_pages
+
+    def __getitem__(self, i):
+        if not 0 <= i < self.n_pages:
+            raise IndexError(i)
+        if i not in self.pages:
+            # raises DecompressionBombError like gray_images returns None:
+            # the copy cannot be read
+            img = convert_from_path(self.fpdf, dpi=self.dpi, first_page=i + 1, last_page=i + 1)[0]
+            self.pages[i] = _gray_page(img, i, self.fpdf, self.dpi, self.straighten, self.shape)
+        return self.pages[i]
+
+    def __iter__(self):
+        return (self[i] for i in range(self.n_pages))
+
+    def rendered(self):
+        """How many pages were rendered so far."""
+        return len(self.pages)
 
 
 

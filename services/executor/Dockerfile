@@ -41,6 +41,9 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps /opt/rmn-co
 COPY --chown=rmn:rmn executor/ .
 
 ENV ENVIRONMENT=production
+# Logs as they are printed: buffered, the worker's output reached kubectl logs
+# minutes late and a busy executor looked stuck
+ENV PYTHONUNBUFFERED=1
 # Writable HOME: TeX Live's font cache (~/.texlive*) and matplotlib's config
 # directory (~/.config/matplotlib) live there.
 ENV HOME=/home/rmn
