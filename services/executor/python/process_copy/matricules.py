@@ -22,6 +22,7 @@ from process_copy.imaging import (
     memory_used_gb,
 )
 from process_copy.pages import (
+    GrayPages,
     create_summary,
     create_whole_summary,
     gray_images,
@@ -255,7 +256,10 @@ def find_matricule(
     # try to find a matricule on the next page
     if regular_box is not None:
         print("Trying to find matricule on the next page...")
-        for gray in grays[1:]:
+        # by index: grays may be GrayPages, which renders a page only when
+        # it is read, so the pages after the stop are never rendered
+        for i in range(1, len(grays)):
+            gray = grays[i]
             if not find_boxed_digits(gray, regular_box):
                 find_matricule_box_contours(gray, regular_box, find_digits)
             if stop_processing():
@@ -312,7 +316,7 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
     if not m:
         # Find matricule in pdf file
         print("Matricule wasn't found in " + doc['filename'])
-        grays = gray_images(file, shape=shape)
+        grays = GrayPages(file, shape=shape)
         if box_matricule is None:
             raise Exception
         m, id_box, id_csv, confidence = find_matricule(
