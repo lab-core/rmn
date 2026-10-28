@@ -380,8 +380,15 @@ def find_matricules(
                         exec_time,
                         group,
                         matricule_confidence=confidence,
+                        only_if_status=Document_Status.NOT_READY,
                 ):
-                    raise KeyError(f"Document {filename} was not found.")
+                    if db.get_document(job_id, doc_index) is None:
+                        raise KeyError(f"Document {filename} was not found.")
+                    # validated or deleted on the matricule page meanwhile
+                    print(f"[{datetime.now()}]", 'Kept the human answer for:', filename,
+                          f"({job_id}, {doc_index})")
+                    doc_index += 1
+                    continue
 
                 sio.emit(
                     "document_ready",
@@ -407,7 +414,8 @@ def find_matricules(
                 print(Fore.RED + f"{filename}: matricule recognition failed: {e}" + Style.RESET_ALL)
                 try:
                     db.update_document(job_id, doc_index, None, Document_Status.TO_VALIDATE,
-                                       "", time.time() - start_time, "", matricule_confidence=0.0)
+                                       "", time.time() - start_time, "", matricule_confidence=0.0,
+                                       only_if_status=Document_Status.NOT_READY)
                 except Exception as e2:
                     print(e2)
 

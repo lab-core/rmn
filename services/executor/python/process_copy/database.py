@@ -90,7 +90,8 @@ class Database:
         )
 
     def update_document(
-        self, job_id, doc_index, grades, status, matricule, time, group, matricule_confidence=None
+        self, job_id, doc_index, grades, status, matricule, time, group, matricule_confidence=None,
+        only_if_status=None
     ):
         try:
             # return updated doc
@@ -107,10 +108,15 @@ class Database:
             # matricule_confidence); left unset when it was not read here
             if matricule_confidence is not None:
                 set["matricule_confidence"] = round(float(matricule_confidence), 4)
+            query = {"job_id": job_id, "document_index": doc_index}
+            # a teacher may validate (or delete) a copy on the matricule page
+            # while it is being read: their answer wins over the reading
+            if only_if_status is not None:
+                query["status"] = only_if_status.value
             return (
                 self.documents_collection()
                 .update_one(
-                    {"job_id": job_id, "document_index": doc_index},
+                    query,
                     {"$set": set},
                 )
                 .matched_count

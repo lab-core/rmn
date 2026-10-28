@@ -68,6 +68,20 @@ def test_the_matricule_confidence_is_stored_when_it_was_read(mongo_db):
     assert mongo_db["job_documents"].find_one({"job_id": "job"})["matricule_confidence"] == 0.9877
 
 
+def test_an_update_can_require_the_copy_to_be_still_unread(mongo_db):
+    db = Database()
+    db.insert_document("job", 0, [], "", Document_Status.NOT_READY, "", 0, "copy.pdf")
+    assert db.update_document("job", 0, None, Document_Status.HIGH_ACCURACY, "2345678", 1, "",
+                              only_if_status=Document_Status.NOT_READY) is True
+    assert db.get_document("job", 0)["status"] == "HIGH ACCURACY"
+
+    # read again: no longer NOT READY, so nothing changes
+    assert db.update_document("job", 0, None, Document_Status.TO_VALIDATE, "NA", 1, "",
+                              only_if_status=Document_Status.NOT_READY) is False
+    doc = db.get_document("job", 0)
+    assert (doc["status"], doc["matricule"]) == ("HIGH ACCURACY", "2345678")
+
+
 def test_job_max_questions_and_run_status(mongo_db):
     mongo_db["eval_jobs"].insert_one({"job_id": "job", "job_status": "QUEUED"})
     db = Database()

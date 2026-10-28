@@ -137,8 +137,8 @@ describe('DashboardPageComponent', () => {
   it('builds the copy picker from the student list and points the correction pages at the pick', async () => {
     await create();
     expect(component.copiesList).toEqual([
-      { identifiant: '1234567 - Alice A', index: 0, basename: 'a', copy: 0 },
-      { identifiant: '2345678 - Bob B', index: 1, basename: 'b', copy: 1 },
+      { identifiant: '1234567 - Alice A (a)', index: 0, basename: 'a', copy: 0 },
+      { identifiant: '2345678 - Bob B (b)', index: 1, basename: 'b', copy: 1 },
     ]);
     expect(component.copySelection).toBeNull();
 
@@ -165,6 +165,24 @@ describe('DashboardPageComponent', () => {
     expect((fixture.nativeElement.querySelector('.select-index-button') as HTMLButtonElement).disabled).toBeTrue();
     component.selectCopy();
     expect(localStorage.getItem('job_dashboard_copy')).toBeNull();
+  });
+
+  it('a copy is found by its file name until its student is known', async () => {
+    await create();
+    component.examsList.push(
+      { document_index: 2, matricule: '', status: 'NOT READY', filename: 'scan_003' },
+      { document_index: 3, matricule: '1234567', status: 'TO VALIDATE', filename: 'scan_004' },
+    );
+    component.getCopiesList();
+    expect(component.copiesList.slice(2)).toEqual([
+      { identifiant: 'scan_003', index: 2, basename: 'scan_003', copy: 2 },
+      // a second copy with the same matricule is an entry of its own
+      { identifiant: '1234567 - Alice A (scan_004)', index: 3, basename: 'scan_004', copy: 3 },
+    ]);
+
+    component.copySelection = component.copiesList[2];
+    component.selectCopy();
+    expect(JSON.parse(localStorage.getItem('job_dashboard_copy'))).toEqual({ document_index: 2, basename: 'scan_003' });
   });
 
   it('question helpers read the task definition', async () => {
