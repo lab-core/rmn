@@ -108,10 +108,9 @@ export class MatriculeVerificationComponent implements OnInit {
         this.getSubExamsList();
         if (this.disabledValidationcontainer) {
           this.nextCopy();
-        } else if (wasNotRead && this.currentExam()?.status !== DocumentStatus.NOT_READY
-                   && !this.currentMatriculeSelection) {
-          // the copy on screen was just read and nothing was picked for it
-          // yet: show what the reader found
+        } else if (wasNotRead && !this.currentMatriculeSelection) {
+          // the copy on screen may have just been read and nothing was picked
+          // for it yet: show what the reader found (nothing if still unread)
           this.getCurrentMatricule();
           this.getCurrentStatus();
           this.setChosenColor(this.currentStatus);
