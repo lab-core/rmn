@@ -194,22 +194,34 @@ def find_grade_boxes(cropped, add_border=False, max_diff=50, thick=5):
 
 
 
+def biggest_contour(cropped):
+    """``(contours, hierarchy, position)`` of the biggest contour of the edges,
+    ``position`` None when there is no contour at all."""
+    cnts, hierarchy = cv2.findContours(
+        find_edges(cropped, thick=0), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+    )
+    cnts = imutils.grab_contours((cnts, hierarchy))
+    imwrite_contours("rgray", cropped, cnts, thick=5)
+    if len(cnts) == 0:
+        return cnts, hierarchy, None
+    pos, _ = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
+    return cnts, hierarchy, pos
+
+
+
+
 def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False):
     # find the id box
     cropped = fetch_box(gray, regular_box)
     if biggest_child:
-        cnts, hierarchy = cv2.findContours(
-            find_edges(cropped, thick=0), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-        )
-        cnts = imutils.grab_contours((cnts, hierarchy))
-        imwrite_contours("rgray", cropped, cnts, thick=5)
+        cnts, hierarchy, pos = biggest_contour(cropped)
         # a blank / unreadable matricule box yields no contours: there is
         # nothing to analyse, so report "no box found" instead of crashing on
         # max() over an empty sequence (which used to kill the whole job).
-        if len(cnts) == 0:
+        if pos is None:
             return None, False
         # Find the biggest contour for the front box
-        pos, biggest_c = max(enumerate(cnts), key=lambda cnt: cv2.contourArea(cnt[1]))
+        biggest_c = cnts[pos]
         for cnt in biggest_children(cnts, hierarchy, pos):
             gray_box = get_image_from_contour(cropped, cnt)
             if callback(gray_box, cnt):
@@ -217,6 +229,157 @@ def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False
         return biggest_c, False
     else:
         return None, callback(cropped, None)
+
+
+
+
+def edge_coverage(ink, rect, band=3):
+    """Share of the least inked side of ``rect``: 1 when its four sides are lines.
+
+    A side counts as inked where a pixel within ``band`` of it is ink, so a
+    slightly skewed or dotted (dithered scan) line still covers its side.
+    """
+    x, y, w, h = rect
+    height, width = ink.shape
+
+    def row(y0):
+        return ink[max(0, y0 - band) : min(height, y0 + band + 1), x : x + w].any(axis=0).mean()
+
+    def column(x0):
+        return ink[y : y + h, max(0, x0 - band) : min(width, x0 + band + 1)].any(axis=1).mean()
+
+    if w <= 0 or h <= 0:
+        return 0.0
+    return float(min(row(y), row(y + h - 1), column(x), column(x + w - 1)))
+
+
+
+
+def find_rectangles(gray, min_size=20, min_coverage=0.85):
+    """The rectangles drawn on ``gray``: ``(x, y, w, h)`` with four ink sides.
+
+    Every contour of the ink is a candidate, outer outlines and holes alike,
+    and is kept when the four sides of its bounding rectangle are lines. The
+    hole of a box is dropped (a rectangle inside another one of nearly its
+    size), so a box is returned once; the boxes inside a table cell are kept.
+    """
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    ink = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)[1]
+    # join the dots of a dithered scan, so a thin printed line is one stroke
+    ink = cv2.morphologyEx(ink, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+    cnts, _ = cv2.findContours(ink, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    ink = ink > 0
+    rects = []
+    for c in cnts:
+        rect = cv2.boundingRect(c)
+        if min(rect[2:]) >= min_size and edge_coverage(ink, rect) >= min_coverage:
+            rects.append(rect)
+
+    kept = []
+    for x, y, w, h in sorted(rects, key=lambda r: -r[2] * r[3]):
+        cx, cy = x + w / 2, y + h / 2
+        if not any(
+            kx <= cx <= kx + kw and ky <= cy <= ky + kh and w * h >= 0.5 * kw * kh
+            for kx, ky, kw, kh in kept
+        ):
+            kept.append((x, y, w, h))
+    return kept, ink
+
+
+
+
+def _same_row(ref, rect, size_tol=0.25):
+    """Whether ``rect`` is a box of the same size as ``ref``, on its row."""
+    _, ry, rw, rh = ref
+    _, y, w, h = rect
+    return (
+        abs(w - rw) <= size_tol * rw
+        and abs(h - rh) <= size_tol * rh
+        and abs((y + h / 2) - (ry + rh / 2)) <= 0.35 * rh
+    )
+
+
+
+
+def _regular_run(row, n, ink, min_coverage):
+    """The ``n`` evenly spaced boxes of ``row`` (sorted by x), or None.
+
+    A box the detection missed -- a digit written over its side merges with it
+    and the outline is no longer a rectangle -- is put back where the spacing
+    places it, between two found boxes or at one end of the run, provided its
+    sides are still drawn there.
+    """
+    gaps = [b[0] - a[0] for a, b in zip(row, row[1:])]
+    if not gaps:
+        return None
+    pitch = median(g for g in gaps if g < 1.6 * min(gaps))
+    if pitch < 0.8 * median(w for _, _, w, _ in row):
+        return None  # overlapping boxes: not a row of boxes
+
+    def inferred(x, like):
+        rect = (int(round(x)), like[1], like[2], like[3])
+        return rect if edge_coverage(ink, rect, band=6) >= min_coverage else None
+
+    # chains of boxes one pitch apart, a missing box filled where the gap is a
+    # whole number of pitches
+    chains = [[row[0]]]
+    for prev, rect, gap in zip(row, row[1:], gaps):
+        steps = round(gap / pitch)
+        if steps >= 1 and abs(gap - steps * pitch) <= 0.15 * pitch and steps <= n:
+            fill = [inferred(prev[0] + k * gap / steps, prev) for k in range(1, steps)]
+            if all(fill):
+                chains[-1].extend(fill + [rect])
+                continue
+        chains.append([rect])
+
+    for chain in sorted(chains, key=len, reverse=True):
+        # one box missing at an end of the run: try both ends
+        if len(chain) == n - 1:
+            ends = [
+                inferred(chain[0][0] - pitch, chain[0]),
+                inferred(chain[-1][0] + pitch, chain[-1]),
+            ]
+            if ends[0]:
+                chain = [ends[0]] + chain
+            elif ends[1]:
+                chain = chain + [ends[1]]
+        if len(chain) == n:
+            return chain
+    return None
+
+
+
+
+def find_matricule_digit_boxes(gray, n, min_coverage=0.6):
+    """The ``n`` boxes the digits of a matricule are written in, as contours.
+
+    The same reading for any page and any template: the frame the template
+    gives (cover page or later page) holds a row of ``n`` rectangles of the
+    same size, evenly spaced; the labels, the table lines and the other boxes
+    around them (group, page number) do not form such a row. Returns the boxes
+    sorted from left to right, or ``[]`` when the frame holds no such row.
+    """
+    rects, ink = find_rectangles(gray)
+    tried = set()
+    for ref in sorted(rects, key=lambda r: -r[2] * r[3]):
+        row = sorted(r for r in rects if _same_row(ref, r))
+        key = tuple(row)
+        if len(row) < n - 1 or key in tried:
+            continue
+        tried.add(key)
+        run = _regular_run(row, n, ink, min_coverage)
+        if run:
+            imwrite_contours("matricule_boxes", gray, [_rect_contour(r) for r in run])
+            return [_rect_contour(r) for r in run]
+    return []
+
+
+
+
+def _rect_contour(rect):
+    """A contour whose bounding rectangle is ``rect``."""
+    x, y, w, h = rect
+    return np.array([[[x, y]], [[x + w - 1, y]], [[x + w - 1, y + h - 1]], [[x, y + h - 1]]], dtype=np.int32)
 
 
 

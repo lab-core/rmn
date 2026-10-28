@@ -28,8 +28,11 @@ from process_copy.pages import (
     save_pages,
 )
 from process_copy.contours import (
+    biggest_contour,
     find_digit_contours,
     find_matricule_box_contours,
+    find_matricule_digit_boxes,
+    get_clean_thresh,
 )
 from process_copy.digits import (
     extract_all_digits, extract_digit, most_probable_digits)
@@ -119,26 +122,9 @@ def find_matricule(
             if len(cnts) != len_mat:
                 return False
 
-            all_digits = []
             # if each number is in a separate box, extract it individually
             if separate_box:
-                for c in cnts:
-                    digit_box = get_image_from_contour(gray_box, c, border=7)
-                    dcnts, dot, dthresh = find_digit_contours(digit_box)
-                    # check if only one digit has been found in the box
-                    if len(dcnts) == 1:
-                        d = extract_digit(dcnts[0], digit_box, dthresh, classifier,
-                                          confusions=known_mistmatch_matricule)
-                    # if too many contours, just remove some pixels on the border of the image
-                    elif len(dcnts) > 1:
-                        d = extract_digit(c, gray_box, thresh, classifier, border=-7,
-                                          confusions=known_mistmatch_matricule)
-                    # if no contour at all, it means that at least one of the box is empty
-                    # -> throw this results
-                    else:
-                        all_digits = []
-                        break
-                    all_digits.append(d)
+                all_digits = read_digit_boxes(gray_box, cnts, thresh)
             # otherwise, extract all digits at once
             else:
                 all_digits = extract_all_digits(
@@ -149,9 +135,34 @@ def find_matricule(
             print("Got an error while finding digits.")
             return False
 
+        store_digits(all_digits)
+        return True
+
+    def read_digit_boxes(gray_box, cnts, thresh):
+        """The candidates of the digit of each box, [] if a box is empty."""
+        all_digits = []
+        for c in cnts:
+            digit_box = get_image_from_contour(gray_box, c, border=7)
+            dcnts, dot, dthresh = find_digit_contours(digit_box)
+            # check if only one digit has been found in the box
+            if len(dcnts) == 1:
+                d = extract_digit(dcnts[0], digit_box, dthresh, classifier,
+                                  confusions=known_mistmatch_matricule)
+            # if too many contours, just remove some pixels on the border of the image
+            elif len(dcnts) > 1:
+                d = extract_digit(c, gray_box, thresh, classifier, border=-7,
+                                  confusions=known_mistmatch_matricule)
+            # if no contour at all, it means that at least one of the box is empty
+            # -> throw this results
+            else:
+                return []
+            all_digits.append(d)
+        return all_digits
+
+    def store_digits(all_digits):
         # check length
         if len(all_digits) != len_mat:
-            return True
+            return
 
         # the seven crops of this box are the digits of the matricule: the one
         # a human validates later labels them (see digit_bank.promote_job)
@@ -165,12 +176,34 @@ def find_matricule(
                     distri[d] += p
                 else:
                     distri[d] = p
-        return True
 
     def find_digits(gray_box, cnt, split=True):
         """Read one matricule box, staging its crops for the digit bank."""
         with digit_bank.reading():
             return _find_digits(gray_box, cnt, split)
+
+    def find_boxed_digits(gray, box):
+        """Read the row of digit boxes in the frame ``box`` of a page.
+
+        The same for the cover page and the later pages, whatever surrounds
+        the boxes in the frame (a table cell and its label, a title above
+        them). False when the frame holds no such row: the caller then falls
+        back on the older reading, which needs the label of the cover page or
+        a colon before the digits.
+        """
+        if not separate_box:
+            return False
+        cropped = fetch_box(gray, box)
+        cnts = find_matricule_digit_boxes(cropped, len_mat)
+        if not cnts:
+            return False
+        try:
+            with digit_bank.reading():
+                store_digits(read_digit_boxes(cropped, cnts, get_clean_thresh(cropped)))
+        except cv2.error as e:
+            print(e)
+            print("Got an error while finding digits.")
+        return True
 
     def best_matricule_match():
         # build matricules and sort them by probabilities
@@ -212,20 +245,25 @@ def find_matricule(
         return index is not None
 
     # find the id box
-    biggest_c, ret = find_matricule_box_contours(grays[0], front_box, find_digits, True)
+    cropped = fetch_box(grays[0], front_box)
+    if find_boxed_digits(grays[0], front_box):
+        cnts, _, pos = biggest_contour(cropped)
+        biggest_c = cnts[pos] if pos is not None else None
+    else:
+        biggest_c, ret = find_matricule_box_contours(grays[0], front_box, find_digits, True)
 
     # try to find a matricule on the next page
-    if regular_box != None:
+    if regular_box is not None:
         print("Trying to find matricule on the next page...")
         for gray in grays[1:]:
-            find_matricule_box_contours(gray, regular_box, find_digits)
+            if not find_boxed_digits(gray, regular_box):
+                find_matricule_box_contours(gray, regular_box, find_digits)
             if stop_processing():
                 break
 
     # build matricules and sort them by probabilities
     mat, index = best_matricule_match()
 
-    cropped = fetch_box(grays[0], front_box)
     # biggest_c is None when the box had no contour (blank / unreadable)
     id_box = get_image_from_contour(cropped, biggest_c) if biggest_c is not None else None
 
