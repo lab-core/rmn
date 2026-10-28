@@ -30,6 +30,7 @@ import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './components/app/app.component';
 import { ChangePasswordDialogComponent } from './components/change-password-dialog/change-password-dialog.component';
 import { CreateUserDialogComponent } from './components/create-user-dialog/create-user-dialog.component';
+import { ImpersonateDialogComponent } from './components/impersonate-dialog/impersonate-dialog.component';
 import { CsvUpdateDialogComponent } from './components/csv-update/csv-update-dialog.component';
 import { TaskSettingsDialogComponent } from './components/task-settings/task-settings-dialog.component';
 import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
@@ -67,6 +68,7 @@ import { AuthInterceptor } from './services/auth.interceptor';
         UserProfileComponent,
         ChangePasswordDialogComponent,
         CreateUserDialogComponent,
+        ImpersonateDialogComponent,
         CsvUpdateDialogComponent,
         TaskSettingsDialogComponent,
         PDFViewerComponent,

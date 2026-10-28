@@ -21,6 +21,8 @@ export class UserService {
   saveVerifiedImages: boolean = true;
   moodleStructureInd: boolean = false;
   warningShown: boolean = true;
+  /** The admin who opened this session in the user's place, if any. */
+  impersonatedBy: string;
   /** Fires after logout(): the socket and the pdf cache drop the previous
    *  user's state on it (they used to survive into the next session). */
   readonly loggedOut$ = new Subject<void>();
@@ -32,6 +34,7 @@ export class UserService {
     this.currentUsername = localStorage.getItem('user_id')
     this.role = localStorage.getItem('role')
     this.token = localStorage.getItem('token')
+    this.impersonatedBy = localStorage.getItem('impersonated_by') ?? undefined
 
     const saveImages = localStorage.getItem('saveVerifiedImages')
     this.saveVerifiedImages = (saveImages && saveImages != "undefined") ? JSON.parse(localStorage.getItem('saveVerifiedImages')) : true
@@ -97,26 +100,107 @@ export class UserService {
     const url = SERVER_URL + "users/login"
     const resp = await this.http.post(url, formdata).toPromise();
     //Insert loading bar condition
-    const response = resp['response']
+    this.setSession(resp['response']);
+    this.warningShown = false;
+  }
+
+  /** Keep a session (the answer of login or impersonate) here and in localStorage. */
+  private setSession(response) {
     localStorage.setItem('user_id', response['username'])
     localStorage.setItem('role', response['role'])
     localStorage.setItem('token', response['token'])
     localStorage.setItem('saveVerifiedImages', JSON.stringify(response['saveVerifiedImages']))
     localStorage.setItem('moodleStructureInd', JSON.stringify(response['moodleStructureInd']))
+    if (response['impersonatedBy']) {
+      localStorage.setItem('impersonated_by', response['impersonatedBy'])
+    } else {
+      localStorage.removeItem('impersonated_by')
+    }
 
     this.currentUsername = response['username']
     this.role = response['role']
     this.token = response['token']
     this.saveVerifiedImages = response['saveVerifiedImages'];
     this.moodleStructureInd = response['moodleStructureInd'];
-    this.warningShown = false;
+    this.impersonatedBy = response['impersonatedBy'] ?? undefined;
+  }
+
+  /** The session as setSession() takes it back. */
+  private currentSession() {
+    return {
+      username: this.currentUsername,
+      role: this.role,
+      token: this.token,
+      saveVerifiedImages: this.saveVerifiedImages,
+      moodleStructureInd: this.moodleStructureInd,
+    };
+  }
+
+  /** Drop what belongs to the user being left: the offline pdfs, the socket rooms. */
+  private leaveUser() {
+    db.clearAll().catch((error) => console.error('offline database not cleared', error));
+    this.loggedOut$.next();
+  }
+
+  /** Every user and their role (admins only). */
+  listUsers() {
+    return this.http.get(SERVER_URL + 'users/all');
+  }
+
+  /** Become ``username`` (admins only), with every right they have.
+   *
+   *  The admin's own session is kept aside until stopImpersonating(); when
+   *  already someone else, the borrowed session is dropped and the admin's
+   *  is still the one kept. */
+  async impersonate(username: string) {
+    const formdata: FormData = new FormData();
+    this.addTokens(formdata);
+    formdata.append('username', username);
+    const resp = await this.http.post(SERVER_URL + 'users/impersonate', formdata).toPromise();
+    const borrowed = this.impersonatedBy ? this.token : undefined;
+    if (!this.impersonatedBy) {
+      localStorage.setItem('admin_session', JSON.stringify(this.currentSession()));
+    }
+    if (borrowed) {
+      this.dropToken(borrowed);
+    }
+    this.leaveUser();
+    this.setSession(resp['response']);
+    if (!this.impersonatedBy) {
+      // back to the admin who started: nothing left to return to
+      localStorage.removeItem('admin_session');
+    }
+  }
+
+  /** Back to the admin's own session; the borrowed token is deleted. */
+  stopImpersonating() {
+    const saved = localStorage.getItem('admin_session');
+    if (!this.impersonatedBy || !saved) {
+      return;
+    }
+    this.dropToken(this.token);
+    this.leaveUser();
+    this.setSession(JSON.parse(saved));
+    localStorage.removeItem('admin_session');
+  }
+
+  /** Delete a login token on the server, whatever the current session is. */
+  private dropToken(token: string) {
+    this.http.post(SERVER_URL + 'users/logout', new FormData(), {
+      headers: { Authorization: `Bearer ${token}` },
+    }).subscribe({ error: (error) => console.warn('token not deleted', error) });
   }
 
   logout() {
+    if (this.impersonatedBy) {
+      // nobody returns to a borrowed session once logged out
+      this.dropToken(this.token);
+    }
     localStorage.clear();
     this.token = undefined;
     this.currentUsername = undefined;
     this.role = undefined;
+    this.impersonatedBy = undefined;
     this.clearShareToken();
     // the student pdfs kept for offline correction are the previous user's
     db.clearAll().catch((error) => console.error('offline database not cleared', error));

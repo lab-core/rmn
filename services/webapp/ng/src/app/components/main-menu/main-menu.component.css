@@ -119,3 +119,10 @@
     font-size: 15px;
 
 }
+
+/* a session opened in a user's place: the way back stands out */
+.buttons-container > .stop-impersonating > mat-icon,
+.buttons-container > .stop-impersonating > span {
+    color: #b00020;
+    font-weight: bold;
+}

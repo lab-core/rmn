@@ -1,0 +1,46 @@
+.container{
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    text-align: center;
+    align-items: center;
+}
+h1{
+    text-align: center;
+    text-decoration: underline;
+}
+
+.input{
+    width: 100%;
+    padding: 2.25%;
+}
+.input mat-form-field{
+    width: 65%;
+}
+mat-icon {
+    cursor: pointer;
+}
+.button-div{
+    width: 100%;
+    padding: 1%;
+}
+.button{
+    padding: 3%;
+    border-radius: 10px;
+    font-weight: 300;
+    width: 50%;
+    color:white;
+    font-size: 185%;
+    transition: 0.3s;
+
+
+    box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
+    -moz-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52 0.7);
+    -webkit-box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
+    -o-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
+    -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
+}

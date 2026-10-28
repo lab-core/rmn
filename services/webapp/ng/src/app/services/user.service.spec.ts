@@ -172,6 +172,108 @@ describe('UserService', () => {
     req.flush({ response: 'Utilisateur Créé' });
   });
 
+  const adminSession = () => {
+    localStorage.setItem('user_id', 'root');
+    localStorage.setItem('role', 'Administrateur');
+    localStorage.setItem('token', 'admin-tok');
+    // switching user empties the offline copies: keep the real database out of it
+    spyOn(db, 'clearAll').and.resolveTo();
+  };
+  const borrowed = (username: string, token: string) => ({ response: {
+    username, role: 'Utilisateur', token, saveVerifiedImages: false,
+    moodleStructureInd: true, impersonatedBy: 'root',
+  } });
+
+  it('impersonate becomes the user and stopImpersonating comes back', async () => {
+    adminSession();
+    const service = fresh();
+    let left = 0;
+    service.loggedOut$.subscribe(() => left++);
+
+    const pending = service.impersonate('alice');
+    const req = http.expectOne('/api/users/impersonate');
+    expect((req.request.body as FormData).get('user_id')).toBe('root');
+    expect((req.request.body as FormData).get('username')).toBe('alice');
+    req.flush(borrowed('alice', 'alice-tok'));
+    await pending;
+
+    expect(service.currentUsername).toBe('alice');
+    expect(service.role).toBe('Utilisateur');
+    expect(service.impersonatedBy).toBe('root');
+    expect(service.authHeader()).toBe('Bearer alice-tok');
+    expect(left).toBe(1);
+    // a reload keeps both sessions
+    const reloaded = fresh();
+    expect(reloaded.currentUsername).toBe('alice');
+    expect(reloaded.impersonatedBy).toBe('root');
+
+    service.stopImpersonating();
+    const drop = http.expectOne('/api/users/logout');
+    expect(drop.request.headers.get('Authorization')).toBe('Bearer alice-tok');
+    drop.flush({ response: 'OK' });
+    expect(service.currentUsername).toBe('root');
+    expect(service.role).toBe('Administrateur');
+    expect(service.impersonatedBy).toBeUndefined();
+    expect(service.authHeader()).toBe('Bearer admin-tok');
+    expect(localStorage.getItem('admin_session')).toBeNull();
+    expect(localStorage.getItem('impersonated_by')).toBeNull();
+    expect(left).toBe(2);
+  });
+
+  it('impersonating again drops the borrowed session but keeps the admin one', async () => {
+    adminSession();
+    const service = fresh();
+    let pending = service.impersonate('alice');
+    http.expectOne('/api/users/impersonate').flush(borrowed('alice', 'alice-tok'));
+    await pending;
+
+    pending = service.impersonate('bob');
+    http.expectOne('/api/users/impersonate').flush(borrowed('bob', 'bob-tok'));
+    await pending;
+    const drop = http.expectOne('/api/users/logout');
+    expect(drop.request.headers.get('Authorization')).toBe('Bearer alice-tok');
+    drop.flush({ response: 'OK' });
+    expect(service.currentUsername).toBe('bob');
+
+    service.stopImpersonating();
+    http.expectOne('/api/users/logout').flush({ response: 'OK' });
+    expect(service.currentUsername).toBe('root');
+  });
+
+  it('a refused impersonation leaves the session alone', async () => {
+    adminSession();
+    const service = fresh();
+    const pending = service.impersonate('nobody');
+    http.expectOne('/api/users/impersonate').flush(
+      { response: 'Error: user nobody does not exist.' }, { status: 404, statusText: 'Not Found' });
+    await expectAsync(pending).toBeRejected();
+    expect(service.currentUsername).toBe('root');
+    expect(localStorage.getItem('admin_session')).toBeNull();
+  });
+
+  it('logging out of a borrowed session deletes its token', async () => {
+    adminSession();
+    const service = fresh();
+    const pending = service.impersonate('alice');
+    http.expectOne('/api/users/impersonate').flush(borrowed('alice', 'alice-tok'));
+    await pending;
+
+    service.logout();
+    const drop = http.expectOne('/api/users/logout');
+    expect(drop.request.headers.get('Authorization')).toBe('Bearer alice-tok');
+    drop.flush({ response: 'OK' });
+    expect(service.impersonatedBy).toBeUndefined();
+    expect(localStorage.getItem('admin_session')).toBeNull();
+  });
+
+  it('listUsers asks the server', () => {
+    adminSession();
+    fresh().listUsers().subscribe();
+    const req = http.expectOne('/api/users/all');
+    expect(req.request.method).toBe('GET');
+    req.flush({ response: [] });
+  });
+
   it('logout ends the whole session: storage, share token, offline copies, and tells the others', async () => {
     session();
     localStorage.setItem('newTask', 'roster');

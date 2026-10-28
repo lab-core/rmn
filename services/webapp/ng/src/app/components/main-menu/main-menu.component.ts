@@ -22,6 +22,22 @@ export class MainMenuComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {}
 
+  /** The admin behind this session, when it was opened in a user's place. */
+  get impersonatedBy(): string | undefined {
+    return this.userService.impersonatedBy;
+  }
+
+  get currentUsername(): string {
+    return this.userService.currentUsername;
+  }
+
+  stopImpersonating(): void {
+    const admin = this.userService.impersonatedBy;
+    this.userService.stopImpersonating();
+    this.router.navigate(['/user-profile']);
+    this.notificationService.showInfo("", `De retour en tant que ${admin}`)
+  }
+
   disconnect(): void {
     this.userService.logout()
     this.router.navigate(['/login']);
