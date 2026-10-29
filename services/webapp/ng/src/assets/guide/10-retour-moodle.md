@@ -11,7 +11,7 @@ Retournez dans le devoir Moodle → **Consulter tous les travaux remis**. Les de
 
 Moodle associe chaque ligne à un étudiant par la colonne `Identifiant` et lit la colonne `Note`. Les colonnes Q1, Q2… ajoutées par rmn sont ignorées par Moodle, mais restent utiles dans vos archives.
 
-> **Étudiants sans copie** : rmn leur met la note **0** (leurs colonnes Q1, Q2… restent vides). Si une absence est justifiée, supprimez la ligne de l'étudiant du `notes.csv` avant l'import, ou corrigez sa note dans Moodle après.
+> **Étudiants sans copie** : leur note reste vide dans `notes.csv`, et l'import ne la touche pas. Saisissez directement dans Moodle la note d'une absence non justifiée (0, par exemple).
 
 ## Déposer les copies corrigées
 

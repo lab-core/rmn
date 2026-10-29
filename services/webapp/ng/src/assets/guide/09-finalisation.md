@@ -22,7 +22,7 @@ Sur la tâche archivée : **Télécharger copies**.
 | Fichier | Contenu | Usage |
 |---------|---------|-------|
 | `moodle.zip` (et `moodle-2.zip`… au-delà de 500 Mo) | un dossier par étudiant, au format attendu par Moodle, avec sa copie corrigée (et ses statistiques, `…_notes.pdf`) | [déposer dans le devoir](10-retour-moodle.md#déposer-les-copies-corrigées) |
-| `notes.csv` | le formulaire d'évaluation rempli ; un étudiant sans copie y reçoit 0 | [importer dans le devoir](10-retour-moodle.md#importer-les-notes) |
+| `notes.csv` | le formulaire d'évaluation rempli ; la note d'un étudiant sans copie reste vide | [importer dans le devoir](10-retour-moodle.md#importer-les-notes) |
 | `copies.zip` | toutes les copies corrigées, triées par groupe s'il y en a | vos archives |
 | `stats.pdf` | les statistiques de l'examen | vos archives, ou à publier |
 
