@@ -2,7 +2,8 @@ import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 
 
-/** Shows the message the executor stored in job_infos when a task failed. */
+/** Shows the message the executor stored in job_infos when a task failed,
+ *  or another list of messages about a task under its own ``title``. */
 @Component({
     selector: 'app-error-info-dialog',
     templateUrl: './error-info-dialog.component.html',
@@ -14,7 +15,7 @@ export class ErrorInfoDialogComponent {
   messages: string[];
 
   // job_infos is a string, or the list of per-copy errors of an import
-  constructor(@Inject(MAT_DIALOG_DATA) public data: {taskName: string, infos: string | string[]}) {
+  constructor(@Inject(MAT_DIALOG_DATA) public data: {taskName: string, infos: string | string[], title?: string}) {
     this.messages = Array.isArray(data.infos) ? data.infos : [data.infos];
   }
 }

@@ -16,7 +16,13 @@ import pymupdf
 import pytest
 
 from process_copy import add_grades as module
-from process_copy.annotate import add_grades
+from process_copy.annotate import (
+    BOX_FROM_TEMPLATE,
+    RULES,
+    TEMPLATE_POSITION,
+    WRITTEN,
+    add_grades,
+)
 from process_copy.contours import template_grade_layout
 from process_copy.database import Database
 from tests.test_grade_boxes import AT, BOX, GRADES, column_table, page_with
@@ -74,20 +80,21 @@ def test_the_grades_are_written_in_the_grade_boxes_of_a_moved_copy(
     out = tmp_path / "graded.pdf"
 
     numbers = [1, 2, 3, 4, 0, 10]
-    assert add_grades(numbers, pdf, BOX, str(out), shape=(2550, 3300), layout=layout)
+    placed = add_grades(numbers, pdf, BOX, str(out), shape=(2550, 3300), layout=layout)
 
+    assert placed == WRITTEN
     written = red_centres(str(out))
     assert len(written) == len(numbers)
     # each grade in its box, not in the maximums 210 px to the right
     assert np.abs(written - grade_cells(dx, dy)).max() <= 40
 
 
-def test_a_copy_whose_boxes_are_not_certain_gets_no_grade(
+def test_a_copy_whose_boxes_are_not_certain_has_its_grades_where_the_template_has_them(
     tmp_path: Path, layout: dict
 ) -> None:
     """Four columns as wide as the grades and no narrower label column: the
-    grade and maximum columns of the template fit it in three places, and no
-    column is better than the wrong one."""
+    grade and maximum columns of the template fit it in three places. The
+    grades go where the template has its boxes, and the copy is flagged."""
     copy = np.full((1100, 1000), 255, np.uint8)
     xs = [40, 250, 460, 670, 880]
     for x in xs:
@@ -97,10 +104,11 @@ def test_a_copy_whose_boxes_are_not_certain_gets_no_grade(
     pdf = pdf_of(page_with(copy, -150)[0], tmp_path / "copy.pdf")
     out = tmp_path / "graded.pdf"
 
-    assert not add_grades(
-        [1] * 6, pdf, BOX, str(out), shape=(2550, 3300), layout=layout
-    )
-    assert not out.exists()
+    placed = add_grades([1] * 6, pdf, BOX, str(out), shape=(2550, 3300), layout=layout)
+
+    assert placed == TEMPLATE_POSITION
+    # the boxes of the template, not moved with the copy
+    assert np.abs(red_centres(str(out)) - grade_cells()).max() <= 40
 
 
 def test_an_older_template_gets_its_layout_when_its_job_is_finalized(
@@ -156,3 +164,30 @@ def test_a_copy_printed_smaller_or_larger_gets_its_grades_in_its_boxes(
     # the boxes of the scaled table, from its top left corner
     cells = (grade_cells() - np.array(AT)) * scale + np.array(AT) + np.array([-57, 10])
     assert np.abs(red_centres(str(out)) - cells).max() <= 40
+
+
+def test_a_box_put_back_from_the_template_flags_the_copy(
+    tmp_path: Path, layout: dict
+) -> None:
+    copy, cells = column_table(GRADES, maximums_width=210)
+    # a grade written over the lines of the third box
+    x, y, w, h = cells[2]
+    cv2.rectangle(copy, (x - 10, y + 10), (x + w + 10, y + h - 10), 0, -1)
+    pdf = pdf_of(page_with(copy, 20, -30)[0], tmp_path / "copy.pdf")
+    out = tmp_path / "graded.pdf"
+
+    placed = add_grades([1] * 6, pdf, BOX, str(out), shape=(2550, 3300), layout=layout)
+
+    assert placed == BOX_FROM_TEMPLATE
+    assert np.abs(red_centres(str(out)) - grade_cells(20, -30)).max() <= 40
+
+
+def test_grades_placed_without_a_layout_flag_the_copy(tmp_path: Path) -> None:
+    copy, _ = column_table(GRADES)
+    pdf = pdf_of(page_with(copy)[0], tmp_path / "copy.pdf")
+
+    placed = add_grades(
+        [1] * 6, pdf, BOX, str(tmp_path / "out.pdf"), shape=(2550, 3300)
+    )
+
+    assert placed == RULES

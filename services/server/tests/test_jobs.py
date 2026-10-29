@@ -44,6 +44,34 @@ def test_jobs_lists_the_callers_jobs_and_requeues_dead_runs(
     assert _queue(app_module_fixture) == [{"job_id": "j-dead"}]
 
 
+def test_jobs_list_the_cover_pages_the_grader_should_look_at(
+    client, user_factory, job_factory, login, app_module_fixture
+):
+    user_factory("alice")
+    token = login("alice")
+    job_factory("j1", "alice", status="ARCHIVED", queued_time=_now())
+    job_factory("j2", "alice", status="ARCHIVED", queued_time=_now())
+    docs = app_module_fixture.mongo["RMN"]["job_documents"]
+    docs.insert_many([
+        {"job_id": "j1", "document_index": 3, "filename": "c.pdf", "matricule": "2000003",
+         "cover_check": "not_written"},
+        {"job_id": "j1", "document_index": 1, "filename": "a.pdf", "matricule": "2000001",
+         "cover_check": "template_position"},
+        {"job_id": "j1", "document_index": 2, "filename": "b.pdf", "matricule": "2000002"},
+    ])
+
+    resp = client.post("/jobs", data=_auth(token))
+
+    jobs = {j["job_id"]: j for j in resp.get_json(force=True)["response"]}
+    assert jobs["j1"]["cover_checks"] == [
+        {"document_index": 1, "filename": "a.pdf", "matricule": "2000001",
+         "check": "template_position"},
+        {"document_index": 3, "filename": "c.pdf", "matricule": "2000003",
+         "check": "not_written"},
+    ]
+    assert jobs["j2"]["cover_checks"] == []
+
+
 def test_job_returns_the_full_record_to_its_owner(client, user_factory, job_factory, login):
     user_factory("alice")
     token = login("alice")

@@ -143,6 +143,30 @@ def test_a_graded_page_of_an_earlier_run_does_not_outlive_its_grades(
     assert not stale.exists()
 
 
+def test_each_copy_records_whether_the_grader_should_look_at_its_cover_page(
+        mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
+    from process_copy.annotate import NOT_WRITTEN, TEMPLATE_POSITION, WRITTEN
+
+    job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a", "b", "c"))
+    # written before, flagged: written now, the flag must go
+    mongo_db["job_documents"].update_one({"document_index": 0}, {"$set": {"cover_check": "rules"}})
+    placed = {"a": WRITTEN, "b": TEMPLATE_POSITION, "c": None}
+
+    def overlay(grades, pdf_path, box, out_path, add_border, shape, layout=None):
+        name = os.path.basename(pdf_path).split("_")[0]
+        if placed[name]:
+            _page_written(out_path)
+        return placed[name]
+
+    monkeypatch.setattr(module, "add_grades", overlay)
+
+    failed = module.process_writing(job, tmp_path, dpi=72, batches=InlineBatches())
+
+    assert failed == [2]
+    checks = {d["document_index"]: d.get("cover_check") for d in mongo_db["job_documents"].find()}
+    assert checks == {0: None, 1: TEMPLATE_POSITION, 2: NOT_WRITTEN}
+
+
 def test_the_copies_are_written_in_batches_the_memory_guard_closes(
         mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
     # one process writing every copy grew out of the container and was
@@ -230,7 +254,7 @@ def test_add_grades_writes_nothing_when_the_boxes_are_not_found(tmp_path, pdf_fa
     ok = recognize.add_grades(
         [1, 2], str(pdf), (0.82, 0.96, 0.15, 0.55), str(out_path), add_border=False, shape=(1275, 1650)
     )
-    assert ok is False
+    assert ok is None
     assert not out_path.exists()
 
 

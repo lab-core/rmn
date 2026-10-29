@@ -225,6 +225,12 @@ mat-progress-spinner {
     vertical-align: middle;
 }
 
+/* copies whose graded cover page the grader should look at */
+.cover-checks-button {
+  color: #e65100;
+  margin-top: 4px;
+}
+
 /* the grade reader is working on this task */
 .reading-running {
   font-size: 13px;
