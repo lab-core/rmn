@@ -60,7 +60,7 @@ describe('AdminPageComponent', () => {
     admin = jasmine.createSpyObj<AdminService>('AdminService', [
       'resetPassword', 'setRole', 'setManagers', 'closeSessions', 'deleteUser',
       'status', 'settings', 'setSaveVerifiedImages', 'storageSweep', 'deleteJobs', 'deleteTokens',
-      'digitBank', 'runDigitModel', 'activateDigitModel',
+      'digitBank', 'runDigitModel', 'activateDigitModel', 'deleteDigitModelRun',
     ]);
     admin.digitBank.and.returnValue(of({ response: overview() }));
     notification = notificationSpy();
@@ -272,11 +272,13 @@ describe('AdminPageComponent', () => {
     create('Administrateur');
     admin.status.and.returnValue(of({ response: { queue: 0 } }));
     admin.settings.and.returnValue(of({ response: { saveVerifiedImages: true } }));
+    const measured = { test: scores(18, 20), bank: scores(95, 100), mnist: scores(990, 1000), model: null };
     admin.digitBank.and.returnValue(of({ response: overview({
+      evaluation: { run_id: 'e1', action: 'evaluate', finished: '2026-10-29T10:05:00+00:00', scores: measured },
       runs: [{
         run_id: 'e1', action: 'evaluate', status: 'DONE', requested_by: 'root', model: null,
         created: '2026-10-29T10:00:00+00:00', finished: '2026-10-29T10:05:00+00:00',
-        results: { model: { test: scores(18, 20), bank: scores(95, 100), mnist: scores(990, 1000), model: null } },
+        results: { model: measured },
       }],
     }) }));
     component.showView('system');
@@ -361,11 +363,21 @@ describe('AdminPageComponent', () => {
     expect(runRow).toContain('contre 85,0 %');
     expect(fixture.nativeElement.querySelector('.runs .better')).not.toBeNull();
 
+    expect(fixture.nativeElement.querySelector('.model-card').textContent).toContain('pas encore été évalué');
+
     const active = { run_id: 't1', activated_at: '2026-10-29T10:30:00+00:00', activated_by: 'root' };
-    admin.activateDigitModel.and.returnValue(of({ response: overview({ runs: [trained], active }) }));
+    // never evaluated since: the training that wrote it measured it
+    const evaluation = {
+      run_id: 't1', action: 'train' as const, finished: trained.finished,
+      scores: { ...trained.results.candidate, model: 't1' },
+    };
+    admin.activateDigitModel.and.returnValue(of({ response: overview({ runs: [trained], active, evaluation }) }));
     await component.activateDigitModel(trained);
     expect(admin.activateDigitModel).toHaveBeenCalledWith('t1');
     fixture.detectChanges();
+    const modelTiles = Array.from(fixture.nativeElement.querySelectorAll('.model-card .tiles .value')).map((e: any) => e.textContent);
+    expect(modelTiles).toEqual(['95,0 %', '99,0 %', '98,5 %']);
+    expect(fixture.nativeElement.querySelector('.model-card').textContent).toContain('par un entraînement, par chiffre sur la partie test');
     expect(fixture.nativeElement.querySelector('.in-service')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.activate')).toBeNull();
 
@@ -433,5 +445,39 @@ describe('AdminPageComponent', () => {
     expect(component.formatBytes(0)).toBe('0 o');
     expect(component.formatBytes(512)).toBe('512 o');
     expect(component.formatBytes(1536 * 1024)).toBe('1.5 Mo');
+  });
+
+  it('deletes a finished run, never the model in use nor a run going on', async () => {
+    create('Administrateur');
+    admin.status.and.returnValue(of({ response: { queue: 0 } }));
+    admin.settings.and.returnValue(of({ response: { saveVerifiedImages: true } }));
+    const base = { requested_by: 'root', created: '2026-10-29T10:00:00+00:00', finished: '2026-10-29T10:20:00+00:00' };
+    const inUse = { ...base, run_id: 't1', action: 'train' as const, status: 'DONE' };
+    const failed = { ...base, run_id: 'e1', action: 'evaluate' as const, status: 'ERROR', error: 'boom' };
+    const active = { run_id: 't1', activated_at: '2026-10-29T10:30:00+00:00', activated_by: 'root' };
+    admin.digitBank.and.returnValue(of({ response: overview({ runs: [failed, inUse], active }) }));
+    component.showView('system');
+    fixture.detectChanges();
+    const page: HTMLElement = fixture.nativeElement;
+
+    component.toggleRun(inUse);
+    fixture.detectChanges();
+    expect(page.querySelector('.delete-run')).toBeNull();
+
+    component.toggleRun(failed);
+    fixture.detectChanges();
+    admin.deleteDigitModelRun.and.returnValue(of({ response: overview({ runs: [inUse], active }) }));
+    confirmed = false;
+    (page.querySelector('.delete-run') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(admin.deleteDigitModelRun).not.toHaveBeenCalled();
+
+    confirmed = true;
+    await component.deleteDigitModelRun(failed);
+    expect(admin.deleteDigitModelRun).toHaveBeenCalledWith('e1');
+    expect(component.selectedRunId).toBeUndefined();
+    expect(component.digitBank!.runs.map(r => r.run_id)).toEqual(['t1']);
+
+    expect(component.isFinished({ ...failed, status: 'RUNNING' })).toBeFalse();
   });
 });

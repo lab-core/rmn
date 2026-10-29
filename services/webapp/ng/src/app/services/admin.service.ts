@@ -80,9 +80,19 @@ export interface ActiveModel {
   activated_by: string;
 }
 
+/** The latest scores of the model in use, from an evaluation of it or a training
+ *  that scored it (the one that wrote it, or one compared with it). */
+export interface ModelEvaluation {
+  run_id: string;
+  action: 'train' | 'evaluate';
+  finished: string;
+  scores: ModelScores;
+}
+
 export interface DigitBankOverview {
   bank: DigitBank;
   active: ActiveModel | null;
+  evaluation?: ModelEvaluation | null;
   runs: DigitModelRun[];
 }
 
@@ -158,6 +168,12 @@ export class AdminService {
   activateDigitModel(runId: string) {
     return this.http.post<{ response: DigitBankOverview }>(
       SERVER_URL + 'manage/digit-bank/activate', this.form({ run_id: runId }));
+  }
+
+  /** Forget a finished run; a training's model goes with it (never the one in use). */
+  deleteDigitModelRun(runId: string) {
+    return this.http.post<{ response: DigitBankOverview }>(
+      SERVER_URL + 'manage/digit-bank/delete', this.form({ run_id: runId }));
   }
 
   status() {

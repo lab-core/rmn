@@ -290,7 +290,8 @@
                 }
               </div>
 
-              @if (currentEvaluation?.results?.model; as scores) {
+              @if (overview.evaluation; as evaluation) {
+                @let scores = evaluation.scores;
                 <div class="tiles">
                   <div class="tile"><span class="value">{{score(scores.test)}}</span><span class="label">partie test<br>{{scores.test.n}} chiffres</span></div>
                   <div class="tile"><span class="value">{{score(scores.bank)}}</span><span class="label">toute la banque<br>{{scores.bank.n}} chiffres</span></div>
@@ -303,7 +304,7 @@
                       <td [class.weak]="fair.per_digit[d].n && fair.per_digit[d].correct / fair.per_digit[d].n < 0.9">{{percent(fair.per_digit[d].correct, fair.per_digit[d].n)}}</td>
                     }</tr>
                   </table>
-                  <p class="hint">Évalué le {{formatDate(currentEvaluation?.finished)}}, par chiffre sur {{scores.model ? 'la partie test' : 'toute la banque'}}.</p>
+                  <p class="hint">Mesuré le {{formatDate(evaluation.finished)}} par {{evaluation.action == 'train' ? 'un entraînement' : 'une évaluation'}}, par chiffre sur {{scores.model ? 'la partie test' : 'toute la banque'}}.</p>
                 }
               } @else {
                 <p class="hint">Ce modèle n'a pas encore été évalué sur la banque.</p>
@@ -427,15 +428,22 @@
                       <p class="hint">Par chiffre, par origine et confusions : sur toute la banque pour le modèle d'origine, sur la partie test pour un modèle réentraîné.</p>
                     }
                   }
-                  @if (run.action == 'train' && run.status == 'DONE') {
+                  @if (isFinished(run)) {
                     <div class="buttons">
-                      <app-help-hover key="admin.digit-model-reevaluate">
-                        <button mat-stroked-button class="reevaluate" [disabled]="!!pendingRun" (click)="runDigitModel('evaluate', run.run_id)">
-                          <mat-icon>fact_check</mat-icon> Réévaluer
-                        </button>
-                      </app-help-hover>
                       @if (!isActive(run)) {
-                        <button mat-flat-button color="accent" class="activate-details" [disabled]="!!pendingRun" (click)="activateDigitModel(run)">Activer</button>
+                        <button mat-stroked-button class="delete-run" [disabled]="!!pendingRun" (click)="deleteDigitModelRun(run)">
+                          <mat-icon>delete</mat-icon> Supprimer
+                        </button>
+                      }
+                      @if (run.action == 'train' && run.status == 'DONE') {
+                        <app-help-hover key="admin.digit-model-reevaluate">
+                          <button mat-stroked-button class="reevaluate" [disabled]="!!pendingRun" (click)="runDigitModel('evaluate', run.run_id)">
+                            <mat-icon>fact_check</mat-icon> Réévaluer
+                          </button>
+                        </app-help-hover>
+                        @if (!isActive(run)) {
+                          <button mat-flat-button color="accent" class="activate-details" [disabled]="!!pendingRun" (click)="activateDigitModel(run)">Activer</button>
+                        }
                       }
                     </div>
                   }

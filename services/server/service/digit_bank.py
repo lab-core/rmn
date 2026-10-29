@@ -171,15 +171,58 @@ def runs(collection, limit=RUNS_SHOWN):
     return rows
 
 
+def latest_scores(collection, model):
+    """The latest scores of ``model``, whichever run measured them.
+
+    An evaluation scores one model; a training scores two, the one it wrote
+    and the one then in use. So a model just activated already has scores:
+    those of the training that wrote it.
+
+    Args:
+        model: A training run id, or None for the shipped model.
+
+    Returns:
+        ``{"run_id", "action", "finished", "scores"}`` with ``scores`` as in a
+        run's results (``model`` set), or None when no run scored ``model``.
+    """
+    query = {
+        "status": Status.DONE.value,
+        "$or": [
+            {"action": digit_models.EVALUATE, "model": model},
+            {"action": digit_models.TRAIN, "results.current.model": model},
+        ],
+    }
+    if model:
+        query["$or"].append({"action": digit_models.TRAIN, "run_id": model})
+    for row in collection.find(query, {"_id": 0}).sort("finished", -1).limit(1):
+        results = row.get("results") or {}
+        if row["action"] == digit_models.EVALUATE:
+            scores = results.get("model")
+        elif model and row["run_id"] == model:
+            scores = results.get("candidate")
+        else:
+            scores = results.get("current")
+        if scores:
+            return {
+                "run_id": row["run_id"],
+                "action": row["action"],
+                "finished": _iso(row.get("finished")),
+                "scores": dict(scores, model=model),
+            }
+    return None
+
+
 def overview(db, storage):
     """Everything the admin page shows of the bank and the model."""
     active = digit_models.active_model(storage)
     if active is not None:
         active.pop("path")
+    collection = db[digit_models.COLLECTION]
     return {
         "bank": bank_summary(storage),
         "active": active,
-        "runs": runs(db[digit_models.COLLECTION]),
+        "evaluation": latest_scores(collection, active and active["run_id"]),
+        "runs": runs(collection),
     }
 
 
@@ -247,3 +290,26 @@ def activate(db, storage, run_id, user_id):
     if run_id and not _finished_training(db[digit_models.COLLECTION], run_id):
         raise ValueError("Seul un entraînement terminé peut être activé.")
     digit_models.set_active_model(storage, run_id or None, user_id)
+
+
+def delete_run(db, storage, run_id):
+    """Forget a finished run; a training's model goes with it.
+
+    Raises:
+        ValueError: With the reason, when the run is unknown, not over, or
+            wrote the model in use.
+    """
+    collection = db[digit_models.COLLECTION]
+    row = collection.find_one({"run_id": run_id}) if run_id else None
+    if row is None:
+        raise ValueError("Cette demande n'existe pas.")
+    if row.get("status") in UNFINISHED:
+        raise ValueError("Une demande en cours ne peut pas être supprimée.")
+    if row.get("action") == digit_models.TRAIN:
+        active = digit_models.active_model(storage)
+        if active is not None and active["run_id"] == run_id:
+            raise ValueError(
+                "Ce modèle est en service : activez-en un autre avant de le supprimer."
+            )
+        storage.remove_tree(os.path.dirname(digit_models.model_path(run_id)))
+    collection.delete_one({"run_id": run_id})

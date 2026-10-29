@@ -249,13 +249,6 @@ export class AdminPageComponent implements OnInit, OnDestroy {
       r.status == DigitModelStatus.QUEUED || r.status == DigitModelStatus.RUNNING);
   }
 
-  /** The latest finished evaluation of the model in use. */
-  get currentEvaluation(): DigitModelRun | undefined {
-    const active = this.digitBank?.active?.run_id ?? null;
-    return this.digitBank?.runs.find(r =>
-      r.action == 'evaluate' && r.status == DigitModelStatus.DONE && (r.model ?? null) == active);
-  }
-
   /** The digits a model's per-digit scores are given on: the whole bank for the
    *  shipped model, which never saw it, the test part for a retrained one. */
   fairScores(scores: ModelScores | undefined): DigitScores | undefined {
@@ -336,6 +329,30 @@ export class AdminPageComponent implements OnInit, OnDestroy {
       action == 'train' ? 'Entraînement demandé' : 'Évaluation demandée', false);
     if (resp) {
       this.loadDigitBank();
+    }
+  }
+
+  isFinished(run: DigitModelRun): boolean {
+    return run.status == DigitModelStatus.DONE || run.status == DigitModelStatus.ERROR;
+  }
+
+  async deleteDigitModelRun(run: DigitModelRun) {
+    const training = run.action == 'train';
+    if (!await this.confirm({
+      title: training ? 'Supprimer cet entraînement' : 'Supprimer cette évaluation',
+      message: training
+        ? 'L\'entraînement et le modèle qu\'il a produit sont supprimés ; ses évaluations restent dans la liste.'
+        : 'L\'évaluation est retirée de la liste.',
+      confirm: 'Supprimer',
+      danger: true,
+    })) {
+      return;
+    }
+    const resp = await this.run(this.adminService.deleteDigitModelRun(run.run_id),
+      training ? 'Entraînement supprimé' : 'Évaluation supprimée', false);
+    if (resp) {
+      this.selectedRunId = undefined;
+      this.showDigitBank(resp.response);
     }
   }
 

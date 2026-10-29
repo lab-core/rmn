@@ -211,7 +211,11 @@ def test_an_admin_s_only(client, user_factory, login):
     user_factory("chef", role=MANAGER)
     token = login("chef")
     assert client.get("/manage/digit-bank", headers=_auth(token)).status_code == 403
-    for path, data in (("run", {"action": "train"}), ("activate", {"run_id": ""})):
+    for path, data in (
+        ("run", {"action": "train"}),
+        ("activate", {"run_id": ""}),
+        ("delete", {"run_id": RUN}),
+    ):
         resp = client.post(
             f"/manage/digit-bank/{path}",
             data={"user_id": "chef", **data},
@@ -239,3 +243,101 @@ def test_an_evaluation_can_target_a_finished_training(client, admin, db):
     collection.update_one({"target": RUN}, {"$set": {"status": "DONE"}})
     resp = _post(client, "/manage/digit-bank/run", admin, action="train", target=RUN)
     assert resp.status_code == 400
+
+
+def _scored(test):
+    return {"test": {"correct": test}, "bank": {}, "mnist": {}}
+
+
+def test_the_model_in_use_has_the_scores_of_its_latest_run(
+    client, admin, db, storage_root
+):
+    collection = db[digit_models.COLLECTION]
+    day = dt.datetime(2026, 10, 29, tzinfo=dt.UTC)
+    collection.insert_many(
+        [
+            {
+                "run_id": "e" * 32,
+                "action": "evaluate",
+                "status": "DONE",
+                "model": None,
+                "finished": day,
+                "results": {"model": dict(_scored(1), model=None)},
+            },
+            {
+                "run_id": RUN,
+                "action": "train",
+                "status": "DONE",
+                "finished": day + dt.timedelta(hours=1),
+                "results": {
+                    "candidate": dict(_scored(2), model=RUN),
+                    "current": dict(_scored(3), model=None),
+                },
+            },
+        ]
+    )
+    # the shipped model: the training scored it after the evaluation did
+    evaluation = _get(client, admin)["evaluation"]
+    assert evaluation["run_id"] == RUN and evaluation["scores"]["test"]["correct"] == 3
+
+    # just activated, never evaluated: the training that wrote it scored it
+    model = storage_root / digit_models.model_path(RUN)
+    model.parent.mkdir(parents=True)
+    model.write_bytes(b"tflite")
+    _post(client, "/manage/digit-bank/activate", admin, run_id=RUN)
+    evaluation = _get(client, admin)["evaluation"]
+    assert evaluation["scores"]["test"]["correct"] == 2
+    assert evaluation["scores"]["model"] == RUN
+
+    collection.insert_one(
+        {
+            "run_id": "f" * 32,
+            "action": "evaluate",
+            "status": "DONE",
+            "model": RUN,
+            "finished": day + dt.timedelta(hours=2),
+            "results": {"model": _scored(4)},
+        }
+    )
+    evaluation = _get(client, admin)["evaluation"]
+    assert evaluation["run_id"] == "f" * 32
+    assert evaluation["scores"] == dict(_scored(4), model=RUN)
+
+
+def test_a_finished_run_is_deleted_with_its_model_unless_in_use(
+    client, admin, db, storage_root
+):
+    collection = db[digit_models.COLLECTION]
+    collection.insert_many(
+        [
+            {"run_id": RUN, "action": "train", "status": "DONE"},
+            {"run_id": "e" * 32, "action": "evaluate", "status": "ERROR"},
+            {
+                "run_id": "f" * 32,
+                "action": "evaluate",
+                "status": "RUNNING",
+                "alive_time": dt.datetime.now(dt.UTC),
+            },
+        ]
+    )
+    model = storage_root / digit_models.model_path(RUN)
+    model.parent.mkdir(parents=True)
+    model.write_bytes(b"tflite")
+
+    def delete(run_id):
+        return _post(client, "/manage/digit-bank/delete", admin, run_id=run_id)
+
+    _post(client, "/manage/digit-bank/activate", admin, run_id=RUN)
+    resp = delete(RUN)
+    assert resp.status_code == 400 and "en service" in resp.get_json()["response"]
+    assert delete("f" * 32).status_code == 400, "still running"
+    assert delete("0" * 32).status_code == 400, "unknown"
+
+    resp = delete("e" * 32)
+    assert resp.status_code == 200
+    assert [r["run_id"] for r in resp.get_json()["response"]["runs"]] == [RUN, "f" * 32]
+
+    _post(client, "/manage/digit-bank/activate", admin, run_id="")
+    assert delete(RUN).status_code == 200
+    assert not model.parent.exists()
+    assert collection.find_one({"run_id": RUN}) is None
