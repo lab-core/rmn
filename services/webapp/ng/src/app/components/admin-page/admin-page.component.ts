@@ -8,7 +8,6 @@ import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { UserRole } from '../../generated/rmn-contracts';
 import { CreateUserDialogComponent } from '../create-user-dialog/create-user-dialog.component';
-import { ImpersonateDialogComponent } from '../impersonate-dialog/impersonate-dialog.component';
 import { TemporaryPasswordDialogComponent } from '../temporary-password-dialog/temporary-password-dialog.component';
 import { ConfirmData, ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
@@ -121,14 +120,6 @@ export class AdminPageComponent implements OnInit {
       maxWidth: '600px',
     });
     dialogRef.afterClosed().subscribe(() => this.loadUsers());
-  }
-
-  /** Pick any account in a list and continue as that user (the row button does the same for one row). */
-  openImpersonateDialog() {
-    this.dialog.open(ImpersonateDialogComponent, {
-      width: '80%',
-      maxWidth: '500px',
-    });
   }
 
   async resetPassword(row: ManagedUser) {
