@@ -279,3 +279,46 @@ def test_the_matricule_of_a_later_page_is_read_from_its_boxes(case, classifier):
         separate_box=True,
     )
     assert found == case["matricule"]
+
+
+class _ReadPages(list):
+    """Pages that remember which ones the reader looked at."""
+
+    def __init__(self, pages):
+        super().__init__(pages)
+        self.read = set()
+
+    def __getitem__(self, i):
+        self.read.add(i)
+        return super().__getitem__(i)
+
+
+def _read_booklet(case, classifier, class_lists):
+    # the same boxes on every page of the booklet, as the job that hit the
+    # executor's deadline had
+    page = page_with(case["file"], SPEC["matricule_box"])
+    pages = _ReadPages([page] * 16)
+    found, _id_box, index = recognize.find_matricule(
+        pages, SPEC["matricule_box"], SPEC["matricule_box"], classifier,
+        class_lists, separate_box=True)
+    return found, index, pages.read
+
+
+def test_a_booklet_whose_cover_is_read_for_sure_stops_at_the_cover(classifier, class_list):
+    case = next(c for c in SPEC["matricules"] if not c.get("known_miss"))
+    found, index, read = _read_booklet(case, classifier, [class_list])
+    assert found == case["matricule"] and index is not None
+    assert read == {0}
+
+
+def test_a_doubtful_cover_sends_the_reader_to_the_next_pages(classifier, class_list):
+    case = next(c for c in SPEC["matricules"] if c.get("known_miss"))
+    _found, _index, read = _read_booklet(case, classifier, [class_list])
+    assert len(read) > 1
+
+
+def test_without_a_class_list_the_cover_is_never_enough(classifier):
+    case = next(c for c in SPEC["matricules"] if not c.get("known_miss"))
+    found, _index, read = _read_booklet(case, classifier, [])
+    assert found == case["matricule"]
+    assert len(read) > 1
