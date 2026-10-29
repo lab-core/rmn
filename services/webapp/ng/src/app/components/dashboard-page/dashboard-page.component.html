@@ -139,10 +139,14 @@
       @if (loggued() && !shared() && !disableButtons) {
 <div class="validate-job-container">
         <div class="checkbox-container">
-          <button class="copies-job-button" mat-raised-button color="primary" (click)="addCopies()">Copies additionnelles</button>
-          <app-help-tip key="dashboard.add-copies"></app-help-tip>
-          <button class="csv-job-button" mat-raised-button color="primary" (click)="updateCsv()">Mettre à jour csv</button>
-          <app-help-tip key="dashboard.update-csv"></app-help-tip>
+          <span class="with-help">
+            <button class="copies-job-button" mat-raised-button color="primary" (click)="addCopies()">Copies additionnelles</button>
+            <app-help-tip key="dashboard.add-copies"></app-help-tip>
+          </span>
+          <span class="with-help">
+            <button class="csv-job-button" mat-raised-button color="primary" (click)="updateCsv()">Mettre à jour csv</button>
+            <app-help-tip key="dashboard.update-csv"></app-help-tip>
+          </span>
           @if (questions.length >0) {
 <label>
               <input type="checkbox" [(ngModel)]="taskStats" (change)="taskStatsChange()" [ngModelOptions]="{standalone: true}">
@@ -154,8 +158,10 @@
               Note 0 aux étudiants sans copie
               <app-help-tip key="dashboard.absent-zero"></app-help-tip>
           </label>
-          <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()" [disabled]="ongoingTask">Finaliser</button>
-          <app-help-tip key="dashboard.finalize"></app-help-tip>
+          <span class="with-help">
+            <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()" [disabled]="ongoingTask">Finaliser</button>
+            <app-help-tip key="dashboard.finalize"></app-help-tip>
+          </span>
         </div>
       </div>
 }
