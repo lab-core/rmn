@@ -81,7 +81,10 @@ def shrink(path: Path, width: int) -> None:
         path: The PNG to rewrite in place.
         width: The largest width to keep.
     """
-    image = Image.open(path).convert("RGB")
+    image = Image.open(path)
+    if image.mode == "P" and image.width <= width:
+        return  # already shrunk: a second pass would only degrade it
+    image = image.convert("RGB")
     if image.width > width:
         height = round(image.height * width / image.width)
         image = image.resize((width, height), Image.LANCZOS)

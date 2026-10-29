@@ -23,10 +23,10 @@ Menu **Template** → **Créer un nouveau template**. Glissez-déposez le PDF de
 
 1. Donnez un **nom** au template.
 2. Choisissez l'outil **Rectangles**.
-3. Cliquez sur **Identification**, puis tracez un rectangle qui englobe toute la rangée de cases du matricule, avec une petite marge.
-4. Pour une page de garde, cliquez sur **Questions**, puis tracez un rectangle qui englobe le tableau des cases de notes.
+3. Cliquez sur **Identification**, puis tracez un rectangle qui englobe exactement la rangée des 7 cases du matricule, avec une petite marge, sans le mot « Matricule » ni les champs voisins.
+4. Pour une page de garde, cliquez sur **Questions**, puis tracez un rectangle autour de la **colonne des cases où s'écrivent les notes**, de la première question jusqu'à la case du total comprise. Laissez dehors les libellés (Q1, Q2…) et les maximums (/9, /8…) : seules les cases de note doivent être dans le rectangle.
 5. **Selection** déplace ou redimensionne un rectangle ; **Supression** l'efface.
-6. **Confirmer** enregistre le template. rmn compte alors les cases de notes trouvées dans le rectangle Questions et affiche le **Nombre de questions** : vérifiez qu'il correspond à votre examen.
+6. **Confirmer** enregistre le template. rmn encadre les cases qu'il a trouvées et affiche le **Nombre de questions** (les cases du rectangle Questions, moins celle du total) : vérifiez qu'il correspond à votre examen. Sinon, ajustez le rectangle et confirmez à nouveau.
 
 > Un template partagé par l'administrateur est en lecture seule (« Ce template est en lecture seule. ») : pour l'adapter, créez un nouveau template à partir du même PDF.
 

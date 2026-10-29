@@ -29,5 +29,3 @@ Les [questions fréquentes](11-faq.md) regroupent les problèmes courants.
 ## Aide dans l'application
 
 Les icônes **?** à côté des champs de rmn résument la section du guide qui les concerne. Survolez une icône pour lire l'aide ; cliquez dessus pour ouvrir cette section dans un nouvel onglet. Le guide complet est aussi accessible par le menu **Guide**.
-
-> Les captures d'écran de ce guide sont faites sur des copies fictives (noms et matricules inventés). Elles se régénèrent avec `tools/docs-capture` (voir son README).

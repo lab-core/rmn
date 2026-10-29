@@ -137,7 +137,7 @@ export const HELP: Record<string, HelpEntry> = {
     chapter: '08-correction', anchor: 'les-couleurs-des-copies',
   },
   'grading.offline': {
-    text: 'Télécharger les copies en PDF pour les annoter ailleurs (tablette…), puis les téléverser : rmn peut lire les notes écrites.',
+    text: 'Tout télécharger : un zip de la question choisie, ou de toutes avec « Tout sélectionner ». Corrigez les PDF ou le csv, puis renvoyez une question ou toutes, dans la même structure.',
     chapter: '08-correction', anchor: 'corriger-hors-ligne',
   },
   'grading.shortcuts': {
@@ -157,7 +157,7 @@ export const HELP: Record<string, HelpEntry> = {
 
   // templates
   'template.zones': {
-    text: 'Identification : un rectangle autour des cases du matricule. Questions : un rectangle autour des cases de notes (une case par question).',
+    text: 'Identification : un rectangle autour des 7 cases du matricule. Questions : un rectangle autour de la seule colonne des cases de note, de Q1 jusqu\'au total, sans les libellés ni les maximums.',
     chapter: '03-template', anchor: 'dessiner-les-zones',
   },
 

@@ -48,11 +48,43 @@ Le tableau de bord signale « N note(s) > max » quand des notes validées dépa
 
 ## Corriger hors ligne
 
-**Gérer mes copies offline** permet de corriger sans connexion ou avec d'autres outils (tablette, logiciel d'annotation) :
+**Gérer mes copies offline** permet de corriger sans connexion ou avec d'autres outils (tablette, logiciel d'annotation).
 
-1. **Tout télécharger** : un zip avec les copies de la question regroupées en PDF (au plus *Nombre max de copies par pdf* par fichier) et un csv des notes.
-2. Annotez les PDF et écrivez-y les notes à la main, ou remplissez le csv.
-3. **Tout téléverser** : redéposez le zip. Avec **Lire les notes annotées sur les copies**, rmn lit les notes écrites ; une note saisie dans le csv l'emporte.
-4. Confirmez ensuite les notes proposées, comme en ligne.
+### Télécharger
+
+**Tout télécharger** produit un zip des copies affichées :
+
+- avec une question choisie dans **Numéro de la question**, le zip ne contient que cette question ;
+- avec **Tout sélectionner**, il contient **toutes les questions d'un coup**, une par dossier.
+
+Dans chaque dossier de question, les copies sont regroupées en PDF (au plus *Nombre max de copies par pdf* par fichier), avec un `notes.csv` des notes (colonnes Fichier, Index, Note) :
+
+```
+Examen.zip
+├── Q1/
+│   ├── Q1.pdf       copies 1 à 40
+│   ├── Q1_1.pdf     copies 41 à 80
+│   └── notes.csv
+└── Q2/
+    ├── Q2.pdf
+    └── notes.csv
+```
+
+Chaque copie porte son numéro (« Copie N ») sur sa première page.
+
+### Corriger
+
+Annotez les PDF et écrivez la note à la main sur la première page de chaque copie, ou remplissez la colonne Note du `notes.csv`. N'ajoutez, ne retirez et ne réordonnez aucune page : rmn redécoupe les PDF en copies selon leur position.
+
+### Téléverser
+
+**Tout téléverser** : déposez un zip qui garde **la même structure qu'au téléchargement**, avec les mêmes noms de fichiers (`Q1.pdf`, `Q1_1.pdf`…, `notes.csv`). Les questions peuvent être renvoyées :
+
+- **une par une** : un zip ne contenant que le dossier `Q1/`, puis plus tard un autre avec `Q2/`… ;
+- **ensemble** : le zip complet, toutes les questions d'un coup.
+
+Pour une question, il faut renvoyer tous ses PDF (`Q1.pdf` et `Q1_1.pdf`) : s'il en manque un au milieu, rmn ne remplace rien plutôt que d'attribuer des pages à la mauvaise copie.
+
+Avec **Lire les notes annotées sur les copies**, rmn lit les notes écrites sur les pages ; une note saisie dans le csv l'emporte. Confirmez ensuite les notes proposées, comme en ligne.
 
 Suite : [9. Finaliser et télécharger](09-finalisation.md).

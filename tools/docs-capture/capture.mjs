@@ -177,15 +177,22 @@ async function templateEditor(page) {
   };
 
   await click(page, page.locator('mat-button-toggle').filter({hasText: 'Rectangles'}), gif);
+  // the rectangles of the default cover page, in PDF points: the 7 boxes of
+  // the matricule, and the column of the grade boxes only (Q1 to the total),
+  // without the labels on its left nor the maximums on its right
   await click(page, page.getByRole('button', {name: 'Identification'}), gif);
-  await drag([234, 199], [387, 225]);
+  await drag([235, 199], [386, 225]);
   await gif.frame(1200);
   await click(page, page.getByRole('button', {name: 'Questions'}), gif);
-  await drag([484, 180], [606, 352]);
-  await settle(page, 2500);  // the server counts the boxes of the rectangle
-  await gif.frame(2500);
+  await drag([521, 175], [579, 366]);
+  await gif.frame(1500);
+  // the server finds the boxes and counts the questions once confirmed
+  await click(page, page.getByRole('button', {name: 'Confirmer'}), gif);
+  await page.getByText(/Nombre de questions: [1-9]/).waitFor({timeout: 120000});
+  await settle(page, 2500);
+  await gif.frame(3500);
   gif.save();
-  // the demo task uses the default templates: this one is not kept
+  // the demo task uses the default templates, not this one
   await page.goto(`${URL}/templates`);
 }
 
