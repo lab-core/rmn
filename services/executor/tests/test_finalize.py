@@ -463,6 +463,36 @@ def test_without_participant_ids_no_moodle_zip_is_made(
     assert len(fake_pdflatex) == 1  # the teacher's stats only
 
 
+def test_without_moodle_the_stats_pages_go_beside_the_copies(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    """No Identifiant column: no Moodle zip, but each student still gets
+    their stats page, in the copies zip next to their copy."""
+    roster = ROSTER.drop(columns=[MF.id])
+    job = _job(mongo_db, storage_root, roster=roster)
+    _split_copies(
+        tmp_path,
+        mongo_db,
+        scanned_copy_factory,
+        {"alice": COPIES["alice"], "carol": COPIES["carol"]},
+    )
+
+    _finalize(job, tmp_path)
+
+    output = mongo_db["jobs_output"].find_one({"job_id": "job"})
+    assert output["zip_id_list"] == ["output_zip/job_all.zip"]
+    assert _zip_names(storage_root / "output_zip" / "job_all.zip") == {
+        "A/Martin_Alice_1111111.pdf",
+        "A/Martin_Alice_1111111_notes.pdf",
+        "B/Tremblay_Carol_3333333.pdf",
+        "B/Tremblay_Carol_3333333_notes.pdf",
+    }
+
+
 def test_csv_values_cannot_escape_the_zip_or_run_as_formulas(
     tmp_path: Path,
     storage_root: Path,
@@ -513,11 +543,14 @@ def test_a_moodle_id_without_digits_leaves_the_copy_out_of_the_moodle_zip_only(
 
     _finalize(job, tmp_path)
 
-    assert "A/Martin_Alice_1111111.pdf" in _zip_names(
-        storage_root / "output_zip" / "job_all.zip"
-    )
+    flat = _zip_names(storage_root / "output_zip" / "job_all.zip")
+    assert "A/Martin_Alice_1111111.pdf" in flat
     moodle = _zip_names(storage_root / "output_zip" / "job_1.zip")
     assert moodle and all(n.startswith("Tremblay Carol_103_3333333") for n in moodle)
+    # alice's stats page goes beside her copy, carol's in her Moodle folder
+    assert "A/Martin_Alice_1111111_notes.pdf" in flat
+    assert not any(n.endswith("3333333_notes.pdf") for n in flat)
+    assert any(n.endswith("3333333_notes.pdf") for n in moodle)
 
 
 def test_a_moodle_id_column_of_plain_numbers_names_the_moodle_folders(

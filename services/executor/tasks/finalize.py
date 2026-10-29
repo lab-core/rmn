@@ -239,11 +239,29 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
                 nom = safe_name
                 prenom = ""
 
+            # the student's stats page, when the task gives one; a failure
+            # leaves the copy without it rather than failing the whole job
+            stats_pdf = None
+            filename = os.path.basename(file).rsplit(".", 1)[0]
+            if statistics_for_students:
+                try:
+                    file_index = filenames.index(filename)
+                    stats_pdf = create_stats_latex(nom_complet, file_index, n_questions,
+                                                   all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER,
+                                                   question_names=question_names)
+                except ValueError:
+                    # file not found
+                    print(f"File {filename} does not correspond to a valid document.")
+                except Exception as e:
+                    print(f"Stats page for {filename} skipped: {e}")
+            stats_name = f"{nom}_{prenom}_{safe_matricule}_notes.pdf"
+
             # the copy for the Moodle feedback zip, in its participant's
-            # folder; without a participant id (no column, no digits) it
-            # stays out of it. str: a column of plain participant numbers is
-            # read as integers, which re.search refuses (as in
-            # mcc.copy_files_for_moodle)
+            # folder with its stats page; without a participant id (no
+            # column, no digits) it stays out of it and its stats page goes
+            # beside it in the copies zip instead. str: a column of plain
+            # participant numbers is read as integers, which re.search
+            # refuses (as in mcc.copy_files_for_moodle)
             identifiant = str(df.at[matricule, MF.id]) if MF.id in df.columns else ""
             m_id = re.search('\\d+', identifiant)
             if not m_id:
@@ -254,27 +272,10 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
                 m_folder = ensure_within(moodle_folder_path.joinpath(folder_name), moodle_folder_path)
                 m_folder.mkdir(exist_ok=True)
                 m_dest = m_folder.joinpath(f"{nom}_{prenom}_{safe_matricule}.pdf")
-
-                # transfer file to folder
                 shutil.copy(str(file), str(m_dest))
-
-                # adding stats file
-                filename = os.path.basename(file).rsplit(".", 1)[0]
-                if statistics_for_students:
-                    try:
-                        file_index = filenames.index(filename)
-                        fpdf = create_stats_latex(nom_complet, file_index, n_questions,
-                                                  all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER,
-                                                  question_names=question_names)
-                        # print("Stats for", nom_complet, "created:", fpdf)
-                        shutil.move(fpdf, m_folder.joinpath(f"{nom}_{prenom}_{safe_matricule}_notes.pdf"))
-                    except ValueError:
-                        # file not found
-                        print(f"File {filename} does not correspond to a valid document.")
-                    except Exception as e:
-                        # the copy ships without its stats page rather
-                        # than failing the whole job
-                        print(f"Stats page for {filename} skipped: {e}")
+                if stats_pdf:
+                    shutil.move(stats_pdf, m_folder.joinpath(stats_name))
+                    stats_pdf = None
 
             # store copy in all copies folder
             copies_path = all_copies_folder_path
@@ -285,6 +286,8 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
                 copies_path.mkdir(exist_ok=True)
             dest = copies_path.joinpath(f"{nom}_{prenom}_{safe_matricule}.pdf")
             shutil.move(str(file), str(dest))
+            if stats_pdf:
+                shutil.move(stats_pdf, copies_path.joinpath(stats_name))
 
             i += 1
             if i % 10 == 0:

@@ -29,9 +29,9 @@ Sur la tâche archivée : **Télécharger copies**.
 
 | Fichier | Contenu | Usage |
 |---------|---------|-------|
-| `moodle.zip` (et `moodle-2.zip`… au-delà de 500 Mo) | un dossier par étudiant, au format attendu par Moodle, avec sa copie corrigée (et ses statistiques, `…_notes.pdf`) | [déposer dans le devoir](10-retour-moodle.md#déposer-les-copies-corrigées) |
+| `moodle.zip` (et `moodle-2.zip`… au-delà de 500 Mo) | un dossier par étudiant, au format attendu par Moodle, avec sa copie corrigée (et ses statistiques, `…_notes.pdf`). Absent si le csv n'a pas d'identifiants Moodle (colonne Identifiant) | [déposer dans le devoir](10-retour-moodle.md#déposer-les-copies-corrigées) |
 | `notes.csv` | le formulaire d'évaluation rempli ; un étudiant sans copie y a 0, ou une note vide si l'option est décochée | [importer dans le devoir](10-retour-moodle.md#importer-les-notes) |
-| `copies.zip` | toutes les copies corrigées, triées par groupe s'il y en a | vos archives |
+| `copies.zip` | toutes les copies corrigées, triées par groupe s'il y en a ; avec, à côté de sa copie, les statistiques (`…_notes.pdf`) d'un étudiant sans identifiant Moodle | vos archives |
 | `stats.pdf` | les statistiques de l'examen (proposé si **Statistiques pour les élèves** est cochée) | vos archives, ou à publier |
 
 Le nom affiché dans chaque champ peut être modifié avant de cliquer sur **Télécharger**. **Partager** crée un lien de téléchargement pour un collègue.
