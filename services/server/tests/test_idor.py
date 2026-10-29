@@ -12,6 +12,7 @@ import pytest
 SIMPLE_MUTATIONS = [
     ("/jobs/update/bonus", {"bonus_enabled_map": '[["Q1", true]]'}),
     ("/jobs/update/stats", {"statistics_for_students": "false"}),
+    ("/jobs/update/absent-zero", {"absent_zero": "false"}),
     ("/jobs/update/status", {"job_status": "ARCHIVED"}),
 ]
 

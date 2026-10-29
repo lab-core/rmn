@@ -76,6 +76,7 @@ describe('DashboardPageComponent', () => {
     tasks = {
       getTaskById: jasmine.createSpy('getTaskById').and.callFake(async () => JSON.parse(JSON.stringify(task))),
       updateTaskStats: jasmine.createSpy('updateTaskStats').and.resolveTo(undefined),
+      updateTaskAbsentZero: jasmine.createSpy('updateTaskAbsentZero').and.resolveTo(undefined),
       updateTaskBonus: jasmine.createSpy('updateTaskBonus').and.resolveTo(undefined),
       updateTaskStatus: jasmine.createSpy('updateTaskStatus').and.resolveTo(undefined),
       setvalidatingTaskId: jasmine.createSpy('setvalidatingTaskId'),
@@ -206,6 +207,20 @@ describe('DashboardPageComponent', () => {
     component.taskStats = false;
     component.taskStatsChange();
     expect(tasks.updateTaskStats).toHaveBeenCalledWith('job', false);
+  });
+
+  it('gives 0 to the absent by default and saves the switch', async () => {
+    await create();
+    const box: HTMLInputElement = fixture.nativeElement.querySelector('#absent-zero');
+    expect(component.taskAbsentZero).toBeTrue();  // a task made before the option
+    box.click();
+    fixture.detectChanges();
+    expect(tasks.updateTaskAbsentZero).toHaveBeenCalledWith('job', false);
+  });
+
+  it('shows the switch of the task', async () => {
+    await create({ ...TASK, absent_zero: false });
+    expect(component.taskAbsentZero).toBeFalse();
   });
 
   it('archived tasks are read-only and inaccessible ones bounce back', async () => {

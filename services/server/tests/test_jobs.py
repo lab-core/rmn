@@ -61,6 +61,7 @@ def test_job_returns_the_full_record_to_its_owner(client, user_factory, job_fact
     assert job["groups"] == ["A", "B"]
     assert job["copies_errors"] == ["x.pdf"]
     assert job["statistics_for_students"] is True
+    assert job["absent_zero"] is True  # a task made before the option
 
 
 def test_job_is_readable_with_a_share_token_only(client, job_factory):
@@ -167,6 +168,19 @@ def test_stats_and_bonus_updates_are_stored(client, user_factory, job_factory, l
     client.post("/jobs/update/bonus", data=_auth(token, job_id="j1", bonus_enabled_map='[["Q1", true]]'))
     assert eval_jobs.find_one({"job_id": "j1"})["bonus_enabled_map"] == [["Q1", True]]
     assert client.post("/jobs/update/bonus", data=_auth(token, job_id="j1")).status_code == 400
+
+
+def test_absent_zero_update_is_stored(client, user_factory, job_factory, login, app_module_fixture):
+    user_factory("alice")
+    token = login("alice")
+    job_factory("j1", "alice")
+    eval_jobs = app_module_fixture.mongo["RMN"]["eval_jobs"]
+
+    client.post("/jobs/update/absent-zero", data=_auth(token, job_id="j1", absent_zero="false"))
+    assert eval_jobs.find_one({"job_id": "j1"})["absent_zero"] is False
+    client.post("/jobs/update/absent-zero", data=_auth(token, job_id="j1", absent_zero="True"))
+    assert eval_jobs.find_one({"job_id": "j1"})["absent_zero"] is True
+    assert client.post("/jobs/update/absent-zero", data=_auth(token, job_id="j1")).status_code == 400
 
 
 def test_ignore_resets_a_retry_job_and_requeues_it(

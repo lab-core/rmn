@@ -106,8 +106,12 @@ def _job(
     moodle: bool = True,
     student_stats: bool = True,
     roster: pd.DataFrame = ROSTER,
+    absent_zero: bool | None = None,
 ) -> dict:
-    """Record a validated job, its template, its owner and its roster csv."""
+    """Record a validated job, its template, its owner and its roster csv.
+
+    ``absent_zero`` None leaves the field out, as in a job made before it.
+    """
     job = {
         "job_id": "job",
         "user_id": "teacher",
@@ -119,6 +123,8 @@ def _job(
         "front_template_id": "front",
         "regular_template_id": None,
     }
+    if absent_zero is not None:
+        job["absent_zero"] = absent_zero
     mongo_db["eval_jobs"].insert_one(dict(job))
     mongo_db["template"].insert_one({"template_id": "front", "grade_box": GRADE_BOX})
     mongo_db["users"].insert_one(
@@ -230,14 +236,52 @@ def test_finalized_job_writes_the_grades_csv_with_active_questions_only(
         0,
     ]  # a missing grade is 0
     assert carol[MF.grade] == 6.0
-    # a deleted copy and a student without a copy keep the roster values: no
-    # 0 that the Moodle import would give an absent student, no new date
-    assert pd.isna(df.loc["2222222", MF.grade]) and pd.isna(df.loc["2222222", "Q1"])
-    assert df.loc["2222222", MF.mdate] == "-"
+    # a deleted copy and a student without a copy keep the roster values
+    assert df.loc["2222222", MF.grade] == 0 and pd.isna(df.loc["2222222", "Q1"])
     assert df.loc["5555555", MF.grade] == 12.0
     assert df.loc["5555555", MF.mdate] == "lundi 01 septembre 2026, 10:00"
     # the copy whose matricule is not in the roster adds no row
     assert "4444444" not in df.index
+
+
+def test_without_absent_zero_a_student_without_a_copy_keeps_an_empty_grade(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    job = _job(mongo_db, storage_root, absent_zero=False)
+    _split_copies(tmp_path, mongo_db, scanned_copy_factory)
+
+    _finalize(job, tmp_path)
+
+    df = _grades_csv(storage_root)
+    # Bob's copy is deleted: his row stays as Moodle sent it, no 0 that the
+    # import would give an excused absence, and no new date
+    assert pd.isna(df.loc["2222222", MF.grade]) and pd.isna(df.loc["2222222", "Q1"])
+    assert df.loc["2222222", MF.mdate] == "-"
+    assert df.loc["5555555", MF.grade] == 12.0
+    # the graded copies are written as usual
+    assert df.loc["1111111", MF.grade] == 8.0
+    assert df.loc["1111111", MF.mdate] != "-"
+
+
+def test_with_absent_zero_a_student_without_a_copy_gets_0(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    job = _job(mongo_db, storage_root, absent_zero=True)
+    _split_copies(tmp_path, mongo_db, scanned_copy_factory)
+
+    _finalize(job, tmp_path)
+
+    df = _grades_csv(storage_root)
+    assert df.loc["2222222", MF.grade] == 0
+    assert df.loc["2222222", MF.mdate] != "-"
 
 
 def test_finalized_job_is_archived_with_its_outputs_recorded(
@@ -599,7 +643,7 @@ def test_a_matricule_only_job_ships_the_original_copies(
 
     df = _grades_csv(storage_root)
     assert not [c for c in df.columns if c.startswith("Q")]
-    assert pd.isna(df.loc["1111111", MF.grade])  # nothing was graded
+    assert df.loc["1111111", MF.grade] == 0
     all_zip = storage_root / "output_zip" / "job_all.zip"
     assert _zip_names(all_zip) == {"A/Martin_Alice_1111111.pdf"}
     # the original stays in documents: it was copied, not moved

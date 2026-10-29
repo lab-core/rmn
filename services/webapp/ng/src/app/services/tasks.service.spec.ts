@@ -77,6 +77,12 @@ describe('TasksService', () => {
     req.flush({ response: 'OK' });
     await stats;
 
+    const absentZero = service.updateTaskAbsentZero('job', false);
+    req = http.expectOne('/api/jobs/update/absent-zero');
+    expect((req.request.body as FormData).get('absent_zero')).toBe('false');
+    req.flush({ response: 'OK' });
+    await absentZero;
+
     const bonus = service.updateTaskBonus('job', [['Q1', true]]);
     req = http.expectOne('/api/jobs/update/bonus');
     expect((req.request.body as FormData).get('bonus_enabled_map')).toBe('[["Q1",true]]');
