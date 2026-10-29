@@ -59,30 +59,25 @@ def test_admin_signup_validates_and_hashes(client, user_factory, login, app_modu
     bob = app_module_fixture.mongo["RMN"]["users"].find_one({"username": "bob"})
     assert bob["role"] == USER
     assert bob["password"] != "S3cret!!" and check_password_hash(bob["password"], "S3cret!!")
-    # a new user contributes to the digit bank until they say otherwise
-    # the digit bank is one setting for everyone now (admin page), not a user's
-    assert "saveVerifiedImages" not in bob and bob["moodleStructureInd"] is True
+    # the digit bank is one setting for everyone (admin page), and the Moodle
+    # zips are always made: neither is a user's
+    assert "saveVerifiedImages" not in bob and "moodleStructureInd" not in bob
 
     # the name is taken now
     assert client.post("/users/signup", data={**base, "username": "bob", "password": "Other123"}).status_code == 404
 
 
-def test_profile_flags(client, user_factory, login, app_module_fixture):
+def test_the_profile_flags_are_gone(client, user_factory, login):
+    """The digit bank is an admin setting, the Moodle zips are always made."""
     user_factory("alice")
     token = login("alice")
-    users = app_module_fixture.mongo["RMN"]["users"]
-
-    resp = client.put(
-        "/users/updateMoodleStructureInd", data={"username": "alice", "token": token, "moodleStructureInd": "0"}
-    )
-    assert resp.status_code == 200
-    assert users.find_one({"username": "alice"})["moodleStructureInd"] is False
-
-    assert client.put("/users/updateMoodleStructureInd", data={"username": "alice", "token": token}).status_code == 400
-    # the per-user digit-bank switch is gone
-    assert client.put(
-        "/users/updateSaveVerifiedImages", data={"username": "alice", "token": token, "saveVerifiedImages": "1"}
-    ).status_code == 404
+    for route, field in (
+        ("/users/updateSaveVerifiedImages", "saveVerifiedImages"),
+        ("/users/updateMoodleStructureInd", "moodleStructureInd"),
+    ):
+        assert client.put(route, data={"username": "alice", "token": token, field: "1"}).status_code == 404
+    session = client.post("/users/login", data={"username": "alice", "password": "pass123"})
+    assert "moodleStructureInd" not in session.get_json(force=True)["response"]
 
 
 def test_change_password_checks_the_old_one(client, user_factory, login):
@@ -132,16 +127,6 @@ def test_users_and_delete(app_module_fixture, user_factory):
     UserService.delete("alice", db)
     assert UserService.users(db) == ["bob"]
     assert db["tokens"].count_documents({"username": "alice"}) == 0
-
-
-def test_profile_flags_apply_to_the_token_owner(client, user_factory, login, app_module_fixture):
-    # no username in the form: the token says who is updated
-    user_factory("alice")
-    token = login("alice")
-    users = app_module_fixture.mongo["RMN"]["users"]
-    resp = client.put("/users/updateMoodleStructureInd", data={"token": token, "moodleStructureInd": "0"})
-    assert resp.status_code == 200
-    assert users.find_one({"username": "alice"})["moodleStructureInd"] is False
 
 
 @pytest.mark.parametrize("username", ["ab", "bad name", "../..", "a" * 65, "x/y", ""])

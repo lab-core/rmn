@@ -103,7 +103,6 @@ def _job(
     points: list = POINTS,
     pages: list = PAGES,
     bonus: list = BONUS,
-    moodle: bool = True,
     student_stats: bool = True,
     roster: pd.DataFrame = ROSTER,
     absent_zero: bool | None = None,
@@ -127,9 +126,7 @@ def _job(
         job["absent_zero"] = absent_zero
     mongo_db["eval_jobs"].insert_one(dict(job))
     mongo_db["template"].insert_one({"template_id": "front", "grade_box": GRADE_BOX})
-    mongo_db["users"].insert_one(
-        {"username": "teacher", "moodleStructureInd": "1" if moodle else "0"}
-    )
+    mongo_db["users"].insert_one({"username": "teacher"})
     mongo_db["jobs_output"].insert_one(
         {
             "job_id": "job",
@@ -443,15 +440,17 @@ def test_teacher_stats_have_the_averages_and_no_student_column(
     assert "{Q2.png}" not in teacher
 
 
-def test_without_moodle_structure_nor_student_stats_only_the_flat_zip_is_made(
+def test_without_participant_ids_no_moodle_zip_is_made(
     tmp_path: Path,
     storage_root: Path,
     mongo_db: Any,
     scanned_copy_factory: Callable[..., Path],
     fake_pdflatex: list[str],
 ) -> None:
-    roster = ROSTER.drop(columns=["Groupe"])
-    job = _job(mongo_db, storage_root, moodle=False, student_stats=False, roster=roster)
+    """A roster that is not Moodle's (no Identifiant column): the copies only
+    go in the flat zip, and no empty Moodle archive is offered."""
+    roster = ROSTER.drop(columns=["Groupe", MF.id])
+    job = _job(mongo_db, storage_root, student_stats=False, roster=roster)
     _split_copies(tmp_path, mongo_db, scanned_copy_factory, {"alice": COPIES["alice"]})
 
     _finalize(job, tmp_path)
@@ -462,6 +461,36 @@ def test_without_moodle_structure_nor_student_stats_only_the_flat_zip_is_made(
         "Martin_Alice_1111111.pdf"
     }
     assert len(fake_pdflatex) == 1  # the teacher's stats only
+
+
+def test_without_moodle_the_stats_pages_go_beside_the_copies(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    """No Identifiant column: no Moodle zip, but each student still gets
+    their stats page, in the copies zip next to their copy."""
+    roster = ROSTER.drop(columns=[MF.id])
+    job = _job(mongo_db, storage_root, roster=roster)
+    _split_copies(
+        tmp_path,
+        mongo_db,
+        scanned_copy_factory,
+        {"alice": COPIES["alice"], "carol": COPIES["carol"]},
+    )
+
+    _finalize(job, tmp_path)
+
+    output = mongo_db["jobs_output"].find_one({"job_id": "job"})
+    assert output["zip_id_list"] == ["output_zip/job_all.zip"]
+    assert _zip_names(storage_root / "output_zip" / "job_all.zip") == {
+        "A/Martin_Alice_1111111.pdf",
+        "A/Martin_Alice_1111111_notes.pdf",
+        "B/Tremblay_Carol_3333333.pdf",
+        "B/Tremblay_Carol_3333333_notes.pdf",
+    }
 
 
 def test_csv_values_cannot_escape_the_zip_or_run_as_formulas(
@@ -514,11 +543,14 @@ def test_a_moodle_id_without_digits_leaves_the_copy_out_of_the_moodle_zip_only(
 
     _finalize(job, tmp_path)
 
-    assert "A/Martin_Alice_1111111.pdf" in _zip_names(
-        storage_root / "output_zip" / "job_all.zip"
-    )
+    flat = _zip_names(storage_root / "output_zip" / "job_all.zip")
+    assert "A/Martin_Alice_1111111.pdf" in flat
     moodle = _zip_names(storage_root / "output_zip" / "job_1.zip")
     assert moodle and all(n.startswith("Tremblay Carol_103_3333333") for n in moodle)
+    # alice's stats page goes beside her copy, carol's in her Moodle folder
+    assert "A/Martin_Alice_1111111_notes.pdf" in flat
+    assert not any(n.endswith("3333333_notes.pdf") for n in flat)
+    assert any(n.endswith("3333333_notes.pdf") for n in moodle)
 
 
 def test_a_moodle_id_column_of_plain_numbers_names_the_moodle_folders(

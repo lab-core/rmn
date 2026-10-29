@@ -54,7 +54,6 @@ export function userServiceStub(overrides: Record<string, any> = {}): any {
   return {
     currentUsername: 'alice',
     role: UserRole.USER,
-    moodleStructureInd: false,
     loggued: () => true,
     shared: () => false,
     addTokens: (form: FormData) => {
@@ -78,7 +77,6 @@ export function userServiceStub(overrides: Record<string, any> = {}): any {
       return this.role == UserRole.ADMIN ? [UserRole.USER, UserRole.MANAGER, UserRole.ADMIN]
         : this.role == UserRole.MANAGER ? [UserRole.USER, UserRole.MANAGER] : [];
     },
-    updateMoodleStructureInd: jasmine.createSpy('updateMoodleStructureInd').and.returnValue(of({})),
     ...overrides,
   };
 }

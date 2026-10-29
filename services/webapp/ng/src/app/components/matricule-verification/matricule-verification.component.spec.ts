@@ -361,7 +361,7 @@ describe('MatriculeVerificationComponent', () => {
     await component.validateMatricules();
     expect(dialog.open).toHaveBeenCalledWith(WarningDialogComponent, jasmine.any(Object));
     await settle();
-    expect(validation.validateJob).toHaveBeenCalledWith('job', false);
+    expect(validation.validateJob).toHaveBeenCalledWith('job');
     expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);
     expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('finalisation'), 'Alerte!');
   });
@@ -372,7 +372,7 @@ describe('MatriculeVerificationComponent', () => {
     spyOn(dialog, 'open');
     await component.validateMatricules();
     expect(dialog.open).not.toHaveBeenCalled();
-    expect(validation.validateJob).toHaveBeenCalledWith('job', false);
+    expect(validation.validateJob).toHaveBeenCalledWith('job');
     expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);
     expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('finalisation'), 'Alerte!');
   });

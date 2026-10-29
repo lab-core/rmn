@@ -95,20 +95,15 @@ describe('ValidationService', () => {
     expect(console.error).toHaveBeenCalled();
   });
 
-  it('validateJob sends the moodle flag as 0/1', async () => {
-    const pending = service.validateJob('job', true);
+  it('validateJob sends the job with the credentials', async () => {
+    const pending = service.validateJob('job');
     const req = http.expectOne('/api/jobs/validate');
     const form = req.request.body as FormData;
     expect(form.get('job_id')).toBe('job');
-    expect(form.get('moodle_ind')).toBe('1');
+    // the Moodle zips are always made: nothing to say about them
+    expect(form.has('moodle_ind')).toBeFalse();
     expect(form.has('token')).toBeFalse();
     req.flush({ response: 'OK' });
     expect(await pending).toBe('OK');
-
-    const again = service.validateJob('job', false);
-    const second = http.expectOne('/api/jobs/validate');
-    expect((second.request.body as FormData).get('moodle_ind')).toBe('0');
-    second.flush({ response: 'OK' });
-    await again;
   });
 });

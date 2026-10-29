@@ -101,7 +101,6 @@ def make_user(username="alice", password="pass123", role="Utilisateur"):
             "password": generate_password_hash(password),
             "role": role,
             "saveVerifiedImages": False,
-            "moodleStructureInd": True,
         }
     )
 

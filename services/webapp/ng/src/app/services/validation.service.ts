@@ -51,11 +51,10 @@ export class ValidationService {
     return response;
   }
 
-  async validateJob(jobId, moodle_ind) {
+  async validateJob(jobId) {
     const formdata: FormData = new FormData();
     formdata.append('job_id', jobId);
     this.userService.addTokens(formdata);
-    formdata.append('moodle_ind', (Number(moodle_ind)).toString());
     let response;
     try {
       const promise = await this.http.post<any>(`${SERVER_URL}jobs/validate`, formdata).toPromise();
