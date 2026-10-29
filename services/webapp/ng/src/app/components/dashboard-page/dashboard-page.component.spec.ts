@@ -420,6 +420,66 @@ describe('DashboardPageComponent', () => {
   const stats = (question: any): any => ({ name: 'Q1', index: 0, bonus: false, count: 0, validatedCount: 0,
     total: 0, average: 0, stdDev: 0, histogram: [], validatedFilenames: new Set<string>(), ...question });
 
+  const confirmWith = (answer: boolean) =>
+    spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of(answer) } as any);
+
+  it('offers to read the grades and the matricules again while the copies are validated', async () => {
+    await create();
+    expect(fixture.nativeElement.querySelectorAll('.read-again').length).toBe(3);  // Q1, Q3, Total
+    const matricules = fixture.nativeElement.querySelector('.read-matricules-again') as HTMLButtonElement;
+    expect(matricules.disabled).toBeFalse();  // one of two matricules still to validate
+
+    // a share-link visitor reads their questions again, not the whole task nor the matricules
+    user.shared = () => true;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.read-again').length).toBe(2);
+    expect(fixture.nativeElement.querySelector('.read-matricules-again')).toBeNull();
+  });
+
+  it('offers no reading once the task is no longer being validated', async () => {
+    await create({ ...TASK, job_status: 'ARCHIVED' });
+    expect(fixture.nativeElement.querySelector('.read-again')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.read-matricules-again')).toBeNull();
+  });
+
+  it('sends the matricules back to the reader once confirmed', async () => {
+    await create();
+    tasks.readMatriculesAgain = jasmine.createSpy('readMatriculesAgain').and.resolveTo(1);
+    confirmWith(false);
+    await component.readMatriculesAgain();
+    expect(tasks.readMatriculesAgain).not.toHaveBeenCalled();
+
+    (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of(true) } as any);
+    await component.readMatriculesAgain();
+    expect(tasks.readMatriculesAgain).toHaveBeenCalledWith('job');
+    expect(component.task.job_status).toBe('QUEUED');
+    expect(notification.showInfo).toHaveBeenCalledWith('1 copie(s) à relire.', 'Relecture des matricules');
+  });
+
+  it('reads the grades of one question, or of all from the total row', async () => {
+    await create();
+    tasks.readGradesAgain = jasmine.createSpy('readGradesAgain').and.resolveTo([3]);
+    confirmWith(true);
+    const [, q3, total] = component.questions;
+    await component.readGradesAgain(q3);
+    expect(tasks.readGradesAgain).toHaveBeenCalledWith('job', 3);
+    expect(notification.showInfo).toHaveBeenCalledWith('Lecture lancée pour Q3.', 'Relecture des notes');
+    await component.readGradesAgain(total);
+    expect(tasks.readGradesAgain).toHaveBeenCalledWith('job', undefined);
+    // the rows reload with the reading progress
+    expect(tasks.getTaskById.calls.count()).toBeGreaterThan(1);
+  });
+
+  it('says why the server refused a reading', async () => {
+    await create();
+    tasks.readMatriculesAgain = jasmine.createSpy('readMatriculesAgain')
+      .and.rejectWith({ error: { response: 'Error: every matricule is already validated.' } });
+    confirmWith(true);
+    await component.readMatriculesAgain();
+    expect(notification.showError).toHaveBeenCalledWith('Error: every matricule is already validated.', 'Relecture impossible');
+    expect(component.task.job_status).toBe('VALIDATION');
+  });
+
   it('the histogram copes with a zero maximum and out-of-range grades', async () => {
     await create();
     // max 0 gave NaN bins and threw inside the socket handler

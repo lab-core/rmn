@@ -137,20 +137,21 @@ def test_the_operator_commands_need_an_admin(client, user_factory, login):
         "/manage/storage/clean",
         "/manage/delete/jobs",
         "/manage/delete/tokens",
-        "/manage/executor",
     ):
         assert _post(client, path, token, caller="chef").status_code == 403, path
 
 
-def test_status_and_executor(client, admin, app_module_fixture):
+def test_status_counts_the_queue(client, admin, app_module_fixture):
     app_module_fixture.redis.delete("job_queue")
     assert client.get("/manage/status", headers=_auth(admin)).get_json(force=True)[
         "response"
     ] == {"queue": 0}
-    assert _post(client, "/manage/executor", admin).status_code == 200
+    app_module_fixture.redis.rpush("job_queue", "{}")
     assert client.get("/manage/status", headers=_auth(admin)).get_json(force=True)[
         "response"
     ] == {"queue": 1}
+    # the test executor is gone from the page: /admin/executor stays for scripts
+    assert _post(client, "/manage/executor", admin).status_code == 404
 
 
 def test_the_storage_sweep_reports_by_default(client, admin):

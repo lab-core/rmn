@@ -196,11 +196,6 @@ export class AdminPageComponent implements OnInit {
     });
   }
 
-  async wakeExecutor() {
-    await this.run(this.adminService.wakeExecutor(), 'Tâche de test ajoutée à la file', false);
-    this.loadStatus();
-  }
-
   async scanStorage() {
     this.sweeping = true;
     this.storageReport = await this.run(this.adminService.storageSweep(false), '', false);

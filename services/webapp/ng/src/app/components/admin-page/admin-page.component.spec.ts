@@ -39,7 +39,7 @@ describe('AdminPageComponent', () => {
     });
     admin = jasmine.createSpyObj<AdminService>('AdminService', [
       'resetPassword', 'setRole', 'setManagers', 'closeSessions', 'deleteUser',
-      'status', 'storageSweep', 'deleteJobs', 'deleteTokens', 'wakeExecutor',
+      'status', 'storageSweep', 'deleteJobs', 'deleteTokens',
     ]);
     notification = notificationSpy();
     TestBed.configureTestingModule({
@@ -162,7 +162,6 @@ describe('AdminPageComponent', () => {
   it('runs the operator commands of the system view', async () => {
     create('Administrateur');
     admin.status.and.returnValue(of({ response: { queue: 2 } }));
-    admin.wakeExecutor.and.returnValue(of({}));
     admin.storageSweep.and.returnValue(of({
       orphans: [{}], strays: [], empty_jobs: [], bytes: 2048,
       usage: { older_than_days: { '30': { bytes: 10, files: 1 }, '0': { bytes: 20, files: 2 } }, disk: { used: 1, total: 2 } },
@@ -189,8 +188,6 @@ describe('AdminPageComponent', () => {
     expect(admin.deleteJobs).toHaveBeenCalledWith(365);
     await component.deleteTokens();
     expect(admin.deleteTokens).toHaveBeenCalledWith(30);
-    await component.wakeExecutor();
-    expect(admin.status).toHaveBeenCalledTimes(2);
   });
 
   it('asks before deleting, in red', async () => {

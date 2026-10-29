@@ -73,7 +73,5 @@ describe('AdminService', () => {
     expect((sent('/api/manage/delete/jobs').body as FormData).get('n_days_old')).toBe('365');
     service.deleteTokens(30).subscribe();
     expect((sent('/api/manage/delete/tokens').body as FormData).get('n_days_old')).toBe('30');
-    service.wakeExecutor().subscribe();
-    expect(sent('/api/manage/executor').method).toBe('POST');
   });
 });

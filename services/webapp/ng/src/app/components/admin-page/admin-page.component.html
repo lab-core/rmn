@@ -121,11 +121,6 @@
               <span class="label">tâche(s) en attente</span>
               <button mat-icon-button class="refresh" title="Rafraîchir" (click)="loadStatus()"><mat-icon>refresh</mat-icon></button>
             </div>
-            <div class="card-footer">
-              <p class="hint">Ajoute une tâche vide à la file : sur le cluster, un executor démarre et la retire.
-                Sert à vérifier que les executors démarrent, ou à précharger leur image après un déploiement.</p>
-              <button mat-stroked-button class="wake" (click)="wakeExecutor()"><mat-icon>play_arrow</mat-icon> Démarrer un executor de test</button>
-            </div>
           </mat-card>
 
           <mat-card class="danger-card">

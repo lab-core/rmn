@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { first } from 'rxjs/operators';
 import { DocumentsService, PDFSource } from 'src/app/services/documents.service';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -15,6 +16,7 @@ import { TaskRetryDialogComponent } from '../task-retry-dialog/task-retry-dialog
 import { TaskShareDialogComponent } from '../task-share-dialog/task-share-dialog.component';
 import { CsvUpdateDialogComponent } from '../csv-update/csv-update-dialog.component';
 import { TaskSettingsDialogComponent } from '../task-settings/task-settings-dialog.component';
+import { ConfirmDialogComponent, ConfirmData } from '../confirm-dialog/confirm-dialog.component';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 import { SELECTED_COPY_SUFFIX, selectedCopy, selectedCopyKey } from 'src/app/selected-copy';
 
@@ -580,6 +582,56 @@ export class DashboardPageComponent {
       }, (error) => {
         console.error(error);
       });
+  }
+
+  /** The readings run again only while the copies are being validated. */
+  public canReadAgain(): boolean {
+    return !this.disableButtons && this.task?.job_status === JobStatus.VALIDATION;
+  }
+
+  private confirm(data: ConfirmData): Promise<boolean> {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, { width: '80%', maxWidth: '480px', data });
+    return firstValueFrom(dialogRef.afterClosed()).then(result => !!result);
+  }
+
+  /** Send the matricules nobody validated back to the reader. */
+  public async readMatriculesAgain() {
+    if (!await this.confirm({
+      title: 'Relire les matricules',
+      message: 'Les matricules que personne n\'a validés seront relus. Les copies validées gardent leur matricule. '
+        + 'La tâche repasse en file d\'attente le temps de la lecture.',
+      confirm: 'Relire',
+    })) {
+      return;
+    }
+    try {
+      const n = await this.tasksService.readMatriculesAgain(this.task.job_id);
+      this.notificationService.showInfo(`${n} copie(s) à relire.`, 'Relecture des matricules');
+      this.task.job_status = JobStatus.QUEUED;
+      this.updateViewOnStatus();
+    } catch (error) {
+      this.notificationService.showError(error?.error?.response, 'Relecture impossible');
+    }
+  }
+
+  /** Send the grades nobody validated back to the reader: one question, or all from the total row. */
+  public async readGradesAgain(question: Question) {
+    const all = question.name === 'Total';
+    if (!await this.confirm({
+      title: all ? 'Relire toutes les notes' : `Relire les notes de ${question.name}`,
+      message: 'Les notes que personne n\'a validées seront relues par le lecteur. Les notes validées sont gardées.',
+      confirm: 'Relire',
+    })) {
+      return;
+    }
+    try {
+      const queued = await this.tasksService.readGradesAgain(this.task.job_id, all ? undefined : question.index + 1);
+      this.notificationService.showInfo(
+        `Lecture lancée pour ${queued.map(q => 'Q' + q).join(', ')}.`, 'Relecture des notes');
+      await this.loadTask();  // the reading progress of the rows
+    } catch (error) {
+      this.notificationService.showError(error?.error?.response, 'Relecture impossible');
+    }
   }
 
   async restore() {

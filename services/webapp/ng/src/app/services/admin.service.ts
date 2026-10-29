@@ -81,8 +81,4 @@ export class AdminService {
   deleteTokens(days: number) {
     return this.post('manage/delete/tokens', { n_days_old: String(days) });
   }
-
-  wakeExecutor() {
-    return this.post('manage/executor');
-  }
 }

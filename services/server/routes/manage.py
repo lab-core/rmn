@@ -56,10 +56,3 @@ def delete_tokens(user_id):
             status=400,
         )
     return operations.delete_tokens(request.form)
-
-
-@bp.route("/executor", methods=["POST"])
-@cross_origin()
-@verify_token(Role.ADMIN)
-def wake_executor(user_id):
-    return operations.wake_executor()

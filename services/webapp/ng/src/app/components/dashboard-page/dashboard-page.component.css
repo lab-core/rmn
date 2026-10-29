@@ -289,3 +289,7 @@ tbody td {
   cursor: default;
   text-decoration: none;
 }
+
+.read-again, .read-matricules-again {
+  vertical-align: middle;
+}

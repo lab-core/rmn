@@ -254,6 +254,66 @@ def test_a_rerun_keeps_the_copies_already_read(
     assert docs["copie_2478756"]["matricule"] == "2478756"
 
 
+def test_reading_the_matricules_again_reads_only_the_copies_nobody_validated(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    recognition: MagicMock,
+) -> None:
+    """What POST /jobs/read_matricules sets up, run through the executor."""
+    job = _new_job(mongo_db, storage_root)
+    _upload(
+        tmp_path,
+        scanned_copy_factory,
+        {"copie_2478756": None, "alice": "matricule_01.png", "blank": None},
+    )
+    _run(job, tmp_path)
+    # the teacher fixed one copy by hand, then asked for a new reading
+    mongo_db["job_documents"].update_one(
+        {"filename": "blank"}, {"$set": {"status": VALIDATED, "matricule": "1999999"}}
+    )
+    mongo_db["job_documents"].update_many(
+        {"job_id": "job", "status": {"$in": [TO_VALIDATE, HIGH_ACCURACY]}},
+        {
+            "$set": {"status": Document_Status.NOT_READY.value},
+            "$unset": {"matricule_confidence": ""},
+        },
+    )
+    mongo_db["eval_jobs"].update_one(
+        {"job_id": "job"}, {"$set": {"job_status": "QUEUED"}}
+    )
+    recognition.emit.reset_mock()
+
+    _run(mongo_db["eval_jobs"].find_one({"job_id": "job"}), tmp_path)
+
+    docs = _docs(mongo_db)
+    assert len(docs) == 3
+    assert (docs["blank"]["status"], docs["blank"]["matricule"]) == (
+        VALIDATED,
+        "1999999",
+    )
+    assert (docs["alice"]["matricule"], docs["alice"]["status"]) == (
+        "2478756",
+        HIGH_ACCURACY,
+    )
+    assert docs["alice"]["matricule_confidence"] > 0
+    assert docs["copie_2478756"]["status"] == HIGH_ACCURACY
+    assert (
+        mongo_db["eval_jobs"].find_one({"job_id": "job"})["job_status"] == "VALIDATION"
+    )
+    assert mongo_db["jobs_output"].count_documents({"job_id": "job"}) == 1
+    # only the two copies read again are announced
+    ready = [
+        json.loads(c.args[1])["document_index"]
+        for c in recognition.emit.call_args_list
+        if c.args[0] == "document_ready"
+    ]
+    assert sorted(ready) == sorted(
+        d["document_index"] for name, d in docs.items() if name != "blank"
+    )
+
+
 def test_the_template_boxes_are_applied_for_the_job(
     tmp_path: Path,
     storage_root: Path,
