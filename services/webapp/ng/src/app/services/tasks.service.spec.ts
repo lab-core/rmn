@@ -78,7 +78,7 @@ describe('TasksService', () => {
     await stats;
 
     const absentZero = service.updateTaskAbsentZero('job', false);
-    req = http.expectOne('/api/jobs/update/absent-zero');
+    req = http.expectOne('/api/jobs/update/absent_zero');
     expect((req.request.body as FormData).get('absent_zero')).toBe('false');
     req.flush({ response: 'OK' });
     await absentZero;

@@ -796,7 +796,7 @@ def update_job_settings(user_id):
     )
 
 
-@bp.route("/update/absent-zero", methods=["POST"])
+@bp.route("/update/absent_zero", methods=["POST"])
 @cross_origin()
 @verify_token()
 def absent_zero_job(user_id):

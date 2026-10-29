@@ -155,7 +155,7 @@ export class TasksService {
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     formdata.append('absent_zero', String(absentZero));
-    await this.http.post<any>(`${SERVER_URL}jobs/update/absent-zero`, formdata).toPromise();
+    await this.http.post<any>(`${SERVER_URL}jobs/update/absent_zero`, formdata).toPromise();
   }
 
   async updateTaskStatus(jobId: string, jobStatus: string): Promise<void> {
