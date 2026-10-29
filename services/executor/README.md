@@ -71,6 +71,44 @@ python tools/build_digit_bank.py export --size 28 --margin 0.1 --out dataset_con
 `export` writes the `(x, y)` pair `train.load_dataset` reads, so the bank mixes
 into the training set beside MNIST.
 
+## Retraining on the bank (trainer worker)
+
+The admin page (Système → Modèle de lecture) shows the bank and retrains the model
+on it without anyone touching a terminal. The server writes a run to the
+`digit_models` collection and queues its id on `train_queue`
+(`rmn_common.digit_models`); `trainer.py` takes it. It runs in an image of its own,
+`rmni/trainer` (`Dockerfile.trainer`: this code plus `requirements-train.txt` and
+MNIST, downloaded at build time), started by the KEDA ScaledJob of
+`deployment/trainer.yml`, one pod at a time. Locally: `docker compose --profile train
+up -d trainer`.
+
+- **evaluate** scores the model in use (`process_copy.bank_eval`): on the bank's test
+  part, on the whole bank and on MNIST's test set, framed and averaged over
+  `config.digit_margins` exactly as `digits.extract_digit` does.
+- **train** fine-tunes the shipped `digit_recognizer.h5` (`process_copy.retrain`:
+  ten passes at a tenth of Adam's learning rate, the bank's training part framed
+  with every margin plus four distorted copies, mixed with 30 000 MNIST digits so the
+  model keeps reading what the bank holds little of), exports it to
+  `digit_bank/models/<run>/digit_recognizer.tflite` and scores it beside the model in
+  use on the same test part. Four minutes on a laptop, ten in its image under
+  Docker Desktop; the ScaledJob gives it an hour.
+
+**The split is by copy**: `bank_eval.is_test` hashes `job_id/document_index`, so the
+seven digits of a matricule are on the same side and about one copy in five is never
+trained on. It does not depend on the bank's size: a copy keeps its side as the bank
+grows, and the scores of two runs compare. Only the shipped model is fairly scored on
+the whole bank, which it never saw.
+
+**Nothing is activated on its own.** The admin compares the scores and activates a
+run; `digit_bank/models/active.json` then names it, and `classifier.load_classifier`
+(through `model_in_use`) loads that model in every executor, falling back to the
+shipped one when the pointer or the file is missing. A pointer rather than a database
+row: the classifier is loaded deep in the reading code, which has a storage but no
+database handle. `digit_bank/models` is a corpus directory, out of reach of every
+sweep. A run whose worker stops writing for 15 minutes, or that nobody takes within
+two hours, is closed as failed the next time the admin page looks
+(`service/digit_bank.close_dead_runs`), so a dead pod never blocks the next run.
+
 This replaces `runtime.save_number_images`, deleted with it: that path filed
 whole grade boxes under `storage/numbers/<digit>/`, for single-digit grades
 only, and both of its call sites had been commented out for as long as they

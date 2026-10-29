@@ -32,6 +32,18 @@ Le nombre de tâches qui attendent qu'un executor les traite. Il remonte après 
 
 rmn apprend à mieux lire : les chiffres des matricules et des notes que les correcteurs ont confirmés sont gardés pour réentraîner la lecture. **Conserver les chiffres validés** active ou coupe cette conservation pour toutes les tâches. Activée par défaut. Coupée, les chiffres lus ne sont gardés que le temps de la tâche, puis effacés à sa finalisation.
 
+La carte montre ce que la banque contient : le nombre de chiffres et de copies d'où ils viennent, leur répartition de 0 à 9, et leur origine (matricules, cases de note, notes manuscrites). Les **lectures en attente** sont celles des tâches pas encore finalisées : elles n'entrent dans la banque qu'à la finalisation, une fois les matricules et les notes confirmés. **Bien reconnus** compare ce que rmn avait lu à ce que les correcteurs ont confirmé.
+
+### Modèle de lecture
+
+Le modèle qui lit les chiffres. **Évaluer** mesure la part de chiffres qu'il lit juste : sur la partie test de la banque, sur toute la banque et sur MNIST, une collection publique de chiffres manuscrits. Le tableau par chiffre montre en rouge les chiffres lus justes moins de 9 fois sur 10. La carte montre les derniers scores mesurés du modèle en service : ceux d'une évaluation, ou ceux de l'entraînement qui l'a produit tant qu'il n'a pas été réévalué.
+
+**Réentraîner** reprend le modèle livré avec rmn et l'entraîne encore sur la banque, ce qui prend quelques minutes. La banque est partagée une fois pour toutes, copie par copie : environ une copie sur cinq est gardée pour le test et n'entre jamais dans l'entraînement, si bien que les scores sur la partie test sont honnêtes et se comparent d'un entraînement à l'autre. Le score sur toute la banque n'a de sens que pour le modèle d'origine, qui ne l'a jamais vue.
+
+Un modèle entraîné n'est pas mis en service tout seul. La liste des demandes montre son score sur la partie test, en vert quand il fait mieux que le modèle en service ; **Activer** le met en service pour les prochaines lectures, **Modèle d'origine** revient au modèle livré. Les lectures déjà faites ne changent pas. Une seule demande à la fois.
+
+Cliquez sur une demande pour son détail : les scores sur la partie test, sur toute la banque et sur MNIST, puis par chiffre, par origine, et les confusions les plus fréquentes (« 7 lu 1 × 3 » : trois 7 lus comme des 1). Pour un entraînement, le nouveau modèle et celui qui était en service sont côte à côte. **Réévaluer** mesure à nouveau un modèle entraîné sur la banque actuelle sans le mettre en service, par exemple quand elle a grandi depuis. **Supprimer** retire une demande terminée de la liste ; pour un entraînement, son modèle est effacé aussi. Le modèle en service ne peut pas être supprimé : activez-en un autre d'abord.
+
 ### Anciennes tâches et sessions
 
 **Anciennes tâches** supprime définitivement les tâches de **tous** les utilisateurs ajoutées depuis au moins le nombre de jours indiqué, avec leurs copies. **Anciennes sessions** déconnecte les sessions ouvertes depuis au moins ce nombre de jours.

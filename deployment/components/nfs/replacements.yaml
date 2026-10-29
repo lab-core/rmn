@@ -1,5 +1,5 @@
 # The values of the rmn-nfs ConfigMap (kustomization.yaml next to this file) copied
-# into the NetworkPolicy, the Service and the two NFS mounts.
+# into the NetworkPolicy, the Service and the NFS mounts.
 - source:
     kind: ConfigMap
     name: rmn-nfs
@@ -28,5 +28,10 @@
     - select:
         kind: ScaledJob
         name: job-executor
+      fieldPaths:
+        - spec.jobTargetRef.template.spec.volumes.[name=storage].nfs.server
+    - select:
+        kind: ScaledJob
+        name: trainer
       fieldPaths:
         - spec.jobTargetRef.template.spec.volumes.[name=storage].nfs.server

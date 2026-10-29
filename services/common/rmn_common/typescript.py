@@ -27,6 +27,7 @@ ENUMS: dict[type[Enum], str] = {
     status.Document_Status: "DocumentStatus",
     status.Output_File: "OutputFile",
     status.User_Role: "UserRole",
+    status.Digit_Model_Status: "DigitModelStatus",
 }
 
 WEBAPP_FILE = "services/webapp/ng/src/app/generated/rmn-contracts.ts"

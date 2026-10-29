@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1
+
+# The trainer worker (trainer.py): retrains the digit model on the digit bank
+# and scores it, for the admin page. The executor's code with TensorFlow,
+# which the executor image leaves out (about 1.5 GB): an image of its own so
+# the executors, started for every job, stay small.
+FROM python:3.13-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN pip install --no-cache-dir --upgrade pip
+
+# Same unprivileged user as the executor: both write to the shared storage
+# (README "Non-root containers").
+RUN groupadd --gid 1000 rmn \
+    && useradd --uid 1000 --gid rmn --create-home --shell /usr/sbin/nologin rmn \
+    && mkdir -p /Executor && chown rmn:rmn /Executor
+
+WORKDIR /Executor
+
+# Build context is services/ (see docker-compose.yml and docker-publish-all.yml).
+COPY executor/requirements.txt executor/requirements-train.txt ./
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements-train.txt
+
+COPY common /opt/rmn-common
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps /opt/rmn-common
+
+COPY --chown=rmn:rmn executor/ .
+
+ENV ENVIRONMENT=production
+ENV PYTHONUNBUFFERED=1
+ENV HOME=/home/rmn
+# TensorFlow's C++ start-up chatter, not the worker's own log
+ENV TF_CPP_MIN_LOG_LEVEL=2
+
+USER rmn
+
+# MNIST is replayed at every training (process_copy.retrain): fetched once
+# here, into Keras' cache under HOME, so a run needs no network
+RUN python -c "from keras.datasets import mnist; mnist.load_data()"
+
+CMD ["python3", "-m", "trainer"]

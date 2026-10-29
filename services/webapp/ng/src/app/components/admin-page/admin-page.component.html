@@ -147,6 +147,37 @@
                               (change)="setSaveVerifiedImages($event.checked)">
               Conserver les chiffres validés
             </mat-slide-toggle>
+            @if (digitBank?.bank; as bank) {
+              <div class="tiles bank-tiles">
+                <div class="tile"><span class="value">{{bank.samples}}</span><span class="label">chiffres<br>{{formatBytes(bank.bytes)}}</span></div>
+                <div class="tile"><span class="value">{{bank.copies}}</span><span class="label">copies<br>de {{bank.jobs}} tâche(s)</span></div>
+                <div class="tile"><span class="value">{{bank.staged.readings}}</span><span class="label">lectures en attente<br>de {{bank.staged.jobs}} tâche(s)
+                  <app-help-tip key="admin.digit-bank-staged"></app-help-tip></span></div>
+              </div>
+              @if (bank.samples) {
+                <div class="digit-bars" aria-label="Chiffres par valeur">
+                  @for (d of digits; track d) {
+                    <div class="digit-bar" [title]="bank.per_digit[d].n + ' chiffre(s) ' + d">
+                      <span class="count">{{bank.per_digit[d].n}}</span>
+                      <div class="column-bar"><div class="fill" [style.height.%]="digitBar(d)"></div></div>
+                      <span class="digit">{{d}}</span>
+                    </div>
+                  }
+                </div>
+                <table class="usage kinds">
+                  <tr><th>Origine</th><th>Chiffres</th><th>Bien reconnus <app-help-tip key="admin.digit-bank-reading"></app-help-tip></th></tr>
+                  @for (kind of kinds; track kind.key) {
+                    @if (bank.per_kind[kind.key]; as count) {
+                      <tr><td>{{kind.label}}</td><td>{{count.n}}</td><td>{{readingShare(count)}}</td></tr>
+                    }
+                  }
+                  <tr class="total"><td>Total</td><td>{{bank.reading.n}}</td><td>{{readingShare(bank.reading)}}</td></tr>
+                </table>
+                <p class="hint">Chiffres lus du {{formatDate(bank.first)}} au {{formatDate(bank.last)}}.</p>
+              } @else {
+                <p class="hint">La banque est vide : elle se remplit à la finalisation des tâches.</p>
+              }
+            }
           </mat-card>
 
           <mat-card class="danger-card">
@@ -236,6 +267,206 @@
                   </app-help-hover>
                 </div>
               </div>
+            }
+          </mat-card>
+
+          <mat-card class="model-card">
+            <div class="card-header">
+              <mat-icon>model_training</mat-icon>
+              <div>
+                <h3>Modèle de lecture <app-help-tip key="admin.digit-model"></app-help-tip></h3>
+                <p>Le modèle qui lit les chiffres des matricules et des notes, ses scores sur la banque, et son réentraînement.</p>
+              </div>
+            </div>
+            @if (digitBank; as overview) {
+              <div class="in-use">
+                @if (overview.active; as active) {
+                  <span>En service : <strong>réentraîné</strong>, activé le {{formatDate(active.activated_at)}} par {{active.activated_by}}</span>
+                  <button mat-stroked-button class="shipped" [disabled]="!!pendingRun" (click)="activateDigitModel(null)">
+                    <mat-icon>undo</mat-icon> Modèle d'origine
+                  </button>
+                } @else {
+                  <span>En service : <strong>modèle d'origine</strong></span>
+                }
+              </div>
+
+              @if (overview.evaluation; as evaluation) {
+                @let scores = evaluation.scores;
+                <div class="tiles">
+                  <div class="tile"><span class="value">{{score(scores.test)}}</span><span class="label">partie test<br>{{scores.test.n}} chiffres</span></div>
+                  <div class="tile"><span class="value">{{score(scores.bank)}}</span><span class="label">toute la banque<br>{{scores.bank.n}} chiffres</span></div>
+                  <div class="tile"><span class="value">{{score(scores.mnist)}}</span><span class="label">MNIST<br>{{scores.mnist.n}} chiffres</span></div>
+                </div>
+                @if (fairScores(scores); as fair) {
+                  <table class="usage per-digit">
+                    <tr><th>Chiffre</th>@for (d of digits; track d) {<th>{{d}}</th>}</tr>
+                    <tr><td>Bien lus</td>@for (d of digits; track d) {
+                      <td [class.weak]="fair.per_digit[d].n && fair.per_digit[d].correct / fair.per_digit[d].n < 0.9">{{percent(fair.per_digit[d].correct, fair.per_digit[d].n)}}</td>
+                    }</tr>
+                  </table>
+                  <p class="hint">Mesuré le {{formatDate(evaluation.finished)}} par {{evaluation.action == 'train' ? 'un entraînement' : 'une évaluation'}}, par chiffre sur {{scores.model ? 'la partie test' : 'toute la banque'}}.</p>
+                }
+              } @else {
+                <p class="hint">Ce modèle n'a pas encore été évalué sur la banque.</p>
+              }
+
+              @if (pendingRun; as run) {
+                <div class="pending">
+                  @if (run.status == 'QUEUED') {
+                    <span>{{run.action == 'train' ? 'Entraînement' : 'Évaluation'}} en attente d'un worker…</span>
+                    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                  } @else if (run.action == 'train' && run.progress) {
+                    <span>Entraînement : passe {{run.progress.epoch}} sur {{run.progress.epochs}}</span>
+                    <mat-progress-bar mode="determinate" [value]="100 * run.progress.epoch / run.progress.epochs"></mat-progress-bar>
+                  } @else {
+                    <span>{{run.action == 'train' ? 'Entraînement' : 'Évaluation'}} en cours…</span>
+                    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                  }
+                </div>
+              }
+
+              @if (overview.runs.length) {
+                <table class="usage runs">
+                  <tr><th>Demande</th><th>État</th><th>Partie test</th><th></th></tr>
+                  @for (run of overview.runs; track run.run_id) {
+                    <tr class="run-row" [class.selected]="run.run_id == selectedRunId" (click)="toggleRun(run)"
+                        title="Voir le détail">
+                      <td>{{runTitle(run)}}<br><span class="hint">{{formatDate(run.created)}}</span></td>
+                      <td>
+                        @switch (run.status) {
+                          @case ('DONE') { <span class="ok">terminé</span> }
+                          @case ('ERROR') { <span class="error" [title]="run.error ?? ''">échec</span> }
+                          @case ('RUNNING') { en cours }
+                          @default { en attente }
+                        }
+                      </td>
+                      <td>
+                        @if (run.status == 'DONE' && run.action == 'train' && run.results?.candidate; as candidate) {
+                          <strong [class.better]="(candidate.test.accuracy ?? 0) > (run.results?.current?.test?.accuracy ?? 0)">{{score(candidate.test)}}</strong>
+                          <span class="hint"> contre {{score(run.results?.current?.test)}}</span>
+                        } @else if (run.status == 'DONE' && run.results?.model; as scores) {
+                          {{score(scores.test)}}
+                        } @else if (run.status == 'ERROR') {
+                          <span class="hint error-text">{{run.error}}</span>
+                        }
+                      </td>
+                      <td class="run-actions">
+                        @if (run.action == 'train' && run.status == 'DONE') {
+                          @if (isActive(run)) {
+                            <span class="in-service">en service</span>
+                          } @else {
+                            <app-help-hover key="admin.digit-model-activate">
+                              <button mat-stroked-button class="activate" [disabled]="!!pendingRun"
+                                      (click)="$event.stopPropagation(); activateDigitModel(run)">Activer</button>
+                            </app-help-hover>
+                          }
+                        }
+                      </td>
+                    </tr>
+                  }
+                </table>
+              }
+
+              @if (selectedRun; as run) {
+                <div class="run-details">
+                  <div class="details-header">
+                    <div>
+                      <strong>{{runTitle(run)}}</strong>
+                      <p class="hint">
+                        Demandé par {{run.requested_by}} le {{formatDate(run.created)}}@if (run.finished) {, terminé le {{formatDate(run.finished)}}}.
+                        @if (run.bank) {
+                          Banque : {{run.bank.samples}} chiffres, {{run.bank.train}} d'entraînement et {{run.bank.test}} de test.
+                        }
+                      </p>
+                    </div>
+                    <button mat-icon-button class="close-details" title="Fermer" (click)="selectedRunId = undefined"><mat-icon>close</mat-icon></button>
+                  </div>
+                  @if (run.error) {
+                    <p class="error-text">{{run.error}}</p>
+                  }
+                  @if (runColumns(run); as columns) {
+                    @if (columns.length) {
+                      <table class="usage compare">
+                        <tr><th>Bien reconnus</th>@for (c of columns; track c.label) {<th>{{c.label}}</th>}</tr>
+                        <tr><td>Partie test</td>@for (c of columns; track c.label) {<td>{{score(c.scores.test)}} <span class="hint">({{c.scores.test.correct}}/{{c.scores.test.n}})</span></td>}</tr>
+                        <tr><td>Toute la banque <app-help-tip key="admin.digit-model-bank-score"></app-help-tip></td>@for (c of columns; track c.label) {<td>{{score(c.scores.bank)}} <span class="hint">({{c.scores.bank.correct}}/{{c.scores.bank.n}})</span></td>}</tr>
+                        <tr><td>MNIST</td>@for (c of columns; track c.label) {<td>{{score(c.scores.mnist)}}</td>}</tr>
+                      </table>
+
+                      <table class="usage per-digit">
+                        <tr><th>Chiffre</th>@for (d of digits; track d) {<th>{{d}}</th>}</tr>
+                        @for (c of columns; track c.label) {
+                          @if (fairScores(c.scores); as fair) {
+                            <tr><td [title]="c.label">{{columns.length > 1 ? c.label : 'Bien reconnus'}}</td>@for (d of digits; track d) {
+                              <td [class.weak]="fair.per_digit[d].n && fair.per_digit[d].correct / fair.per_digit[d].n < 0.9">{{percent(fair.per_digit[d].correct, fair.per_digit[d].n)}}</td>
+                            }</tr>
+                          }
+                        }
+                      </table>
+
+                      <table class="usage kinds">
+                        <tr><th>Origine</th>@for (c of columns; track c.label) {<th>{{c.label}}</th>}</tr>
+                        @for (kind of kinds; track kind.key) {
+                          @if (fairScores(columns[0].scores)?.per_kind?.[kind.key]) {
+                            <tr><td>{{kind.label}}</td>@for (c of columns; track c.label) {
+                              <td>{{percent(fairScores(c.scores)?.per_kind?.[kind.key]?.correct, fairScores(c.scores)?.per_kind?.[kind.key]?.n)}}</td>
+                            }</tr>
+                          }
+                        }
+                      </table>
+
+                      @for (c of columns; track c.label) {
+                        <p class="confusions">
+                          <span class="hint">Confusions{{columns.length > 1 ? ' (' + c.label + ')' : ''}} :</span>
+                          @for (x of confusions(fairScores(c.scores)); track $index) {
+                            <span class="confusion">{{x.digit}} lu {{x.read}} × {{x.count}}</span>
+                          } @empty {
+                            <span class="hint">aucune</span>
+                          }
+                        </p>
+                      }
+                      <p class="hint">Par chiffre, par origine et confusions : sur toute la banque pour le modèle d'origine, sur la partie test pour un modèle réentraîné.</p>
+                    }
+                  }
+                  @if (isFinished(run)) {
+                    <div class="buttons">
+                      @if (!isActive(run)) {
+                        <button mat-stroked-button class="delete-run" [disabled]="!!pendingRun" (click)="deleteDigitModelRun(run)">
+                          <mat-icon>delete</mat-icon> Supprimer
+                        </button>
+                      }
+                      @if (run.action == 'train' && run.status == 'DONE') {
+                        <app-help-hover key="admin.digit-model-reevaluate">
+                          <button mat-stroked-button class="reevaluate" [disabled]="!!pendingRun" (click)="runDigitModel('evaluate', run.run_id)">
+                            <mat-icon>fact_check</mat-icon> Réévaluer
+                          </button>
+                        </app-help-hover>
+                        @if (!isActive(run)) {
+                          <button mat-flat-button color="accent" class="activate-details" [disabled]="!!pendingRun" (click)="activateDigitModel(run)">Activer</button>
+                        }
+                      }
+                    </div>
+                  }
+                </div>
+              }
+
+              <div class="card-footer">
+                <div class="buttons">
+                  <button mat-icon-button class="refresh" title="Rafraîchir" (click)="loadDigitBank()"><mat-icon>refresh</mat-icon></button>
+                  <app-help-hover key="admin.digit-model-evaluate">
+                    <button mat-stroked-button class="evaluate" [disabled]="!!pendingRun || !overview.bank.samples" (click)="runDigitModel('evaluate')">
+                      <mat-icon>fact_check</mat-icon> Évaluer
+                    </button>
+                  </app-help-hover>
+                  <app-help-hover key="admin.digit-model-train">
+                    <button mat-flat-button color="accent" class="train" [disabled]="!!pendingRun || !overview.bank.samples" (click)="runDigitModel('train')">
+                      <mat-icon>model_training</mat-icon> Réentraîner
+                    </button>
+                  </app-help-hover>
+                </div>
+              </div>
+            } @else {
+              <mat-spinner diameter="24"></mat-spinner>
             }
           </mat-card>
         </div>

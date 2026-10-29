@@ -29,6 +29,8 @@ TEMPLATE_DIR = "template"
 # alone and so a storage report can count them on their own.
 CORPUS_DIRS = (
     os.path.join("digit_bank", "samples"),
+    # the models retrained on those samples (rmn_common.digit_models)
+    os.path.join("digit_bank", "models"),
     "numbers",
 )
 

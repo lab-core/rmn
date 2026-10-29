@@ -54,6 +54,23 @@ services:
      SOCKETIO_SERVICE_TOKEN: ${SOCKETIO_SERVICE_TOKEN:-}
    volumes:
      - ./storage:/Executor/storage
+  # the trainer of the digit model (admin page): a large image with
+  # TensorFlow, so only with `docker compose --profile train up -d`
+  trainer:
+    profiles: ["train"]
+    build:
+      context: ./services
+      dockerfile: executor/Dockerfile.trainer
+    restart: always
+    environment:
+      STORAGE: /Executor/storage
+      TZ: ${TZ:-America/Montreal}
+      REDIS_POP: block
+      MONGODB_USER: ${MONGODB_USER}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - ./storage:/Executor/storage
   server:
     build:
       context: ./services

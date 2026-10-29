@@ -260,6 +260,38 @@ export const HELP: Record<string, HelpEntry> = {
     text: 'Activé, les chiffres des matricules et des notes confirmés par les correcteurs sont gardés pour réentraîner la lecture. Un seul réglage pour toutes les tâches.',
     chapter: '12-administration', anchor: 'banque-de-chiffres',
   },
+  'admin.digit-bank-staged': {
+    text: 'Les chiffres des tâches pas encore finalisées : ils entrent dans la banque à la finalisation, une fois confirmés.',
+    chapter: '12-administration', anchor: 'banque-de-chiffres',
+  },
+  'admin.digit-bank-reading': {
+    text: 'La part des chiffres que rmn avait lus comme les correcteurs les ont confirmés, avec le modèle en service à ce moment-là.',
+    chapter: '12-administration', anchor: 'banque-de-chiffres',
+  },
+  'admin.digit-model': {
+    text: 'Le modèle qui lit les chiffres : ses scores sur la banque, son réentraînement, et le choix du modèle en service.',
+    chapter: '12-administration', anchor: 'modèle-de-lecture',
+  },
+  'admin.digit-model-evaluate': {
+    text: 'Mesure la part de chiffres que le modèle en service lit juste, sur la banque et sur MNIST. Prend une minute environ.',
+    chapter: '12-administration', anchor: 'modèle-de-lecture',
+  },
+  'admin.digit-model-train': {
+    text: 'Entraîne un nouveau modèle sur la banque, sans le mettre en service : comparez ses scores, puis activez-le.',
+    chapter: '12-administration', anchor: 'modèle-de-lecture',
+  },
+  'admin.digit-model-reevaluate': {
+    text: 'Mesure à nouveau ce modèle sur la banque actuelle, sans le mettre en service : utile quand la banque a grandi depuis l\'entraînement.',
+    chapter: '12-administration', anchor: 'modèle-de-lecture',
+  },
+  'admin.digit-model-bank-score': {
+    text: 'Un modèle réentraîné a appris sur environ 80 % de la banque : pour lui, seule la partie test est une mesure honnête.',
+    chapter: '12-administration', anchor: 'modèle-de-lecture',
+  },
+  'admin.digit-model-activate': {
+    text: 'Met ce modèle en service pour les prochaines lectures de matricules et de notes. Les lectures déjà faites ne changent pas.',
+    chapter: '12-administration', anchor: 'modèle-de-lecture',
+  },
   'admin.old-jobs': {
     text: 'Supprime définitivement les tâches de tous les utilisateurs ajoutées depuis au moins ce nombre de jours, avec leurs copies.',
     chapter: '12-administration', anchor: 'anciennes-tâches-et-sessions',

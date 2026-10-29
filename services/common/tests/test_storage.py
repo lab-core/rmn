@@ -162,12 +162,14 @@ def test_corpus_usage_counts_each_corpus_directory(tmp_path):
     _touch(os.path.join(root, "digit_bank", "samples", "3", "b.png"), "b")
     _touch(os.path.join(root, "digit_bank", "staged", "job", "0", "r.npz"), "xxxx")
     _touch(os.path.join(root, "numbers", "0", "c.png"), "ccc")
+    _touch(os.path.join(root, "digit_bank", "models", "r", "m.tflite"), "mmmmm")
 
     usage = Storage(root).corpus_usage()
 
     # the staged crops are not corpus: they belong to a job and die with it
     assert usage == {
         os.path.join("digit_bank", "samples"): {"bytes": 3, "files": 2},
+        os.path.join("digit_bank", "models"): {"bytes": 5, "files": 1},
         "numbers": {"bytes": 3, "files": 1},
     }
     assert Storage(tmp_path / "empty").corpus_usage() == {}
@@ -180,10 +182,14 @@ def test_the_corpus_is_never_a_stray(tmp_path):
     _touch(os.path.join(root, "digit_bank", "samples", "7", "a.png"))
     _touch(os.path.join(root, "digit_bank", "index.jsonl"))
     _touch(os.path.join(root, "numbers", "7", "b.png"))
+    _touch(os.path.join(root, "digit_bank", "models", "active.json"))
 
     strays = list(Storage(root).stray_entries())
 
-    assert not any("samples" in s or "numbers" in s or "index" in s for s in strays)
+    assert not any(
+        "samples" in s or "numbers" in s or "index" in s or "models" in s
+        for s in strays
+    )
 
 
 def test_rel_path_of_a_relative_or_foreign_path(tmp_path):

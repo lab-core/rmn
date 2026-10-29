@@ -1,12 +1,14 @@
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTableDataSource } from '@angular/material/table';
 import { Router } from '@angular/router';
 import { firstValueFrom, Observable } from 'rxjs';
-import { AdminService, ManagedUser } from 'src/app/services/admin.service';
+import {
+  AdminService, DigitBankOverview, DigitCount, DigitModelRun, DigitScores, ManagedUser, ModelScores,
+} from 'src/app/services/admin.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
-import { UserRole } from '../../generated/rmn-contracts';
+import { DigitModelStatus, UserRole } from '../../generated/rmn-contracts';
 import { CreateUserDialogComponent } from '../create-user-dialog/create-user-dialog.component';
 import { TemporaryPasswordDialogComponent } from '../temporary-password-dialog/temporary-password-dialog.component';
 import { ConfirmData, ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
@@ -20,7 +22,7 @@ import { ConfirmData, ConfirmDialogComponent } from '../confirm-dialog/confirm-d
     changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
-export class AdminPageComponent implements OnInit {
+export class AdminPageComponent implements OnInit, OnDestroy {
   readonly UserRole = UserRole;
   readonly roles = [UserRole.USER, UserRole.MANAGER, UserRole.ADMIN];
   readonly dataSource = new MatTableDataSource<ManagedUser>([]);
@@ -31,6 +33,18 @@ export class AdminPageComponent implements OnInit {
   queue: number | undefined;
   /** The digit bank switch, undefined until the server answered. */
   saveVerifiedImages: boolean | undefined;
+  /** The digit bank, the model in use and the trainer's runs. */
+  digitBank: DigitBankOverview | undefined;
+  readonly digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  /** The kinds of numbers the bank's digits are cut from, as the page names them. */
+  readonly kinds: { key: string, label: string }[] = [
+    { key: 'matricule', label: 'Matricules' },
+    { key: 'grade_box', label: 'Cases de note' },
+    { key: 'ink_grade', label: 'Notes manuscrites' },
+  ];
+  private digitBankTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The run whose details are open. */
+  selectedRunId: string | undefined;
   storageReport: any;
   sweeping = false;
   includeStrays = false;
@@ -47,6 +61,10 @@ export class AdminPageComponent implements OnInit {
   ngOnInit(): void {
     this.dataSource.filterPredicate = (row, filter) => row.username.toLowerCase().includes(filter);
     this.loadUsers();
+  }
+
+  ngOnDestroy(): void {
+    clearTimeout(this.digitBankTimer);
   }
 
   get isAdmin(): boolean {
@@ -69,6 +87,11 @@ export class AdminPageComponent implements OnInit {
 
   showView(view: 'users' | 'system') {
     this.view = view;
+    if (view != 'system') {
+      clearTimeout(this.digitBankTimer);
+    } else if (this.pendingRun) {
+      this.loadDigitBank();
+    }
     if (view == 'system' && this.queue === undefined) {
       this.loadStatus();
     }
@@ -199,6 +222,187 @@ export class AdminPageComponent implements OnInit {
     this.adminService.settings().subscribe({
       next: (resp) => this.saveVerifiedImages = resp['response']['saveVerifiedImages'],
       error: (err) => this.fail(err, 'Réglages indisponibles'),
+    });
+    this.loadDigitBank();
+  }
+
+  /** The bank and the runs; again in a few seconds while a run is not over. */
+  loadDigitBank() {
+    clearTimeout(this.digitBankTimer);
+    this.adminService.digitBank().subscribe({
+      next: (resp) => this.showDigitBank(resp.response),
+      error: (err) => this.fail(err, 'Banque de chiffres indisponible'),
+    });
+  }
+
+  private showDigitBank(overview: DigitBankOverview) {
+    this.digitBank = overview;
+    clearTimeout(this.digitBankTimer);
+    if (this.pendingRun && this.view == 'system') {
+      this.digitBankTimer = setTimeout(() => this.loadDigitBank(), 5000);
+    }
+  }
+
+  /** The run the trainer has not finished, if any: one at a time. */
+  get pendingRun(): DigitModelRun | undefined {
+    return this.digitBank?.runs.find(r =>
+      r.status == DigitModelStatus.QUEUED || r.status == DigitModelStatus.RUNNING);
+  }
+
+  /** The digits a model's per-digit scores are given on: the whole bank for the
+   *  shipped model, which never saw it, the test part for a retrained one. */
+  fairScores(scores: ModelScores | undefined): DigitScores | undefined {
+    if (!scores) {
+      return undefined;
+    }
+    return scores.model ? scores.test : scores.bank;
+  }
+
+  get selectedRun(): DigitModelRun | undefined {
+    return this.digitBank?.runs.find(r => r.run_id == this.selectedRunId);
+  }
+
+  toggleRun(run: DigitModelRun) {
+    this.selectedRunId = this.selectedRunId == run.run_id ? undefined : run.run_id;
+  }
+
+  /** A model as the page names it: the shipped one, or the training that wrote it. */
+  modelLabel(model: string | null | undefined): string {
+    if (!model) {
+      return 'modèle d\'origine';
+    }
+    const training = this.digitBank?.runs.find(r => r.run_id == model);
+    return training ? `entraînement du ${this.formatDate(training.created)}` : `modèle ${model.slice(0, 6)}`;
+  }
+
+  runTitle(run: DigitModelRun): string {
+    if (run.action == 'train') {
+      return 'Entraînement';
+    }
+    const model = run.model !== undefined ? run.model : run.target;
+    return model === undefined && run.status != DigitModelStatus.DONE
+      ? 'Évaluation du modèle en service'
+      : `Évaluation, ${this.modelLabel(model)}`;
+  }
+
+  /** The models a run scored, side by side: the new one and the one then in service
+   *  for a training, the scored one for an evaluation. */
+  runColumns(run: DigitModelRun): { label: string, scores: ModelScores }[] {
+    const results = run.results;
+    if (!results) {
+      return [];
+    }
+    if (run.action == 'train') {
+      return [
+        ...(results.candidate ? [{ label: 'Nouveau modèle', scores: results.candidate }] : []),
+        ...(results.current ? [{ label: `En service (${this.modelLabel(results.current.model)})`, scores: results.current }] : []),
+      ];
+    }
+    return results.model ? [{ label: this.modelLabel(results.model.model ?? run.model), scores: results.model }] : [];
+  }
+
+  /** The digits a model mistakes most often for another, at most `limit`. */
+  confusions(scores: DigitScores | undefined, limit = 5): { digit: number, read: number, count: number }[] {
+    const out: { digit: number, read: number, count: number }[] = [];
+    (scores?.confusion ?? []).forEach((row, digit) => row.forEach((count, read) => {
+      if (read != digit && count) {
+        out.push({ digit, read, count });
+      }
+    }));
+    return out.sort((a, b) => b.count - a.count).slice(0, limit);
+  }
+
+  isActive(run: DigitModelRun): boolean {
+    return this.digitBank?.active?.run_id == run.run_id;
+  }
+
+  async runDigitModel(action: 'train' | 'evaluate', target?: string) {
+    if (action == 'train' && !await this.confirm({
+      title: 'Réentraîner la lecture des chiffres',
+      message: 'Le modèle d\'origine est réentraîné sur la banque, ce qui prend quelques minutes. '
+        + 'Le nouveau modèle n\'est pas mis en service : comparez ses scores, puis activez-le.',
+      confirm: 'Réentraîner',
+    })) {
+      return;
+    }
+    const resp = await this.run(this.adminService.runDigitModel(action, target),
+      action == 'train' ? 'Entraînement demandé' : 'Évaluation demandée', false);
+    if (resp) {
+      this.loadDigitBank();
+    }
+  }
+
+  isFinished(run: DigitModelRun): boolean {
+    return run.status == DigitModelStatus.DONE || run.status == DigitModelStatus.ERROR;
+  }
+
+  async deleteDigitModelRun(run: DigitModelRun) {
+    const training = run.action == 'train';
+    if (!await this.confirm({
+      title: training ? 'Supprimer cet entraînement' : 'Supprimer cette évaluation',
+      message: training
+        ? 'L\'entraînement et le modèle qu\'il a produit sont supprimés ; ses évaluations restent dans la liste.'
+        : 'L\'évaluation est retirée de la liste.',
+      confirm: 'Supprimer',
+      danger: true,
+    })) {
+      return;
+    }
+    const resp = await this.run(this.adminService.deleteDigitModelRun(run.run_id),
+      training ? 'Entraînement supprimé' : 'Évaluation supprimée', false);
+    if (resp) {
+      this.selectedRunId = undefined;
+      this.showDigitBank(resp.response);
+    }
+  }
+
+  async activateDigitModel(run: DigitModelRun | null) {
+    if (!await this.confirm({
+      title: run ? 'Mettre ce modèle en service' : 'Revenir au modèle d\'origine',
+      message: (run
+        ? `Les prochaines lectures de matricules et de notes utiliseront le modèle entraîné le ${this.formatDate(run.finished)}.`
+        : 'Les prochaines lectures de matricules et de notes utiliseront le modèle livré avec rmn.')
+        + ' Les lectures déjà faites ne changent pas.',
+      confirm: 'Activer',
+    })) {
+      return;
+    }
+    const resp = await this.run(this.adminService.activateDigitModel(run?.run_id ?? ''),
+      'Modèle de lecture changé', false);
+    if (resp) {
+      this.showDigitBank(resp.response);
+    }
+  }
+
+  /** A share as a percentage, '—' when there is nothing to divide. */
+  percent(part: number | undefined | null, whole: number | undefined | null): string {
+    if (!whole || part == null) {
+      return '—';
+    }
+    return `${(100 * part / whole).toFixed(1).replace('.', ',')} %`;
+  }
+
+  score(scores: DigitScores | undefined): string {
+    return scores ? this.percent(scores.correct, scores.n) : '—';
+  }
+
+  readingShare(count: DigitCount | undefined): string {
+    return count ? this.percent(count.correct, count.read) : '—';
+  }
+
+  /** Height of a digit's bar, against the digit the bank holds most of. */
+  digitBar(digit: number): number {
+    const counts = this.digitBank?.bank.per_digit.map(d => d.n) ?? [];
+    const most = Math.max(...counts, 1);
+    return Math.round(100 * (counts[digit] ?? 0) / most);
+  }
+
+  formatDate(iso: string | null | undefined): string {
+    if (!iso) {
+      return '—';
+    }
+    return new Date(iso).toLocaleString('fr-CA', {
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
     });
   }
 

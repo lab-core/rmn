@@ -18,7 +18,9 @@ import pytest
 
 WEBAPP = Path(__file__).resolve().parents[2] / "webapp" / "ng" / "src"
 # `${SERVER_URL}documents/replace`, SERVER_URL + 'users/login'
-CALLS = re.compile(r"SERVER_URL\}([a-zA-Z0-9_/]+)|SERVER_URL \+ ['\"]([a-zA-Z0-9_/]+)")
+CALLS = re.compile(
+    r"SERVER_URL\}([a-zA-Z0-9_/-]+)|SERVER_URL \+ ['\"]([a-zA-Z0-9_/-]+)"
+)
 
 
 def webapp_paths():
@@ -37,7 +39,9 @@ def test_every_path_the_webapp_calls_is_served(app_module_fixture):
     served = {str(rule) for rule in app_module_fixture.app.url_map.iter_rules()}
     called = webapp_paths()
     assert called, "no API call found in the webapp: the pattern stopped matching"
-    assert called <= served, f"the webapp calls paths nothing serves: {sorted(called - served)}"
+    assert (
+        called <= served
+    ), f"the webapp calls paths nothing serves: {sorted(called - served)}"
 
 
 def test_every_route_sits_under_its_blueprint(app_module_fixture):

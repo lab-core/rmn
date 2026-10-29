@@ -1,0 +1,89 @@
+# The trainer worker: retrains the digit model on the digit bank, or scores
+# it, when an Administrateur asks from the admin page (rmn_common.digit_models).
+# Its own queue and image (rmni/trainer carries TensorFlow); one pod at a time,
+# and none at all until somebody asks.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: trainer
+  namespace: default
+spec:
+  jobTargetRef:
+    template:
+      spec:
+        # like the executor: the trainer never calls the Kubernetes API
+        automountServiceAccountToken: false
+        volumes:
+          # same node directory as the server and the executors (the digit
+          # bank and the models live there); the nfs component swaps it
+          - name: storage
+            hostPath:
+              path: /data/nfs
+              type: Directory
+        containers:
+          - name: trainer
+            image: rmni/trainer:main
+            imagePullPolicy: Always
+            resources:
+              # a request below the limit: a run is rare and short, and must
+              # not wait for both executor slots (5G each) to be free
+              requests:
+                memory: 2G
+              limits:
+                memory: 4G
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 1000
+              runAsGroup: 1000
+              capabilities: {drop: [ALL]}
+            volumeMounts:
+              - mountPath: /mnt/storage
+                name: storage
+            env:
+              - name: STORAGE
+                value: /mnt/storage
+              - name: TZ
+                valueFrom:
+                  configMapKeyRef:
+                    name: rmn-config
+                    key: timezone
+                    optional: true
+              - name: MONGODB_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: rmn-secrets
+                    key: mongodb-user
+              - name: MONGODB_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: rmn-secrets
+                    key: mongodb-password
+              - name: REDIS_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: rmn-secrets
+                    key: redis-password
+            terminationMessagePolicy: FallbackToLogsOnError
+        restartPolicy: Never
+    # a training is about ten passes of a minute or so; a run cut short is
+    # closed by the server (service/digit_bank.close_dead_runs)
+    activeDeadlineSeconds: 3600
+    # a failed run is reported on the admin page; retrying it blindly would
+    # only fail again
+    backoffLimit: 0
+  pollingInterval: 5
+  maxReplicaCount: 1
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  scalingStrategy:
+    # the queue shrinks when a run is taken (see executor.yml)
+    strategy: "default"
+  triggers:
+  - type: redis
+    metadata:
+      address: redis.default:6379
+      listName: train_queue
+      listLength: '1'
+    authenticationRef:
+      name: redis-trigger-auth

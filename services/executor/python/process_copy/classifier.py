@@ -41,6 +41,37 @@ class DigitClassifier:
         return np.array(self._interpreter.get_tensor(self._output["index"]))
 
 
+SHIPPED_MODEL = os.path.join(EXECUTOR_DIR, MODEL_FILE)
+# the model last announced in the log, so a job says once which one it reads with
+_announced = None
+
+
+def model_in_use(storage=None):
+    """The model the executors run: the one an admin activated, else the shipped one.
+
+    An admin activates a model retrained on the digit bank from the admin page
+    (``rmn_common.digit_models``); the pointer lives in the storage, so it is
+    read here, where the recogniser has no database handle.
+
+    Returns:
+        ``(path, run_id)``, ``run_id`` None for the shipped model.
+    """
+    from rmn_common import digit_models
+
+    if storage is None:
+        from process_copy.imaging import storage
+    active = digit_models.active_model(storage)
+    if active is None:
+        return SHIPPED_MODEL, None
+    return active["path"], active["run_id"]
+
+
 def load_classifier(path=None):
-    """The classifier, from ``path`` or from the model file at the executor root."""
-    return DigitClassifier(path or os.path.join(EXECUTOR_DIR, MODEL_FILE))
+    """The classifier, from ``path`` or from the model in use (:func:`model_in_use`)."""
+    global _announced
+    if path is None:
+        path, run_id = model_in_use()
+        if run_id != _announced:
+            print("Digit model:", run_id or "shipped")
+            _announced = run_id
+    return DigitClassifier(path)

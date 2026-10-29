@@ -15,6 +15,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatListModule } from '@angular/material/list';
 import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -35,7 +36,7 @@ import { UserRole } from '../generated/rmn-contracts';
 export const MATERIAL_MODULES = [
   MatButtonModule, MatButtonToggleModule, MatCardModule, MatCheckboxModule, MatDialogModule,
   MatFormFieldModule, MatIconModule, MatInputModule, MatListModule, MatPaginatorModule,
-  MatProgressSpinnerModule, MatSelectModule, MatSlideToggleModule, MatSortModule,
+  MatProgressBarModule, MatProgressSpinnerModule, MatSelectModule, MatSlideToggleModule, MatSortModule,
   MatStepperModule, MatTableModule, MatTooltipModule, FormsModule, ReactiveFormsModule,
   NoopAnimationsModule, HelpTipComponent, HelpHoverComponent,
 ];
