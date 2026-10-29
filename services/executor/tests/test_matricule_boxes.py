@@ -107,8 +107,11 @@ def test_a_turned_frame_is_straightened_before_its_boxes_are_found(frame, degree
     straight, _ = straighten_frame(img)
 
     # the boxes come back upright, where they were drawn
-    assert_boxes(find_matricule_digit_boxes(straight, len_mat),
-                 [(x + 100, y + 100, w, h) for x, y, w, h in rects], tol=12)
+    assert_boxes(
+        find_matricule_digit_boxes(straight, len_mat),
+        [(x + 100, y + 100, w, h) for x, y, w, h in rects],
+        tol=12,
+    )
 
 
 def test_no_row_of_boxes_is_no_boxes():

@@ -79,8 +79,7 @@ def process_job(db, storage, sio, job, TMP_DIR, stopH):
     box_grade_list, box_matricule_list, regular_box_matricule_list = \
         db.get_templates_info(job_params["front_template_id"],
                               job_params["regular_template_id"])
-    apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricule_list,
-                         db.get_template_grade_layout(job_params["front_template_id"]))
+    apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricule_list)
 
     args = [
         copies_folder,

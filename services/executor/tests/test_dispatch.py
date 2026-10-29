@@ -498,41 +498,65 @@ def test_a_template_grade_box_is_counted_in_questions(
     layout = record["grade_layout"]
     cells = layout["boxes"]
     assert len(cells) == 6
-    # and every rectangle of the frame, for a copy to find how far it moved
-    assert all(cell in layout["rects"] for cell in cells)
+    # with every rectangle of the band around the grade box, for a copy to
+    # find how far it moved
+    bx1, bx2, by1, by2 = layout["band"]
+    assert bx1 < grade_box[0] and grade_box[1] < bx2
+    assert by1 < grade_box[2] and grade_box[3] < by2
+    # (found again on the band: a pixel off at most, 1/2550 of the page)
+    for cell in cells:
+        assert (
+            min(max(abs(c - r) for c, r in zip(cell, rect)) for rect in layout["rects"])
+            < 1e-3
+        )
     x1, x2, y1, y2 = grade_box
     for x, y, w, h in cells:
         assert x1 <= x and x + w <= x2 and y1 <= y and y + h <= y2
     assert [y for _, y, _, _ in cells] == sorted(y for _, y, _, _ in cells)
 
 
-def test_a_turned_template_keeps_the_layout_of_a_straight_one(
-    tmp_path: Path, storage_root: Path, mongo_db: Any
+@pytest.mark.parametrize("degrees", [-2.5, 2.5])
+def test_a_turned_template_is_read_in_the_frame_drawn_on_it(
+    degrees: float, tmp_path: Path, storage_root: Path, mongo_db: Any
 ) -> None:
+    """The teacher draws the frame on the page as uploaded: turning the page
+    to straighten it moved the table out from under the frame."""
     import cv2
+    import numpy as np
 
     grade_box = RECOGNITION["grade_box"]
     file_id = _template_png(storage_root, [("grades_blank.png", grade_box)])
-    template = {"user_id": "teacher", "template_file_id": file_id, "grade_box": grade_box}
-    mongo_db["template"].insert_one({"template_id": "straight", **template})
-    templates.process_template(Database(), Storage(), MagicMock(), "straight", tmp_path)
-    # the same page, scanned 2 degrees off
     path = str(storage_root / file_id)
     page = cv2.imread(path)
     height, width = page.shape[:2]
-    turn = cv2.getRotationMatrix2D((width / 2, height / 2), 2, 1.0)
-    cv2.imwrite(path, cv2.warpAffine(page, turn, (width, height), borderValue=(255, 255, 255)))
+    turn = cv2.getRotationMatrix2D((width / 2, height / 2), degrees, 1.0)
+    white = (255, 255, 255)
+    cv2.imwrite(path, cv2.warpAffine(page, turn, (width, height), borderValue=white))
+    # a frame 20 px around the turned table, as drawn in the editor
+    x1, x2, y1, y2 = grade_box
+    corners = np.array(
+        [
+            [[x1 * width, y1 * height]],
+            [[x2 * width, y1 * height]],
+            [[x2 * width, y2 * height]],
+            [[x1 * width, y2 * height]],
+        ]
+    )
+    xs, ys = cv2.transform(corners, turn)[:, 0].T
+    frame = [
+        (xs.min() - 20) / width,
+        (xs.max() + 20) / width,
+        (ys.min() - 20) / height,
+        (ys.max() + 20) / height,
+    ]
+    template = {"user_id": "teacher", "template_file_id": file_id, "grade_box": frame}
     mongo_db["template"].insert_one({"template_id": "turned", **template})
+
     templates.process_template(Database(), Storage(), MagicMock(), "turned", tmp_path)
 
-    def boxes(template_id):
-        return mongo_db["template"].find_one({"template_id": template_id})["grade_layout"]["boxes"]
-
-    straight, turned = boxes("straight"), boxes("turned")
-    assert len(turned) == len(straight) == 6
-    for a, b in zip(straight, turned):
-        # same sizes (upright, not the box around a turned one), 4 px at 300 dpi
-        assert abs(a[2] - b[2]) * width <= 4 and abs(a[3] - b[3]) * height <= 4
+    record = mongo_db["template"].find_one({"template_id": "turned"})
+    assert record["n_questions"] == 5
+    assert len(record["grade_layout"]["boxes"]) == 6
 
 
 def test_an_unknown_template_is_refused(tmp_path: Path, mongo_db: Any) -> None:

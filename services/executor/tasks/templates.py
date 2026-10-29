@@ -3,10 +3,8 @@
 import json
 import cv2
 import numpy as np
-from pdf2image import convert_from_path
-from PIL import Image
-from python.process_copy.contours import frame_rectangles, frame_skew
-from python.process_copy.imaging import fetch_box, frame_to_cells
+from python.process_copy.contours import template_grade_layout
+from python.process_copy.pages import template_image
 from python.process_copy.recognize import write_box_contours
 from runtime import timestamped_print
 
@@ -25,15 +23,12 @@ def process_template(db, storage, sio, temp_id, WORK_TMP_DIR):
 
     template_file = str(WORK_TMP_DIR.joinpath(template["template_file_id"]))
     storage.copy_from(template["template_file_id"], template_file)
-    if template_file.endswith(".pdf"):
-        img = convert_from_path(template_file, dpi=300)[0]
-    else:
-        img = Image.open(template_file)
+    img = template_image(template_file)
 
-    def draw_boxes_on_template(box, np_img, mat):
+    def draw_boxes_on_template(box, np_img, mat, cnts=None):
         box = tuple([round(x, 2) for x in box])
         np_img2 = np.copy(np_img)
-        b, r = write_box_contours(np_img2, box, matricule=mat)
+        b, r = write_box_contours(np_img2, box, matricule=mat, cnts=cnts)
         if not r and mat:
             np_img2 = np.copy(np_img)
             write_box_contours(np_img2, box, matricule=mat, biggest_child=True)
@@ -41,41 +36,23 @@ def process_template(db, storage, sio, temp_id, WORK_TMP_DIR):
 
     # fetch the user-defined boxes
     np_img = np.array(img)
-    # before any frame is drawn on it
+    # the boxes are found on the page as uploaded: a frame drawn first in red
+    # (the matricule's, overlapping the grade box) used to cut the grade boxes
     gray = np.array(img.convert("L"))
-    grade_box = template.get("grade_box", None)
     matricule_box = template.get("matricule_box", None)
-    if grade_box or matricule_box:
-        # a scanned template turned like a copy: its boxes are found upright,
-        # as the copies' are once their frame is straightened
-        angle = frame_skew(fetch_box(gray, tuple(round(x, 2) for x in grade_box or matricule_box)))
-        if abs(angle) >= 0.5:
-            height, width = gray.shape
-            turn = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1.0)
-            gray = cv2.warpAffine(gray, turn, (width, height), borderValue=255)
-            np_img = cv2.warpAffine(np_img, turn, (width, height),
-                                    borderValue=(255, 255, 255, 255))
     if matricule_box:
         np_img, _ = draw_boxes_on_template(matricule_box, np_img, True)
 
     # the grade boxes found and every rectangle around them, kept for the
-    # copies to find theirs where they are
+    # copies to find theirs where they are (see contours.find_layout_boxes)
     n_questions = 0
     grade_layout = None
+    grade_box = template.get("grade_box", None)
     if grade_box:
-        page_shape = np_img.shape
-        np_img, cnts = draw_boxes_on_template(grade_box, np_img, False)
+        box = tuple(round(x, 2) for x in grade_box)
+        grade_layout, cnts = template_grade_layout(gray, box)
+        np_img, _ = draw_boxes_on_template(box, np_img, False, cnts)
         n_questions = len(cnts)
-        # the frame as the copies cut it (apply_template_boxes rounds it too)
-        frame = tuple(round(x, 2) for x in grade_box)
-        # the rectangles around the frame too: the labels and the maximums
-        # beside the grades are what tells a copy which column it moved to
-        around = (max(frame[0] - 0.1, 0), min(frame[1] + 0.1, 1),
-                  max(frame[2] - 0.1, 0), min(frame[3] + 0.1, 1))
-        grade_layout = {
-            "boxes": frame_to_cells([cv2.boundingRect(c) for c in cnts], frame, page_shape),
-            "rects": frame_to_cells(frame_rectangles(fetch_box(gray, around)), around, page_shape),
-        }
 
     tmp_img = str(WORK_TMP_DIR.joinpath("rendered.png"))
     cv2.imwrite(tmp_img, np_img)

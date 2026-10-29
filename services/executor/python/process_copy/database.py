@@ -196,15 +196,25 @@ class Database:
         )
 
     def get_template_grade_layout(self, template_id):
-        """The grade boxes and the rectangles of the grade frame found on a
-        template, ``{"boxes": [[x, y, w, h]...], "rects": [...]}`` in page
-        fractions; None for a template processed before they were kept, or
-        whose grade box held no box."""
+        """The layout of a template's grade boxes (see
+        ``contours.template_grade_layout``): its ``band``, ``boxes`` and
+        ``rects`` in page fractions; None for a template processed before it
+        was kept, or whose grade box held no box."""
         template = self.mongo_database["template"].find_one(
             {"template_id": template_id}, {"grade_layout": 1}
         )
         layout = (template or {}).get("grade_layout")
-        return layout if layout and layout.get("boxes") else None
+        return layout if layout and layout.get("band") and layout.get("boxes") else None
+
+    def set_template_grade_layout(self, template_id, layout):
+        """Keep the layout of a template's grade boxes, computed late."""
+        self.mongo_database["template"].update_one(
+            {"template_id": template_id}, {"$set": {"grade_layout": layout}}
+        )
+
+    def get_template(self, template_id):
+        """The template record, None when there is none."""
+        return self.mongo_database["template"].find_one({"template_id": template_id})
 
     # ---------------------------------------------------------- auto grades --
     # The rules live in rmn_common.auto_grade because the server starts a pass

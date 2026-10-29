@@ -119,6 +119,7 @@ def test_templates_info(mongo_db):
 
 def test_template_grade_layout(mongo_db):
     layout = {
+        "band": [0.72, 1, 0.1, 0.4],
         "boxes": [[0.85, 0.2, 0.08, 0.03], [0.85, 0.24, 0.08, 0.05]],
         "rects": [[0.8, 0.2, 0.04, 0.03], [0.85, 0.2, 0.08, 0.03], [0.85, 0.24, 0.08, 0.05]],
     }
@@ -127,13 +128,19 @@ def test_template_grade_layout(mongo_db):
             {"template_id": "front", "grade_layout": layout},
             {"template_id": "old"},  # processed before the layout was kept
             {"template_id": "none", "grade_layout": {"boxes": [], "rects": []}},
+            # kept by a version that did not record the band yet
+            {"template_id": "bandless", "grade_layout": {"boxes": layout["boxes"]}},
         ]
     )
     db = Database()
     assert db.get_template_grade_layout("front") == layout
-    assert db.get_template_grade_layout("old") is None
-    assert db.get_template_grade_layout("none") is None
-    assert db.get_template_grade_layout("nope") is None
+    for template_id in ("old", "none", "bandless", "nope"):
+        assert db.get_template_grade_layout(template_id) is None
+
+    db.set_template_grade_layout("old", layout)
+    assert db.get_template_grade_layout("old") == layout
+    assert db.get_template("old")["template_id"] == "old"
+    assert db.get_template("nope") is None
 
 
 def test_collections_are_named_as_the_server_expects(mongo_db):

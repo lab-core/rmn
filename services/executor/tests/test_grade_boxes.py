@@ -10,8 +10,12 @@ import cv2
 import numpy as np
 import pytest
 
-from process_copy.contours import find_grade_boxes, frame_rectangles
-from process_copy.imaging import cells_in_frame, frame_to_cells, layout_in_frame
+from process_copy.contours import (
+    find_grade_boxes,
+    find_layout_boxes,
+    template_grade_layout,
+)
+from process_copy.imaging import cells_in_frame, frame_to_cells
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -24,26 +28,35 @@ def assert_boxes(cnts, rects, tol=6):
         assert max(abs(a - b) for a, b in zip(f, r)) <= tol, (found, rects)
 
 
-def column_table(grades=None, maximums_width=140):
+def column_table(grades=None, paper=255, ink=0, line=4, maximums_width=140):
     """The Réservé table of a cover page: label, grade and maximum columns,
     five questions and a taller total. Returns the frame and the grade cells
     (inside the lines)."""
-    img = np.full((1100, 700), 255, np.uint8)
+    img = np.full((1100, 700), paper, np.uint8)
     tops = [50, 170, 290, 410, 530, 650, 830]
     # the maximums narrower than the grades, as printed
     xs = [40, 220, 430, 430 + maximums_width]
     for x in xs:
-        cv2.line(img, (x, tops[0]), (x, tops[-1]), 0, 4)
+        cv2.line(img, (x, tops[0]), (x, tops[-1]), ink, line)
     for y in tops:
-        cv2.line(img, (xs[0], y), (xs[-1], y), 0, 4)
+        cv2.line(img, (xs[0], y), (xs[-1], y), ink, line)
     cells = []
     for i, (top, bottom) in enumerate(zip(tops, tops[1:])):
         label = f"Q{i + 1}" if i < 5 else "Total"
         cv2.putText(img, label, (55, (top + bottom) // 2 + 15), FONT, 1.3, 0, 3)
         cv2.putText(img, "/8", (450, (top + bottom) // 2 + 15), FONT, 1.3, 0, 3)
-        cells.append((xs[1] + 3, top + 3, xs[2] - xs[1] - 5, bottom - top - 5))
+        cells.append(
+            (
+                xs[1] + line // 2 + 1,
+                top + line // 2 + 1,
+                xs[2] - xs[1] - line - 1,
+                bottom - top - line - 1,
+            )
+        )
         if grades:
-            cv2.putText(img, grades[i], (xs[1] + 60, (top + bottom) // 2 + 20), FONT, 2, 0, 5)
+            cv2.putText(
+                img, grades[i], (xs[1] + 60, (top + bottom) // 2 + 20), FONT, 2, 0, 5
+            )
     return img, cells
 
 
@@ -88,19 +101,94 @@ def test_on_a_copy_written_in_a_row_the_grade_boxes_are_found():
     assert_boxes(find_grade_boxes(img, thick=0), cells)
 
 
-def test_a_known_number_of_boxes_comes_first():
-    """Five boxes aligned at the top of the frame, bigger than the grade boxes
-    of a copy: told how many boxes there are, the grade boxes win."""
-    img, cells = row_table(["2", "3", "4", "9"])
-    big = np.full((600, img.shape[1]), 255, np.uint8)
-    for i in range(5):
-        cv2.rectangle(big, (40 + 260 * i, 40), (280 + 260 * i, 560), 0, 4)
-        cv2.putText(big, "x", (120 + 260 * i, 300), FONT, 3, 0, 6)
-    frame = np.vstack([big, img])
-    shifted = [(x, y + big.shape[0], w, h) for x, y, w, h in cells]
+def boxes_table(sizes, horizontal, spacing=0, labels=True):
+    """One grade box per size, drawn one after the other (sharing their lines
+    when ``spacing`` is 0), with their labels in cells before them. The boxes
+    share their top (a row) or their left side (a column)."""
+    img = np.full((1300, 1500), 255, np.uint8)
+    cells, at = [], 60
+    for w, h in sizes:
+        x, y = (at, 200) if horizontal else (300, at)
+        cv2.rectangle(img, (x, y), (x + w, y + h), 0, 4)
+        if labels:
+            lx, ly = (x, y - 110) if horizontal else (x - 210, y)
+            cv2.rectangle(
+                img,
+                (lx, ly),
+                (lx + (w if horizontal else 210), ly + (110 if horizontal else h)),
+                0,
+                4,
+            )
+            cv2.putText(img, "Q", (lx + 30, ly + 70), FONT, 1.5, 0, 3)
+        cells.append((x + 3, y + 3, w - 5, h - 5))
+        at += (w if horizontal else h) + spacing
+    return img, cells
 
-    assert len(find_grade_boxes(frame, thick=0)) == 5
-    assert_boxes(find_grade_boxes(frame, thick=0, n=4), shifted)
+
+@pytest.mark.parametrize("horizontal", [True, False])
+def test_a_bigger_total_stays_in_its_run(horizontal):
+    """The total box 30% bigger across the run: taller in a row, wider in a column."""
+    sizes = [(180, 120)] * 4 + ([(180, 156)] if horizontal else [(234, 120)])
+
+    img, cells = boxes_table(sizes, horizontal)
+
+    assert_boxes(find_grade_boxes(img, thick=1), cells)
+
+
+def test_a_box_drawn_apart_under_the_column_is_not_one_of_its_boxes():
+    """A bonus box under the total, as wide as the grade boxes: no box is made
+    up in the gap, and the column keeps its own six boxes."""
+    img, cells = column_table()
+    x, _, w, _ = cells[0]
+    for gap in (40, 90, 150):
+        frame = img.copy()
+        top = cells[-1][1] + cells[-1][3] + gap
+        cv2.rectangle(frame, (x - 3, top), (x + w + 2, top + 100), 0, 4)
+
+        assert_boxes(find_grade_boxes(frame, thick=1), cells)
+
+
+@pytest.mark.parametrize("spacing", [30, 45, 60])
+def test_separate_boxes_spaced_apart_get_no_box_in_between(spacing):
+    img, cells = boxes_table([(120, 120)] * 5, True, spacing=spacing, labels=False)
+
+    assert_boxes(find_grade_boxes(img, thick=1), cells)
+
+
+def test_the_outline_of_a_one_column_table_does_not_hide_its_cells():
+    """Six boxes sharing their lines in one bordered column, labels printed
+    beside it: the outline holds the boxes, it is not one."""
+    img = np.full((1000, 600), 255, np.uint8)
+    cells = []
+    for i in range(6):
+        y = 60 + 120 * i
+        cv2.rectangle(img, (250, y), (450, y + 120), 0, 4)
+        cv2.putText(img, f"Q{i + 1}", (120, y + 75), FONT, 1.5, 0, 3)
+        cells.append((253, y + 3, 195, 115))
+
+    assert_boxes(find_grade_boxes(img, thick=1), cells)
+
+
+@pytest.mark.parametrize("paper, ink, line", [(192, 0, 4), (175, 0, 4), (255, 191, 2)])
+def test_the_boxes_are_found_on_tinted_paper_and_with_light_lines(paper, ink, line):
+    """Salmon (192) and goldenrod (175) paper, and thin light-grey printed lines."""
+    img, cells = column_table(paper=paper, ink=ink, line=line)
+
+    assert_boxes(find_grade_boxes(img, thick=1), cells, tol=8)
+
+
+def test_a_grade_box_cut_in_two_does_not_make_the_labels_the_grade_boxes():
+    """A stroke across a grade box splits it in two: the grade column has one
+    box too many, and the label column, with as many boxes as grades, used to
+    be taken for it. It is still the grade column: the overlay then finds one
+    box too many and leaves the copy flagged."""
+    img, cells = column_table(["5", "8", "11", "6.5", "0", "30.5"])
+    x, y, w, h = cells[1]
+    cv2.line(img, (x - 4, y + h // 2), (x + w + 4, y + h // 2), 0, 4)
+
+    found = [cv2.boundingRect(c) for c in find_grade_boxes(img, thick=0)]
+
+    assert all(abs(f[0] - x) <= 6 for f in found), found
 
 
 def test_a_box_whose_sides_are_hidden_is_put_back_between_its_neighbours():
@@ -125,54 +213,27 @@ def test_the_boxes_the_frame_cuts_are_left_out_with_a_border():
     assert_boxes(find_grade_boxes(frame, add_border=True, thick=0), inside)
 
 
-def template_layout(template):
-    """The layout a template keeps: its grade boxes and every rectangle."""
-    boxes = [cv2.boundingRect(c) for c in find_grade_boxes(template, thick=1)]
-    return {"boxes": boxes, "rects": frame_rectangles(template)}
+def test_a_frame_without_any_box_gives_none():
+    img = np.full((300, 300), 255, np.uint8)
+    cv2.putText(img, "Total", (40, 150), FONT, 1.5, 0, 3)
+
+    assert find_grade_boxes(img, thick=0) == []
 
 
-def moved(img, dx, dy):
-    """The page as a scan moves it: by (dx, dy), what leaves the frame lost."""
-    out = np.full_like(img, 255)
-    h, w = img.shape
-    out[max(dy, 0):h + min(dy, 0), max(dx, 0):w + min(dx, 0)] = \
-        img[max(-dy, 0):h - max(dy, 0), max(-dx, 0):w - max(dx, 0)]
-    return out
-
-
-# measured on 101 scanned copies of one template: 45 to 60 px left, up to
-# 160 px up (more than a row of the table), and a whole column for good measure
-@pytest.mark.parametrize("dx, dy", [(15, 12), (-50, -160), (210, 0), (-210, 120)])
-def test_on_a_copy_the_layout_of_the_template_tells_the_grades_from_their_neighbours(dx, dy):
-    """Maximums as wide as the grades, all filled: the rules cannot tell the
-    columns apart, the layout of the template can, however far the scan moved."""
-    template, cells = column_table(maximums_width=210)
-    assert_boxes(find_grade_boxes(template, thick=1), cells)
-    layout = template_layout(template)
-    copy, _ = column_table(["5", "8", "11", "6.5", "0", "30.5"], maximums_width=210)
-    copy = np.pad(copy, 250, constant_values=255)  # room for the scan to move in
-    cells = [(x + 250 + dx, y + 250 + dy, w, h) for x, y, w, h in cells]
-    layout = {key: [(x + 250, y + 250, w, h) for x, y, w, h in rects]
-              for key, rects in layout.items()}
-
-    found = find_grade_boxes(moved(copy, dx, dy), thick=0, layout=layout)
-
-    assert_boxes(found, cells)
-
-
-def turned(img, degrees):
-    """The frame as a scanner turns it, about its centre, and how its points move."""
+def turned(img, degrees, centre=None):
+    """The image as a scanner turns it, and how its points move."""
     height, width = img.shape
-    turn = cv2.getRotationMatrix2D((width / 2, height / 2), degrees, 1.0)
+    centre = centre or (width / 2, height / 2)
+    turn = cv2.getRotationMatrix2D(centre, degrees, 1.0)
     return cv2.warpAffine(img, turn, (width, height), borderValue=255), turn
 
 
-def assert_turned_boxes(cnts, rects, turn, tol=4):
-    """The boxes found are the ones drawn, turned: their centres match."""
-    assert len(cnts) == len(rects), [cv2.boundingRect(c) for c in cnts]
-    for c, (x, y, w, h) in zip(cnts, rects):
-        centre = cv2.transform(np.array([[[x + w / 2, y + h / 2]]], np.float32), turn)[0, 0]
-        assert np.hypot(*(c.reshape(-1, 2).mean(axis=0) - centre)) <= tol
+def centres(cnts, turn=None):
+    """The centres of contours, or of rectangles moved by ``turn``."""
+    if turn is None:
+        return np.array([c.reshape(-1, 2).mean(axis=0) for c in cnts])
+    points = np.array([[[x + w / 2, y + h / 2]] for x, y, w, h in cnts], np.float32)
+    return cv2.transform(points, turn)[:, 0]
 
 
 @pytest.mark.parametrize("degrees", [-8, -3, 0.5, 2, 5])
@@ -183,49 +244,132 @@ def test_the_boxes_of_a_turned_scan_are_found_where_they_are(degrees, grades):
     cells = [(x + 150, y + 150, w, h) for x, y, w, h in cells]
     img, turn = turned(img, degrees)
 
-    assert_turned_boxes(find_grade_boxes(img, thick=0), cells, turn)
+    found = find_grade_boxes(img, thick=0)
+
+    assert len(found) == len(cells)
+    assert np.abs(centres(found) - centres(cells, turn)).max() <= 4
 
 
-@pytest.mark.parametrize("degrees", [-4, 3])
-def test_the_layout_of_the_template_finds_the_grades_on_a_turned_and_moved_scan(degrees):
+# A page with a grade table: the frame of the template is around the table,
+# and the band a copy is searched in is 10% of the page around the frame.
+PAGE = (3300, 2550)
+AT = (1450, 600)  # where the table of the template starts on the page
+BOX = (0.55, 0.85, 0.15, 0.55)
+
+
+def page_with(table, dx=0, dy=0, degrees=0.0):
+    """The table on a page, moved by (dx, dy) and turned about its centre."""
+    page = np.full(PAGE, 255, np.uint8)
+    x, y = AT[0] + dx, AT[1] + dy
+    height, width = table.shape
+    page[slice(y, y + height), slice(x, x + width)] = table
+    turn = None
+    if degrees:
+        centre = (x + table.shape[1] / 2, y + table.shape[0] / 2)
+        page, turn = turned(page, degrees, centre)
+    return page, turn
+
+
+def layout_boxes_on_page(page, layout):
+    """The boxes ``find_layout_boxes`` gives, as contours of the page."""
+    _, boxes, (ox, oy), back = find_layout_boxes(page, layout)
+    if back is not None:
+        boxes = [cv2.transform(b.astype(np.float32), back) for b in boxes]
+    return [b + np.array([ox, oy]) for b in boxes]
+
+
+def expected(cells, dx=0, dy=0, turn=None):
+    """The centres of the grade cells of the table on the page."""
+    rects = [(x + AT[0] + dx, y + AT[1] + dy, w, h) for x, y, w, h in cells]
+    return centres(rects, turn) if turn is not None else centres(rects, np.eye(2, 3))
+
+
+GRADES = ["5", "8", "11", "6.5", "0", "30.5"]
+
+
+# measured on 101 scanned copies of one template: 45 to 60 px left and up to
+# 160 px up; a whole column (210 px) and a turn for good measure
+@pytest.mark.parametrize(
+    "dx, dy, degrees",
+    [
+        (0, 0, 0),
+        (15, 12, 0),
+        (-50, -160, 0),
+        (60, -200, 0),
+        (0, 140, 0),
+        (210, 0, 0),
+        (-210, 120, 0),
+        (-50, -160, 3),
+        (40, 90, -4),
+    ],
+)
+def test_the_layout_of_the_template_finds_the_grades_of_a_moved_copy(dx, dy, degrees):
+    """Maximums as wide as the grades and every box filled: the rules cannot
+    tell the two columns apart; the layout of the template can."""
     template, cells = column_table(maximums_width=210)
-    layout = template_layout(np.pad(template, 250, constant_values=255))
-    copy, _ = column_table(["5", "8", "11", "6.5", "0", "30.5"], maximums_width=210)
-    copy, turn = turned(moved(np.pad(copy, 250, constant_values=255), -50, -160), degrees)
-    cells = [(x + 200, y + 90, w, h) for x, y, w, h in cells]
+    layout, _ = template_grade_layout(page_with(template)[0], BOX)
+    copy, _ = column_table(GRADES, maximums_width=210)
+    page, turn = page_with(copy, dx, dy, degrees)
 
-    assert_turned_boxes(find_grade_boxes(copy, thick=0, layout=layout), cells, turn)
+    found = layout_boxes_on_page(page, layout)
+
+    assert len(found) == len(cells)
+    assert np.abs(centres(found) - expected(cells, dx, dy, turn)).max() <= 5
 
 
-def test_a_layout_far_from_any_run_leaves_the_choice_to_the_rules():
-    copy, cells = column_table(["5", "8", "11", "6.5", "0", "30.5"])
-    far = [(x + 600, y + 600, w, h) for x, y, w, h in cells]
+def test_a_layout_that_fits_two_places_finds_nothing():
+    """The copy's table has more columns of the same size than the template's:
+    the template fits two of them as well, so which one holds the grades is
+    not known, and no box is better than a wrong one."""
+    template = np.full((900, 700), 255, np.uint8)
+    copy = np.full((900, 1000), 255, np.uint8)
+    for img, n in ((template, 3), (copy, 4)):
+        for i in range(n + 1):
+            cv2.line(img, (20 + 210 * i, 20), (20 + 210 * i, 740), 0, 4)
+        for j in range(7):
+            cv2.line(img, (20, 20 + 120 * j), (20 + 210 * n, 20 + 120 * j), 0, 4)
+    layout, _ = template_grade_layout(page_with(template)[0], BOX)
+    assert len(layout["boxes"]) == 6
 
-    assert_boxes(find_grade_boxes(copy, thick=0, layout={"boxes": far, "rects": far}), cells)
+    page, _ = page_with(copy, -100)
+
+    assert layout_boxes_on_page(page, layout) == []
+
+
+def test_a_page_of_another_template_has_no_box_of_this_one():
+    template, _ = column_table()
+    layout, _ = template_grade_layout(page_with(template)[0], BOX)
+    other, _ = row_table(["2", "3", "4", "9"])
+    other = other[:, :1000]  # its four boxes, on the page
+
+    assert layout_boxes_on_page(page_with(other)[0], layout) == []
+    assert layout_boxes_on_page(np.full(PAGE, 255, np.uint8), layout) == []
+
+
+def test_a_box_the_copy_hides_is_where_the_template_has_it():
+    template, cells = column_table()
+    layout, _ = template_grade_layout(page_with(template)[0], BOX)
+    copy, _ = column_table(GRADES)
+    # a grade written over the lines of the third box
+    x, y, w, h = cells[2]
+    cv2.rectangle(copy, (x - 10, y + 10), (x + w + 10, y + h - 10), 0, -1)
+
+    found = layout_boxes_on_page(page_with(copy, 30, -70)[0], layout)
+
+    assert len(found) == len(cells)
+    assert np.abs(centres(found) - expected(cells, 30, -70)).max() <= 5
 
 
 def test_the_cells_of_a_template_land_on_the_same_place_of_any_frame():
-    page = np.full((3300, 2550), 255, np.uint8)
     box = (0.82, 0.96, 0.15, 0.55)
     rects = [(30, 40, 200, 110), (30, 160, 200, 110)]
-    cells = frame_to_cells(rects, box, page.shape)
-    assert cells_in_frame(cells, box, page.shape) == rects
+    cells = frame_to_cells(rects, box, PAGE)
+    assert cells_in_frame(cells, box, PAGE) == rects
 
-    # the overlay tries wider frames: the cells move with their origin
     wider = (0.81, 0.97, 0.14, 0.56)
-    dx = int(box[0] * 2550) - int(wider[0] * 2550)
-    dy = int(box[2] * 3300) - int(wider[2] * 3300)
-    assert cells_in_frame(cells, wider, page.shape) == [
+    dx = int(box[0] * PAGE[1]) - int(wider[0] * PAGE[1])
+    dy = int(box[2] * PAGE[0]) - int(wider[2] * PAGE[0])
+    assert cells_in_frame(cells, wider, PAGE) == [
         (x + dx, y + dy, w, h) for x, y, w, h in rects
     ]
-    assert cells_in_frame(None, box, page.shape) is None
-    layout = {"boxes": cells, "rects": cells}
-    assert layout_in_frame(layout, box, page.shape) == {"boxes": rects, "rects": rects}
-    assert layout_in_frame({"boxes": [], "rects": cells}, box, page.shape) is None
-
-
-def test_a_frame_without_any_box_gives_none():
-    img = np.full((300, 300), 255, np.uint8)
-    cv2.putText(img, "Total", (40, 150), FONT, 1.5, 0, 3)
-
-    assert find_grade_boxes(img, thick=0) == []
+    assert cells_in_frame(None, box, PAGE) is None

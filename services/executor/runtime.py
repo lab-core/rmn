@@ -85,13 +85,8 @@ class Heartbeat:
         return False
 
 
-def apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricule_list,
-                         grade_layout=None):
+def apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricule_list):
     """Point the recogniser at the boxes of this job's templates.
-
-    ``grade_layout`` holds the grade boxes and the rectangles found on the
-    front template, in page fractions: the copies' grade boxes are the ones
-    nearest to them once the scan's shift is taken out.
 
     The boxes are module globals of ``config``; a job whose template defines
     no box used to keep the previous job's coordinates (one process handles
@@ -103,4 +98,3 @@ def apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricu
     matricule_box['exam']['regular'] = rounded(regular_box_matricule_list, DEFAULT_MATRICULE_BOX['exam']['regular'])
     matricule_box['exam']['front'] = rounded(box_matricule_list, DEFAULT_MATRICULE_BOX['exam']['front'])
     grade_box['exam']['grade'] = rounded(box_grade_list, DEFAULT_GRADE_BOX['exam']['grade'])
-    grade_box['exam']['layout'] = grade_layout
