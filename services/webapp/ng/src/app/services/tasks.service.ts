@@ -149,6 +149,15 @@ export class TasksService {
     await this.http.post<any>(`${SERVER_URL}jobs/update/stats`, formdata).toPromise();
   }
 
+  /** Whether finalizing gives 0 to the students without a graded copy. */
+  async updateTaskAbsentZero(jobId: string, absentZero: boolean): Promise<void> {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', jobId);
+    formdata.append('absent_zero', String(absentZero));
+    await this.http.post<any>(`${SERVER_URL}jobs/update/absent_zero`, formdata).toPromise();
+  }
+
   async updateTaskStatus(jobId: string, jobStatus: string): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);

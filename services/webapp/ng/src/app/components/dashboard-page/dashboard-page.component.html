@@ -52,7 +52,7 @@
 <table>
         <thead>
           <tr>
-            <th>Questions</th>
+            <th>Questions <app-help-tip key="dashboard.questions"></app-help-tip></th>
             <th>Copies corrigées</th>
             <th>Moyennes</th>
             <th>Écart-types</th>
@@ -74,12 +74,14 @@
             </td>
             <td>{{ question.validatedCount }} / {{ question.count }}
               @if (readingState(question)) {
-                <div [ngClass]="'reading-state ' + readingClass(question)">{{ readingState(question) }}</div>
+                <div [ngClass]="'reading-state ' + readingClass(question)">{{ readingState(question) }}
+                  <app-help-tip key="dashboard.reading"></app-help-tip></div>
               }
               @if (question.aboveMax > 0 && !question.bonus) {
                 <button type="button" class="above-max" [disabled]="disableButtons"
                         title="Notes validées au-dessus du maximum de la question : les voir"
                         (click)="correctQuestion(question, true)">{{ question.aboveMax }} note(s) &gt; max</button>
+                <app-help-tip key="dashboard.above-max"></app-help-tip>
               }
             </td>
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
@@ -115,7 +117,7 @@
           </tr>
 }
           <tr>
-            <td>Matricules</td>
+            <td>Matricules <app-help-tip key="dashboard.matricules"></app-help-tip></td>
             <td>{{ totalVerifiedMatricules }} / {{ examsCount }}</td>
             <td></td>
             <td></td>
@@ -127,6 +129,7 @@
 }
               @if (!shared() && !disableButtons) {
 <button class="correct-button" mat-raised-button color="primary" (click)="shareMatricule()">Partager</button>
+<app-help-tip key="dashboard.share"></app-help-tip>
 }
             </td>
           </tr>
@@ -136,15 +139,30 @@
       @if (loggued() && !shared() && !disableButtons) {
 <div class="validate-job-container">
         <div class="checkbox-container">
-          <button class="copies-job-button" mat-raised-button color="primary" (click)="addCopies()">Copies additionnelles</button>
-          <button class="csv-job-button" mat-raised-button color="primary" (click)="updateCsv()">Mettre à jour csv</button>
+          <span class="with-help">
+            <button class="copies-job-button" mat-raised-button color="primary" (click)="addCopies()">Copies additionnelles</button>
+            <app-help-tip key="dashboard.add-copies"></app-help-tip>
+          </span>
+          <span class="with-help">
+            <button class="csv-job-button" mat-raised-button color="primary" (click)="updateCsv()">Mettre à jour csv</button>
+            <app-help-tip key="dashboard.update-csv"></app-help-tip>
+          </span>
           @if (questions.length >0) {
 <label>
               <input type="checkbox" [(ngModel)]="taskStats" (change)="taskStatsChange()" [ngModelOptions]="{standalone: true}">
               Statistiques pour les élèves
+              <app-help-tip key="dashboard.stats"></app-help-tip>
           </label>
 }
-          <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()" [disabled]="ongoingTask">Finaliser</button>
+          <label>
+              <input type="checkbox" id="absent-zero" [(ngModel)]="taskAbsentZero" (change)="taskAbsentZeroChange()" [ngModelOptions]="{standalone: true}">
+              Note 0 aux étudiants sans copie
+              <app-help-tip key="dashboard.absent-zero"></app-help-tip>
+          </label>
+          <span class="with-help">
+            <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()" [disabled]="ongoingTask">Finaliser</button>
+            <app-help-tip key="dashboard.finalize"></app-help-tip>
+          </span>
         </div>
       </div>
 }

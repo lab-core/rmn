@@ -1,105 +1,111 @@
-.new-correction-container {
-    width: 100%;
-    height: 100%;
-    background-image: url("~src/assets/background-gradient.png");
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: cover;
-    display: flex;
-    flex-direction: column;
-}
-.stepper_horizontal {
-    z-index: 1;
-    /*height: 50%;*/
-    /* margin: auto; */
-    /*margin-top: 0.5%;*/
-    
-}
-
-@media screen and (min-width: 1024px) and (max-width: 1366px) {
-    .stepper_horizontal {
-        width: 80%;
-        margin-top: 15%;
-        margin-left: 10%;
-    }
-}
-
-
-@media screen and (max-width: 1023px), (min-width: 1367px) {
-    .stepper_horizontal {
-        width: 60%;
-        margin-top: 10%;
-        margin-left: 20%;
-    }
-}
-
-li {
-    margin-top: 2%;
-    /*padding: 3%;*/
-    font-size: 20px;
-    line-height: 2;
-}
-
-.images {
-    width: 100%;
-    display: flex;
-    flex-direction: row;            
-    flex-wrap: nowrap;              
-    justify-content: space-between; 
-    align-items: center;
-}
-
-.images2 {
-    width: 100%;
-    display: flex;
-    flex-direction: row;            
-    flex-wrap: nowrap;              
-    justify-content: center; 
-    align-items: center;
-}
-.img2 {
-    width: 75%;
-    height: 70%;
-    background-size: contain;
-    background-repeat: no-repeat;
-}
-.img1 {
-    width: 48%;
-    height: 100%;
-    background-size: contain;
-    background-repeat: no-repeat;
-}
-
-.breaker{
-    width: 100%;
-    border-top: 4px dotted rgb(93, 93, 93);
+.user-guide-container {
+  width: 100%;
+  height: 100%;
+  background-image: url("~src/assets/background-gradient.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 app-main-menu {
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    margin: auto;
-  }
-
-.background {
-    width: 100%;
-    height: 90%;
-    justify-content: center;
+  position: absolute;
+  inset: 0;
 }
 
-.back-button {
-    position: absolute;
-    top:0;
-    left: 0;
-    bottom: 0;
-    transition: 3s;
-    z-index: 1;
+.guide-panel {
+  position: absolute;
+  top: 12%;
+  left: 3%;
+  right: 3%;
+  bottom: 3%;
+  z-index: 1;
+  display: flex;
+  background-color: #ffffff;
+  border: 1px solid gray;
+  box-shadow: 0 5px 10px 0 rgb(0 0 0 / 70%);
 }
 
-.back-button:hover {
-    background: linear-gradient(to right, rgba(170, 169, 169, 0.326), rgba(255,0,0,0));
-    transition: 3s;
+.guide-toc {
+  flex: 0 0 260px;
+  overflow-y: auto;
+  padding: 16px;
+  border-right: 1px solid #ddd;
+  background-color: #f7f8fc;
+}
+
+.guide-toc h2 {
+  font-size: 18px;
+  margin-top: 0;
+}
+
+.guide-toc ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.guide-toc a {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: #222;
+  text-decoration: none;
+}
+
+.guide-toc a:hover {
+  background-color: #e8eaf6;
+}
+
+.guide-toc a.active {
+  background-color: #3f51b5;
+  color: #ffffff;
+}
+
+.guide-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 40px 40px;
+  line-height: 1.55;
+}
+
+/* the chapter is HTML written by marked: no component attribute on it */
+.guide-content ::ng-deep img {
+  max-width: 100%;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 20%);
+  margin: 8px 0;
+}
+
+.guide-content ::ng-deep table {
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+.guide-content ::ng-deep th,
+.guide-content ::ng-deep td {
+  border: 1px solid #ccc;
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.guide-content ::ng-deep th {
+  background-color: #f0f1f8;
+}
+
+.guide-content ::ng-deep blockquote {
+  margin: 12px 0;
+  padding: 8px 16px;
+  border-left: 4px solid #3f51b5;
+  background-color: #f5f6fd;
+}
+
+.guide-content ::ng-deep code {
+  background-color: #f2f2f2;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.guide-error {
+  color: #b00020;
 }

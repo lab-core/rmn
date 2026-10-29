@@ -33,6 +33,8 @@
           </button>
         </div>
       }
+      <div class="tiles-help">Copies <app-help-tip key="grading.tiles"></app-help-tip>
+        <app-help-tip key="grading.shortcuts" class="shortcuts-help"></app-help-tip></div>
       <div class="files-list-container" [ngStyle]="{'height': filesListHeight()}" id="files-list-container">
         @for (exam of subExamsList; track exam; let i = $index) {
           <div class="file-container"
@@ -61,6 +63,7 @@
       <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(true)" [disabled]="downloadingOffline">Finaliser</button>
       <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="cancelOffline()">Annuler</button> -->
       <button class="pdf-management-button" mat-flat-button color="primary" (click)="managePdfs()" [disabled]="downloadingOffline">Gérer mes copies offline</button>
+      <app-help-tip key="grading.offline"></app-help-tip>
     </div>
     <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
       @if (currentCopy >= 0) {
@@ -92,6 +95,7 @@
                     [style.border-color]="scoreBorderColour()"
                     [title]="autoGradeHint()"
                     (click)="selectText($event)"/>
+                  <app-help-tip key="grading.score"></app-help-tip>
                 </div>
               </div>
               @for (grade of currentGrades | keyvalue : sortNull; track trackByIndex($index, grade)) {
