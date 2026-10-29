@@ -70,6 +70,14 @@ export function userServiceStub(overrides: Record<string, any> = {}): any {
     listUsers: jasmine.createSpy('listUsers').and.returnValue(of({ response: [] })),
     impersonate: jasmine.createSpy('impersonate').and.resolveTo(undefined),
     stopImpersonating: jasmine.createSpy('stopImpersonating'),
+    mustChangePassword: false,
+    passwordChanged: jasmine.createSpy('passwordChanged'),
+    isAdmin() { return this.role == UserRole.ADMIN; },
+    canCreateUsers() { return this.role == UserRole.MANAGER || this.role == UserRole.ADMIN; },
+    creatableRoles() {
+      return this.role == UserRole.ADMIN ? [UserRole.USER, UserRole.MANAGER, UserRole.ADMIN]
+        : this.role == UserRole.MANAGER ? [UserRole.USER, UserRole.MANAGER] : [];
+    },
     updateSaveVerifiedImagesValue: jasmine.createSpy('updateSaveVerifiedImagesValue').and.returnValue(of({})),
     updateMoodleStructureInd: jasmine.createSpy('updateMoodleStructureInd').and.returnValue(of({})),
     ...overrides,

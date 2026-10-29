@@ -42,7 +42,7 @@ def test_signup_requires_an_admin_token(client, user_factory, login):
         "/users/signup",
         data={"user_id": "alice", "token": token, "username": "bob", "password": "Passw0rd", "role": USER},
     )
-    assert resp.status_code == 401
+    assert resp.status_code == 403
 
 
 def test_admin_signup_validates_and_hashes(client, user_factory, login, app_module_fixture):
