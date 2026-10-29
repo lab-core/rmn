@@ -15,7 +15,7 @@ Dans votre cours : **Mode d'édition**, puis **Ajouter une activité ou ressourc
 | Généraux | Nom du devoir | par ex. « Examen final » | – |
 | Disponibilité | Autoriser la remise dès le, Date limite | cas A : la fenêtre de dépôt ; cas B : sans importance | – |
 | Types de remise | Remises de fichiers | cas A : **coché** ; cas B : décoché | cas A : les étudiants déposent leur copie |
-| Types de remise | Nombre maximum de fichiers à remettre | **1** de préférence | rmn traite chaque PDF comme une copie : un étudiant qui dépose deux fichiers aurait deux copies |
+| Types de remise | Nombre maximum de fichiers à remettre | **1** | rmn traite chaque PDF comme une copie : un étudiant qui dépose deux fichiers aurait deux copies |
 | Types de remise | Types de fichiers acceptés | **.pdf** (**Choisir** → Fichiers document → Document PDF) | rmn ne lit que des PDF |
 | Types de feedback | Fichiers de feedback | **coché** | pour renvoyer à chaque étudiant sa copie corrigée |
 | Types de feedback | Formulaire d'évaluation hors ligne | **coché** | c'est le csv que rmn lit et remplit |
@@ -26,7 +26,7 @@ Dans votre cours : **Mode d'édition**, puis **Ajouter une activité ou ressourc
 | Note | Utiliser les flux d'évaluation | **Non** | les notes importées sont alors directement celles du devoir |
 | Réglages courants | Mode de groupe | au choix | une colonne « Groupe » du csv sert à trier les copies par groupe |
 
-![Types de remise et types de feedback (ici jusqu'à 20 fichiers : 1 est préférable)](img/moodle-remise-feedback.png)
+![Types de remise et types de feedback](img/moodle-remise-feedback.png)
 
 Pour n'accepter que des PDF, **Choisir** ouvre la liste des types de fichiers : dépliez **Fichiers document** et cochez **Document PDF**.
 
