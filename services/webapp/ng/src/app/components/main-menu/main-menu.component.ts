@@ -22,6 +22,23 @@ export class MainMenuComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {}
 
+  /** The admin behind this session, when it was opened in a user's place. */
+  get impersonatedBy(): string | undefined {
+    return this.userService.impersonatedBy;
+  }
+
+  get currentUsername(): string {
+    return this.userService.currentUsername;
+  }
+
+  stopImpersonating(): void {
+    const admin = this.userService.impersonatedBy;
+    this.userService.stopImpersonating();
+    // a role is only taken from the admin page
+    this.router.navigate(['/admin']);
+    this.notificationService.showInfo("", `De retour en tant que ${admin}`)
+  }
+
   disconnect(): void {
     this.userService.logout()
     this.router.navigate(['/login']);
@@ -46,6 +63,15 @@ export class MainMenuComponent implements OnInit {
 
   goToPresentationPage(): void {
     this.router.navigate(['/presentation-page']);
+  }
+
+  /** Gestionnaires and Administrateurs get the admin page. */
+  get canManage(): boolean {
+    return this.userService.canCreateUsers();
+  }
+
+  goToAdminPage(): void {
+    this.router.navigate(['/admin']);
   }
 
   goToProfilePage(): void {

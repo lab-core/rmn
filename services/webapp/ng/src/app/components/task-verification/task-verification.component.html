@@ -62,8 +62,9 @@
       <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(false)" [disabled]="downloadingOffline">Sauvegarder en ligne</button>
       <button class="offline-button" mat-raised-button color="primary" *ngIf="offline" (click)="uploadOffline(true)" [disabled]="downloadingOffline">Finaliser</button>
       <button class="offline-button" mat-raised-button color="warn" *ngIf="offline" (click)="cancelOffline()">Annuler</button> -->
-      <button class="pdf-management-button" mat-flat-button color="primary" (click)="managePdfs()" [disabled]="downloadingOffline">Gérer mes copies offline</button>
-      <app-help-tip key="grading.offline"></app-help-tip>
+      <app-help-hover key="grading.offline">
+        <button class="pdf-management-button" mat-flat-button color="primary" (click)="managePdfs()" [disabled]="downloadingOffline">Gérer mes copies offline</button>
+      </app-help-hover>
     </div>
     <div class="validation-container" [ngClass]="{'expanded': isSidebarHidden}">
       @if (currentCopy >= 0) {

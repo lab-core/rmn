@@ -266,7 +266,7 @@ async function matricules(page) {
   console.log('matricules');
   await openDashboard(page);
   const gif = new Animation(page, 'matricules');
-  await click(page, page.getByRole('button', {name: 'Verifier'}), gif);
+  await click(page, page.getByRole('button', {name: 'Vérifier'}), gif);
   await page.waitForURL(/matricule-validation/);
   await settle(page, 2500);
   const tiles = page.locator('.files-list-container .file-container');

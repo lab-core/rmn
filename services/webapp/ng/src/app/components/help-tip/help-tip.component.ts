@@ -2,7 +2,7 @@ import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { HELP, HelpEntry } from '../../help/guide';
+import { HELP, HelpEntry, guideLink } from '../../help/guide';
 
 /**
  * A "?" next to a field: hovering shows the help text of `key` (see
@@ -28,7 +28,6 @@ export class HelpTipComponent {
   }
 
   get link(): string {
-    const entry = this.entry;
-    return `/user-guide/${entry.chapter}` + (entry.anchor ? `#${entry.anchor}` : '');
+    return guideLink(this.entry);
   }
 }

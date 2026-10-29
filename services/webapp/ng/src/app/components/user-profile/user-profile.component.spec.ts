@@ -46,6 +46,8 @@ describe('UserProfileComponent', () => {
     expect(button).not.toBeNull();
     button.click();
     expect(dialog.open).toHaveBeenCalledWith(CreateUserDialogComponent, jasmine.any(Object));
+    // taking a role is done from the admin page only
+    expect(fixture.nativeElement.querySelector('.impersonate-button')).toBeNull();
   });
 
   it('shows the digit-images switch and sends what the user clicks', () => {
@@ -84,5 +86,28 @@ describe('UserProfileComponent', () => {
     spyOn(router, 'navigate').and.resolveTo(true);
     component.reroute();
     expect(router.navigate).toHaveBeenCalledWith(['/main-menu']);
+  });
+
+  it('lets a Gestionnaire create accounts but not take a role', () => {
+    create('Gestionnaire');
+    expect(fixture.nativeElement.querySelector('.profile-button')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.impersonate-button')).toBeNull();
+  });
+
+  it('asks for a new password at once, without a way out, after a reset', () => {
+    localStorage.clear();
+    user = userServiceStub({ role: 'Utilisateur', mustChangePassword: true });
+    TestBed.configureTestingModule({
+      declarations: [UserProfileComponent, MainMenuStubComponent],
+      imports: MATERIAL_MODULES,
+      providers: [provideRouter([]), { provide: UserService, useValue: user }],
+    });
+    fixture = TestBed.createComponent(UserProfileComponent);
+    dialog = TestBed.inject(MatDialog);
+    spyOn(dialog, 'open').and.returnValue({} as any);
+    fixture.detectChanges();
+    expect(dialog.open).toHaveBeenCalledWith(ChangePasswordDialogComponent, jasmine.objectContaining({
+      data: { forced: true }, disableClose: true,
+    }));
   });
 });

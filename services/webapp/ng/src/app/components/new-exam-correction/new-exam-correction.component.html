@@ -67,9 +67,10 @@
                         <input #copiesFileInput hidden="true" type="file" (click)="copiesFileInput.value = ''"
                             (change)="CopiesFileEvent($event)" accept=".zip" />
                         <span class="with-help">
-                          <button id="copies-input-button" mat-flat-button color="primary"
-                              (click)="copiesFileInput.click()" [disabled]="this.uploading">Téléverser localement</button>
-                          <app-help-tip key="wizard.copies"></app-help-tip>
+                          <app-help-hover key="wizard.copies">
+                            <button id="copies-input-button" mat-flat-button color="primary"
+                                (click)="copiesFileInput.click()" [disabled]="this.uploading">Téléverser localement</button>
+                          </app-help-hover>
                         </span>
                         @if (this.showDropbox) {
 <button id="files-dropbox-input" (click)="getDropBoxUpload()"
@@ -209,9 +210,10 @@
                         <input #csvInput hidden="true" type="file" (click)="csvInput.value = ''"
                             (change)="CsvFileEvent($event)" accept=".csv" />
                         <span class="with-help">
-                          <button id="csv-input-button" mat-flat-button background-color="green"
-                              (click)="csvInput.click()" [disabled]="this.uploading">Téléverser localement</button>
-                          <app-help-tip key="wizard.csv"></app-help-tip>
+                          <app-help-hover key="wizard.csv">
+                            <button id="csv-input-button" mat-flat-button background-color="green"
+                                (click)="csvInput.click()" [disabled]="this.uploading">Téléverser localement</button>
+                          </app-help-hover>
                         </span>
                         @if (this.showDropbox) {
 <button id="csv-dropbox-input" (click)="getDropBoxUploadCSV()"

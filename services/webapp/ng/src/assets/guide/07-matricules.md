@@ -1,6 +1,6 @@
 # 7. Vérifier les matricules
 
-rmn lit le matricule écrit dans les cases et le cherche dans le csv de Moodle. Toutes les copies doivent être associées à un étudiant avant de [finaliser](09-finalisation.md). Depuis le tableau de bord, ligne **Matricules** → **Verifier**.
+rmn lit le matricule écrit dans les cases et le cherche dans le csv de Moodle. Toutes les copies doivent être associées à un étudiant avant de [finaliser](09-finalisation.md). Depuis le tableau de bord, ligne **Matricules** → **Vérifier**.
 
 ![Vérification des matricules](img/matricules.gif)
 
@@ -33,5 +33,11 @@ Les flèches **←** et **→** passent d'une copie à l'autre (quand le curseur
 ## Étudiant absent du csv
 
 Si l'étudiant n'apparaît pas dans la liste, il n'était pas inscrit au devoir quand le csv a été téléchargé. Retéléchargez le formulaire d'évaluation de Moodle, puis **Mettre à jour csv** dans le tableau de bord ([voir chapitre 6](06-suivi.md#ajouter-des-copies-ou-remplacer-le-csv)).
+
+## Relire les matricules
+
+Si beaucoup de matricules ont été mal lus (template corrigé après coup, lecteur amélioré…), le bouton ⟳ **Relire** de la ligne **Matricules** du tableau de bord les fait relire. Seuls les matricules que personne n'a confirmés sont relus : les copies en vert gardent leur matricule, les copies supprimées restent supprimées. Pendant la relecture, la tâche affiche « Prêt à la correction et traitement en cours des matricules » : vous pouvez continuer à corriger et à confirmer des matricules, votre choix l'emporte sur la lecture.
+
+Le bouton n'apparaît qu'au propriétaire de la tâche, et seulement tant qu'elle est en correction. Il est grisé quand tous les matricules sont confirmés.
 
 Suite : [8. Corriger les copies](08-correction.md).

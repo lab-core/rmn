@@ -1,0 +1,13 @@
+<h2 mat-dialog-title>
+  <mat-icon [class.danger]="data.danger">{{data.danger ? 'warning' : 'help_outline'}}</mat-icon>
+  {{data.title}}
+</h2>
+<mat-dialog-content>
+  <p>{{data.message}}</p>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-stroked-button class="cancel" (click)="dialogRef.close(false)">Annuler</button>
+  <button mat-flat-button class="confirm" [color]="data.danger ? 'warn' : 'primary'" (click)="dialogRef.close(true)">
+    {{data.confirm ?? 'Confirmer'}}
+  </button>
+</mat-dialog-actions>

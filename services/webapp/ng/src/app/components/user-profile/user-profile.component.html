@@ -11,7 +11,11 @@
       <mat-card-content>
         <div class="info-container">
           <div class="text-box-definition"> Nom d'utilisateur:</div>
-          <div class="text-box" >{{this.userService.currentUsername}}</div>
+          <div class="text-box" >{{this.userService.currentUsername}}
+            @if (this.userService.impersonatedBy) {
+              <span class="impersonated-by">(session ouverte par {{this.userService.impersonatedBy}})</span>
+            }
+          </div>
         </div>
 
         <div class="bar">
@@ -65,8 +69,10 @@
 
                 <div class="buttons-container">
                   <button class="change-password" mat-raised-button color="primary" (click)="openChangePasswordDialog()">Changer le mot de passe</button>
-                  @if (this.userService.role == UserRole.ADMIN) {
-                    <button class="profile-button" mat-raised-button color="accent" (click)="openCreateUserDialog()">Créer un compte</button>
+                  @if (this.userService.canCreateUsers()) {
+                    <app-help-hover key="admin.create">
+                      <button class="profile-button" mat-raised-button color="accent" (click)="openCreateUserDialog()">Créer un compte</button>
+                    </app-help-hover>
                   }
                 </div>
 
