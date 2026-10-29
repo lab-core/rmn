@@ -26,6 +26,7 @@
     "dexie": "^4.4.6",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.2",
+    "marked": "^18.1.1",
     "ngx-extended-pdf-viewer": "31.0.0-alpha.1",
     "ngx-toastr": "^20.0.5",
     "pdf-lib": "^1.17.1",

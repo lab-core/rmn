@@ -19,6 +19,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSortModule } from '@angular/material/sort';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatTableModule } from '@angular/material/table';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { NgSelectModule } from '@ng-select/ng-select';
@@ -52,6 +53,7 @@ import { UserGuideComponent } from './components/user-guide/user-guide.component
 import { UserProfileComponent } from './components/user-profile/user-profile.component';
 import { WarningDialogComponent } from './components/warning-dialog/warning-dialog.component';
 import { ErrorInfoDialogComponent } from './components/error-info-dialog/error-info-dialog.component';
+import { HelpTipComponent } from './components/help-tip/help-tip.component';
 
 // providers
 import { ErrorInterceptor, FreshHttpInterceptor } from './services/interceptor.service';
@@ -105,6 +107,8 @@ import { AuthInterceptor } from './services/auth.interceptor';
         MatButtonToggleModule,
         MatSlideToggleModule,
         MatDialogModule,
+        MatTooltipModule,
+        HelpTipComponent,
         ReactiveFormsModule,
         NgxExtendedPdfViewerModule,
         ToastrModule.forRoot({

@@ -781,3 +781,11 @@ app-pdf-viewer {
     color: inherit;
     cursor: pointer;
 }
+
+.tiles-help {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: #555;
+  margin: 4px 8px;
+}

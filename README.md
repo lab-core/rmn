@@ -25,11 +25,15 @@ To use the webapp, you need one of the following versions at minimum for your br
 
 ### User guide
 
-- Add a front page to your copy, if necessary, to grade them
+The step-by-step user guide (in French), from the Moodle assignment to the grades handed back, is in [services/webapp/ng/src/assets/guide](services/webapp/ng/src/assets/guide/README.md). The webapp shows the same pages under **Guide**, and the **?** bubbles of its screens link to them. In short:
+
+- Create a Moodle assignment with the offline grading worksheet and feedback files, no blind marking, and the matricule shown.
 - Define a template to mark the zone where to search the grades and matricules (if necessary). If searching matricules, the app will also automatically search for the matricule on the top right corner of all pages except the front page.
-- Start a new correction. A template can have more grade boxes than the exam has questions: check "Ignorer" for the unused questions (0 page, 0 point). They are skipped everywhere and their box is left blank on the front page. If a column matching the regex '(?i)(gr|groupe?s?)$' is found, the corresponding content will be used to separate the copies into sub directories. The csv file must include a 'matricule' column as well as a 'Nom complet' column. Using a moodle csv file works immediately (you should fix the maximum grade).
-- Then validate grades and matricules if necessary (it's not necessary if using directly moodle zip file or if each file contain it in its name).
-- Then finalize and download the resulting cvs file, all the copies renamed and split into groups (if provided), and the zip files to upload to moodle (as well as the csv file).
+- Start a new correction with the zip of the copies and the Moodle grading worksheet. A template can have more grade boxes than the exam has questions: check "Ignorer" for the unused questions (0 page, 0 point). They are skipped everywhere and their box is left blank on the front page. If a column matching the regex '(?i)(gr|groupe?s?)$' is found, the corresponding content will be used to separate the copies into sub directories. The csv file must include a 'Matricule' column as well as a 'Nom complet' column.
+- Then validate grades and matricules.
+- Then finalize and download the resulting csv file, all the copies renamed and split into groups (if provided), and the zip files to upload to Moodle (as well as the csv file).
+
+The screenshots of the guide are taken on fictitious copies by [tools/docs-capture](tools/docs-capture/README.md).
 
 ### General information for installation
 

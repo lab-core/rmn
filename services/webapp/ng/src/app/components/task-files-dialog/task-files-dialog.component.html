@@ -2,6 +2,9 @@
   <div class="header-container">
     <h1>Téléchargement des fichiers</h1>
   </div>
+  <p class="files-hint">« moodle » et « notes » se déposent dans le devoir Moodle,
+    « copies » est pour vos archives. <app-help-tip key="files.moodle"></app-help-tip>
+    <app-help-tip key="files.notes"></app-help-tip></p>
   <div class="global-container">
     <a id="download-file" hidden="true"></a>
     @for (n of numSequence(data.nbZipFile); track n; let i = $index) {
