@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from process_copy.config import len_mat
-from process_copy.contours import find_matricule_digit_boxes
+from process_copy.contours import find_matricule_digit_boxes, straighten_frame
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -91,6 +91,24 @@ def test_a_digit_crossing_a_side_merges_with_its_box_and_it_is_put_back(index):
     cv2.line(img, (x + 15, y + 30), (x + w + 12, y + h + 14), 0, 5)
 
     assert_boxes(find_matricule_digit_boxes(img, len_mat), rects)
+
+
+@pytest.mark.parametrize("degrees", [-6, -2, 3, 8])
+@pytest.mark.parametrize("frame", [cover_page_frame, later_page_frame])
+def test_a_turned_frame_is_straightened_before_its_boxes_are_found(frame, degrees):
+    img, rects = frame()
+    img = np.pad(img, 100, constant_values=255)
+    height, width = img.shape
+    turn = cv2.getRotationMatrix2D((width / 2, height / 2), degrees, 1.0)
+    img = cv2.warpAffine(img, turn, (width, height), borderValue=255)
+    # read as scanned, the boxes are lost from 6 degrees
+    assert find_matricule_digit_boxes(img, len_mat) == [] or abs(degrees) < 6
+
+    straight, _ = straighten_frame(img)
+
+    # the boxes come back upright, where they were drawn
+    assert_boxes(find_matricule_digit_boxes(straight, len_mat),
+                 [(x + 100, y + 100, w, h) for x, y, w, h in rects], tol=12)
 
 
 def test_no_row_of_boxes_is_no_boxes():

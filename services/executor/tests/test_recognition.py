@@ -66,9 +66,9 @@ def test_grade_boxes_are_read_and_checked_against_the_total(case, classifier):
     assert numbers == case["numbers"], case["note"]
 
 
-def turned(page, degrees):
-    """The page as a scanner turns it, about the centre of its grade table."""
-    x1, x2, y1, y2 = SPEC["grade_box"]
+def turned(page, degrees, box="grade_box"):
+    """The page as a scanner turns it, about the centre of one of its boxes."""
+    x1, x2, y1, y2 = SPEC[box]
     height, width = page.shape
     centre = ((x1 + x2) / 2 * width, (y1 + y2) / 2 * height)
     turn = cv2.getRotationMatrix2D(centre, degrees, 1.0)
@@ -101,6 +101,18 @@ def test_handwritten_matricule_is_read_from_its_boxes(case, classifier):
         separate_box=True,
     )
     check_known_miss(case, found == case["matricule"], found)
+    assert found == case["matricule"]
+
+
+@pytest.mark.parametrize("degrees", [-3, 4, -7])
+@pytest.mark.parametrize(
+    "case", [c for c in SPEC["matricules"] if not c.get("known_miss")], ids=lambda c: c["file"]
+)
+def test_a_matricule_is_read_on_a_turned_scan(case, degrees, classifier):
+    page = turned(page_with(case["file"], SPEC["matricule_box"]), degrees, "matricule_box")
+    found, _id_box, _id_csv = recognize.find_matricule(
+        [page], SPEC["matricule_box"], None, classifier, [], separate_box=True
+    )
     assert found == case["matricule"]
 
 

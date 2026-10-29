@@ -44,17 +44,17 @@ def process_template(db, storage, sio, temp_id, WORK_TMP_DIR):
     # before any frame is drawn on it
     gray = np.array(img.convert("L"))
     grade_box = template.get("grade_box", None)
-    if grade_box:
-        # a scanned template turned like a copy: its layout is kept upright,
-        # as the copies are read once their grade table is straightened
-        angle = frame_skew(fetch_box(gray, tuple(round(x, 2) for x in grade_box)))
-        if abs(angle) >= 0.1:
+    matricule_box = template.get("matricule_box", None)
+    if grade_box or matricule_box:
+        # a scanned template turned like a copy: its boxes are found upright,
+        # as the copies' are once their frame is straightened
+        angle = frame_skew(fetch_box(gray, tuple(round(x, 2) for x in grade_box or matricule_box)))
+        if abs(angle) >= 0.5:
             height, width = gray.shape
             turn = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1.0)
             gray = cv2.warpAffine(gray, turn, (width, height), borderValue=255)
             np_img = cv2.warpAffine(np_img, turn, (width, height),
                                     borderValue=(255, 255, 255, 255))
-    matricule_box = template.get("matricule_box", None)
     if matricule_box:
         np_img, _ = draw_boxes_on_template(matricule_box, np_img, True)
 

@@ -87,9 +87,11 @@ def biggest_contour(cropped):
 
 
 
-def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False):
-    # find the id box
+def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False, straighten=False):
+    # find the id box, straightened when the scan turned it (see straighten_frame)
     cropped = fetch_box(gray, regular_box)
+    if straighten:
+        cropped, _ = straighten_frame(cropped)
     if biggest_child:
         cnts, hierarchy, pos = biggest_contour(cropped)
         # a blank / unreadable matricule box yields no contours: there is
@@ -359,8 +361,12 @@ def frame_skew(gray, max_angle=10, min_size=20):
 
 
 
-def straighten_frame(cropped, min_angle=0.1):
+def straighten_frame(cropped, min_angle=0.5):
     """The frame turned so that its lines are horizontal and vertical.
+
+    A frame turned by less than ``min_angle`` degrees is read as it is: a
+    box is then a pixel off at most, and turning it only blurs the strokes,
+    enough to change a doubtful digit of a matricule.
 
     Returns:
         ``(straight, back)``: the straightened frame, and the affine matrix
