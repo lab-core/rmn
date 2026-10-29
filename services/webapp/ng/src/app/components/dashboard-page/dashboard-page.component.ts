@@ -48,6 +48,8 @@ export class DashboardPageComponent {
   public taskId: string;
   public taskName: string;
   public taskStats: boolean;
+  // 0 for the students without a graded copy when finalizing
+  public taskAbsentZero: boolean = true;
   public examsList: Array<any> = [];
   public questionsDocList: Array<any> = [];
   public examsCount = 0;
@@ -278,6 +280,7 @@ export class DashboardPageComponent {
   public async getTask() {
     this.task = await this.tasksService.getTaskById(this.taskId);
     this.taskStats = this.task.statistics_for_students;
+    this.taskAbsentZero = this.task.absent_zero ?? true;
     this.autoGradeProgress = this.task.auto_grade_progress || {};
     if (this.task.copies_errors) {
         const cleanedInfos = this.task.copies_errors.slice(1, -1).replace(/['",]/g, '');
@@ -288,6 +291,10 @@ export class DashboardPageComponent {
 
   public taskStatsChange(): void {
     this.tasksService.updateTaskStats(this.taskId, this.taskStats);
+  }
+
+  public taskAbsentZeroChange(): void {
+    this.tasksService.updateTaskAbsentZero(this.taskId, this.taskAbsentZero);
   }
 
   public questionBonusChange(question: Question): void {

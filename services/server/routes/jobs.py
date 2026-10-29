@@ -295,6 +295,8 @@ def evaluate(user_id):
         "students_list": [],
         "statistics_for_students": statistics_for_students,
         "validate_matricule": request_form.get("validate_matricule", "true").lower() == "true",
+        # 0 for a student without a copy when finalizing, unless unchecked
+        "absent_zero": request_form.get("absent_zero", "true").lower() == "true",
     }
 
     try:
@@ -451,6 +453,8 @@ def get_job():
         "statistics_for_students": job["statistics_for_students"],
         # so a task created from this one opens with the same switch
         "validate_matricule": job.get("validate_matricule", True),
+        # a task made before the option gives 0 to the absent, as it always did
+        "absent_zero": job.get("absent_zero", True),
         "groups": job.get("groups", [""]),
         "copies_errors": job.get("copies_errors"),
         # how far the grade reading has got, question by question, so the
@@ -790,6 +794,36 @@ def update_job_settings(user_id):
     return Response(
         response=json.dumps({"response": "OK", "flagged": flagged, "kept": kept, "resplit": resplit}), status=200
     )
+
+
+@bp.route("/update/absent_zero", methods=["POST"])
+@cross_origin()
+@verify_token()
+def absent_zero_job(user_id):
+    """Whether finalizing gives 0 to the students without a graded copy."""
+    request_form = request.form
+    for field in ("job_id", "absent_zero"):
+        if field not in request_form:
+            return Response(
+                response=json.dumps({"response": f"Error: {field} not provided."}),
+                status=400,
+            )
+
+    job_id = str(request_form["job_id"])
+    absent_zero = request_form["absent_zero"].lower() == "true"
+    db = mongo["RMN"]
+    # scope to the requesting user so one user cannot mutate another's job
+    result = db["eval_jobs"].update_one(
+        {"job_id": job_id, "user_id": user_id},
+        {"$set": {"absent_zero": absent_zero}},
+    )
+    if result.matched_count == 0:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
+        )
+
+    return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
 @bp.route("/update/stats", methods=["POST"])
