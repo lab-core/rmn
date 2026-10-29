@@ -19,7 +19,7 @@ from rmn_common.status import Document_Status
 from utils.clients import socketio_client
 from process_copy.imaging import fetch_box, get_date, layout_in_frame, memory_used_gb
 from process_copy.pages import gray_images
-from process_copy.contours import find_grade_boxes
+from process_copy.contours import find_grade_boxes, straighten_frame
 from process_copy.digits import correct_decimals, test
 from process_copy.matricules import find_file_matricule
 
@@ -92,7 +92,8 @@ def try_fix_questions(max_question, predictions):
 
 def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=None,
           max_question=None, retry=0, n_boxes=None, layout=None):
-    cropped = fetch_box(gray, box)
+    # the boxes are cut out upright, without the lines of a turned table
+    cropped, _ = straighten_frame(fetch_box(gray, box))
     # to tell the grade boxes apart: the questions and the total when known
     # (n_boxes), the boxes found on the template (layout, in page fractions)
     boxes = find_grade_boxes(cropped, add_border, thick=0, n=n_boxes,

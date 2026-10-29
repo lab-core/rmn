@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from pdf2image import convert_from_path
 from PIL import Image
-from python.process_copy.contours import frame_rectangles
+from python.process_copy.contours import frame_rectangles, frame_skew
 from python.process_copy.imaging import fetch_box, frame_to_cells
 from python.process_copy.recognize import write_box_contours
 from runtime import timestamped_print
@@ -43,6 +43,17 @@ def process_template(db, storage, sio, temp_id, WORK_TMP_DIR):
     np_img = np.array(img)
     # before any frame is drawn on it
     gray = np.array(img.convert("L"))
+    grade_box = template.get("grade_box", None)
+    if grade_box:
+        # a scanned template turned like a copy: its layout is kept upright,
+        # as the copies are read once their grade table is straightened
+        angle = frame_skew(fetch_box(gray, tuple(round(x, 2) for x in grade_box)))
+        if abs(angle) >= 0.1:
+            height, width = gray.shape
+            turn = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1.0)
+            gray = cv2.warpAffine(gray, turn, (width, height), borderValue=255)
+            np_img = cv2.warpAffine(np_img, turn, (width, height),
+                                    borderValue=(255, 255, 255, 255))
     matricule_box = template.get("matricule_box", None)
     if matricule_box:
         np_img, _ = draw_boxes_on_template(matricule_box, np_img, True)
@@ -51,7 +62,6 @@ def process_template(db, storage, sio, temp_id, WORK_TMP_DIR):
     # copies to find theirs where they are
     n_questions = 0
     grade_layout = None
-    grade_box = template.get("grade_box", None)
     if grade_box:
         page_shape = np_img.shape
         np_img, cnts = draw_boxes_on_template(grade_box, np_img, False)

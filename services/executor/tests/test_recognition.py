@@ -66,6 +66,29 @@ def test_grade_boxes_are_read_and_checked_against_the_total(case, classifier):
     assert numbers == case["numbers"], case["note"]
 
 
+def turned(page, degrees):
+    """The page as a scanner turns it, about the centre of its grade table."""
+    x1, x2, y1, y2 = SPEC["grade_box"]
+    height, width = page.shape
+    centre = ((x1 + x2) / 2 * width, (y1 + y2) / 2 * height)
+    turn = cv2.getRotationMatrix2D(centre, degrees, 1.0)
+    return cv2.warpAffine(page, turn, (width, height), flags=cv2.INTER_LINEAR, borderValue=255)
+
+
+@pytest.mark.parametrize("degrees", [-3, 1.5, 4])
+@pytest.mark.parametrize(
+    "case", [c for c in SPEC["grades"] if not c.get("known_miss")], ids=lambda c: c["file"]
+)
+def test_grades_are_read_on_a_turned_scan(case, degrees, classifier):
+    page = turned(page_with(case["file"], SPEC["grade_box"]), degrees)
+    matched, numbers, _cropped, _images, boxes = recognize.grade(
+        page, SPEC["grade_box"], classifier=classifier, max_grade=30, max_question=12
+    )
+    assert len(boxes) == 6
+    assert matched, case["note"]
+    assert [float(n) for n in numbers] == case["numbers"], case["note"]
+
+
 @pytest.mark.parametrize("case", SPEC["matricules"], ids=lambda c: c["file"])
 def test_handwritten_matricule_is_read_from_its_boxes(case, classifier):
     page = page_with(case["file"], SPEC["matricule_box"])

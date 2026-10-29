@@ -506,6 +506,35 @@ def test_a_template_grade_box_is_counted_in_questions(
     assert [y for _, y, _, _ in cells] == sorted(y for _, y, _, _ in cells)
 
 
+def test_a_turned_template_keeps_the_layout_of_a_straight_one(
+    tmp_path: Path, storage_root: Path, mongo_db: Any
+) -> None:
+    import cv2
+
+    grade_box = RECOGNITION["grade_box"]
+    file_id = _template_png(storage_root, [("grades_blank.png", grade_box)])
+    template = {"user_id": "teacher", "template_file_id": file_id, "grade_box": grade_box}
+    mongo_db["template"].insert_one({"template_id": "straight", **template})
+    templates.process_template(Database(), Storage(), MagicMock(), "straight", tmp_path)
+    # the same page, scanned 2 degrees off
+    path = str(storage_root / file_id)
+    page = cv2.imread(path)
+    height, width = page.shape[:2]
+    turn = cv2.getRotationMatrix2D((width / 2, height / 2), 2, 1.0)
+    cv2.imwrite(path, cv2.warpAffine(page, turn, (width, height), borderValue=(255, 255, 255)))
+    mongo_db["template"].insert_one({"template_id": "turned", **template})
+    templates.process_template(Database(), Storage(), MagicMock(), "turned", tmp_path)
+
+    def boxes(template_id):
+        return mongo_db["template"].find_one({"template_id": template_id})["grade_layout"]["boxes"]
+
+    straight, turned = boxes("straight"), boxes("turned")
+    assert len(turned) == len(straight) == 6
+    for a, b in zip(straight, turned):
+        # same sizes (upright, not the box around a turned one), 4 px at 300 dpi
+        assert abs(a[2] - b[2]) * width <= 4 and abs(a[3] - b[3]) * height <= 4
+
+
 def test_an_unknown_template_is_refused(tmp_path: Path, mongo_db: Any) -> None:
     with pytest.raises(KeyError, match="not found"):
         templates.process_template(Database(), Storage(), MagicMock(), "nope", tmp_path)

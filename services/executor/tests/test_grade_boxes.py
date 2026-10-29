@@ -160,6 +160,43 @@ def test_on_a_copy_the_layout_of_the_template_tells_the_grades_from_their_neighb
     assert_boxes(found, cells)
 
 
+def turned(img, degrees):
+    """The frame as a scanner turns it, about its centre, and how its points move."""
+    height, width = img.shape
+    turn = cv2.getRotationMatrix2D((width / 2, height / 2), degrees, 1.0)
+    return cv2.warpAffine(img, turn, (width, height), borderValue=255), turn
+
+
+def assert_turned_boxes(cnts, rects, turn, tol=4):
+    """The boxes found are the ones drawn, turned: their centres match."""
+    assert len(cnts) == len(rects), [cv2.boundingRect(c) for c in cnts]
+    for c, (x, y, w, h) in zip(cnts, rects):
+        centre = cv2.transform(np.array([[[x + w / 2, y + h / 2]]], np.float32), turn)[0, 0]
+        assert np.hypot(*(c.reshape(-1, 2).mean(axis=0) - centre)) <= tol
+
+
+@pytest.mark.parametrize("degrees", [-8, -3, 0.5, 2, 5])
+@pytest.mark.parametrize("grades", [None, ["5", "8", "11", "6.5", "0", "30.5"]])
+def test_the_boxes_of_a_turned_scan_are_found_where_they_are(degrees, grades):
+    img, cells = column_table(grades)
+    img = np.pad(img, 150, constant_values=255)
+    cells = [(x + 150, y + 150, w, h) for x, y, w, h in cells]
+    img, turn = turned(img, degrees)
+
+    assert_turned_boxes(find_grade_boxes(img, thick=0), cells, turn)
+
+
+@pytest.mark.parametrize("degrees", [-4, 3])
+def test_the_layout_of_the_template_finds_the_grades_on_a_turned_and_moved_scan(degrees):
+    template, cells = column_table(maximums_width=210)
+    layout = template_layout(np.pad(template, 250, constant_values=255))
+    copy, _ = column_table(["5", "8", "11", "6.5", "0", "30.5"], maximums_width=210)
+    copy, turn = turned(moved(np.pad(copy, 250, constant_values=255), -50, -160), degrees)
+    cells = [(x + 200, y + 90, w, h) for x, y, w, h in cells]
+
+    assert_turned_boxes(find_grade_boxes(copy, thick=0, layout=layout), cells, turn)
+
+
 def test_a_layout_far_from_any_run_leaves_the_choice_to_the_rules():
     copy, cells = column_table(["5", "8", "11", "6.5", "0", "30.5"])
     far = [(x + 600, y + 600, w, h) for x, y, w, h in cells]

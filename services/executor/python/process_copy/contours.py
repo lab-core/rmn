@@ -328,6 +328,58 @@ def _fill_run(run, horizontal, thick):
 
 
 
+def frame_skew(gray, max_angle=10, min_size=20):
+    """The angle, in degrees, the boxes of the frame make with the axes.
+
+    Every box of a table is a closed outline, still a rectangle when the scan
+    turned the page: the angle of the smallest rectangle around each outline
+    that fills it, the median weighted by area, is how far the page turned.
+    The sign is the one ``cv2.getRotationMatrix2D`` takes to straighten it.
+    0 when the frame holds no box.
+    """
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    ink = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)[1]
+    ink = cv2.morphologyEx(ink, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+    cnts, _ = cv2.findContours(ink, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    angles, areas = [], []
+    for c in cnts:
+        _, (w, h), angle = cv2.minAreaRect(c)
+        if min(w, h) < min_size or cv2.contourArea(c) < 0.85 * w * h:
+            continue  # not a box: a digit, a label, a line
+        angle -= 90 * round(angle / 90)
+        if abs(angle) <= max_angle:
+            angles.append(angle)
+            areas.append(w * h)
+    if not angles:
+        return 0.0
+    order = np.argsort(angles)
+    cumulated = np.cumsum(np.array(areas)[order])
+    return float(np.array(angles)[order][np.searchsorted(cumulated, cumulated[-1] / 2)])
+
+
+
+
+def straighten_frame(cropped, min_angle=0.1):
+    """The frame turned so that its lines are horizontal and vertical.
+
+    Returns:
+        ``(straight, back)``: the straightened frame, and the affine matrix
+        that takes its points back to ``cropped``, None when the frame is
+        straight enough to be read as it is.
+    """
+    angle = frame_skew(cropped)
+    if abs(angle) < min_angle:
+        return cropped, None
+    height, width = cropped.shape[:2]
+    turn = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1.0)
+    straight = cv2.warpAffine(cropped, turn, (width, height), flags=cv2.INTER_LINEAR,
+                              borderMode=cv2.BORDER_CONSTANT, borderValue=255)
+    imwrite_png("straightened", straight)
+    return straight, cv2.invertAffineTransform(turn)
+
+
+
+
 def find_grade_boxes(cropped, add_border=False, thick=5, n=None, layout=None):
     """The grade boxes of the frame, as contours sorted along their alignment.
 
@@ -346,6 +398,11 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None, layout=None):
     of labels as big as the grades is never taken for them. The rules above
     only decide when no run is near (a template without its rectangles).
 
+    A frame the scan turned is straightened first: the boxes are found on
+    it, and returned where they are on ``cropped``, as turned rectangles (a
+    caller that cuts the boxes out straightens the frame itself, see
+    ``straighten_frame``, so that they come back upright).
+
     Args:
         cropped: The gray frame the grade box of the template gives.
         add_border: Close the boxes the frame cuts with a border drawn around
@@ -359,6 +416,7 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None, layout=None):
     Returns:
         The contours of the boxes, ``[]`` when the frame holds none.
     """
+    cropped, back = straighten_frame(cropped)
     cropped2 = cropped.copy()
     border = max(thick, 2)
     if add_border:
@@ -390,7 +448,7 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None, layout=None):
                    key=lambda run: _distance(run, like), default=None)
         # half a box away at most: the next column of the table is a box away
         if best and _distance(best, like) <= 0.5 * median(min(r[2:]) for r in like):
-            return _boxes(best, cropped, thick)
+            return _boxes(best, cropped, thick, back)
 
     def narrow(runs, keep):
         """The runs that pass ``keep``, or all of them when none does."""
@@ -404,7 +462,7 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None, layout=None):
     runs = narrow(runs, lambda run: all(ink_share(ink, r) < 0.01 for r in run))
     if not runs:
         return []
-    return _boxes(max(runs, key=area), cropped, thick)
+    return _boxes(max(runs, key=area), cropped, thick, back)
 
 
 
@@ -448,10 +506,14 @@ def _distance(run, like):
 
 
 
-def _boxes(run, cropped, thick):
-    """The run as the contours the callers read."""
+def _boxes(run, cropped, thick, back=None):
+    """The run as the contours the callers read, taken back to the frame as
+    it was scanned when it had to be straightened (``back``)."""
     boxes = [_rect_contour(r) for r in run]
     imwrite_contours("cropped_boxes2", cropped, boxes, thick=2 * (thick + 1))
+    if back is not None:
+        boxes = [np.round(cv2.transform(b.astype(np.float32), back)).astype(np.int32)
+                 for b in boxes]
     return boxes
 
 
