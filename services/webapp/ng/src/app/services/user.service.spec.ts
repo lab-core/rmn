@@ -301,6 +301,19 @@ describe('UserService', () => {
     expect(service.creatableRoles()).toEqual(['Utilisateur', 'Gestionnaire', 'Administrateur']);
   });
 
+  it('the admin page lets in Gestionnaires and Administrateurs only', () => {
+    session();
+    const service = fresh();
+    const url = { url: '/admin' } as any;
+    expect(router.serializeUrl(service.canActivateManager(null, url) as UrlTree)).toBe('/');
+    service.role = 'Gestionnaire';
+    expect(service.canActivateManager(null, url)).toBeTrue();
+    service.role = 'Administrateur';
+    expect(service.canActivateManager(null, url)).toBeTrue();
+    service.logout();
+    expect(router.serializeUrl(service.canActivateManager(null, url) as UrlTree)).toBe('/login');
+  });
+
   it('listUsers asks the server', () => {
     adminSession();
     fresh().listUsers().subscribe();

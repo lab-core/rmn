@@ -4,7 +4,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Marked, Tokens } from 'marked';
 import { Subscription, combineLatest, firstValueFrom } from 'rxjs';
 
-import { GUIDE_CHAPTERS, GuideChapter, headingId } from '../../help/guide';
+import { GUIDE_CHAPTERS, GuideChapter, headingId, visibleChapters } from '../../help/guide';
+import { UserRole } from '../../generated/rmn-contracts';
+import { UserService } from '../../services/user.service';
 
 const GUIDE_DIR = 'assets/guide/';
 
@@ -59,7 +61,13 @@ function safeDecode(text: string): string {
 export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('content', {static: true}) content: ElementRef<HTMLElement>;
 
-  chapters: GuideChapter[] = GUIDE_CHAPTERS;
+  // the table of contents: the chapters of the session's role (see
+  // visibleChapters), so an admin acting as a user sees that user's guide
+  chapters: GuideChapter[];
+  // the chapters that open; a hidden one opens the overview, like an unknown
+  // one. An admin acting as a user still reaches theirs: the help of
+  // « Revenir à … » leads to one
+  private reachable: GuideChapter[];
   current: GuideChapter = GUIDE_CHAPTERS[0];
   html = '';
   error = '';
@@ -67,7 +75,11 @@ export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
   // the section to show once the chapter is on screen; undefined: nothing to do
   private pendingFragment: string | null | undefined;
 
-  constructor(private http: HttpClient, private route: ActivatedRoute, private router: Router) { }
+  constructor(private http: HttpClient, private route: ActivatedRoute, private router: Router,
+              userService: UserService) {
+    this.chapters = visibleChapters(userService.role);
+    this.reachable = userService.impersonatedBy ? visibleChapters(UserRole.ADMIN) : this.chapters;
+  }
 
   ngOnInit(): void {
     this.subscription = combineLatest([this.route.paramMap, this.route.fragment]).subscribe(
@@ -79,7 +91,7 @@ export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   async show(file: string | null, fragment: string | null): Promise<void> {
-    const chapter = this.chapters.find((c) => c.file === file) || this.chapters[0];
+    const chapter = this.reachable.find((c) => c.file === file) || this.chapters[0];
     if (chapter !== this.current || !this.html) {
       this.current = chapter;
       try {

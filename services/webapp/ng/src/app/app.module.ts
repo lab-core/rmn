@@ -31,7 +31,9 @@ import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './components/app/app.component';
 import { ChangePasswordDialogComponent } from './components/change-password-dialog/change-password-dialog.component';
 import { CreateUserDialogComponent } from './components/create-user-dialog/create-user-dialog.component';
-import { ImpersonateDialogComponent } from './components/impersonate-dialog/impersonate-dialog.component';
+import { AdminPageComponent } from './components/admin-page/admin-page.component';
+import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
+import { TemporaryPasswordDialogComponent } from './components/temporary-password-dialog/temporary-password-dialog.component';
 import { CsvUpdateDialogComponent } from './components/csv-update/csv-update-dialog.component';
 import { TaskSettingsDialogComponent } from './components/task-settings/task-settings-dialog.component';
 import { DashboardPageComponent } from './components/dashboard-page/dashboard-page.component';
@@ -55,6 +57,7 @@ import { UserProfileComponent } from './components/user-profile/user-profile.com
 import { WarningDialogComponent } from './components/warning-dialog/warning-dialog.component';
 import { ErrorInfoDialogComponent } from './components/error-info-dialog/error-info-dialog.component';
 import { HelpTipComponent } from './components/help-tip/help-tip.component';
+import { HelpHoverComponent } from './components/help-hover/help-hover.component';
 
 // providers
 import { ErrorInterceptor, FreshHttpInterceptor } from './services/interceptor.service';
@@ -70,7 +73,9 @@ import { AuthInterceptor } from './services/auth.interceptor';
         UserProfileComponent,
         ChangePasswordDialogComponent,
         CreateUserDialogComponent,
-        ImpersonateDialogComponent,
+        AdminPageComponent,
+        ConfirmDialogComponent,
+        TemporaryPasswordDialogComponent,
         CsvUpdateDialogComponent,
         TaskSettingsDialogComponent,
         PDFViewerComponent,
@@ -111,6 +116,7 @@ import { AuthInterceptor } from './services/auth.interceptor';
         MatDialogModule,
         MatTooltipModule,
         HelpTipComponent,
+        HelpHoverComponent,
         ReactiveFormsModule,
         NgxExtendedPdfViewerModule,
         ToastrModule.forRoot({

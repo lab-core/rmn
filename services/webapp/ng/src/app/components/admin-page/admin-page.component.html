@@ -1,0 +1,231 @@
+<div class="main-container">
+  <app-main-menu></app-main-menu>
+  <div class="admin-container">
+    @if (isAdmin) {
+      <mat-button-toggle-group class="views" [value]="view" (change)="showView($event.value)">
+        <mat-button-toggle value="users">Comptes</mat-button-toggle>
+        <mat-button-toggle value="system">Système</mat-button-toggle>
+      </mat-button-toggle-group>
+    }
+
+    @if (view == 'users') {
+      <div class="toolbar">
+        <mat-form-field appearance="outline">
+          <mat-label>Filtrer</mat-label>
+          <input matInput (keyup)="applyFilter($event)" placeholder="Nom d'utilisateur">
+        </mat-form-field>
+        <app-help-hover key="admin.create">
+          <button class="create-user" mat-raised-button color="accent" (click)="createUser()">
+            <mat-icon>person_add</mat-icon> Créer un compte
+          </button>
+        </app-help-hover>
+      </div>
+
+      <div class="table mat-elevation-z8">
+        <table mat-table [dataSource]="dataSource">
+          <ng-container matColumnDef="username">
+            <th mat-header-cell *matHeaderCellDef> Utilisateur </th>
+            <td mat-cell *matCellDef="let row">
+              {{row.username}}
+              @if (row.mustChangePassword) {
+                <app-help-hover key="admin.temporary"><span class="temporary">mot de passe temporaire</span></app-help-hover>
+              }
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="role">
+            <th mat-header-cell *matHeaderCellDef> Rôle <app-help-tip key="admin.roles"></app-help-tip></th>
+            <td mat-cell *matCellDef="let row">
+              @if (isAdmin && !isSelf(row)) {
+                <mat-select class="role-select" [value]="row.role" (selectionChange)="changeRole(row, $event.value)">
+                  @for (role of roles; track role) {
+                    <mat-option [value]="role">{{role}}</mat-option>
+                  }
+                </mat-select>
+              } @else {
+                {{row.role}}
+              }
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="managers">
+            <th mat-header-cell *matHeaderCellDef> Gestionnaires <app-help-tip key="admin.managers"></app-help-tip></th>
+            <td mat-cell *matCellDef="let row">
+              @if (row.role != UserRole.ADMIN) {
+                <mat-select class="managers-select" multiple placeholder="Aucun" [value]="row.managers"
+                            (selectionChange)="changeManagers(row, $event.value)">
+                  @for (manager of managers; track manager) {
+                    @if (manager != row.username) {
+                      <mat-option [value]="manager">{{manager}}</mat-option>
+                    }
+                  }
+                </mat-select>
+              } @else {
+                <span class="none">tous les comptes</span>
+              }
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="lastLogin">
+            <th mat-header-cell *matHeaderCellDef> Dernière connexion </th>
+            <td mat-cell *matCellDef="let row"> {{row.lastLogin ? (row.lastLogin | date:'dd/MM/yyyy HH:mm') : 'jamais'}} </td>
+          </ng-container>
+
+          <ng-container matColumnDef="tasks">
+            <th mat-header-cell *matHeaderCellDef> Tâches </th>
+            <td mat-cell *matCellDef="let row"> {{row.tasks}} </td>
+          </ng-container>
+
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef> Actions </th>
+            <td mat-cell *matCellDef="let row" class="actions">
+              @if (!isSelf(row)) {
+                @if (isAdmin) {
+                  <app-help-hover key="admin.impersonate">
+                    <button mat-stroked-button class="impersonate" (click)="impersonate(row)">
+                      <mat-icon>switch_account</mat-icon> Prendre le rôle
+                    </button>
+                  </app-help-hover>
+                }
+                <app-help-hover key="admin.reset">
+                  <button mat-icon-button class="reset" aria-label="Réinitialiser le mot de passe" (click)="resetPassword(row)">
+                    <mat-icon>lock_reset</mat-icon>
+                  </button>
+                </app-help-hover>
+                @if (isAdmin) {
+                  <app-help-hover key="admin.sessions">
+                    <button mat-icon-button class="sessions" aria-label="Fermer ses sessions" (click)="closeSessions(row)">
+                      <mat-icon>logout</mat-icon>
+                    </button>
+                  </app-help-hover>
+                  <app-help-hover key="admin.delete">
+                    <button mat-icon-button class="delete" color="warn" aria-label="Supprimer le compte" (click)="deleteUser(row)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </app-help-hover>
+                }
+              }
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell empty" [attr.colspan]="displayedColumns.length">Aucun compte</td>
+          </tr>
+        </table>
+      </div>
+    }
+
+    @if (view == 'system') {
+      <div class="system">
+        <div class="column">
+          <mat-card class="queue-card">
+            <div class="card-header">
+              <mat-icon>pending_actions</mat-icon>
+              <div>
+                <h3>File d'attente</h3>
+                <p>Les tâches qui attendent qu'un executor les traite.</p>
+              </div>
+            </div>
+            <div class="stat">
+              <span class="value queue">{{queue ?? '…'}}</span>
+              <span class="label">tâche(s) en attente</span>
+              <button mat-icon-button class="refresh" title="Rafraîchir" (click)="loadStatus()"><mat-icon>refresh</mat-icon></button>
+            </div>
+          </mat-card>
+
+          <mat-card class="danger-card">
+            <div class="card-header">
+              <mat-icon>auto_delete</mat-icon>
+              <div>
+                <h3>Anciennes tâches <app-help-tip key="admin.old-jobs"></app-help-tip></h3>
+                <p>Supprime les tâches de tous les utilisateurs, avec leurs copies.</p>
+              </div>
+            </div>
+            <div class="inline-form">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Âge minimum (jours)</mat-label>
+                <input matInput type="number" min="1" [(ngModel)]="jobDays">
+              </mat-form-field>
+              <app-help-hover key="admin.old-jobs">
+                <button mat-flat-button color="warn" class="delete-jobs" (click)="deleteJobs()"><mat-icon>delete</mat-icon> Supprimer</button>
+              </app-help-hover>
+            </div>
+          </mat-card>
+
+          <mat-card>
+            <div class="card-header">
+              <mat-icon>key_off</mat-icon>
+              <div>
+                <h3>Anciennes sessions</h3>
+                <p>Déconnecte les sessions ouvertes depuis longtemps ; leurs utilisateurs devront se reconnecter.</p>
+              </div>
+            </div>
+            <div class="inline-form">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Âge minimum (jours)</mat-label>
+                <input matInput type="number" min="1" [(ngModel)]="tokenDays">
+              </mat-form-field>
+              <app-help-hover key="admin.old-sessions">
+                <button mat-stroked-button class="delete-tokens" (click)="deleteTokens()"><mat-icon>logout</mat-icon> Fermer</button>
+              </app-help-hover>
+            </div>
+          </mat-card>
+        </div>
+        <div class="column">
+          <mat-card class="storage-card">
+            <div class="card-header">
+              <mat-icon>storage</mat-icon>
+              <div>
+                <h3>Stockage <app-help-tip key="admin.storage"></app-help-tip></h3>
+                <p>Les fichiers que plus aucune tâche ni aucun template ne possède, et l'occupation du disque.</p>
+              </div>
+            </div>
+            @if (!storageReport) {
+              <div class="empty-state">
+                <button mat-stroked-button class="scan" [disabled]="sweeping" (click)="scanStorage()"><mat-icon>search</mat-icon> Analyser</button>
+                @if (sweeping) {
+                  <mat-spinner diameter="24"></mat-spinner>
+                }
+              </div>
+            } @else {
+              @if (storageReport.usage?.disk) {
+                <div class="disk">
+                  <div class="disk-label">
+                    <span>Disque</span>
+                    <span>{{formatBytes(storageReport.usage.disk.used)}} / {{formatBytes(storageReport.usage.disk.total)}} ({{diskPercent()}} %)</span>
+                  </div>
+                  <div class="bar"><div class="fill" [class.full]="diskPercent() >= 90" [style.width.%]="diskPercent()"></div></div>
+                </div>
+              }
+              <div class="tiles">
+                <div class="tile"><span class="value">{{storageReport.orphans.length}}</span><span class="label">sans propriétaire<br>{{formatBytes(storageReport.bytes)}}</span></div>
+                <div class="tile"><span class="value">{{storageReport.strays.length}}</span><span class="label">fichiers inconnus</span></div>
+                <div class="tile"><span class="value">{{storageReport.empty_jobs.length}}</span><span class="label">tâches sans fichier</span></div>
+              </div>
+              <table class="usage">
+                <tr><th>Fichiers de plus de</th><th>Taille</th><th>Nombre</th></tr>
+                @for (row of usageRows(); track row.days) {
+                  <tr><td>{{row.days == '0' ? 'tous' : row.days + ' jours'}}</td><td>{{formatBytes(row.bytes)}}</td><td>{{row.files}}</td></tr>
+                }
+              </table>
+              <div class="card-footer">
+                <div class="options">
+                  <mat-checkbox [(ngModel)]="includeStrays">Aussi les fichiers inconnus</mat-checkbox>
+                  <mat-checkbox [(ngModel)]="includeEmptyJobs">Aussi les tâches sans fichier</mat-checkbox>
+                </div>
+                <div class="buttons">
+                  <button mat-stroked-button class="scan" [disabled]="sweeping" (click)="scanStorage()"><mat-icon>refresh</mat-icon> Réanalyser</button>
+                  <app-help-hover key="admin.storage">
+                    <button mat-flat-button color="warn" class="clean" [disabled]="sweeping" (click)="cleanStorage()"><mat-icon>cleaning_services</mat-icon> Nettoyer</button>
+                  </app-help-hover>
+                </div>
+              </div>
+            }
+          </mat-card>
+        </div>
+      </div>
+    }
+  </div>
+</div>

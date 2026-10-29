@@ -303,6 +303,16 @@ export class UserService {
     }
   }
 
+  /** The admin page: a logged-in Gestionnaire or Administrateur. */
+  canActivateManager(route: ActivatedRouteSnapshot,
+                     state: RouterStateSnapshot) {
+    const logged = this.canActivateLoggued(route, state);
+    if (logged !== true) {
+      return logged;
+    }
+    return this.canCreateUsers() ? true : this.router.createUrlTree(['/']);
+  }
+
   canActivateShared(route: ActivatedRouteSnapshot,
                     state: RouterStateSnapshot) {
     this.setShareToken(route.queryParams);

@@ -34,7 +34,8 @@ export class MainMenuComponent implements OnInit {
   stopImpersonating(): void {
     const admin = this.userService.impersonatedBy;
     this.userService.stopImpersonating();
-    this.router.navigate(['/user-profile']);
+    // a role is only taken from the admin page
+    this.router.navigate(['/admin']);
     this.notificationService.showInfo("", `De retour en tant que ${admin}`)
   }
 
@@ -62,6 +63,15 @@ export class MainMenuComponent implements OnInit {
 
   goToPresentationPage(): void {
     this.router.navigate(['/presentation-page']);
+  }
+
+  /** Gestionnaires and Administrateurs get the admin page. */
+  get canManage(): boolean {
+    return this.userService.canCreateUsers();
+  }
+
+  goToAdminPage(): void {
+    this.router.navigate(['/admin']);
   }
 
   goToProfilePage(): void {

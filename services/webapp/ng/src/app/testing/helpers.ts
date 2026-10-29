@@ -27,6 +27,7 @@ import { Subject, of } from 'rxjs';
 
 import { NotificationService } from '../services/notification.service';
 import { HelpTipComponent } from '../components/help-tip/help-tip.component';
+import { HelpHoverComponent } from '../components/help-hover/help-hover.component';
 import { PDFViewerComponent } from '../components/pdf-viewer/pdf-viewer.component';
 import { UserRole } from '../generated/rmn-contracts';
 
@@ -36,7 +37,7 @@ export const MATERIAL_MODULES = [
   MatFormFieldModule, MatIconModule, MatInputModule, MatListModule, MatPaginatorModule,
   MatProgressSpinnerModule, MatSelectModule, MatSlideToggleModule, MatSortModule,
   MatStepperModule, MatTableModule, MatTooltipModule, FormsModule, ReactiveFormsModule,
-  NoopAnimationsModule, HelpTipComponent,
+  NoopAnimationsModule, HelpTipComponent, HelpHoverComponent,
 ];
 
 export function notificationSpy(): jasmine.SpyObj<NotificationService> {

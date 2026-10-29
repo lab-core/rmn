@@ -32,6 +32,14 @@ Elle dépasse la **Note maximale** du devoir. Augmentez la note maximale dans Mo
 
 Le zip a été décompressé ou ses dossiers renommés, ou bien il vient d'un autre devoir : les identifiants `Participant…` sont propres à chaque devoir. Déposez le `moodle.zip` d'origine dans le devoir dont vient le csv.
 
+## Changer mon mot de passe
+
+Menu **Profil** → **Changer le mot de passe** : tapez le mot de passe actuel, puis le nouveau deux fois (8 à 32 caractères : lettres, chiffres et `! @ # $ % ^ & * . ? _ -`). Si vous l'avez oublié, demandez à votre gestionnaire ou à un administrateur de le réinitialiser.
+
+## On me demande un nouveau mot de passe à la connexion
+
+Votre compte vient d'être créé, ou son mot de passe a été réinitialisé : le mot de passe reçu est temporaire. Choisissez-en un nouveau, différent du temporaire, dans la fenêtre qui s'ouvre sur la page Profil ; le reste de rmn est accessible ensuite. Le mot de passe temporaire se tape dans le premier champ.
+
 ## Une copie est arrivée après la création de la tâche
 
 **Copies additionnelles** dans le tableau de bord. Voir [Ajouter des copies ou remplacer le csv](06-suivi.md#ajouter-des-copies-ou-remplacer-le-csv).

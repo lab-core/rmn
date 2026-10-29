@@ -16,6 +16,7 @@ from routes.documents import bp as documents_bp
 from routes.files import bp as files_bp
 from routes.frontpage import bp as frontpage_bp
 from routes.jobs import bp as jobs_bp
+from routes.manage import bp as manage_bp
 from routes.matricules import bp as matricules_bp
 from routes.templates import bp as templates_bp
 from routes.users import bp as users_bp
@@ -86,7 +87,7 @@ start_health_check(redis=redis_client(socket_connect_timeout=2, socket_timeout=2
 # One blueprint per part of the API. No url_prefix anywhere: the paths are
 # the ones the webapp has always called.
 for blueprint in (users_bp, templates_bp, jobs_bp, files_bp, matricules_bp,
-                  documents_bp, admin_bp, frontpage_bp):
+                  documents_bp, admin_bp, manage_bp, frontpage_bp):
     app.register_blueprint(blueprint)
 
 
