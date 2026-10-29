@@ -135,6 +135,20 @@
             </div>
           </mat-card>
 
+          <mat-card class="digit-bank-card">
+            <div class="card-header">
+              <mat-icon>pin</mat-icon>
+              <div>
+                <h3>Banque de chiffres <app-help-tip key="admin.digit-bank"></app-help-tip></h3>
+                <p>Les chiffres des matricules et des notes confirmés par les correcteurs, gardés pour réentraîner la lecture. Un seul réglage pour toutes les tâches.</p>
+              </div>
+            </div>
+            <mat-slide-toggle class="save-verified-images" [checked]="saveVerifiedImages" [disabled]="saveVerifiedImages === undefined"
+                              (change)="setSaveVerifiedImages($event.checked)">
+              Conserver les chiffres validés
+            </mat-slide-toggle>
+          </mat-card>
+
           <mat-card class="danger-card">
             <div class="card-header">
               <mat-icon>auto_delete</mat-icon>

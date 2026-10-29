@@ -209,8 +209,8 @@ def test_username_field_is_checked_even_with_user_id(client, user_factory, login
     user_factory("bob")
     token = login("bob")
     resp = client.put(
-        "/users/updateSaveVerifiedImages",
-        data={"user_id": "bob", "username": "alice", "token": token, "saveVerifiedImages": "1"},
+        "/users/updateMoodleStructureInd",
+        data={"user_id": "bob", "username": "alice", "token": token, "moodleStructureInd": "1"},
     )
     assert resp.status_code == 401
     assert resp.get_json(force=True)["code"] == "token_invalid"

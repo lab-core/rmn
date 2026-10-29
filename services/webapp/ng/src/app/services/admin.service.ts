@@ -60,6 +60,16 @@ export class AdminService {
     return this.post('users/delete', { username });
   }
 
+  /** The settings every user shares: `{saveVerifiedImages}`. */
+  settings() {
+    return this.http.get(SERVER_URL + 'manage/settings');
+  }
+
+  /** Keep, or stop keeping, the confirmed digits to retrain the recogniser. */
+  setSaveVerifiedImages(on: boolean) {
+    return this.post('manage/settings', { saveVerifiedImages: on ? '1' : '0' });
+  }
+
   status() {
     return this.http.get(SERVER_URL + 'manage/status');
   }

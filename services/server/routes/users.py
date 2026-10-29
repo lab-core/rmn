@@ -116,14 +116,6 @@ def impersonate(user_id):
     )
 
 
-@bp.route("/updateSaveVerifiedImages", methods=["PUT"])
-@cross_origin()
-@verify_token()
-def update_user(user_id):
-    db = mongo["RMN"]
-    return UserService.update_save_verified_images(user_id, request, db)
-
-
 @bp.route("/updateMoodleStructureInd", methods=["PUT"])
 @cross_origin()
 @verify_token()

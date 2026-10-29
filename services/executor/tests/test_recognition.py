@@ -218,7 +218,7 @@ def test_the_digits_of_a_matricule_are_staged_and_banked_with_what_a_human_confi
 
     mongo_db["eval_jobs"].insert_one(
         {"job_id": job_id, "user_id": "u", "validate_matricule": True})
-    mongo_db["users"].insert_one({"username": "u", "saveVerifiedImages": True})
+    # the bank is on until an admin turns it off
     mongo_db["job_documents"].insert_one(
         {"job_id": job_id, "document_index": 4, "status": "VALIDATED",
          "matricule": case["matricule"]})

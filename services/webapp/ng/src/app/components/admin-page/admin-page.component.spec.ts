@@ -39,7 +39,7 @@ describe('AdminPageComponent', () => {
     });
     admin = jasmine.createSpyObj<AdminService>('AdminService', [
       'resetPassword', 'setRole', 'setManagers', 'closeSessions', 'deleteUser',
-      'status', 'storageSweep', 'deleteJobs', 'deleteTokens',
+      'status', 'settings', 'setSaveVerifiedImages', 'storageSweep', 'deleteJobs', 'deleteTokens',
     ]);
     notification = notificationSpy();
     TestBed.configureTestingModule({
@@ -172,6 +172,7 @@ describe('AdminPageComponent', () => {
   it('runs the operator commands of the system view', async () => {
     create('Administrateur');
     admin.status.and.returnValue(of({ response: { queue: 2 } }));
+    admin.settings.and.returnValue(of({ response: { saveVerifiedImages: true } }));
     admin.storageSweep.and.returnValue(of({
       orphans: [{}], strays: [], empty_jobs: [], bytes: 2048,
       usage: { older_than_days: { '30': { bytes: 10, files: 1 }, '0': { bytes: 20, files: 2 } }, disk: { used: 1, total: 2 } },
@@ -216,11 +217,33 @@ describe('AdminPageComponent', () => {
       usage: { older_than_days: {}, disk: { used: 95, total: 100 } },
     }));
     admin.status.and.returnValue(of({ response: { queue: 0 } }));
+    admin.settings.and.returnValue(of({ response: { saveVerifiedImages: true } }));
     component.showView('system');
     await component.scanStorage();
     fixture.detectChanges();
     expect(component.diskPercent()).toBe(95);
     expect(fixture.nativeElement.querySelector('.fill.full')).not.toBeNull();
+  });
+
+  it('turns the digit bank on and off for everyone', async () => {
+    create('Administrateur');
+    admin.status.and.returnValue(of({ response: { queue: 0 } }));
+    admin.settings.and.returnValue(of({ response: { saveVerifiedImages: true } }));
+    component.showView('system');
+    fixture.detectChanges();
+    expect(component.saveVerifiedImages).toBeTrue();
+    const toggle = fixture.nativeElement.querySelector('.save-verified-images button[role="switch"]') as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+
+    admin.setSaveVerifiedImages.and.returnValue(of({ response: { saveVerifiedImages: false } }));
+    await component.setSaveVerifiedImages(false);
+    expect(admin.setSaveVerifiedImages).toHaveBeenCalledWith(false);
+    expect(component.saveVerifiedImages).toBeFalse();
+
+    // refused: the switch goes back to what the server holds
+    admin.setSaveVerifiedImages.and.returnValue(throwError(() => ({ error: { response: 'Error' } })));
+    await component.setSaveVerifiedImages(true);
+    expect(component.saveVerifiedImages).toBeFalse();
   });
 
   it('formats sizes', () => {

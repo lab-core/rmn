@@ -7,8 +7,10 @@ Administrateur's session instead of the shared key; nginx keeps refusing
 
 from flask import Blueprint, json, request
 from flask_cors import cross_origin
+from rmn_common import settings
 
 from auth import verify_token
+from context import mongo
 from service import operations
 from service.user_service import Role
 from utils.forms import form_int
@@ -25,6 +27,34 @@ def status(user_id):
         response=json.dumps({"response": {"queue": operations.queue_length()}}),
         status=200,
     )
+
+
+@bp.route("/settings", methods=["GET"])
+@cross_origin()
+@verify_token(Role.ADMIN)
+def get_settings(user_id):
+    """The settings every user shares (see rmn_common.settings)."""
+    collection = mongo["RMN"][settings.SETTINGS_COLLECTION]
+    return Response(
+        response=json.dumps({"response": {"saveVerifiedImages": settings.save_verified_images(collection)}}),
+        status=200,
+    )
+
+
+@bp.route("/settings", methods=["POST"])
+@cross_origin()
+@verify_token(Role.ADMIN)
+def update_settings(user_id):
+    """Change a shared setting: ``saveVerifiedImages`` (0 or 1), the digit bank."""
+    value = request.form.get("saveVerifiedImages")
+    if value not in ("0", "1"):
+        return Response(
+            response=json.dumps({"response": "Error: saveVerifiedImages must be 0 or 1."}),
+            status=400,
+        )
+    settings.set_save_verified_images(mongo["RMN"][settings.SETTINGS_COLLECTION], value == "1")
+    print(f"Settings: {user_id} sets saveVerifiedImages to {value}.")
+    return Response(response=json.dumps({"response": {"saveVerifiedImages": value == "1"}}), status=200)
 
 
 @bp.route("/storage/clean", methods=["POST"])

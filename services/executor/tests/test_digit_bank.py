@@ -8,6 +8,7 @@ import pytest
 
 from process_copy import digit_bank
 from process_copy.database import Database
+from rmn_common import settings
 
 JOB = "job-bank"
 
@@ -46,12 +47,17 @@ def bank_files(storage_root):
     return sorted(p.relative_to(root).as_posix() for p in root.rglob("*.png"))
 
 
+def bank_switch(mongo_db, on):
+    """What an admin chose on the admin page."""
+    settings.set_save_verified_images(mongo_db[settings.SETTINGS_COLLECTION], on)
+
+
 def a_job(mongo_db, validate_matricule=True, saves_images=True):
-    """A job whose owner has, by default, opted into keeping the images."""
+    """A job, with the bank switched on by default."""
     mongo_db["eval_jobs"].insert_one(
         {"job_id": JOB, "user_id": "u", "validate_matricule": validate_matricule}
     )
-    mongo_db["users"].insert_one({"username": "u", "saveVerifiedImages": saves_images})
+    bank_switch(mongo_db, saves_images)
 
 
 def a_document(mongo_db, index=0, status="VALIDATED", matricule="1234567", grades=None):
@@ -241,9 +247,9 @@ def test_an_ink_grade_nobody_confirmed_is_not_banked(storage_root, mongo_db):
     assert bank_files(storage_root) == []
 
 
-def test_nothing_is_banked_from_a_teacher_who_did_not_opt_in(storage_root, mongo_db):
-    """``saveVerifiedImages`` in the user profile is the switch: the crops of a
-    teacher who leaves it off die with their job instead of outliving it."""
+def test_nothing_is_banked_while_an_admin_keeps_the_bank_off(storage_root, mongo_db):
+    """The switch of the admin page: while it is off, the crops die with
+    their job instead of outliving it."""
     a_job(mongo_db, saves_images=False)
     a_document(mongo_db, matricule="1234567")
     stage()
@@ -255,28 +261,26 @@ def test_nothing_is_banked_from_a_teacher_who_did_not_opt_in(storage_root, mongo
     assert len(staged_files(storage_root)) == 1
 
 
-def test_the_switch_is_the_profile_of_the_owner_not_anything_on_the_task(
-    storage_root, mongo_db
-):
-    """A task duplicated from another one answers to its owner's profile.
+def test_the_switch_is_the_admins_not_a_profile_nor_the_task(storage_root, mongo_db):
+    """One switch for every task, read when the bank is filled.
 
-    The switch belongs to the user and is read when the bank is filled, so a
-    task created from an old one -- which may have run when the answer was
-    different -- follows what the teacher says today. A field of that name on
-    the task itself, whatever put it there, has no say.
+    The ``saveVerifiedImages`` that older user rows and tasks carry -- the
+    profile switch it replaces -- has no say either way.
     """
     mongo_db["eval_jobs"].insert_one(
         {"job_id": JOB, "user_id": "u", "validate_matricule": True,
          "source_job_id": "an-older-task", "saveVerifiedImages": False}
     )
-    mongo_db["users"].insert_one({"username": "u", "saveVerifiedImages": True})
+    mongo_db["users"].insert_one({"username": "u", "saveVerifiedImages": False})
+    bank_switch(mongo_db, True)
     a_document(mongo_db, matricule="1234567")
     stage()
 
     assert digit_bank.promote_job(Database(), JOB)["samples"] == 7
 
-    # and the other way round: the profile refuses, the task cannot allow it
-    mongo_db["users"].update_one({"username": "u"}, {"$set": {"saveVerifiedImages": False}})
+    # and the other way round: the admin turns it off, no profile can allow it
+    bank_switch(mongo_db, False)
+    mongo_db["users"].update_one({"username": "u"}, {"$set": {"saveVerifiedImages": True}})
     mongo_db["eval_jobs"].update_one({"job_id": JOB}, {"$set": {"saveVerifiedImages": True}})
     stage(document_index=1)
     a_document(mongo_db, index=1, matricule="7654321")
@@ -285,12 +289,11 @@ def test_the_switch_is_the_profile_of_the_owner_not_anything_on_the_task(
     assert len(bank_files(storage_root)) == 7  # only the first pass
 
 
-def test_a_user_who_never_touched_the_switch_contributes(storage_root, mongo_db):
-    """It is on by default, and a row that predates it -- or a deleted user --
-    keeps that default, the way ``finalize`` treats ``moodleStructureInd``."""
+def test_the_bank_is_on_until_an_admin_turns_it_off(storage_root, mongo_db):
+    """No settings at all -- a database no admin changed anything in -- keeps
+    the digits, whoever owns the task (a deleted user included)."""
     mongo_db["eval_jobs"].insert_one(
         {"job_id": JOB, "user_id": "ghost", "validate_matricule": True})
-    mongo_db["users"].insert_one({"username": "ghost"})  # no saveVerifiedImages
     a_document(mongo_db, matricule="1234567")
     stage()
 
@@ -373,7 +376,7 @@ def test_an_empty_bank_exports_an_empty_set():
 
 
 # ------------------------------------------------------------------ the tool --
-def test_promoting_every_job_survives_one_whose_owner_opted_out(
+def test_promoting_every_job_survives_one_that_banks_nothing(
     storage_root, mongo_db, capsys
 ):
     """``promote --all`` walks jobs it knows nothing about: a job that banks
@@ -383,12 +386,11 @@ def test_promoting_every_job_survives_one_whose_owner_opted_out(
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "tools"))
     import build_digit_bank
 
-    a_job(mongo_db)  # opted in
+    a_job(mongo_db, saves_images=False)
     a_document(mongo_db, matricule="1234567")
     stage()
     mongo_db["eval_jobs"].insert_one(
         {"job_id": "other", "user_id": "bob", "validate_matricule": True})
-    mongo_db["users"].insert_one({"username": "bob", "saveVerifiedImages": False})
     with digit_bank.recording("other", 0, digit_bank.MATRICULE):
         with digit_bank.reading():
             digit_bank.record(crop())
@@ -397,5 +399,5 @@ def test_promoting_every_job_survives_one_whose_owner_opted_out(
     assert build_digit_bank.main(["promote", "--all"]) == 0
 
     printed = capsys.readouterr().out
-    assert "refused=1" in printed and "samples=7" in printed
-    assert len(bank_files(storage_root)) == 7
+    assert printed.count("refused=1") == 2
+    assert bank_files(storage_root) == []

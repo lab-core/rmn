@@ -18,8 +18,6 @@ export class UserService {
   private shareToken: string;
   private questionIndex: string;
   role: string;
-  // on by default, like the server's users: the profile screen turns it off
-  saveVerifiedImages: boolean = true;
   moodleStructureInd: boolean = false;
   warningShown: boolean = true;
   /** The admin who opened this session in the user's place, if any. */
@@ -39,9 +37,6 @@ export class UserService {
     this.token = localStorage.getItem('token')
     this.impersonatedBy = localStorage.getItem('impersonated_by') ?? undefined
     this.mustChangePassword = localStorage.getItem('must_change_password') == 'true'
-
-    const saveImages = localStorage.getItem('saveVerifiedImages')
-    this.saveVerifiedImages = (saveImages && saveImages != "undefined") ? JSON.parse(localStorage.getItem('saveVerifiedImages')) : true
 
     const moodleInd = localStorage.getItem('moodleStructureInd')
     this.moodleStructureInd = (moodleInd && moodleInd != "undefined") ? JSON.parse(localStorage.getItem('moodleStructureInd')) : false
@@ -113,7 +108,6 @@ export class UserService {
     localStorage.setItem('user_id', response['username'])
     localStorage.setItem('role', response['role'])
     localStorage.setItem('token', response['token'])
-    localStorage.setItem('saveVerifiedImages', JSON.stringify(response['saveVerifiedImages']))
     localStorage.setItem('moodleStructureInd', JSON.stringify(response['moodleStructureInd']))
     this.setMustChangePassword(!!response['mustChangePassword']);
     if (response['impersonatedBy']) {
@@ -125,7 +119,6 @@ export class UserService {
     this.currentUsername = response['username']
     this.role = response['role']
     this.token = response['token']
-    this.saveVerifiedImages = response['saveVerifiedImages'];
     this.moodleStructureInd = response['moodleStructureInd'];
     this.impersonatedBy = response['impersonatedBy'] ?? undefined;
   }
@@ -167,7 +160,6 @@ export class UserService {
       username: this.currentUsername,
       role: this.role,
       token: this.token,
-      saveVerifiedImages: this.saveVerifiedImages,
       moodleStructureInd: this.moodleStructureInd,
     };
   }
@@ -250,21 +242,10 @@ export class UserService {
     formdata.append('username', username);
     formdata.append('password', password);
     formdata.append('role', role);
-    if (this.saveVerifiedImages) formdata.append('saveVerifiedImages', "on");
     if (this.moodleStructureInd) formdata.append('moodleStructureInd', "on");
     const url = SERVER_URL + "users/signup"
 
     return this.http.post(url, formdata)
-  }
-
-  updateSaveVerifiedImagesValue(saveVerifiedImages: boolean) {
-    this.saveVerifiedImages = saveVerifiedImages;
-    const formdata: FormData = new FormData();
-    formdata.append('username', this.currentUsername);
-    formdata.append('saveVerifiedImages', (+saveVerifiedImages).toString());
-    const url = SERVER_URL + 'users/updateSaveVerifiedImages';
-
-    return this.http.put(url, formdata);
   }
 
   updateMoodleStructureInd(moodleStructureInd: boolean) {

@@ -195,3 +195,38 @@ def test_the_token_sweep_keeps_recent_sessions(client, admin, user_factory, logi
     )
     assert db["tokens"].find_one({"token": "old"}) is None
     assert db["tokens"].count_documents({}) == 2
+
+
+def test_the_digit_bank_is_one_switch_for_everyone(
+    client, admin, user_factory, login, db
+):
+    """The admin page turns it on or off for every task (rmn_common.settings)."""
+
+    def get():
+        return client.get("/manage/settings", headers=_auth(admin))
+
+    assert get().get_json(force=True)["response"] == {"saveVerifiedImages": True}
+
+    assert (
+        _post(client, "/manage/settings", admin, saveVerifiedImages="0").status_code
+        == 200
+    )
+    assert get().get_json(force=True)["response"] == {"saveVerifiedImages": False}
+    assert (
+        db["settings"].find_one({"_id": "digit_bank"})["save_verified_images"] is False
+    )
+    assert (
+        _post(client, "/manage/settings", admin, saveVerifiedImages="yes").status_code
+        == 400
+    )
+
+    # an admin's only
+    user_factory("chef", role=MANAGER)
+    token = login("chef")
+    assert client.get("/manage/settings", headers=_auth(token)).status_code == 403
+    assert (
+        _post(
+            client, "/manage/settings", token, caller="chef", saveVerifiedImages="1"
+        ).status_code
+        == 403
+    )

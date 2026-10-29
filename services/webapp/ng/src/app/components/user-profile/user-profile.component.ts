@@ -48,16 +48,6 @@ export class UserProfileComponent implements OnInit {
     })
   }
 
-  updateSaveVerifiedImagesValue(saveVerifiedImages: boolean): void {
-    this.userService.updateSaveVerifiedImagesValue(saveVerifiedImages).pipe(first()).subscribe(
-      (data) => {
-        this.userService.saveVerifiedImages = saveVerifiedImages;
-        localStorage.setItem('saveVerifiedImages', JSON.stringify(saveVerifiedImages))
-
-      }
-    );
-  }
-
   updateSaveInMoodleStructure(moodleStructureInd: boolean): void {
     this.userService.updateMoodleStructureInd(moodleStructureInd).pipe(first()).subscribe(
       (data) => {

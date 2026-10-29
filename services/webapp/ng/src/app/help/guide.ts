@@ -127,7 +127,7 @@ export const HELP: Record<string, HelpEntry> = {
     chapter: '11-comptes',
   },
   'menu.profile': {
-    text: 'Votre compte : changer votre mot de passe, la sauvegarde des chiffres lus pour améliorer la lecture.',
+    text: 'Votre compte : changer votre mot de passe.',
     chapter: 'faq', anchor: 'changer-mon-mot-de-passe',
   },
   'menu.stop-impersonating': {
@@ -250,6 +250,10 @@ export const HELP: Record<string, HelpEntry> = {
   'admin.storage': {
     text: 'Analyser compte les fichiers que plus aucune tâche ni aucun template ne possède ; Nettoyer les supprime. Rien de modifié depuis moins de 24 h n\'est touché.',
     chapter: '12-administration', anchor: 'stockage',
+  },
+  'admin.digit-bank': {
+    text: 'Activé, les chiffres des matricules et des notes confirmés par les correcteurs sont gardés pour réentraîner la lecture. Un seul réglage pour toutes les tâches.',
+    chapter: '12-administration', anchor: 'banque-de-chiffres',
   },
   'admin.old-jobs': {
     text: 'Supprime définitivement les tâches de tous les utilisateurs ajoutées depuis au moins ce nombre de jours, avec leurs copies.',

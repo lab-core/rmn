@@ -39,6 +39,8 @@ from datetime import datetime, timezone
 from hashlib import sha1
 from typing import Any, Dict, Iterator, List, Optional
 
+from rmn_common import settings
+
 import cv2
 import numpy as np
 
@@ -410,25 +412,18 @@ def _confirmed_grade(
     return None
 
 
-def saves_images(db: Any, user_id: Optional[str]) -> bool:
-    """Whether this teacher lets the images of their copies be kept.
+def saves_images(db: Any) -> bool:
+    """Whether the images of the confirmed digits are kept.
 
-    ``saveVerifiedImages`` is the switch in the user profile, and it is what
-    the bank asks: staged crops die with the job, a banked sample outlives it,
-    so the consent is about the promotion and not about the reading.
-
-    It is on by default, here and where a user is created, so a teacher who
-    never opened the profile screen contributes; a row that predates the flag,
-    and a deleted user, keep that default (as ``finalize`` does for
-    ``moodleStructureInd``). Turning the switch off stores a real ``false``
-    and is honoured.
-
-    It belongs to the user and is read when the bank is filled, never carried
-    on a task: a task duplicated from an older one follows what its owner says
-    today, not what they answered when that older task ran.
+    One switch for every task, set by an admin on the admin page
+    (:mod:`rmn_common.settings`), and it is what the bank asks: staged crops
+    die with the job, a banked sample outlives it, so the choice is about the
+    promotion and not about the reading. It is on until an admin turns it
+    off, and it is read when the bank is filled: a task follows what the
+    switch says then, not what it said when the task ran. The
+    ``saveVerifiedImages`` that older user rows (and tasks) carry is ignored.
     """
-    user = db.users_collection().find_one({"username": user_id}) or {}
-    return bool(user.get("saveVerifiedImages", True))
+    return settings.save_verified_images(db.get_collection(settings.SETTINGS_COLLECTION))
 
 
 def drop_staged(storage: Any, job_id: str) -> None:
@@ -455,8 +450,7 @@ def promote_job(
     validated and that reached VALIDATED, and grades confirmed in the
     correction screen. A reading whose crops cannot be matched one for one
     with the confirmed number is dropped (see :func:`digits_of`). Nothing is
-    kept at all unless the teacher who owns the job turned
-    ``saveVerifiedImages`` on (:func:`saves_images`).
+    kept at all while an admin keeps the bank off (:func:`saves_images`).
 
     Args:
         db: The executor's ``Database``.
@@ -483,7 +477,7 @@ def promote_job(
         counts["dropped"] = 1
 
     job = db.eval_jobs_collection().find_one({"job_id": job_id}) or {}
-    if not saves_images(db, job.get("user_id")):
+    if not saves_images(db):
         # nothing reaches the bank; on a finalisation the crops go now rather
         # than waiting for the job to be deleted
         counts["refused"] = 1

@@ -45,8 +45,8 @@ def test_the_session_is_the_users_own(
     assert jobs.status_code == 200
     assert [j["job_id"] for j in jobs.get_json(force=True)["response"]] == ["job-a"]
     resp = client.put(
-        "/users/updateSaveVerifiedImages",
-        data={"username": "alice", "saveVerifiedImages": "1"},
+        "/users/updateMoodleStructureInd",
+        data={"username": "alice", "moodleStructureInd": "1"},
         headers=headers,
     )
     assert resp.status_code == 200
