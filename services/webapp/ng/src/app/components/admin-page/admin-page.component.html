@@ -165,7 +165,7 @@
                   }
                 </div>
                 <table class="usage kinds">
-                  <tr><th>Origine</th><th>Chiffres</th><th>Bien lus à l'époque <app-help-tip key="admin.digit-bank-reading"></app-help-tip></th></tr>
+                  <tr><th>Origine</th><th>Chiffres</th><th>Bien reconnus <app-help-tip key="admin.digit-bank-reading"></app-help-tip></th></tr>
                   @for (kind of kinds; track kind.key) {
                     @if (bank.per_kind[kind.key]; as count) {
                       <tr><td>{{kind.label}}</td><td>{{count.n}}</td><td>{{readingShare(count)}}</td></tr>

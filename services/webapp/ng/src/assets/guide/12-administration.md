@@ -32,7 +32,7 @@ Le nombre de tâches qui attendent qu'un executor les traite. Il remonte après 
 
 rmn apprend à mieux lire : les chiffres des matricules et des notes que les correcteurs ont confirmés sont gardés pour réentraîner la lecture. **Conserver les chiffres validés** active ou coupe cette conservation pour toutes les tâches. Activée par défaut. Coupée, les chiffres lus ne sont gardés que le temps de la tâche, puis effacés à sa finalisation.
 
-La carte montre ce que la banque contient : le nombre de chiffres et de copies d'où ils viennent, leur répartition de 0 à 9, et leur origine (matricules, cases de note, notes manuscrites). Les **lectures en attente** sont celles des tâches pas encore finalisées : elles n'entrent dans la banque qu'à la finalisation, une fois les matricules et les notes confirmés. **Bien lus à l'époque** compare ce que rmn avait lu à ce que les correcteurs ont confirmé.
+La carte montre ce que la banque contient : le nombre de chiffres et de copies d'où ils viennent, leur répartition de 0 à 9, et leur origine (matricules, cases de note, notes manuscrites). Les **lectures en attente** sont celles des tâches pas encore finalisées : elles n'entrent dans la banque qu'à la finalisation, une fois les matricules et les notes confirmés. **Bien reconnus** compare ce que rmn avait lu à ce que les correcteurs ont confirmé.
 
 ### Modèle de lecture
 
