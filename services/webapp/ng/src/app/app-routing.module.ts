@@ -119,6 +119,11 @@ const routes: Routes = [
         canActivate: [canActivateLoggued],
     },
     {
+        path: 'user-guide/:chapter',
+        component : UserGuideComponent,
+        canActivate: [canActivateLoggued],
+    },
+    {
         path: '**',
         redirectTo : 'login',
     },

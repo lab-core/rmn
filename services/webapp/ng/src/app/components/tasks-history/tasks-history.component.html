@@ -33,7 +33,7 @@
 
           <!-- Job Status Column -->
           <ng-container matColumnDef="job_status">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Statut de la tâche </th>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Statut de la tâche <app-help-tip key="tasks.status"></app-help-tip></th>
             <td mat-cell *matCellDef="let row">
               {{row.info}} <span class="dot" [ngStyle]="{'background-color': statusColors[row.job_status]}"></span>
               @if (row.job_status === JobStatus.ERROR && row.job_infos?.length) {

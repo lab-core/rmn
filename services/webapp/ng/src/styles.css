@@ -15,3 +15,9 @@ app-task-verification .ng-dropdown-panel  {
   width: auto !important;
   max-width: 600px;
 }
+
+/* the help bubbles of app-help-tip hold a sentence or two */
+.help-tip-tooltip {
+  white-space: pre-line;
+  font-size: 13px;
+}

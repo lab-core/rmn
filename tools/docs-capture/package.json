@@ -1,0 +1,12 @@
+{
+  "name": "rmn-docs-capture",
+  "private": true,
+  "description": "Screenshots and animations of the rmn user guide, taken from a local stack",
+  "type": "module",
+  "scripts": {
+    "capture": "node capture.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

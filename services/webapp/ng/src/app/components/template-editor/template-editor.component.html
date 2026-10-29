@@ -37,6 +37,7 @@
           @if (!locked) {
             <button [ngClass]="this.identificationActive ? 'identification-button active' : 'identification-button'" (click)="setIdentificationRect()">Identification</button>
             <button [ngClass]="this.questionsActive ? 'questions-button active' : 'questions-button'" (click)="setQuestionsRect()">Questions</button>
+            <app-help-tip key="template.zones"></app-help-tip>
           }
           @if (nQuestions >= 0) {
             <div class="question-container">
@@ -51,6 +52,7 @@
       @if (!locked) {
         <div class="confirmation-container">
           <button class="confirmation-button" mat-flat-button color="accent" [disabled]="disabled" (click)="confirm()">Confirmer</button>
+          <app-help-tip key="template.confirm"></app-help-tip>
         </div>
       } @else {
         <div class="confirmation-container">

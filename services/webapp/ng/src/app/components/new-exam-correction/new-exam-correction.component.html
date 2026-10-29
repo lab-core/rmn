@@ -20,6 +20,7 @@
                             <mat-label>Nom de la tâche</mat-label>
                             <input matInput [(ngModel)]="this.taskName" [ngModelOptions]="{standalone: true}">
                         </mat-form-field>
+                        <app-help-tip key="wizard.name"></app-help-tip>
                     </div>
                     <div class="next-button">
                         <button mat-button matStepperPrevious>Retour</button>
@@ -51,6 +52,7 @@
 }
                             </mat-select>
                         </mat-form-field>
+                        <app-help-tip key="wizard.templates"></app-help-tip>
                     </div>
                     <div class="next-button">
                         <button mat-button matStepperPrevious>Retour</button>
@@ -64,8 +66,11 @@
                     <div class="files-steps-options-container">
                         <input #copiesFileInput hidden="true" type="file" (click)="copiesFileInput.value = ''"
                             (change)="CopiesFileEvent($event)" accept=".zip" />
-                        <button id="copies-input-button" mat-flat-button color="primary"
-                            (click)="copiesFileInput.click()" [disabled]="this.uploading">Téléverser localement</button>
+                        <span class="with-help">
+                          <button id="copies-input-button" mat-flat-button color="primary"
+                              (click)="copiesFileInput.click()" [disabled]="this.uploading">Téléverser localement</button>
+                          <app-help-tip key="wizard.copies"></app-help-tip>
+                        </span>
                         @if (this.showDropbox) {
 <button id="files-dropbox-input" (click)="getDropBoxUpload()"
                                 [disabled]="this.uploading">
@@ -84,12 +89,14 @@
                           <label>
                               <input type="checkbox" [(ngModel)]="correct" [ngModelOptions]="{standalone: true}">
                               Corriger
+                              <app-help-tip key="wizard.correct"></app-help-tip>
                           </label>
                         </div>
                       <div class="checkbox-container">
                           <label>
                               <input type="checkbox" [(ngModel)]="validateMatricule" [ngModelOptions]="{standalone: true}">
                               Valider tous les matricules
+                              <app-help-tip key="wizard.validate-matricules"></app-help-tip>
                           </label>
                         </div>
                     </div>
@@ -141,6 +148,7 @@
                             <label>
                                 <input type="checkbox" [(ngModel)]="statisticsForStudents" [ngModelOptions]="{standalone: true}">
                                 Statistiques pour les élèves
+                                <app-help-tip key="wizard.stats"></app-help-tip>
                             </label>
                           </div>
                         </div>
@@ -151,7 +159,7 @@
                               <th>Nombre de pages</th>
                               <th>Nombre de points</th>
                               <th>Bonus</th>
-                              <th>Ignorer</th>
+                              <th>Ignorer <app-help-tip key="wizard.questions"></app-help-tip></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -200,8 +208,11 @@
                     <div class="files-steps-options-container">
                         <input #csvInput hidden="true" type="file" (click)="csvInput.value = ''"
                             (change)="CsvFileEvent($event)" accept=".csv" />
-                        <button id="csv-input-button" mat-flat-button background-color="green"
-                            (click)="csvInput.click()" [disabled]="this.uploading">Téléverser localement</button>
+                        <span class="with-help">
+                          <button id="csv-input-button" mat-flat-button background-color="green"
+                              (click)="csvInput.click()" [disabled]="this.uploading">Téléverser localement</button>
+                          <app-help-tip key="wizard.csv"></app-help-tip>
+                        </span>
                         @if (this.showDropbox) {
 <button id="csv-dropbox-input" (click)="getDropBoxUploadCSV()"
                                 [disabled]="this.uploading">
