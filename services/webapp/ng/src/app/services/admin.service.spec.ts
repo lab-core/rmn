@@ -66,6 +66,15 @@ describe('AdminService', () => {
     expect(form.get('include_empty_jobs')).toBe('false');
   });
 
+  it('reads and sets the digit bank switch', () => {
+    service.settings().subscribe();
+    expect(sent('/api/manage/settings').method).toBe('GET');
+    service.setSaveVerifiedImages(false).subscribe();
+    expect((sent('/api/manage/settings').body as FormData).get('saveVerifiedImages')).toBe('0');
+    service.setSaveVerifiedImages(true).subscribe();
+    expect((sent('/api/manage/settings').body as FormData).get('saveVerifiedImages')).toBe('1');
+  });
+
   it('reaches the operator commands', () => {
     service.status().subscribe();
     expect(sent('/api/manage/status').method).toBe('GET');

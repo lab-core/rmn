@@ -29,6 +29,8 @@ export class AdminPageComponent implements OnInit {
   view: 'users' | 'system' = 'users';
 
   queue: number | undefined;
+  /** The digit bank switch, undefined until the server answered. */
+  saveVerifiedImages: boolean | undefined;
   storageReport: any;
   sweeping = false;
   includeStrays = false;
@@ -194,6 +196,17 @@ export class AdminPageComponent implements OnInit {
       next: (resp) => this.queue = resp['response']['queue'],
       error: (err) => this.fail(err, 'État indisponible'),
     });
+    this.adminService.settings().subscribe({
+      next: (resp) => this.saveVerifiedImages = resp['response']['saveVerifiedImages'],
+      error: (err) => this.fail(err, 'Réglages indisponibles'),
+    });
+  }
+
+  async setSaveVerifiedImages(on: boolean) {
+    const resp = await this.run(this.adminService.setSaveVerifiedImages(on),
+      on ? 'Les chiffres validés sont conservés' : 'Les chiffres validés ne sont plus conservés', false);
+    // what the server holds, also when it refused
+    this.saveVerifiedImages = resp ? resp['response']['saveVerifiedImages'] : !on;
   }
 
   async scanStorage() {

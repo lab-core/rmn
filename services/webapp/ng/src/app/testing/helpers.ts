@@ -54,7 +54,6 @@ export function userServiceStub(overrides: Record<string, any> = {}): any {
   return {
     currentUsername: 'alice',
     role: UserRole.USER,
-    saveVerifiedImages: false,
     moodleStructureInd: false,
     loggued: () => true,
     shared: () => false,
@@ -79,7 +78,6 @@ export function userServiceStub(overrides: Record<string, any> = {}): any {
       return this.role == UserRole.ADMIN ? [UserRole.USER, UserRole.MANAGER, UserRole.ADMIN]
         : this.role == UserRole.MANAGER ? [UserRole.USER, UserRole.MANAGER] : [];
     },
-    updateSaveVerifiedImagesValue: jasmine.createSpy('updateSaveVerifiedImagesValue').and.returnValue(of({})),
     updateMoodleStructureInd: jasmine.createSpy('updateMoodleStructureInd').and.returnValue(of({})),
     ...overrides,
   };

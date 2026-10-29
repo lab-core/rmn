@@ -81,7 +81,6 @@ def _session(userDB, token, impersonated_by=None):
         "username": userDB['username'],
         "role": userDB['role'],
         "token": token,
-        "saveVerifiedImages": userDB.get('saveVerifiedImages', True),
         "moodleStructureInd": userDB.get('moodleStructureInd', True),
         # an impersonated session is never forced: the admin does not choose
         # the user's password
@@ -471,10 +470,6 @@ class UserService:
             "username": username,
             "password": hashed_password,
             "role": role,
-            # on by default: the digits of a validated copy are what the
-            # recogniser is retrained on (process_copy.digit_bank). The
-            # profile screen turns it off.
-            "saveVerifiedImages": True,
             "moodleStructureInd": True,  # "moodleStructureInd" in request_form
             "managers": managers,
             # the operator route sets a password its owner chose
@@ -485,30 +480,6 @@ class UserService:
         return Response(
             response=json.dumps({"response": f'Utilisateur Créé'}),
             status=200
-        )
-
-    def update_save_verified_images(username, request, database):
-        """Set the saveVerifiedImages flag of ``username`` (the token's owner).
-
-        The form's ``username`` used to be trusted; ``check_token`` now refuses
-        a form naming another user and the handlers no longer read it.
-        """
-        request_form = request.form
-        if "saveVerifiedImages" not in request_form:
-            return Response(
-                response=json.dumps({"response": f"Error: saveVerifiedImages not provided."}),
-                status=400,
-            )
-        save_verified_images = bool(int(request_form['saveVerifiedImages']))
-
-        collection = database["users"]
-
-        user = { "$set": { 'saveVerifiedImages': save_verified_images } }
-
-        collection.update_one({'username': username}, user)
-
-        return Response(
-            response=json.dumps({"response": f'Utilisateur mise-à-jour'}),
         )
 
     def update_moodle_structure_ind(username, request, database):

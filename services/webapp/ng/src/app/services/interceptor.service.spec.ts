@@ -212,7 +212,7 @@ describe('FreshHttpInterceptor', () => {
     expect(FreshHttpInterceptor.isRetryable(post('/api//documents'))).toBeTrue();
     expect(FreshHttpInterceptor.isRetryable(post('/api/documents/update'))).toBeFalse();
     expect(FreshHttpInterceptor.isRetryable(post('/api//documents/replace'))).toBeFalse();
-    expect(FreshHttpInterceptor.isRetryable(new HttpRequest('PUT', '/api/users/updateSaveVerifiedImages', {}))).toBeFalse();
+    expect(FreshHttpInterceptor.isRetryable(new HttpRequest('PUT', '/api/users/updateMoodleStructureInd', {}))).toBeFalse();
     expect(FreshHttpInterceptor.isRetryable(new HttpRequest('GET', '/api/admin/executor'))).toBeTrue();
   });
 

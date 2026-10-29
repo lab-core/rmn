@@ -50,31 +50,14 @@ describe('UserProfileComponent', () => {
     expect(fixture.nativeElement.querySelector('.impersonate-button')).toBeNull();
   });
 
-  it('shows the digit-images switch and sends what the user clicks', () => {
-    // the switch was in the component but commented out of the template, so
-    // the test below passed while the profile screen offered nothing: this one
-    // goes through the DOM, which is where a user meets it
-    create('Utilisateur');
-    const box = fixture.nativeElement.querySelector('#save-verified-images');
-    expect(box).withContext('the profile must offer the switch').not.toBeNull();
-    expect(box.textContent).toContain('Sauvegarder image des chiffres');
-
-    const input = box.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    expect(input.checked).toBe(user.saveVerifiedImages);
-
-    input.click();
-    fixture.detectChanges();
-    expect(user.updateSaveVerifiedImagesValue).toHaveBeenCalledWith(true);
-    expect(user.saveVerifiedImages).toBeTrue();
+  it('offers no digit-images switch: it is one setting for everyone, on the admin page', () => {
+    create('Administrateur');
+    expect(fixture.nativeElement.querySelector('#save-verified-images')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('chiffres');
   });
 
   it('persists the profile flags once the server accepted them', () => {
     create('Utilisateur');
-    component.updateSaveVerifiedImagesValue(true);
-    expect(user.updateSaveVerifiedImagesValue).toHaveBeenCalledWith(true);
-    expect(user.saveVerifiedImages).toBeTrue();
-    expect(localStorage.getItem('saveVerifiedImages')).toBe('true');
-
     component.updateSaveInMoodleStructure(false);
     expect(user.moodleStructureInd).toBeFalse();
     expect(localStorage.getItem('moodleStructureInd')).toBe('false');

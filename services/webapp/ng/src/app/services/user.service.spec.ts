@@ -45,8 +45,6 @@ describe('UserService', () => {
     const service = fresh();
     expect(service.loggued()).toBeFalse();
     expect(service.shared()).toBeFalse();
-    // the server's own default, until a session says otherwise
-    expect(service.saveVerifiedImages).toBeTrue();
     expect(service.moodleStructureInd).toBeFalse();
     const form = new FormData();
     service.addTokens(form);
@@ -55,14 +53,12 @@ describe('UserService', () => {
 
   it('restores the session from localStorage', () => {
     session();
-    localStorage.setItem('saveVerifiedImages', 'true');
     localStorage.setItem('moodleStructureInd', 'undefined');
     const service = fresh();
 
     expect(service.loggued()).toBeTrue();
     expect(service.currentUsername).toBe('alice');
     expect(service.role).toBe('Utilisateur');
-    expect(service.saveVerifiedImages).toBeTrue();
     expect(service.moodleStructureInd).toBeFalse();
 
     const form = new FormData();
@@ -82,15 +78,13 @@ describe('UserService', () => {
     expect((req.request.body as FormData).get('password')).toBe('pw');
     req.flush({ response: {
       username: 'alice', role: 'Administrateur', token: 'tok',
-      saveVerifiedImages: true, moodleStructureInd: false,
+      moodleStructureInd: false,
     } });
     await pending;
 
     expect(service.loggued()).toBeTrue();
     expect(service.role).toBe('Administrateur');
-    expect(service.saveVerifiedImages).toBeTrue();
     expect(localStorage.getItem('token')).toBe('tok');
-    expect(localStorage.getItem('saveVerifiedImages')).toBe('true');
     expect(service.warningShown).toBeFalse();
 
     service.logout();
@@ -143,17 +137,11 @@ describe('UserService', () => {
     session();
     const service = fresh();
 
-    service.updateSaveVerifiedImagesValue(true).subscribe();
-    let req = http.expectOne('/api/users/updateSaveVerifiedImages');
+    service.updateMoodleStructureInd(false).subscribe();
+    const req = http.expectOne('/api/users/updateMoodleStructureInd');
     expect(req.request.method).toBe('PUT');
-    expect((req.request.body as FormData).get('saveVerifiedImages')).toBe('1');
     expect((req.request.body as FormData).get('username')).toBe('alice');
     expect((req.request.body as FormData).has('token')).toBeFalse();
-    req.flush({ response: 'ok' });
-    expect(service.saveVerifiedImages).toBeTrue();
-
-    service.updateMoodleStructureInd(false).subscribe();
-    req = http.expectOne('/api/users/updateMoodleStructureInd');
     expect((req.request.body as FormData).get('moodleStructureInd')).toBe('0');
     req.flush({ response: 'ok' });
     expect(service.moodleStructureInd).toBeFalse();
@@ -180,7 +168,7 @@ describe('UserService', () => {
     spyOn(db, 'clearAll').and.resolveTo();
   };
   const borrowed = (username: string, token: string) => ({ response: {
-    username, role: 'Utilisateur', token, saveVerifiedImages: false,
+    username, role: 'Utilisateur', token,
     moodleStructureInd: true, impersonatedBy: 'root',
   } });
 
@@ -271,7 +259,7 @@ describe('UserService', () => {
     const pending = service.login('alice', 'temp');
     http.expectOne('/api/users/login').flush({ response: {
       username: 'alice', role: 'Utilisateur', token: 'tok',
-      saveVerifiedImages: true, moodleStructureInd: false, mustChangePassword: true,
+      moodleStructureInd: false, mustChangePassword: true,
     } });
     await pending;
     expect(service.mustChangePassword).toBeTrue();
