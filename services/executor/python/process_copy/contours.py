@@ -87,7 +87,8 @@ def biggest_contour(cropped):
 
 
 
-def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False, straighten=False):
+def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False,
+                                straighten=False):
     # find the id box, straightened when the scan turned it (see straighten_frame)
     cropped = fetch_box(gray, regular_box)
     if straighten:
