@@ -166,6 +166,28 @@ export class TasksService {
     await this.http.post<any>(`${SERVER_URL}jobs/update/status`, formdata).toPromise();
   }
 
+  /** Read again the matricules nobody validated; resolves with how many copies go back to the reader. */
+  async readMatriculesAgain(jobId: string): Promise<number> {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', jobId);
+    const resp = await this.http.post<any>(`${SERVER_URL}jobs/read_matricules`, formdata).toPromise();
+    return resp['documents'];
+  }
+
+  /** Read again the grades nobody validated, of one question (its number, from 1) or of all;
+   *  resolves with the question numbers queued. */
+  async readGradesAgain(jobId: string, questionNumber?: number): Promise<number[]> {
+    const formdata: FormData = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', jobId);
+    if (questionNumber !== undefined) {
+      formdata.append('question_index', String(questionNumber));
+    }
+    const resp = await this.http.post<any>(`${SERVER_URL}documents/read_grades`, formdata).toPromise();
+    return resp['questions'];
+  }
+
   async updateTaskBonus(jobId: string, bonusMap): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);

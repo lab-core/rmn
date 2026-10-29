@@ -43,11 +43,11 @@ storage/digit_bank/
 Staged crops belong to the job: finalising it drops whatever is left of them
 (a reading nobody confirmed by then never will be, and the crops of a teacher
 who opted out have no future), and deleting the job takes the rest. A labelled sample
-outlives it, which is why the promotion asks the teacher's `saveVerifiedImages`
-(the switch in the user profile): **the reading is staged for everyone, the
-bank only keeps what its owner allowed.** It is on by default, so a teacher
-who never opens the profile screen contributes; turning it off stores a real
-`false` and is honoured. Rows that predate the flag keep the default.
+outlives it, which is why the promotion asks the switch an admin sets on the
+admin page (Système → Banque de chiffres, `rmn_common.settings`, one for every
+task): **the reading is staged for everyone, the bank only keeps what the
+switch allows.** It is on until an admin turns it off. The per-user
+`saveVerifiedImages` of older user rows is ignored.
 
 `digit_bank/samples` is in `rmn_common.storage.CORPUS_DIRS`: no cleanup, job
 deletion or orphan sweep may remove it, and the monthly storage report counts

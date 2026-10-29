@@ -26,6 +26,11 @@ export class ErrorInterceptor implements HttpInterceptor {
         let warningMsg;
         if (error.status === 401) {
           warningMsg = "The http request has been intercepted as the response had a status 401 (unauthorized).";
+        } else if (error.status === 403 && error.error?.code === 'password_change_required') {
+          // the session must replace its temporary password before anything else
+          this.userService.mustChangePassword = true;
+          this.router.navigate(['/user-profile']);
+          return throwError(() => error);
         } else if (error.status === 404) {
           warningMsg = "The http request has been intercepted as the response had a status 404 (not found).";
         }

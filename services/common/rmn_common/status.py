@@ -44,4 +44,5 @@ class Output_File(Enum):
 
 class User_Role(Enum):
     USER = "Utilisateur"
+    MANAGER = "Gestionnaire"
     ADMIN = "Administrateur"

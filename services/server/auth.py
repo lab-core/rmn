@@ -13,7 +13,7 @@ from flask import request
 
 from utils.responses import Response
 from context import mongo
-from service.user_service import UserService
+from service.user_service import Role, UserService
 
 
 def request_token(form):
@@ -30,11 +30,14 @@ def request_token(form):
     return form.get("token")
 
 
-def check_token(form, role=None, check_username=True):
+def check_token(form, role=None, check_username=True, allow_password_change=False):
     """The (error response, username) of the token in ``form``.
 
-    ``check_username=False`` for the one route where the form's ``username``
-    legitimately names someone else: an admin creating a user on /signup.
+    ``role`` is the least role the route needs. ``check_username=False`` for
+    the routes where the form's ``username`` legitimately names someone else
+    (the account an admin creates, resets or becomes).
+    ``allow_password_change`` marks the routes a session still reaches while
+    its user has to replace a temporary password.
     """
     # check if token provided
     token = request_token(form)
@@ -45,13 +48,30 @@ def check_token(form, role=None, check_username=True):
         ), None
     # check if token valid
     db = mongo["RMN"]
-    valid, username = UserService.verify_token(token, db, role)
+    record = UserService.find_token(token, db)
     # "code" lets the webapp tell a dead session (log out, back to the login
     # page) apart from the other 401s (a job or question this user cannot see)
-    if not valid:
+    if record is None:
         return Response(
             response=json.dumps({"response": "Error: token not valid. Please login.", "code": "token_invalid"}),
             status=401,
+        ), None
+    username = record["username"]
+    if role is not None and not Role.at_least(record.get("role"), role):
+        return Response(
+            response=json.dumps({
+                "response": f"Error: reserved to the role {role.value} and above.",
+                "code": "forbidden",
+            }),
+            status=403,
+        ), None
+    if record.get("must_change_password") and not allow_password_change:
+        return Response(
+            response=json.dumps({
+                "response": "Veuillez changer votre mot de passe temporaire.",
+                "code": "password_change_required",
+            }),
+            status=403,
         ), None
     # both fields, when sent, must name the token's owner. The username check
     # used to be skipped when user_id was also present, so a form with its own
@@ -68,12 +88,12 @@ def check_token(form, role=None, check_username=True):
     return None, username
 
 
-def verify_token(role=None, check_username=True):
+def verify_token(role=None, check_username=True, allow_password_change=False):
     def _verify_token(f):
         @wraps(f)
         def __verify_token(*args, **kwargs):
             # check if token valid
-            resp, user_id = check_token(request.form, role, check_username)
+            resp, user_id = check_token(request.form, role, check_username, allow_password_change)
             if resp:
                 return resp
             return f(user_id)

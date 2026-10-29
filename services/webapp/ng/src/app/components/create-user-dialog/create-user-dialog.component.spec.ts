@@ -83,9 +83,14 @@ describe('CreateUserDialogComponent', () => {
     expect(dialogRef.close).not.toHaveBeenCalled();
   });
 
-  it('offers exactly the two roles', () => {
+  it('offers the roles the creator may give', () => {
     expect(fixture.nativeElement.querySelector('mat-select')).not.toBeNull();
     expect(component.selected).toBe('');
-    user.signup.and.returnValue(of({}));
+    user.role = 'Gestionnaire';
+    component.ngOnInit();
+    expect(component.roles).toEqual(['Utilisateur', 'Gestionnaire']);
+    user.role = 'Administrateur';
+    component.ngOnInit();
+    expect(component.roles).toEqual(['Utilisateur', 'Gestionnaire', 'Administrateur']);
   });
 });

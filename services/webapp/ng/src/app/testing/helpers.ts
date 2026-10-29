@@ -27,6 +27,7 @@ import { Subject, of } from 'rxjs';
 
 import { NotificationService } from '../services/notification.service';
 import { HelpTipComponent } from '../components/help-tip/help-tip.component';
+import { HelpHoverComponent } from '../components/help-hover/help-hover.component';
 import { PDFViewerComponent } from '../components/pdf-viewer/pdf-viewer.component';
 import { UserRole } from '../generated/rmn-contracts';
 
@@ -36,7 +37,7 @@ export const MATERIAL_MODULES = [
   MatFormFieldModule, MatIconModule, MatInputModule, MatListModule, MatPaginatorModule,
   MatProgressSpinnerModule, MatSelectModule, MatSlideToggleModule, MatSortModule,
   MatStepperModule, MatTableModule, MatTooltipModule, FormsModule, ReactiveFormsModule,
-  NoopAnimationsModule, HelpTipComponent,
+  NoopAnimationsModule, HelpTipComponent, HelpHoverComponent,
 ];
 
 export function notificationSpy(): jasmine.SpyObj<NotificationService> {
@@ -53,7 +54,6 @@ export function userServiceStub(overrides: Record<string, any> = {}): any {
   return {
     currentUsername: 'alice',
     role: UserRole.USER,
-    saveVerifiedImages: false,
     moodleStructureInd: false,
     loggued: () => true,
     shared: () => false,
@@ -67,7 +67,17 @@ export function userServiceStub(overrides: Record<string, any> = {}): any {
     logout: jasmine.createSpy('logout'),
     login: jasmine.createSpy('login').and.resolveTo(undefined),
     signup: jasmine.createSpy('signup').and.returnValue(of({})),
-    updateSaveVerifiedImagesValue: jasmine.createSpy('updateSaveVerifiedImagesValue').and.returnValue(of({})),
+    listUsers: jasmine.createSpy('listUsers').and.returnValue(of({ response: [] })),
+    impersonate: jasmine.createSpy('impersonate').and.resolveTo(undefined),
+    stopImpersonating: jasmine.createSpy('stopImpersonating'),
+    mustChangePassword: false,
+    passwordChanged: jasmine.createSpy('passwordChanged'),
+    isAdmin() { return this.role == UserRole.ADMIN; },
+    canCreateUsers() { return this.role == UserRole.MANAGER || this.role == UserRole.ADMIN; },
+    creatableRoles() {
+      return this.role == UserRole.ADMIN ? [UserRole.USER, UserRole.MANAGER, UserRole.ADMIN]
+        : this.role == UserRole.MANAGER ? [UserRole.USER, UserRole.MANAGER] : [];
+    },
     updateMoodleStructureInd: jasmine.createSpy('updateMoodleStructureInd').and.returnValue(of({})),
     ...overrides,
   };
