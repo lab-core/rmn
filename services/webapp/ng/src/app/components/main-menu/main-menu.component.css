@@ -27,7 +27,7 @@
     float: right;
 }
 
-.disconnect-button > mat-icon {
+.disconnect-button .menu-entry > mat-icon {
     height: 50px;
     width: 50px;
     font-size: 50px;
@@ -35,12 +35,12 @@
     /* margin-left: 80%; */
     color: #000000;
 }
-.disconnect-button > mat-icon:hover {
+.disconnect-button .menu-entry > mat-icon:hover {
     cursor: pointer;
     transform: scale(1.1,1.1);
 }
 
-.disconnect-button > span {
+.disconnect-button .menu-entry > span {
     margin-top: 0.25%;
     font-size: 15px;
 }
@@ -98,7 +98,7 @@
     color: #21d4fd;
 }
 
-.buttons-container > div:hover > mat-icon {
+.buttons-container > div:hover .menu-entry > mat-icon {
     color: #21d4fd;
 }
 
@@ -107,22 +107,29 @@
     right: -7%;
 }
 
-.buttons-container > div > mat-icon {
+.buttons-container .menu-entry > mat-icon {
     color: black;
     height: 40px;
     width: 40px;
     font-size: 40px;
 }
 
-.buttons-container > div > span {
+.buttons-container .menu-entry > span {
     margin-top: 0.25%;
     font-size: 15px;
 
 }
 
 /* a session opened in a user's place: the way back stands out */
-.buttons-container > .stop-impersonating > mat-icon,
-.buttons-container > .stop-impersonating > span {
+.buttons-container > .stop-impersonating .menu-entry > mat-icon,
+.buttons-container > .stop-impersonating .menu-entry > span {
     color: #b00020;
     font-weight: bold;
+}
+
+/* the icon above its label, inside the hover help */
+.menu-entry {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }

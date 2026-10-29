@@ -5,7 +5,8 @@ import { ActivatedRoute, ParamMap, Router, RouterModule, convertToParamMap } fro
 import { BehaviorSubject } from 'rxjs';
 
 import { UserGuideComponent, renderGuide } from './user-guide.component';
-import { GUIDE_CHAPTERS } from '../../help/guide';
+import { visibleChapters } from '../../help/guide';
+import { UserService } from '../../services/user.service';
 import { MATERIAL_MODULES, MainMenuStubComponent, settle, waitUntil } from '../../testing/helpers';
 
 describe('renderGuide', () => {
@@ -29,8 +30,9 @@ describe('UserGuideComponent', () => {
   let http: HttpTestingController;
   let params: BehaviorSubject<ParamMap>;
   let fragment: BehaviorSubject<string | null>;
+  let role: string;
 
-  beforeEach(() => {
+  const create = () => {
     params = new BehaviorSubject(convertToParamMap({chapter: '05-nouvelle-tache'}));
     fragment = new BehaviorSubject<string | null>(null);
     TestBed.configureTestingModule({
@@ -39,11 +41,17 @@ describe('UserGuideComponent', () => {
       providers: [
         provideHttpClient(), provideHttpClientTesting(),
         {provide: ActivatedRoute, useValue: {paramMap: params, fragment}},
+        {provide: UserService, useValue: {role}},
       ],
     });
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(UserGuideComponent);
     fixture.detectChanges();
+  };
+
+  beforeEach(() => {
+    role = 'Utilisateur';
+    create();
   });
 
   async function answer(file: string, markdown: string): Promise<void> {
@@ -59,7 +67,7 @@ describe('UserGuideComponent', () => {
   it('lists every chapter and highlights the open one', async () => {
     await answer('05-nouvelle-tache', '# Créer la tâche');
     const links = fixture.nativeElement.querySelectorAll('.guide-toc a');
-    expect(links.length).toBe(GUIDE_CHAPTERS.length);
+    expect(links.length).toBe(visibleChapters('Utilisateur').length);
     expect(fixture.nativeElement.querySelector('.guide-toc a.active').textContent).toContain('Créer la tâche');
   });
 
@@ -77,6 +85,49 @@ describe('UserGuideComponent', () => {
     http.expectNone('assets/guide/05-nouvelle-tache.md');
     expect(scroll).toHaveBeenCalled();
     expect((scroll.calls.mostRecent().object as unknown as HTMLElement).id).toBe('le-tableau-des-questions');
+  });
+
+  it('keeps the account chapters for those who manage accounts', async () => {
+    const titles = () => Array.from(fixture.nativeElement.querySelectorAll('.guide-toc a'))
+      .map((a: HTMLElement) => a.textContent.trim());
+    expect(titles()).not.toContain('12. Gérer les comptes');
+    expect(titles()).not.toContain('13. Administrer rmn');
+    http.match(() => true).forEach((request) => request.flush('# x'));
+
+    TestBed.resetTestingModule();
+    role = 'Gestionnaire';
+    create();
+    expect(titles()).toContain('12. Gérer les comptes');
+    expect(titles()).not.toContain('13. Administrer rmn');
+    http.match(() => true).forEach((request) => request.flush('# x'));
+
+    TestBed.resetTestingModule();
+    role = 'Administrateur';
+    create();
+    expect(titles()).toContain('13. Administrer rmn');
+    await new Promise((resolve) => setTimeout(resolve));
+    http.match(() => true).forEach((request) => request.flush('# x'));
+  });
+
+  it('shows the admin the whole guide while they act as a user', async () => {
+    http.match(() => true).forEach((request) => request.flush('# x'));
+    TestBed.resetTestingModule();
+    role = 'Utilisateur';
+    TestBed.overrideProvider(UserService, {useValue: {role, impersonatedBy: 'root'}});
+    create();
+    const titles = Array.from(fixture.nativeElement.querySelectorAll('.guide-toc a'))
+      .map((a: HTMLElement) => a.textContent.trim());
+    expect(titles).toContain('13. Administrer rmn');
+    await new Promise((resolve) => setTimeout(resolve));
+    http.match(() => true).forEach((request) => request.flush('# x'));
+  });
+
+  it('opens the overview for a chapter the role does not see', async () => {
+    params.next(convertToParamMap({chapter: '13-administration'}));
+    await new Promise((resolve) => setTimeout(resolve));
+    http.match('assets/guide/05-nouvelle-tache.md').forEach((request) => request.flush('# x'));
+    await answer('README', '# Vue d\'ensemble');
+    expect(fixture.componentInstance.current.file).toBe('README');
   });
 
   it('opens the overview for an unknown chapter', async () => {

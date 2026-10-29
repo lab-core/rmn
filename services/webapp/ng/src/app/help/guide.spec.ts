@@ -1,4 +1,4 @@
-import { GUIDE_CHAPTERS, HELP, headingId } from './guide';
+import { GUIDE_CHAPTERS, HELP, headingId, visibleChapters } from './guide';
 
 /** The ids of the headings of a markdown chapter, as GitHub and the app give them. */
 function headingIds(markdown: string): string[] {
@@ -52,5 +52,24 @@ describe('the help bubbles and the guide', () => {
         }
       }
     }
+  });
+});
+
+describe('visibleChapters', () => {
+  const files = (role?: string) => visibleChapters(role).map((c) => c.file);
+
+  it('keeps the account chapters out of an Utilisateur\'s guide', () => {
+    expect(files('Utilisateur')).not.toContain('12-comptes');
+    expect(files(undefined)).not.toContain('12-comptes');
+    expect(files('Utilisateur')).toContain('11-faq');
+  });
+
+  it('gives a Gestionnaire the accounts, not the administration', () => {
+    expect(files('Gestionnaire')).toContain('12-comptes');
+    expect(files('Gestionnaire')).not.toContain('13-administration');
+  });
+
+  it('gives an Administrateur every chapter', () => {
+    expect(files('Administrateur')).toEqual(GUIDE_CHAPTERS.map((c) => c.file));
   });
 });

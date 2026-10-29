@@ -4,7 +4,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Marked, Tokens } from 'marked';
 import { Subscription, combineLatest, firstValueFrom } from 'rxjs';
 
-import { GUIDE_CHAPTERS, GuideChapter, headingId } from '../../help/guide';
+import { GUIDE_CHAPTERS, GuideChapter, headingId, visibleChapters } from '../../help/guide';
+import { UserRole } from '../../generated/rmn-contracts';
+import { UserService } from '../../services/user.service';
 
 const GUIDE_DIR = 'assets/guide/';
 
@@ -59,7 +61,9 @@ function safeDecode(text: string): string {
 export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('content', {static: true}) content: ElementRef<HTMLElement>;
 
-  chapters: GuideChapter[] = GUIDE_CHAPTERS;
+  // the chapters of the reader's role (see visibleChapters); a hidden one
+  // opens the overview, like an unknown one
+  chapters: GuideChapter[];
   current: GuideChapter = GUIDE_CHAPTERS[0];
   html = '';
   error = '';
@@ -67,7 +71,11 @@ export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
   // the section to show once the chapter is on screen; undefined: nothing to do
   private pendingFragment: string | null | undefined;
 
-  constructor(private http: HttpClient, private route: ActivatedRoute, private router: Router) { }
+  constructor(private http: HttpClient, private route: ActivatedRoute, private router: Router,
+              userService: UserService) {
+    // a borrowed session is read by the admin who took it, not by its user
+    this.chapters = visibleChapters(userService.impersonatedBy ? UserRole.ADMIN : userService.role);
+  }
 
   ngOnInit(): void {
     this.subscription = combineLatest([this.route.paramMap, this.route.fragment]).subscribe(

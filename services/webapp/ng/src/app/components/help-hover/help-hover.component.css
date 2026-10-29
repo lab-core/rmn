@@ -12,8 +12,8 @@
 /* the way to the guide: hidden until the button is hovered or focused */
 .guide-link {
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: -6px;
+  right: -6px;
   z-index: 2;
   display: inline-flex;
   border-radius: 50%;

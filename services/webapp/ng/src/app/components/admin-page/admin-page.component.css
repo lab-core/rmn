@@ -76,6 +76,12 @@ table {
   white-space: nowrap;
 }
 
+/* Material cells clip what overflows them: the "?" of a button's help sits
+   on its corner, partly above the cell */
+td.mat-mdc-cell {
+  overflow: visible;
+}
+
 .actions .impersonate {
   margin-right: 8px;
   vertical-align: middle;

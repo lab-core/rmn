@@ -3,17 +3,28 @@
         <div class="background">
             <div class="buttons-container">
                 <div (click)="goToTasksHistory()">
-                    <mat-icon> list_alt</mat-icon>
-                    <span> Tâches </span>
+                    <app-help-hover key="menu.tasks">
+                      <div class="menu-entry">
+                        <mat-icon> list_alt</mat-icon>
+                        <span> Tâches </span>
+                      </div>
+                    </app-help-hover>
                 </div>
                 <div (click)="newExamCorrection()">
-                    <mat-icon>post_add</mat-icon>
-                    <span> Nouvelle tâche </span>
+                    <app-help-hover key="menu.new-task">
+                      <div class="menu-entry">
+                        <mat-icon>post_add</mat-icon>
+                        <span> Nouvelle tâche </span>
+                      </div>
+                    </app-help-hover>
                 </div>
                 <div (click)="goToTemplatesPage()">
-                    <!-- <mat-icon>find_in_page</mat-icon> -->
-                    <mat-icon>manage_search</mat-icon>
-                    <span> Template </span>
+                    <app-help-hover key="menu.templates">
+                      <div class="menu-entry">
+                        <mat-icon>manage_search</mat-icon>
+                        <span> Template </span>
+                      </div>
+                    </app-help-hover>
                 </div>
                 <!-- <div (click)="goToPresentationPage()">
                     <mat-icon> insert_drive_file</mat-icon>
@@ -24,29 +35,48 @@
                     <span> Correction </span>
                 </div> -->
                 <div (click)="goToUserGuide()">
-                    <mat-icon>library_books</mat-icon>
-                    <span> Guide </span>
+                    <app-help-hover key="menu.guide">
+                      <div class="menu-entry">
+                        <mat-icon>library_books</mat-icon>
+                        <span> Guide </span>
+                      </div>
+                    </app-help-hover>
                 </div>
                 @if (canManage) {
                     <div class="admin-entry" (click)="goToAdminPage()">
-                        <mat-icon>manage_accounts</mat-icon>
-                        <span> Admin </span>
+                        <app-help-hover key="menu.admin">
+                          <div class="menu-entry">
+                            <mat-icon>manage_accounts</mat-icon>
+                            <span> Admin </span>
+                          </div>
+                        </app-help-hover>
                     </div>
                 }
                 <div (click)="goToProfilePage()">
-                    <mat-icon>person</mat-icon>
-                    <span> Profil </span>
+                    <app-help-hover key="menu.profile">
+                      <div class="menu-entry">
+                        <mat-icon>person</mat-icon>
+                        <span> Profil </span>
+                      </div>
+                    </app-help-hover>
                 </div>
                 @if (impersonatedBy) {
-                    <div class="stop-impersonating" (click)="stopImpersonating()"
-                         [title]="'Vous agissez en tant que ' + currentUsername">
-                        <mat-icon>admin_panel_settings</mat-icon>
-                        <span> Revenir à {{impersonatedBy}} </span>
+                    <div class="stop-impersonating" (click)="stopImpersonating()">
+                        <app-help-hover key="menu.stop-impersonating">
+                          <div class="menu-entry">
+                            <mat-icon>admin_panel_settings</mat-icon>
+                            <span> Revenir à {{impersonatedBy}} </span>
+                          </div>
+                        </app-help-hover>
                     </div>
                 }
                 <div class="disconnect-button" (click)="disconnect()">
-                    <mat-icon>exit_to_app</mat-icon>
-                    <span> Déconnexion </span>
+                    <app-help-hover key="menu.logout">
+                      <div class="menu-entry">
+                        <mat-icon>exit_to_app</mat-icon>
+                        <span> Déconnexion </span>
+                      </div>
+                    </app-help-hover>
                 </div>
             </div>
         </div>
