@@ -90,11 +90,9 @@ def try_fix_questions(max_question, predictions):
 
 
 
-def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=None,
-          max_question=None, retry=0, n_boxes=None):
+def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=None, max_question=None, retry=0):
     cropped = fetch_box(gray, box)
-    # n_boxes: the questions and the total, when known, to tell the grade boxes apart
-    boxes = find_grade_boxes(cropped, add_border, thick=0, n=n_boxes)
+    boxes = find_grade_boxes(cropped, add_border, thick=0)
     # print(f"Number of boxes : {len(boxes)}")
 
     number_images = []
@@ -108,8 +106,7 @@ def grade(gray, box, classifier=None, add_border=False, trim=None, max_grade=Non
                 # a slightly wider box (the old retry box collapsed every
                 # coordinate onto box[0], and retry-1 landed in max_question)
                 box2 = (box[0]-.01, box[1]+.01, box[2]-.01, box[3]+.01)
-                return grade(gray, box2, classifier, add_border, trim, max_grade, max_question,
-                             retry - 1, n_boxes)
+                return grade(gray, box2, classifier, add_border, trim, max_grade, max_question, retry-1)
             return False, [], cropped, number_images, boxes
         box_img = cropped[y + 5: y + h - 5, x + 5: x + w - 5]
         # check if need to trim
@@ -287,8 +284,7 @@ def grade_files(
                     classifier=classifier,
                     trim=trim,
                     max_grade=max_grade,
-                    max_question=max_question,
-                    n_boxes=max_nb_questions + 1 if max_nb_questions else None
+                    max_question=max_question
                 )
 
             i, name = get_name(m, grades_dfs)

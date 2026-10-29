@@ -132,7 +132,23 @@ def edge_coverage(ink, rect, band=3):
 
 
 
-def find_rectangles(gray, min_size=20, min_coverage=0.85, inner=False):
+def ink_mask(gray):
+    """The ink of a scan: darker than its paper by a share of the contrast.
+
+    A fixed threshold (200) took a paper scanned at grey 200 or darker
+    (salmon, goldenrod) for ink, and a thin light-grey printed line (0.5 pt
+    at #BFBFBF, lightened further by the blur) for paper.
+    """
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    paper = float(np.percentile(blurred, 75))
+    darkest = float(np.percentile(blurred, 1))
+    level = paper - max(30.0, 0.2 * (paper - darkest))
+    return cv2.threshold(blurred, level, 255, cv2.THRESH_BINARY_INV)[1]
+
+
+
+
+def find_rectangles(gray, min_size=20, min_coverage=0.85, inner=False, relative=False):
     """The rectangles drawn on ``gray``: ``(x, y, w, h)`` with four ink sides.
 
     Every contour of the ink is a candidate, outer outlines and holes alike,
@@ -140,9 +156,15 @@ def find_rectangles(gray, min_size=20, min_coverage=0.85, inner=False):
     is returned once: its hole is dropped (a rectangle inside another one of
     nearly its size), or its outline when ``inner`` (the inside of the box,
     where something is written). The boxes inside a table cell are kept.
+
+    The ink is what is darker than grey 200, or with ``relative`` darker
+    than the paper by a share of the contrast (see ``ink_mask``).
     """
-    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-    ink = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)[1]
+    if relative:
+        ink = ink_mask(gray)
+    else:
+        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+        ink = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)[1]
     # join the dots of a dithered scan, so a thin printed line is one stroke
     ink = cv2.morphologyEx(ink, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
     cnts, _ = cv2.findContours(ink, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -280,70 +302,96 @@ def ink_share(ink, rect, margin=0.12):
 def _aligned_runs(rects, tol=0.15):
     """Every set of boxes of ``rects`` aligned with one of them, with its direction.
 
-    Boxes in a column share their left side and their width (a total box may
-    be taller), boxes in a row share their top and their height. A run is
-    sorted along its direction and holds no two overlapping boxes.
+    Boxes in a column share their left side, their right side or their
+    centre, and their width; boxes in a row their top, their bottom or their
+    centre, and their height. The box at either end of a run may be up to
+    60% bigger across it: the total. A run is sorted along its direction and
+    holds no two overlapping boxes.
     """
     runs = {}
     for ref in rects:
-        rx, ry, rw, rh = ref
         for horizontal in (False, True):
-            if horizontal:
-                run = [r for r in rects
-                       if abs(r[1] - ry) <= tol * rh and abs(r[3] - rh) <= tol * rh]
-            else:
-                run = [r for r in rects
-                       if abs(r[0] - rx) <= tol * rw and abs(r[2] - rw) <= tol * rw]
+            lead, size = (1, 3) if horizontal else (0, 2)
             axis = 0 if horizontal else 1
+
+            def aligned(r):
+                edges = (r[lead], r[lead] + r[size], r[lead] + r[size] / 2)
+                ref_edges = (ref[lead], ref[lead] + ref[size], ref[lead] + ref[size] / 2)
+                return (any(abs(e - f) <= tol * ref[size] for e, f in zip(edges, ref_edges))
+                        and ref[size] / 1.6 <= r[size] <= 1.6 * ref[size])
+
             kept = []
-            for r in sorted(run, key=lambda r: r[axis]):
+            for r in sorted(filter(aligned, rects), key=lambda r: r[axis]):
                 if not kept or r[axis] >= kept[-1][axis] + 0.9 * kept[-1][axis + 2]:
                     kept.append(r)
-            runs.setdefault((tuple(kept), horizontal), None)
+            if not kept:
+                continue
+            across = median(r[size] for r in kept)
+            ends = (kept[0], kept[-1])
+            kept = [r for r in kept
+                    if abs(r[size] - across) <= tol * across
+                    or (r in ends and across < r[size] <= 1.6 * across)]
+            if kept:
+                runs.setdefault((tuple(kept), horizontal), None)
     return list(runs)
 
 
 
 
-def _fill_run(run, horizontal, thick):
-    """The run with a box put back in every gap the size of a box between two.
+def _segments(run, horizontal, ink, min_coverage=0.6):
+    """The run cut where its boxes stop following each other.
 
-    A box the detection missed -- a grade written over its sides -- is still
-    a box of the table: it is where the gap between its neighbours is.
+    Two boxes follow each other when the gap between them is the gap of the
+    run. A wider gap is a box the detection missed (a grade written over its
+    sides) only when it holds whole boxes whose sides are drawn there; it is
+    then filled. Otherwise the run is cut: a box drawn apart under a column
+    of the table, or squares spaced wider than the rest, are another run.
     """
     axis = 0 if horizontal else 1
-    m_size = max(4 * thick, 20, 0.3 * median(r[axis + 2] for r in run))
-    filled = [run[0]]
-    for r in run[1:]:
-        prev = filled[-1]
-        end = prev[axis] + prev[axis + 2]
-        if r[axis] - end > m_size:
-            if horizontal:
-                filled.append((end + thick, r[1], r[0] - end - 2 * thick, r[3]))
-            else:
-                filled.append((r[0], end + thick, r[2], r[1] - end - 2 * thick))
-        filled.append(r)
-    return filled
+    size = median(r[axis + 2] for r in run)
+    gaps = [b[axis] - a[axis] - a[axis + 2] for a, b in zip(run, run[1:])]
+    spacing = max(median(gaps), 0) if gaps else 0
+    segments = [[run[0]]]
+    for prev, r, gap in zip(run, run[1:], gaps):
+        if gap <= spacing + 0.3 * size:
+            segments[-1].append(r)
+            continue
+        steps = (gap - spacing) / (size + spacing)
+        k = round(steps)
+        if k >= 1 and abs(steps - k) <= 0.25:
+            length = (gap - (k + 1) * spacing) / k
+            start = prev[axis] + prev[axis + 2] + spacing
+            fill = []
+            for i in range(k):
+                at = int(round(start + i * (length + spacing)))
+                if horizontal:
+                    fill.append((at, prev[1], int(round(length)), prev[3]))
+                else:
+                    fill.append((prev[0], at, prev[2], int(round(length))))
+            if all(edge_coverage(ink, f, band=6) >= min_coverage for f in fill):
+                segments[-1].extend(fill + [r])
+                continue
+        segments.append([r])
+    return segments
 
 
 
 
-def find_grade_boxes(cropped, add_border=False, thick=5, n=None):
+def find_grade_boxes(cropped, add_border=False, thick=5):
     """The grade boxes of the frame, as contours sorted along their alignment.
 
-    The grade boxes are aligned, in a column or in a row, and empty on the
-    template: of every run of aligned rectangles of the frame, the one whose
-    boxes are all empty wins, so the labels and the maximums printed beside
-    them are left out. On a copy the boxes hold the grades: the run covering
-    the most area wins (the most boxes, the biggest ones). A run of ``n``
-    boxes, when the number of boxes is known, comes before all others.
+    The grade boxes follow each other, in a column or in a row, and are empty
+    on the template: of every run of such rectangles of the frame, the one
+    whose boxes are all empty wins, so the labels and the maximums printed
+    beside them are left out. On a copy the boxes hold the grades: the run
+    covering the most area wins (the most boxes, the biggest ones). A copy is
+    better read with the layout of its template (see ``find_layout_boxes``).
 
     Args:
         cropped: The gray frame the grade box of the template gives.
         add_border: Close the boxes the frame cuts with a border drawn around
             it; the boxes on that border are then dropped from the run.
         thick: The thickness of the lines drawn around the boxes found.
-        n: The number of boxes expected, None when unknown.
 
     Returns:
         The contours of the boxes, ``[]`` when the frame holds none.
@@ -358,15 +406,20 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None):
             (0, 0, 0),
             border,
         )
-    rects, ink = find_rectangles(cropped2, inner=True)
+    rects, ink = find_rectangles(cropped2, inner=True, relative=True)
     if add_border:
         # a box closed by the border is a box the frame cuts
         height, width = cropped2.shape[:2]
         edge = 2 * border + 2
         rects = [(x, y, w, h) for x, y, w, h in rects
                  if x > edge and y > edge and x + w < width - edge and y + h < height - edge]
+    # a rectangle filled with other ones is a table, not a box (the hole of a
+    # digit written in a box is a small rectangle inside it too)
+    rects = [r for r in rects
+             if sum(o[2] * o[3] for o in rects if o != r and _inside(o, r)) < 0.5 * r[2] * r[3]]
 
-    runs = [_fill_run(run, horizontal, thick) for run, horizontal in _aligned_runs(rects)]
+    runs = [segment for run, horizontal in _aligned_runs(rects)
+            for segment in _segments(run, horizontal, ink)]
 
     def area(run):
         return sum(r[2] * r[3] for r in run)
@@ -375,7 +428,6 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None):
         """The runs that pass ``keep``, or all of them when none does."""
         return [run for run in runs if keep(run)] or runs
 
-    runs = narrow(runs, lambda run: len(run) == n)
     runs = narrow(runs, lambda run: len(run) >= 2)
     # a few small boxes left empty elsewhere in the frame are not the table
     biggest = max(map(area, runs), default=0)
@@ -386,6 +438,16 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None):
     boxes = [_rect_contour(r) for r in max(runs, key=area)]
     imwrite_contours("cropped_boxes2", cropped, boxes, thick=2 * (thick + 1))
     return boxes
+
+
+
+
+def _inside(small, big, slack=2):
+    """Whether ``small`` lies within ``big``."""
+    x, y, w, h = small
+    bx, by, bw, bh = big
+    return (bx - slack <= x and by - slack <= y
+            and x + w <= bx + bw + slack and y + h <= by + bh + slack)
 
 
 

@@ -165,7 +165,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
 
     def grade_cells(candidate):
         """The cells of the table in this crop, or None when it is not one."""
-        boxes = find_grade_boxes(fetch_box(gray, candidate), add_border, thick=0, n=len(numbers))
+        boxes = find_grade_boxes(fetch_box(gray, candidate), add_border, thick=0)
         if len(boxes) != len(numbers):
             print(f'The number of boxes ({len(boxes)}) found is different from '
                   f'the number of grades ({len(numbers)})')

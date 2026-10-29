@@ -23,25 +23,34 @@ def assert_boxes(cnts, rects, tol=6):
         assert max(abs(a - b) for a, b in zip(f, r)) <= tol, (found, rects)
 
 
-def column_table(grades=None):
+def column_table(grades=None, paper=255, ink=0, line=4):
     """The Réservé table of a cover page: label, grade and maximum columns,
     five questions and a taller total. Returns the frame and the grade cells
     (inside the lines)."""
-    img = np.full((1100, 700), 255, np.uint8)
+    img = np.full((1100, 700), paper, np.uint8)
     tops = [50, 170, 290, 410, 530, 650, 830]
     xs = [40, 220, 430, 570]  # the maximums narrower than the grades, as printed
     for x in xs:
-        cv2.line(img, (x, tops[0]), (x, tops[-1]), 0, 4)
+        cv2.line(img, (x, tops[0]), (x, tops[-1]), ink, line)
     for y in tops:
-        cv2.line(img, (xs[0], y), (xs[-1], y), 0, 4)
+        cv2.line(img, (xs[0], y), (xs[-1], y), ink, line)
     cells = []
     for i, (top, bottom) in enumerate(zip(tops, tops[1:])):
         label = f"Q{i + 1}" if i < 5 else "Total"
         cv2.putText(img, label, (55, (top + bottom) // 2 + 15), FONT, 1.3, 0, 3)
         cv2.putText(img, "/8", (450, (top + bottom) // 2 + 15), FONT, 1.3, 0, 3)
-        cells.append((xs[1] + 3, top + 3, xs[2] - xs[1] - 5, bottom - top - 5))
+        cells.append(
+            (
+                xs[1] + line // 2 + 1,
+                top + line // 2 + 1,
+                xs[2] - xs[1] - line - 1,
+                bottom - top - line - 1,
+            )
+        )
         if grades:
-            cv2.putText(img, grades[i], (xs[1] + 60, (top + bottom) // 2 + 20), FONT, 2, 0, 5)
+            cv2.putText(
+                img, grades[i], (xs[1] + 60, (top + bottom) // 2 + 20), FONT, 2, 0, 5
+            )
     return img, cells
 
 
@@ -86,19 +95,94 @@ def test_on_a_copy_written_in_a_row_the_grade_boxes_are_found():
     assert_boxes(find_grade_boxes(img, thick=0), cells)
 
 
-def test_a_known_number_of_boxes_comes_first():
-    """Five boxes aligned at the top of the frame, bigger than the grade boxes
-    of a copy: told how many boxes there are, the grade boxes win."""
-    img, cells = row_table(["2", "3", "4", "9"])
-    big = np.full((600, img.shape[1]), 255, np.uint8)
-    for i in range(5):
-        cv2.rectangle(big, (40 + 260 * i, 40), (280 + 260 * i, 560), 0, 4)
-        cv2.putText(big, "x", (120 + 260 * i, 300), FONT, 3, 0, 6)
-    frame = np.vstack([big, img])
-    shifted = [(x, y + big.shape[0], w, h) for x, y, w, h in cells]
+def boxes_table(sizes, horizontal, spacing=0, labels=True):
+    """One grade box per size, drawn one after the other (sharing their lines
+    when ``spacing`` is 0), with their labels in cells before them. The boxes
+    share their top (a row) or their left side (a column)."""
+    img = np.full((1300, 1500), 255, np.uint8)
+    cells, at = [], 60
+    for w, h in sizes:
+        x, y = (at, 200) if horizontal else (300, at)
+        cv2.rectangle(img, (x, y), (x + w, y + h), 0, 4)
+        if labels:
+            lx, ly = (x, y - 110) if horizontal else (x - 210, y)
+            cv2.rectangle(
+                img,
+                (lx, ly),
+                (lx + (w if horizontal else 210), ly + (110 if horizontal else h)),
+                0,
+                4,
+            )
+            cv2.putText(img, "Q", (lx + 30, ly + 70), FONT, 1.5, 0, 3)
+        cells.append((x + 3, y + 3, w - 5, h - 5))
+        at += (w if horizontal else h) + spacing
+    return img, cells
 
-    assert len(find_grade_boxes(frame, thick=0)) == 5
-    assert_boxes(find_grade_boxes(frame, thick=0, n=4), shifted)
+
+@pytest.mark.parametrize("horizontal", [True, False])
+def test_a_bigger_total_stays_in_its_run(horizontal):
+    """The total box 30% bigger across the run: taller in a row, wider in a column."""
+    sizes = [(180, 120)] * 4 + ([(180, 156)] if horizontal else [(234, 120)])
+
+    img, cells = boxes_table(sizes, horizontal)
+
+    assert_boxes(find_grade_boxes(img, thick=1), cells)
+
+
+def test_a_box_drawn_apart_under_the_column_is_not_one_of_its_boxes():
+    """A bonus box under the total, as wide as the grade boxes: no box is made
+    up in the gap, and the column keeps its own six boxes."""
+    img, cells = column_table()
+    x, _, w, _ = cells[0]
+    for gap in (40, 90, 150):
+        frame = img.copy()
+        top = cells[-1][1] + cells[-1][3] + gap
+        cv2.rectangle(frame, (x - 3, top), (x + w + 2, top + 100), 0, 4)
+
+        assert_boxes(find_grade_boxes(frame, thick=1), cells)
+
+
+@pytest.mark.parametrize("spacing", [30, 45, 60])
+def test_separate_boxes_spaced_apart_get_no_box_in_between(spacing):
+    img, cells = boxes_table([(120, 120)] * 5, True, spacing=spacing, labels=False)
+
+    assert_boxes(find_grade_boxes(img, thick=1), cells)
+
+
+def test_the_outline_of_a_one_column_table_does_not_hide_its_cells():
+    """Six boxes sharing their lines in one bordered column, labels printed
+    beside it: the outline holds the boxes, it is not one."""
+    img = np.full((1000, 600), 255, np.uint8)
+    cells = []
+    for i in range(6):
+        y = 60 + 120 * i
+        cv2.rectangle(img, (250, y), (450, y + 120), 0, 4)
+        cv2.putText(img, f"Q{i + 1}", (120, y + 75), FONT, 1.5, 0, 3)
+        cells.append((253, y + 3, 195, 115))
+
+    assert_boxes(find_grade_boxes(img, thick=1), cells)
+
+
+@pytest.mark.parametrize("paper, ink, line", [(192, 0, 4), (175, 0, 4), (255, 191, 2)])
+def test_the_boxes_are_found_on_tinted_paper_and_with_light_lines(paper, ink, line):
+    """Salmon (192) and goldenrod (175) paper, and thin light-grey printed lines."""
+    img, cells = column_table(paper=paper, ink=ink, line=line)
+
+    assert_boxes(find_grade_boxes(img, thick=1), cells, tol=8)
+
+
+def test_a_grade_box_cut_in_two_does_not_make_the_labels_the_grade_boxes():
+    """A stroke across a grade box splits it in two: the grade column has one
+    box too many, and the label column, with as many boxes as grades, used to
+    be taken for it. It is still the grade column: the overlay then finds one
+    box too many and leaves the copy flagged."""
+    img, cells = column_table(["5", "8", "11", "6.5", "0", "30.5"])
+    x, y, w, h = cells[1]
+    cv2.line(img, (x - 4, y + h // 2), (x + w + 4, y + h // 2), 0, 4)
+
+    found = [cv2.boundingRect(c) for c in find_grade_boxes(img, thick=0)]
+
+    assert all(abs(f[0] - x) <= 6 for f in found), found
 
 
 def test_a_box_whose_sides_are_hidden_is_put_back_between_its_neighbours():
