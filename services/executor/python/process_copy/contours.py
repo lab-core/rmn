@@ -71,129 +71,6 @@ def biggest_children(cnts, hierarchy, parent_positon):
 
 
 
-def find_grade_boxes(cropped, add_border=False, max_diff=50, thick=5):
-    """Find boxes on the image."""
-    # add border: useful if having only partial boxes
-    cropped2 = cropped.copy()
-    if add_border:
-        cv2.rectangle(
-            cropped2,
-            (thick, thick),
-            (cropped2.shape[1] - thick, cropped2.shape[0] - thick),
-            (0, 0, 0),
-            thick,
-        )
-        imwrite_png("cropped", cropped2)
-
-    # find contours in the edge map, then sort them by their
-    # size in descending order
-    cnts, hierarchy = cv2.findContours(
-        find_edges(cropped2, thick=thick), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-    )
-    cnts = imutils.grab_contours((cnts, hierarchy))
-    imwrite_contours("cropped_all_boxes", cropped2, cnts, thick=thick+2)
-
-    # check if any contour
-    if not cnts:
-        return []
-
-    # keep only the children of the biggest contour
-    areas = [cv2.contourArea(cnt) for cnt in cnts]
-    areas = []
-    for cnt in cnts:
-        (x, y, w, h) = cv2.boundingRect(cnt)
-        areas.append(w*h)
-    pos, c = max(enumerate(cnts), key=lambda cnt: areas[cnt[0]])
-    imwrite_png("main_cropped", get_image_from_contour(cropped, c))
-    ccnts = biggest_children(cnts, hierarchy, pos)
-
-    # Retrieve
-    # loop over the contours to take the ones that are aligned with the biggest one and are big enough
-    cropped2 = cropped.copy()
-    boxes = []
-    ref = None
-    horizontal = None
-    imwrite_contours("cropped_boxes", cropped2, ccnts, thick=thick + 1)
-    # ic=0
-    for c in sorted(ccnts, key=cv2.contourArea, reverse=True):
-        # imwrite_contours("cropped_boxes_%d" %ic, cropped2, [c], thick=thick + 1)
-        # ic+=1
-        (x, y, w, h) = cv2.boundingRect(c)
-        # set the reference box
-        if ref is None:
-            ref = (x, y, w, h)
-        # box too small
-        elif w * h < 0.1 * ref[2] * ref[3]:
-            break
-        # for horizontal alignment
-        elif abs(ref[1] - y) <= max_diff:
-            if horizontal is None:
-                horizontal = True
-            # break the alignment
-            elif not horizontal:
-                continue
-            # break the box size
-            if abs(ref[3] - h) >= max_diff:
-                continue
-        # for vertical alignment
-        elif abs(ref[0] - x) <= max_diff:
-            if horizontal is None:
-                horizontal = False
-            # break the alignment
-            elif horizontal:
-                continue
-            # break the box size
-            elif abs(ref[2] - w) >= max_diff:
-                continue
-        # break alignment
-        else:
-            continue
-        boxes.append(c)
-
-    # sort boxes according to alignment
-    boxes = sorted(boxes, key=lambda b: cv2.boundingRect(b)[0 if horizontal else 1])
-    # remove the extreme boxes close to the border if has added some borders
-    if add_border and boxes:
-        (x, y, w, h) = cv2.boundingRect(boxes[0])
-        if x + y <= 4 * thick + 5:
-            boxes = boxes[1:]
-        if boxes:
-            (x, y, w, h) = cv2.boundingRect(boxes[-1])
-            if x + y + h + w >= cropped.shape[0] + cropped.shape[1] - 4 * thick - 5:
-                boxes = boxes[:-1]
-    # add any missing box
-    if boxes:
-        prev = None
-        m_size = max(4 * thick, 20)
-        boxes2 = []
-        for b in boxes:
-            (x, y, w, h) = cv2.boundingRect(b)
-            if prev is not None:
-                if horizontal:
-                    # add a contour
-                    if x - prev > m_size:
-                        boxes2.append(
-                            np.array(
-                                [[prev + thick, y - thick], [x - thick, y + h + thick]]
-                            )
-                        )
-                elif y - prev > m_size:  # add a contour
-                    boxes2.append(
-                        np.array(
-                            [[x - thick, prev + thick], [x + w + thick, y - thick]]
-                        )
-                    )
-            boxes2.append(b)
-            prev = x + w if horizontal else y + h
-        boxes = boxes2
-    imwrite_contours(
-        "cropped_boxes2", cropped2, boxes, thick=2 * (thick + 1), padding=-thick - 1
-    )
-    return boxes
-
-
-
-
 def biggest_contour(cropped):
     """``(contours, hierarchy, position)`` of the biggest contour of the edges,
     ``position`` None when there is no contour at all."""
@@ -255,13 +132,14 @@ def edge_coverage(ink, rect, band=3):
 
 
 
-def find_rectangles(gray, min_size=20, min_coverage=0.85):
+def find_rectangles(gray, min_size=20, min_coverage=0.85, inner=False):
     """The rectangles drawn on ``gray``: ``(x, y, w, h)`` with four ink sides.
 
     Every contour of the ink is a candidate, outer outlines and holes alike,
-    and is kept when the four sides of its bounding rectangle are lines. The
-    hole of a box is dropped (a rectangle inside another one of nearly its
-    size), so a box is returned once; the boxes inside a table cell are kept.
+    and is kept when the four sides of its bounding rectangle are lines. A box
+    is returned once: its hole is dropped (a rectangle inside another one of
+    nearly its size), or its outline when ``inner`` (the inside of the box,
+    where something is written). The boxes inside a table cell are kept.
     """
     blurred = cv2.GaussianBlur(gray, (3, 3), 0)
     ink = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)[1]
@@ -275,14 +153,19 @@ def find_rectangles(gray, min_size=20, min_coverage=0.85):
         if min(rect[2:]) >= min_size and edge_coverage(ink, rect) >= min_coverage:
             rects.append(rect)
 
-    kept = []
-    for x, y, w, h in sorted(rects, key=lambda r: -r[2] * r[3]):
+    def same_box(small, big):
+        x, y, w, h = small
+        kx, ky, kw, kh = big
         cx, cy = x + w / 2, y + h / 2
-        if not any(
-            kx <= cx <= kx + kw and ky <= cy <= ky + kh and w * h >= 0.5 * kw * kh
-            for kx, ky, kw, kh in kept
-        ):
-            kept.append((x, y, w, h))
+        return kx <= cx <= kx + kw and ky <= cy <= ky + kh and w * h >= 0.5 * kw * kh
+
+    kept = []
+    for rect in sorted(rects, key=lambda r: r[2] * r[3], reverse=not inner):
+        if inner:
+            if not any(same_box(k, rect) for k in kept):
+                kept.append(rect)
+        elif not any(same_box(rect, k) for k in kept):
+            kept.append(rect)
     return kept, ink
 
 
@@ -380,6 +263,129 @@ def _rect_contour(rect):
     """A contour whose bounding rectangle is ``rect``."""
     x, y, w, h = rect
     return np.array([[[x, y]], [[x + w - 1, y]], [[x + w - 1, y + h - 1]], [[x, y + h - 1]]], dtype=np.int32)
+
+
+
+
+def ink_share(ink, rect, margin=0.12):
+    """Share of the inside of ``rect`` that is ink, its sides left out."""
+    x, y, w, h = rect
+    dx, dy = max(4, int(margin * w)), max(4, int(margin * h))
+    inside = ink[y + dy : y + h - dy, x + dx : x + w - dx]
+    return float(inside.mean()) if inside.size else 0.0
+
+
+
+
+def _aligned_runs(rects, tol=0.15):
+    """Every set of boxes of ``rects`` aligned with one of them, with its direction.
+
+    Boxes in a column share their left side and their width (a total box may
+    be taller), boxes in a row share their top and their height. A run is
+    sorted along its direction and holds no two overlapping boxes.
+    """
+    runs = {}
+    for ref in rects:
+        rx, ry, rw, rh = ref
+        for horizontal in (False, True):
+            if horizontal:
+                run = [r for r in rects
+                       if abs(r[1] - ry) <= tol * rh and abs(r[3] - rh) <= tol * rh]
+            else:
+                run = [r for r in rects
+                       if abs(r[0] - rx) <= tol * rw and abs(r[2] - rw) <= tol * rw]
+            axis = 0 if horizontal else 1
+            kept = []
+            for r in sorted(run, key=lambda r: r[axis]):
+                if not kept or r[axis] >= kept[-1][axis] + 0.9 * kept[-1][axis + 2]:
+                    kept.append(r)
+            runs.setdefault((tuple(kept), horizontal), None)
+    return list(runs)
+
+
+
+
+def _fill_run(run, horizontal, thick):
+    """The run with a box put back in every gap the size of a box between two.
+
+    A box the detection missed -- a grade written over its sides -- is still
+    a box of the table: it is where the gap between its neighbours is.
+    """
+    axis = 0 if horizontal else 1
+    m_size = max(4 * thick, 20, 0.3 * median(r[axis + 2] for r in run))
+    filled = [run[0]]
+    for r in run[1:]:
+        prev = filled[-1]
+        end = prev[axis] + prev[axis + 2]
+        if r[axis] - end > m_size:
+            if horizontal:
+                filled.append((end + thick, r[1], r[0] - end - 2 * thick, r[3]))
+            else:
+                filled.append((r[0], end + thick, r[2], r[1] - end - 2 * thick))
+        filled.append(r)
+    return filled
+
+
+
+
+def find_grade_boxes(cropped, add_border=False, thick=5, n=None):
+    """The grade boxes of the frame, as contours sorted along their alignment.
+
+    The grade boxes are aligned, in a column or in a row, and empty on the
+    template: of every run of aligned rectangles of the frame, the one whose
+    boxes are all empty wins, so the labels and the maximums printed beside
+    them are left out. On a copy the boxes hold the grades: the run covering
+    the most area wins (the most boxes, the biggest ones). A run of ``n``
+    boxes, when the number of boxes is known, comes before all others.
+
+    Args:
+        cropped: The gray frame the grade box of the template gives.
+        add_border: Close the boxes the frame cuts with a border drawn around
+            it; the boxes on that border are then dropped from the run.
+        thick: The thickness of the lines drawn around the boxes found.
+        n: The number of boxes expected, None when unknown.
+
+    Returns:
+        The contours of the boxes, ``[]`` when the frame holds none.
+    """
+    cropped2 = cropped.copy()
+    border = max(thick, 2)
+    if add_border:
+        cv2.rectangle(
+            cropped2,
+            (border, border),
+            (cropped2.shape[1] - border, cropped2.shape[0] - border),
+            (0, 0, 0),
+            border,
+        )
+    rects, ink = find_rectangles(cropped2, inner=True)
+    if add_border:
+        # a box closed by the border is a box the frame cuts
+        height, width = cropped2.shape[:2]
+        edge = 2 * border + 2
+        rects = [(x, y, w, h) for x, y, w, h in rects
+                 if x > edge and y > edge and x + w < width - edge and y + h < height - edge]
+
+    runs = [_fill_run(run, horizontal, thick) for run, horizontal in _aligned_runs(rects)]
+
+    def area(run):
+        return sum(r[2] * r[3] for r in run)
+
+    def narrow(runs, keep):
+        """The runs that pass ``keep``, or all of them when none does."""
+        return [run for run in runs if keep(run)] or runs
+
+    runs = narrow(runs, lambda run: len(run) == n)
+    runs = narrow(runs, lambda run: len(run) >= 2)
+    # a few small boxes left empty elsewhere in the frame are not the table
+    biggest = max(map(area, runs), default=0)
+    runs = narrow(runs, lambda run: area(run) >= 0.25 * biggest)
+    runs = narrow(runs, lambda run: all(ink_share(ink, r) < 0.01 for r in run))
+    if not runs:
+        return []
+    boxes = [_rect_contour(r) for r in max(runs, key=area)]
+    imwrite_contours("cropped_boxes2", cropped, boxes, thick=2 * (thick + 1))
+    return boxes
 
 
 
