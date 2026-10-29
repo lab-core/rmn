@@ -190,7 +190,7 @@ describe('UserService', () => {
     let left = 0;
     service.loggedOut$.subscribe(() => left++);
 
-    const pending = service.impersonate('alice', '/admin?tab=users');
+    const pending = service.impersonate('alice');
     const req = http.expectOne('/api/users/impersonate');
     expect((req.request.body as FormData).get('user_id')).toBe('root');
     expect((req.request.body as FormData).get('username')).toBe('alice');
@@ -207,11 +207,10 @@ describe('UserService', () => {
     expect(reloaded.currentUsername).toBe('alice');
     expect(reloaded.impersonatedBy).toBe('root');
 
-    expect(service.stopImpersonating()).toBe('/admin?tab=users');
+    service.stopImpersonating();
     const drop = http.expectOne('/api/users/logout');
     expect(drop.request.headers.get('Authorization')).toBe('Bearer alice-tok');
     drop.flush({ response: 'OK' });
-    expect(localStorage.getItem('impersonation_return')).toBeNull();
     expect(service.currentUsername).toBe('root');
     expect(service.role).toBe('Administrateur');
     expect(service.impersonatedBy).toBeUndefined();
@@ -228,8 +227,7 @@ describe('UserService', () => {
     http.expectOne('/api/users/impersonate').flush(borrowed('alice', 'alice-tok'));
     await pending;
 
-    // a second role taken from the borrowed session: the admin still returns where they started
-    pending = service.impersonate('bob', '/tasks-history');
+    pending = service.impersonate('bob');
     http.expectOne('/api/users/impersonate').flush(borrowed('bob', 'bob-tok'));
     await pending;
     const drop = http.expectOne('/api/users/logout');
@@ -237,7 +235,7 @@ describe('UserService', () => {
     drop.flush({ response: 'OK' });
     expect(service.currentUsername).toBe('bob');
 
-    expect(service.stopImpersonating()).toBe('/admin');
+    service.stopImpersonating();
     http.expectOne('/api/users/logout').flush({ response: 'OK' });
     expect(service.currentUsername).toBe('root');
   });

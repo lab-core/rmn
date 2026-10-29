@@ -185,11 +185,10 @@ export class UserService {
 
   /** Become ``username`` (admins only), with every right they have.
    *
-   *  The admin's own session is kept aside until stopImpersonating(), with
-   *  `returnUrl`, the page the admin came back to; when already someone else,
-   *  the borrowed session is dropped and the admin's (and their page) are
-   *  still the ones kept. */
-  async impersonate(username: string, returnUrl = '/admin') {
+   *  The admin's own session is kept aside until stopImpersonating(); when
+   *  already someone else, the borrowed session is dropped and the admin's
+   *  is still the one kept. */
+  async impersonate(username: string) {
     const formdata: FormData = new FormData();
     this.addTokens(formdata);
     formdata.append('username', username);
@@ -197,7 +196,6 @@ export class UserService {
     const borrowed = this.impersonatedBy ? this.token : undefined;
     if (!this.impersonatedBy) {
       localStorage.setItem('admin_session', JSON.stringify(this.currentSession()));
-      localStorage.setItem('impersonation_return', returnUrl);
     }
     if (borrowed) {
       this.dropToken(borrowed);
@@ -207,24 +205,19 @@ export class UserService {
     if (!this.impersonatedBy) {
       // back to the admin who started: nothing left to return to
       localStorage.removeItem('admin_session');
-      localStorage.removeItem('impersonation_return');
     }
   }
 
-  /** Back to the admin's own session, the borrowed token deleted; resolves
-   *  to the page the admin took the role from. */
-  stopImpersonating(): string {
+  /** Back to the admin's own session; the borrowed token is deleted. */
+  stopImpersonating() {
     const saved = localStorage.getItem('admin_session');
-    const returnUrl = localStorage.getItem('impersonation_return') || '/admin';
     if (!this.impersonatedBy || !saved) {
-      return returnUrl;
+      return;
     }
     this.dropToken(this.token);
     this.leaveUser();
     this.setSession(JSON.parse(saved));
     localStorage.removeItem('admin_session');
-    localStorage.removeItem('impersonation_return');
-    return returnUrl;
   }
 
   /** Delete a login token on the server, whatever the current session is. */

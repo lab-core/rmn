@@ -4,7 +4,6 @@ import { Router, provideRouter } from '@angular/router';
 
 import { UserProfileComponent } from './user-profile.component';
 import { ChangePasswordDialogComponent } from '../change-password-dialog/change-password-dialog.component';
-import { ImpersonateDialogComponent } from '../impersonate-dialog/impersonate-dialog.component';
 import { CreateUserDialogComponent } from '../create-user-dialog/create-user-dialog.component';
 import { UserService } from 'src/app/services/user.service';
 import { MATERIAL_MODULES, MainMenuStubComponent, userServiceStub } from '../../testing/helpers';
@@ -47,8 +46,8 @@ describe('UserProfileComponent', () => {
     expect(button).not.toBeNull();
     button.click();
     expect(dialog.open).toHaveBeenCalledWith(CreateUserDialogComponent, jasmine.any(Object));
-    (fixture.nativeElement.querySelector('.impersonate-button') as HTMLButtonElement).click();
-    expect(dialog.open).toHaveBeenCalledWith(ImpersonateDialogComponent, jasmine.any(Object));
+    // taking a role is done from the admin page only
+    expect(fixture.nativeElement.querySelector('.impersonate-button')).toBeNull();
   });
 
   it('shows the digit-images switch and sends what the user clicks', () => {

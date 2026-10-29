@@ -74,11 +74,6 @@
                       <button class="profile-button" mat-raised-button color="accent" (click)="openCreateUserDialog()">Créer un compte</button>
                     </app-help-hover>
                   }
-                  @if (this.userService.isAdmin()) {
-                    <app-help-hover key="profile.impersonate">
-                      <button class="profile-button impersonate-button" mat-raised-button color="accent" (click)="openImpersonateDialog()">Prendre le rôle d'un utilisateur</button>
-                    </app-help-hover>
-                  }
                 </div>
 
               </mat-card-content>

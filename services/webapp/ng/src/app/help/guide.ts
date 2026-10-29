@@ -259,10 +259,6 @@ export const HELP: Record<string, HelpEntry> = {
     text: 'Déconnecte les sessions ouvertes depuis au moins ce nombre de jours.',
     chapter: '12-administration', anchor: 'anciennes-tâches-et-sessions',
   },
-  'profile.impersonate': {
-    text: 'Choisissez un compte et continuez en tant que cet utilisateur, avec tous ses droits. « Revenir à … » dans le menu ramène à votre compte.',
-    chapter: '12-administration', anchor: 'prendre-le-rôle-dun-utilisateur',
-  },
   'password.temporary': {
     text: 'Votre mot de passe a été créé ou réinitialisé par un gestionnaire : choisissez-en un nouveau, différent du temporaire.',
     chapter: 'faq', anchor: 'on-me-demande-un-nouveau-mot-de-passe-à-la-connexion',

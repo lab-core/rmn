@@ -31,7 +31,6 @@ import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './components/app/app.component';
 import { ChangePasswordDialogComponent } from './components/change-password-dialog/change-password-dialog.component';
 import { CreateUserDialogComponent } from './components/create-user-dialog/create-user-dialog.component';
-import { ImpersonateDialogComponent } from './components/impersonate-dialog/impersonate-dialog.component';
 import { AdminPageComponent } from './components/admin-page/admin-page.component';
 import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
 import { TemporaryPasswordDialogComponent } from './components/temporary-password-dialog/temporary-password-dialog.component';
@@ -74,7 +73,6 @@ import { AuthInterceptor } from './services/auth.interceptor';
         UserProfileComponent,
         ChangePasswordDialogComponent,
         CreateUserDialogComponent,
-        ImpersonateDialogComponent,
         AdminPageComponent,
         ConfirmDialogComponent,
         TemporaryPasswordDialogComponent,

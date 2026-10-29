@@ -66,11 +66,10 @@ describe('MainMenuComponent', () => {
     fixture.detectChanges();
     const back = fixture.nativeElement.querySelector('.stop-impersonating') as HTMLElement;
     expect(back.textContent).toContain('Revenir à root');
-    const navigateByUrl = spyOn(router, 'navigateByUrl').and.resolveTo(true);
     back.click();
     expect(user.stopImpersonating).toHaveBeenCalled();
-    // back to the page the role was taken from
-    expect(navigateByUrl).toHaveBeenCalledWith('/admin');
+    // back to the admin page, where roles are taken
+    expect(router.navigate).toHaveBeenCalledWith(['/admin']);
     expect(notification.showInfo).toHaveBeenCalledWith('', 'De retour en tant que root');
   });
 

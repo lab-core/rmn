@@ -93,7 +93,7 @@ describe('AdminPageComponent', () => {
     expect(button.textContent).toContain('Prendre le rôle');
     button.click();
     await new Promise(r => setTimeout(r));
-    expect(user.impersonate).toHaveBeenCalledWith('alice', jasmine.any(String));
+    expect(user.impersonate).toHaveBeenCalledWith('alice');
   });
 
   it('gives a Gestionnaire the reset only, without managers nor system view', () => {
@@ -165,7 +165,7 @@ describe('AdminPageComponent', () => {
   it('takes the role of an account and opens its tasks', async () => {
     create('Administrateur');
     await component.impersonate(rows[0]);
-    expect(user.impersonate).toHaveBeenCalledWith('alice', jasmine.any(String));
+    expect(user.impersonate).toHaveBeenCalledWith('alice');
     expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);
   });
 
