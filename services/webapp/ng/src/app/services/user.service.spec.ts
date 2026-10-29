@@ -266,6 +266,41 @@ describe('UserService', () => {
     expect(localStorage.getItem('admin_session')).toBeNull();
   });
 
+  it('a temporary password keeps the session on the profile page until changed', async () => {
+    const service = fresh();
+    const pending = service.login('alice', 'temp');
+    http.expectOne('/api/users/login').flush({ response: {
+      username: 'alice', role: 'Utilisateur', token: 'tok',
+      saveVerifiedImages: true, moodleStructureInd: false, mustChangePassword: true,
+    } });
+    await pending;
+    expect(service.mustChangePassword).toBeTrue();
+    expect(fresh().mustChangePassword).toBeTrue();  // survives a reload
+
+    const redirect = service.canActivateLoggued(null, { url: '/tasks-history' } as any);
+    expect(router.serializeUrl(redirect as UrlTree)).toBe('/user-profile');
+    expect(service.canActivateLoggued(null, { url: '/user-profile' } as any)).toBeTrue();
+
+    service.passwordChanged();
+    expect(service.mustChangePassword).toBeFalse();
+    expect(localStorage.getItem('must_change_password')).toBeNull();
+    expect(service.canActivateLoggued(null, { url: '/tasks-history' } as any)).toBeTrue();
+  });
+
+  it('the roles a creator may give never exceed a Gestionnaire', () => {
+    const service = fresh();
+    service.role = 'Utilisateur';
+    expect(service.canCreateUsers()).toBeFalse();
+    expect(service.creatableRoles()).toEqual([]);
+    service.role = 'Gestionnaire';
+    expect(service.canCreateUsers()).toBeTrue();
+    expect(service.isAdmin()).toBeFalse();
+    expect(service.creatableRoles()).toEqual(['Utilisateur', 'Gestionnaire']);
+    service.role = 'Administrateur';
+    expect(service.isAdmin()).toBeTrue();
+    expect(service.creatableRoles()).toEqual(['Utilisateur', 'Gestionnaire', 'Administrateur']);
+  });
+
   it('listUsers asks the server', () => {
     adminSession();
     fresh().listUsers().subscribe();

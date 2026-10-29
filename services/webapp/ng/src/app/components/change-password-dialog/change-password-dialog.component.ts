@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { MatDialogRef } from '@angular/material/dialog';
+import { Component, OnInit, ChangeDetectionStrategy, Inject, Optional } from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { SERVER_URL, PASSWORD_CHARACTER_REGEX, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, passwordError } from 'src/app/utils';
@@ -24,8 +24,13 @@ export class ChangePasswordDialogComponent implements OnInit {
   hideNewPass2: boolean = true;
 
 
-  constructor(public notification: NotificationService, public dialogRef: MatDialogRef<ChangePasswordDialogComponent>, public userService: UserService, private http: HttpClient,) {
-   }
+  /** Opened by the profile page for a temporary password: it cannot be dismissed. */
+  readonly forced: boolean;
+
+  constructor(public notification: NotificationService, public dialogRef: MatDialogRef<ChangePasswordDialogComponent>, public userService: UserService, private http: HttpClient,
+              @Optional() @Inject(MAT_DIALOG_DATA) data: { forced?: boolean } | null) {
+    this.forced = !!data?.forced;
+  }
 
   ngOnInit(): void {
   }
@@ -57,6 +62,7 @@ export class ChangePasswordDialogComponent implements OnInit {
       this.http.post<any>(url, formdata).pipe(first()).subscribe(
         (data) => {
           this.notification.showSuccess('Le mot de passe entré a été changé!', 'Succès');
+          this.userService.passwordChanged();
 
           this.dialogRef.close('');
         },
