@@ -128,3 +128,10 @@ mat-spinner {
 .mat-primary {
   margin-left: 5%;
 }
+
+.files-hint {
+  font-size: 13px;
+  color: #555;
+  margin: 0 0 8px;
+  text-align: center;
+}

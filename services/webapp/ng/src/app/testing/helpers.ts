@@ -21,19 +21,22 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSortModule } from '@angular/material/sort';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatTableModule } from '@angular/material/table';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { Subject, of } from 'rxjs';
 
 import { NotificationService } from '../services/notification.service';
+import { HelpTipComponent } from '../components/help-tip/help-tip.component';
 import { PDFViewerComponent } from '../components/pdf-viewer/pdf-viewer.component';
 import { UserRole } from '../generated/rmn-contracts';
 
-/** Everything the templates need from Material, plus forms and no-op animations. */
+/** Everything the templates need from Material, plus forms, no-op animations and the help bubbles. */
 export const MATERIAL_MODULES = [
   MatButtonModule, MatButtonToggleModule, MatCardModule, MatCheckboxModule, MatDialogModule,
   MatFormFieldModule, MatIconModule, MatInputModule, MatListModule, MatPaginatorModule,
   MatProgressSpinnerModule, MatSelectModule, MatSlideToggleModule, MatSortModule,
-  MatStepperModule, MatTableModule, FormsModule, ReactiveFormsModule, NoopAnimationsModule,
+  MatStepperModule, MatTableModule, MatTooltipModule, FormsModule, ReactiveFormsModule,
+  NoopAnimationsModule, HelpTipComponent,
 ];
 
 export function notificationSpy(): jasmine.SpyObj<NotificationService> {

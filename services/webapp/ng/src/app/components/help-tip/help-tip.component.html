@@ -1,0 +1,5 @@
+<a class="help-tip" [href]="link" target="_blank" rel="noopener" (click)="$event.stopPropagation()"
+   [matTooltip]="entry.text" matTooltipClass="help-tip-tooltip"
+   [attr.aria-label]="'Aide : ' + entry.text">
+  <mat-icon fontIcon="help_outline"></mat-icon>
+</a>
