@@ -22,6 +22,7 @@ from process_copy.imaging import (
     memory_used_gb,
 )
 from process_copy.pages import (
+    GrayPages,
     create_summary,
     create_whole_summary,
     gray_images,
@@ -95,13 +96,19 @@ def matricule_confidence(possible_digits, mat, roster=None, floor=1e-3):
 
 def find_matricule(
     grays, front_box, regular_box, classifier, grades_dfs=[], separate_box=True, min_confidence=0.85, min_img=5,
-    return_confidence=False
+    return_confidence=False, cover_confidence=0.99
 ):
     """Read the matricule of a copy: ``(matricule, id_box, csv index)``.
 
     With ``return_confidence`` a fourth value is returned, the
     ``matricule_confidence`` of the matricule found (0 when none).
+
+    The later pages are only read when the cover page is not enough: a
+    student of the class list read with at least ``cover_confidence``. Each
+    page costs ~2 s (rendered at 300 dpi, straightened), and a booklet with
+    the boxes on every page was read for ~30 s.
     """
+    roster = [str(m) for g in grades_dfs for m in g.index]
     possible_digits = [{} for i in range(len_mat)]
     id_box = None
 
@@ -252,10 +259,19 @@ def find_matricule(
     else:
         biggest_c, ret = find_matricule_box_contours(grays[0], front_box, find_digits, True)
 
+    def cover_is_enough():
+        if not roster:
+            return False  # nothing to check the reading against
+        mat, index = best_matricule_match()
+        return index is not None and matricule_confidence(possible_digits, mat, roster) >= cover_confidence
+
     # try to find a matricule on the next page
-    if regular_box is not None:
+    if regular_box is not None and not cover_is_enough():
         print("Trying to find matricule on the next page...")
-        for gray in grays[1:]:
+        # by index: grays may be GrayPages, which renders a page only when
+        # it is read, so the pages after the stop are never rendered
+        for i in range(1, len(grays)):
+            gray = grays[i]
             if not find_boxed_digits(gray, regular_box):
                 find_matricule_box_contours(gray, regular_box, find_digits)
             if stop_processing():
@@ -268,7 +284,6 @@ def find_matricule(
     id_box = get_image_from_contour(cropped, biggest_c) if biggest_c is not None else None
 
     if return_confidence:
-        roster = [str(m) for g in grades_dfs for m in g.index]
         return mat, id_box, index, matricule_confidence(possible_digits, mat, roster)
     return mat, id_box, index
 
@@ -312,7 +327,7 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
     if not m:
         # Find matricule in pdf file
         print("Matricule wasn't found in " + doc['filename'])
-        grays = gray_images(file, shape=shape)
+        grays = GrayPages(file, shape=shape)
         if box_matricule is None:
             raise Exception
         m, id_box, id_csv, confidence = find_matricule(
