@@ -149,9 +149,10 @@
               Statistiques pour les élèves
           </label>
 }
-          <label title="Décochée, la note d'un étudiant sans copie reste vide dans le csv : l'import Moodle n'y touche pas (absence motivée)">
+          <label>
               <input type="checkbox" id="absent-zero" [(ngModel)]="taskAbsentZero" (change)="taskAbsentZeroChange()" [ngModelOptions]="{standalone: true}">
               Note 0 aux étudiants sans copie
+              <app-help-tip key="dashboard.absent-zero"></app-help-tip>
           </label>
           <button class="validate-job-button" mat-raised-button color="warn" (click)="validateJob()" [disabled]="ongoingTask">Finaliser</button>
           <app-help-tip key="dashboard.finalize"></app-help-tip>

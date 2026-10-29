@@ -47,4 +47,4 @@ python frames_to_gif.py --out $IMG
 
 The handwriting font (Caveat, SIL Open Font License) is downloaded into `.cache/` on first use. `demo/`, `frames/`, `.cache/` and `node_modules/` are not committed.
 
-The screenshots of Moodle itself are not automated: the chapters of the guide mark with a `TODO capture` comment where one is expected.
+The screenshots of Moodle itself (`moodle-*.png`) are not automated: they are crops of screenshots of the Polytechnique Moodle, cut to the form or menu they show. Keep the browser, the course name and every student row out of them.

@@ -118,6 +118,10 @@ export const HELP: Record<string, HelpEntry> = {
     text: 'Quand tout est vert : écrit les notes sur les copies, puis prépare le csv et les zip à déposer dans Moodle.',
     chapter: '09-finalisation',
   },
+  'dashboard.absent-zero': {
+    text: 'Cochée, un étudiant sans copie notée reçoit 0 dans le csv. Décochée, sa note reste vide et l\'import Moodle n\'y touche pas (absence motivée).',
+    chapter: '09-finalisation', anchor: 'les-étudiants-sans-copie',
+  },
   'dashboard.share': {
     text: 'Crée un lien pour qu\'un correcteur sans compte corrige cette question (ou vérifie les matricules).',
     chapter: '06-suivi', anchor: 'partager-la-correction',
