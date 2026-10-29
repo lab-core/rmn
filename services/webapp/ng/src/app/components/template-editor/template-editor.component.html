@@ -52,6 +52,7 @@
       @if (!locked) {
         <div class="confirmation-container">
           <button class="confirmation-button" mat-flat-button color="accent" [disabled]="disabled" (click)="confirm()">Confirmer</button>
+          <app-help-tip key="template.confirm"></app-help-tip>
         </div>
       } @else {
         <div class="confirmation-container">

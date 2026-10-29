@@ -118,6 +118,10 @@ export const HELP: Record<string, HelpEntry> = {
     text: 'Quand tout est vert : écrit les notes sur les copies, puis prépare le csv et les zip à déposer dans Moodle.',
     chapter: '09-finalisation',
   },
+  'dashboard.stats': {
+    text: 'Joint à la copie rendue de chaque étudiant un PDF avec ses notes, et la moyenne, l\'écart-type et l\'histogramme de chaque question.',
+    chapter: '09-finalisation', anchor: 'les-statistiques-pour-les-élèves',
+  },
   'dashboard.absent-zero': {
     text: 'Cochée, un étudiant sans copie notée reçoit 0 dans le csv. Décochée, sa note reste vide et l\'import Moodle n\'y touche pas (absence motivée).',
     chapter: '09-finalisation', anchor: 'les-étudiants-sans-copie',
@@ -159,6 +163,11 @@ export const HELP: Record<string, HelpEntry> = {
   'template.zones': {
     text: 'Identification : un rectangle autour des 7 cases du matricule. Questions : un rectangle autour de la seule colonne des cases de note, de Q1 jusqu\'au total, sans les libellés ni les maximums.',
     chapter: '03-template', anchor: 'dessiner-les-zones',
+  },
+
+  'template.confirm': {
+    text: 'Enregistre le template et essaie d\'en reconnaître les cases : chaque case reconnue est encadrée en rouge, et le nombre de questions s\'affiche. Vérifiez-les.',
+    chapter: '03-template', anchor: 'vérifier-la-reconnaissance',
   },
 
   // final files
