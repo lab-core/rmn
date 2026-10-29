@@ -14,11 +14,16 @@ write is left alone.
 """
 
 import os
+import tempfile
+
+import numpy as np
 
 from process_copy.batching import max_ram_gb, run_batch
 from process_copy.config import grade_box as def_grade_box
+from process_copy.contours import template_grade_layout
 from process_copy.database import Database
 from process_copy.imaging import memory_used_gb
+from process_copy.pages import template_image
 from process_copy.recognize import add_grades
 from rmn_common.questions import ignored_positions
 from rmn_common.status import Document_Status
@@ -40,7 +45,7 @@ MAX_WORKER_DEATHS = 10
 # two grades) only redraws the pages that would come out different. Bump this
 # whenever what is drawn changes -- the grades alone do not say whether the
 # page on disk is the page this code would write now.
-COVER_WRITER_VERSION = 4
+COVER_WRITER_VERSION = 5  # 5: the grade boxes found with the template's layout
 
 
 def grades_to_write(grades, n_questions, ignored):
@@ -64,13 +69,15 @@ def grades_to_write(grades, n_questions, ignored):
     return texts
 
 
-def cover_signature(texts, box_grades):
+def cover_signature(texts, box_grades, layout=None):
     """
     What a graded cover page was drawn from.
 
     Args:
         texts (list): The grades written in the boxes (see grades_to_write).
         box_grades (tuple): The grade box of the template it was written in.
+        layout (dict): The layout of the template's grade boxes the boxes
+            were found with, None without one.
 
     Returns:
         dict: Recorded with the copy; a page whose signature still matches is
@@ -79,8 +86,43 @@ def cover_signature(texts, box_grades):
     return {
         "version": COVER_WRITER_VERSION,
         "box": [round(float(side), 6) for side in box_grades],
+        "layout": [[round(float(v), 6) for v in b] for b in layout["boxes"]] if layout else None,
         "texts": list(texts),
     }
+
+
+def template_layout(db, template_id, box_grades):
+    """
+    The layout of the grade boxes of a template, computed now and kept when
+    the template was processed before layouts were (or was copied from one).
+
+    Args:
+        db (Database): Where the template is.
+        template_id (str): The front template of the job.
+        box_grades (tuple): Its grade box.
+
+    Returns:
+        dict: The layout, None when the template has none to give (no file,
+              no box found): the copies are then read with the rules.
+    """
+    layout = db.get_template_grade_layout(template_id)
+    if layout:
+        return layout
+    template = db.get_template(template_id)
+    if not template or not template.get("template_file_id") or not template.get("grade_box"):
+        return None
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, os.path.basename(template["template_file_id"]))
+            storage.copy_from(template["template_file_id"], path)
+            gray = np.array(template_image(path).convert("L"))
+        layout, _ = template_grade_layout(gray, tuple(round(x, 2) for x in box_grades))
+    except Exception as e:
+        print(f"No layout for template {template_id}: {e}")
+        return None
+    if layout:
+        db.set_template_grade_layout(template_id, layout)
+    return layout
 
 
 def scan_path(rel_filepath):
@@ -114,7 +156,7 @@ def graded_path(rel_filepath):
     return os.path.join(os.path.dirname(path), GRADED_COVER_DIR, os.path.basename(path))
 
 
-def write_cover_page(doc, grades, box_grades, shape):
+def write_cover_page(doc, grades, box_grades, shape, layout=None):
     """
     Write the grades of one copy on a copy of its cover page.
 
@@ -123,6 +165,9 @@ def write_cover_page(doc, grades, box_grades, shape):
         grades (list): One text per grade box (see grades_to_write).
         box_grades (tuple): The grade table of the template, in page fractions.
         shape (tuple): The size the raster of the page should have, in pixels.
+        layout (dict): The grade boxes and the rectangles found on the
+            template, in page fractions; None for a template processed before
+            they were kept.
 
     Returns:
         bool: True when the graded page was written, False when the table was
@@ -135,7 +180,8 @@ def write_cover_page(doc, grades, box_grades, shape):
 
     written = False
     try:
-        written = add_grades(grades, source, box_grades, target, add_border=False, shape=shape)
+        written = add_grades(grades, source, box_grades, target, add_border=False, shape=shape,
+                             layout=layout)
     except Exception as e:
         print(f"Error while adding grades to {source}: {e}")
     if not written and os.path.exists(target):
@@ -175,7 +221,8 @@ def write_batch(documents, start, n_docs, settings, events):
 
         # an ignored question keeps its (blank) box so the other grades stay aligned
         grades = grades_to_write(doc["grades"], settings["n_questions"], settings["ignored"])
-        if (doc.get("graded_cover") == cover_signature(grades, settings["box_grades"])
+        signature = cover_signature(grades, settings["box_grades"], settings.get("grade_layout"))
+        if (doc.get("graded_cover") == signature
                 and os.path.exists(graded_path(doc["rel_filepath"]))):
             # same grades, same box, same way of drawing them: the page of the
             # run that was interrupted is the page this one would write
@@ -184,7 +231,8 @@ def write_batch(documents, start, n_docs, settings, events):
             events.put(("kept", position))
             continue
 
-        written = write_cover_page(doc, grades, settings["box_grades"], settings["shape"])
+        written = write_cover_page(doc, grades, settings["box_grades"], settings["shape"],
+                                   settings.get("grade_layout"))
         if written:
             print(f"({position + 1}/{n_docs}) Graded cover page saved as "
                   f"{graded_path(doc['rel_filepath'])}")
@@ -227,6 +275,7 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
     box_grades_list, _, _ = db.get_templates_info(front_template_id, regular_template_id)
     if box_grades_list is not None:
         box_grades = box_grades_list
+    grade_layout = template_layout(db, front_template_id, box_grades)
     n_pages_per_question = job.get("n_pages_per_question")
     if n_pages_per_question is None:
         n_pages_per_question = db.eval_jobs_collection().find_one({"job_id": job_id})["n_pages_per_question"]
@@ -238,6 +287,7 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
 
     settings = {
         "box_grades": box_grades,
+        "grade_layout": grade_layout,
         "shape": shape,
         "n_questions": len(n_pages_per_question),
         "ignored": ignored_positions(n_pages_per_question),
@@ -302,7 +352,8 @@ def _write_all(db, job_id, documents, settings, failed, batches):
                 # what the page was drawn from, so a run that starts again
                 # leaves it alone
                 texts = grades_to_write(doc["grades"], settings["n_questions"], settings["ignored"])
-                _record_cover(db, job_id, doc, cover_signature(texts, settings["box_grades"]))
+                _record_cover(db, job_id, doc, cover_signature(
+                    texts, settings["box_grades"], settings.get("grade_layout")))
             elif kind == "failed":
                 failed.append(doc["document_index"])
                 # there is no graded page any more: the next run must try again

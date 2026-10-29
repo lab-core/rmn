@@ -33,7 +33,7 @@ Menu **Template** → **Créer un nouveau template**. Glissez-déposez le PDF de
 rmn cherche dans le rectangle Questions des **cases alignées** : une colonne (une case par question, de haut en bas) ou une rangée (de gauche à droite), le total en dernier. La case du total peut être plus grande que les autres.
 
 - Sur le template, ces cases sont **vides** : si le rectangle déborde sur les libellés ou les maximums, rmn retient les cases alignées restées vides et laisse les autres de côté.
-- Sur une copie, les cases portent les notes : rmn retient alors les **plus grandes cases alignées**, et le nombre de cases déjà lu sur les copies précédentes. Une colonne de libellés aussi large que celle des notes pourrait donc être confondue avec elle : gardez-la hors du rectangle.
+- Sur une copie, les cases portent les notes : rmn retient les cases alignées **à la place de celles reconnues sur le template**. C'est pourquoi il faut vérifier les encadrés rouges du template (voir ci-dessous) : ce sont eux que rmn cherchera sur chaque copie.
 
 Ne laissez aucune note écrite sur la page qui sert de template.
 

@@ -101,6 +101,14 @@ MAX_RASTERISED_PAGES = int(os.getenv("MAX_RASTERISED_PAGES", "30"))
 
 
 
+def template_image(path, dpi=300):
+    """The page of a template, as uploaded: the first page of a pdf rendered
+    at ``dpi``, or the image itself."""
+    if path.endswith(".pdf"):
+        return convert_from_path(path, dpi=dpi, first_page=1, last_page=1)[0]
+    return Image.open(path)
+
+
 def gray_images(fpdf, pages=None, dpi=300, straighten=True, shape=None):
     # shape: width, height
     # fpdf: path to pdf file to grade

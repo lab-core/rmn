@@ -5,7 +5,9 @@ import cv2
 import imutils
 import numpy as np
 from process_copy.imaging import (
+    cells_in_frame,
     fetch_box,
+    frame_to_cells,
     get_image_from_contour,
     hough_segments,
     imwrite_contours,
@@ -87,9 +89,12 @@ def biggest_contour(cropped):
 
 
 
-def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False):
-    # find the id box
+def find_matricule_box_contours(gray, regular_box, callback, biggest_child=False,
+                                straighten=False):
+    # find the id box, straightened when the scan turned it (see straighten_frame)
     cropped = fetch_box(gray, regular_box)
+    if straighten:
+        cropped, _ = straighten_frame(cropped)
     if biggest_child:
         cnts, hierarchy, pos = biggest_contour(cropped)
         # a blank / unreadable matricule box yields no contours: there is
@@ -377,6 +382,60 @@ def _segments(run, horizontal, ink, min_coverage=0.6):
 
 
 
+def frame_skew(gray, max_angle=10, min_size=20):
+    """The angle, in degrees, the boxes of the frame make with the axes.
+
+    Every box of a table is a closed outline, still a rectangle when the scan
+    turned the page: the angle of the smallest rectangle around each outline
+    that fills it, the median weighted by area, is how far the page turned.
+    The sign is the one ``cv2.getRotationMatrix2D`` takes to straighten it.
+    0 when the frame holds no box.
+    """
+    ink = cv2.morphologyEx(ink_mask(gray), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+    cnts, _ = cv2.findContours(ink, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    angles, areas = [], []
+    for c in cnts:
+        _, (w, h), angle = cv2.minAreaRect(c)
+        if min(w, h) < min_size or cv2.contourArea(c) < 0.85 * w * h:
+            continue  # not a box: a digit, a label, a line
+        angle -= 90 * round(angle / 90)
+        if abs(angle) <= max_angle:
+            angles.append(angle)
+            areas.append(w * h)
+    if not angles:
+        return 0.0
+    order = np.argsort(angles)
+    cumulated = np.cumsum(np.array(areas)[order])
+    return float(np.array(angles)[order][np.searchsorted(cumulated, cumulated[-1] / 2)])
+
+
+
+
+def straighten_frame(cropped, min_angle=0.5):
+    """The frame turned so that its lines are horizontal and vertical.
+
+    A frame turned by less than ``min_angle`` degrees is read as it is: a
+    box is then a pixel off at most, and turning it only blurs the strokes,
+    enough to change a doubtful digit of a matricule.
+
+    Returns:
+        ``(straight, back)``: the straightened frame, and the affine matrix
+        that takes its points back to ``cropped``, None when the frame is
+        straight enough to be read as it is.
+    """
+    angle = frame_skew(cropped)
+    if abs(angle) < min_angle:
+        return cropped, None
+    height, width = cropped.shape[:2]
+    turn = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1.0)
+    straight = cv2.warpAffine(cropped, turn, (width, height), flags=cv2.INTER_LINEAR,
+                              borderMode=cv2.BORDER_CONSTANT, borderValue=255)
+    imwrite_png("straightened", straight)
+    return straight, cv2.invertAffineTransform(turn)
+
+
+
+
 def find_grade_boxes(cropped, add_border=False, thick=5):
     """The grade boxes of the frame, as contours sorted along their alignment.
 
@@ -387,6 +446,11 @@ def find_grade_boxes(cropped, add_border=False, thick=5):
     covering the most area wins (the most boxes, the biggest ones). A copy is
     better read with the layout of its template (see ``find_layout_boxes``).
 
+    A frame the scan turned is straightened first: the boxes are found on
+    it, and returned where they are on ``cropped``, as turned rectangles (a
+    caller that cuts the boxes out straightens the frame itself, see
+    ``straighten_frame``, so that they come back upright).
+
     Args:
         cropped: The gray frame the grade box of the template gives.
         add_border: Close the boxes the frame cuts with a border drawn around
@@ -396,6 +460,7 @@ def find_grade_boxes(cropped, add_border=False, thick=5):
     Returns:
         The contours of the boxes, ``[]`` when the frame holds none.
     """
+    cropped, back = straighten_frame(cropped)
     cropped2 = cropped.copy()
     border = max(thick, 2)
     if add_border:
@@ -413,13 +478,7 @@ def find_grade_boxes(cropped, add_border=False, thick=5):
         edge = 2 * border + 2
         rects = [(x, y, w, h) for x, y, w, h in rects
                  if x > edge and y > edge and x + w < width - edge and y + h < height - edge]
-    # a rectangle filled with other ones is a table, not a box (the hole of a
-    # digit written in a box is a small rectangle inside it too)
-    rects = [r for r in rects
-             if sum(o[2] * o[3] for o in rects if o != r and _inside(o, r)) < 0.5 * r[2] * r[3]]
-
-    runs = [segment for run, horizontal in _aligned_runs(rects)
-            for segment in _segments(run, horizontal, ink)]
+    runs = _runs(rects, ink)
 
     def area(run):
         return sum(r[2] * r[3] for r in run)
@@ -435,9 +494,212 @@ def find_grade_boxes(cropped, add_border=False, thick=5):
     runs = narrow(runs, lambda run: all(ink_share(ink, r) < 0.01 for r in run))
     if not runs:
         return []
-    boxes = [_rect_contour(r) for r in max(runs, key=area)]
+    return _boxes(max(runs, key=area), cropped, thick, back)
+
+
+
+
+def _runs(rects, ink):
+    """The runs of boxes following each other among ``rects`` (see
+    ``_aligned_runs`` and ``_segments``), tables left out."""
+    # a rectangle filled with other ones is a table, not a box (the hole of a
+    # digit written in a box is a small rectangle inside it too)
+    rects = [r for r in rects
+             if sum(o[2] * o[3] for o in rects if o != r and _inside(o, r)) < 0.5 * r[2] * r[3]]
+    return [segment for run, horizontal in _aligned_runs(rects)
+            for segment in _segments(run, horizontal, ink)]
+
+
+
+
+def _boxes(run, cropped, thick, back=None):
+    """The run as the contours the callers read, taken back to the frame as
+    it was scanned when it had to be straightened (``back``)."""
+    boxes = [_rect_contour(r) for r in run]
     imwrite_contours("cropped_boxes2", cropped, boxes, thick=2 * (thick + 1))
+    if back is not None:
+        boxes = [np.round(cv2.transform(b.astype(np.float32), back)).astype(np.int32)
+                 for b in boxes]
     return boxes
+
+
+
+
+def _similar(a, b, tol=0.15):
+    """Whether rectangles have the same size; ``a`` and ``b`` broadcast as
+    arrays of ``(x, y, w, h)``."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    return (np.abs(a[..., 2] - b[..., 2]) <= tol * b[..., 2]) & (
+        np.abs(a[..., 3] - b[..., 3]) <= tol * b[..., 3])
+
+
+
+
+def _shift(template, rects, anchors, tol=12):
+    """The shift ``(dx, dy)`` that lays the most rectangles of the template on
+    rectangles of the same size of the copy, None when it is not known.
+
+    Each anchor (a grade box of the template) laid on a rectangle of its size
+    proposes a shift; the right one lays the whole table. It is not known
+    when another shift, a box or more away, lays as many (a table of equal
+    columns, one of them out of sight), or when fewer rectangles than anchors
+    are laid (another page, another template).
+    """
+    template, rects, anchors = (np.asarray(x, float).reshape(-1, 4)
+                                for x in (template, rects, anchors))
+    pairs = _similar(rects[None, :], anchors[:, None])
+    a, r = np.nonzero(pairs)
+    if not len(a):
+        return None
+    shifts = rects[r, :2] - anchors[a, :2]
+    same = _similar(rects[None, :], template[:, None])
+    moved = rects[None, None, :, :2] - template[None, :, None, :2] - shifts[:, None, None]
+    laid = same[None] & (np.abs(moved) <= tol).all(axis=-1)
+    scores = laid.any(axis=2).sum(axis=1)
+    best = scores.max()
+    if best < len(anchors):
+        return None
+    tied = shifts[scores == best]
+    if np.abs(tied - tied[0]).max() > 2 * tol:
+        return None
+    dx, dy = np.median(tied, axis=0)
+    return float(dx), float(dy)
+
+
+
+
+def _fit(template, rects, shift, tol=12, rounds=3):
+    """How the copy's table lies on the template's: ``(scale, offset)``,
+    each an ``(x, y)`` pair, so that a point ``p`` of the template is at
+    ``p * scale + offset`` on the copy.
+
+    It starts from ``shift`` and is fitted, by least squares, on the centres
+    of the rectangles it then lays on one of the same size: a page printed
+    at 96% (boxes 4% smaller, rows 4 px closer) is laid box by box, where
+    the shift alone was 22 px off at the bottom of the table.
+    """
+    template, rects = (np.asarray(x, float).reshape(-1, 4) for x in (template, rects))
+    t_centre = template[:, :2] + template[:, 2:] / 2
+    r_centre = rects[:, :2] + rects[:, 2:] / 2
+    scale, offset = np.ones(2), np.asarray(shift, float)
+    for _ in range(rounds):
+        gap = np.abs(r_centre[None] - (t_centre * scale + offset)[:, None]).max(axis=-1)
+        sized = template.copy()
+        sized[:, 2:] *= scale
+        laid = _similar(rects[None, :], sized[:, None]) & (gap <= tol)
+        t, r = np.nonzero(laid)
+        if len(t) < 2:
+            break
+        for axis in (0, 1):
+            a, b = t_centre[t, axis], r_centre[r, axis]
+            if np.ptp(a) > 4 * tol:  # spread enough to tell a scale
+                slope, intercept = np.polyfit(a, b, 1)
+                if 0.85 <= slope <= 1.15:
+                    scale[axis], offset[axis] = slope, intercept
+                    continue
+            scale[axis], offset[axis] = 1.0, float(np.median(b - a))
+    return scale, offset
+
+
+
+
+def frame_rectangles(cropped):
+    """Every rectangle of the frame, the inside of each box: what a copy
+    lays on those of its template to find how far the scan moved it."""
+    return find_rectangles(cropped, inner=True, relative=True)[0]
+
+
+
+
+def layout_band(box, margin=0.1):
+    """Where a copy's grade table is looked for: the grade box of its
+    template and ``margin`` of the page around it, in page fractions."""
+    return (max(box[0] - margin, 0), min(box[1] + margin, 1),
+            max(box[2] - margin, 0), min(box[3] + margin, 1))
+
+
+
+
+def template_grade_layout(gray, grade_box):
+    """The layout of a template: its grade boxes, and every rectangle of the
+    band around them (see ``layout_band``), for the copies to find theirs.
+
+    Args:
+        gray: The page of the template, as uploaded, nothing drawn on it.
+        grade_box: The grade box of the template, in page fractions.
+
+    Returns:
+        ``(layout, cnts)``: the ``band``, ``boxes`` and ``rects`` in page
+        fractions (None when the grade box holds no box), and the grade boxes
+        as contours of the grade box.
+    """
+    shape = gray.shape
+    cnts = find_grade_boxes(fetch_box(gray, grade_box), thick=1)
+    if not cnts:
+        return None, cnts
+    band = layout_band(grade_box)
+    dx = int(grade_box[0] * shape[1]) - int(band[0] * shape[1])
+    dy = int(grade_box[2] * shape[0]) - int(band[2] * shape[0])
+    boxes = [(x + dx, y + dy, w, h) for x, y, w, h in map(cv2.boundingRect, cnts)]
+    layout = {
+        "band": [round(side, 5) for side in band],
+        "boxes": frame_to_cells(boxes, band, shape),
+        "rects": frame_to_cells(frame_rectangles(fetch_box(gray, band)), band, shape),
+    }
+    return layout, cnts
+
+
+
+
+def find_layout_boxes(gray, layout, tol=12):
+    """The grade boxes of a copy, where the layout of its template has them.
+
+    The band of the page around the grade box (see ``layout_band``) is
+    straightened, the shift that lays the rectangles of the template on the
+    band's is measured once (see ``_shift``), and each grade box of the
+    template, shifted, must then fall on a rectangle of its size, within
+    ``tol`` pixels. A box the copy hides (a grade written over its sides) is
+    put back where the template has it when its sides are drawn there. Any
+    doubt gives no box: the caller then leaves the copy for a human, rather
+    than write its grades in a neighbouring column.
+
+    Args:
+        gray: The page of the copy.
+        layout: ``band``, ``boxes`` and ``rects`` of the template, in page
+            fractions (see ``tasks.templates.grade_layout``).
+        tol: How far, in pixels, a box may be from where the shift puts it.
+
+    Returns:
+        ``(frame, boxes, origin, back)``: the straightened band, the boxes
+        as contours of it (``[]`` when not found), where the band starts on
+        the page, and the matrix that takes points of ``frame`` back to the
+        band as scanned (None when it was not turned).
+    """
+    band = layout["band"]
+    height, width = gray.shape[:2]
+    origin = (int(band[0] * width), int(band[2] * height))
+    frame, back = straighten_frame(fetch_box(gray, band))
+    rects, ink = find_rectangles(frame, inner=True, relative=True)
+    template = cells_in_frame(layout["rects"], band, gray.shape)
+    boxes = cells_in_frame(layout["boxes"], band, gray.shape)
+    shift = _shift(template, rects, boxes, tol) if rects and boxes else None
+    if shift is None:
+        return frame, [], origin, back
+    scale, offset = _fit(template, rects, shift, tol)
+    found = []
+    for x, y, w, h in boxes:
+        cx, cy = np.array([x + w / 2, y + h / 2]) * scale + offset
+        w, h = int(round(w * scale[0])), int(round(h * scale[1]))
+        like = (int(round(cx - w / 2)), int(round(cy - h / 2)), w, h)
+        near = [r for r in rects
+                if _similar(r, like) and max(abs(r[0] - like[0]), abs(r[1] - like[1])) <= tol]
+        if near:
+            found.append(min(near, key=lambda r: abs(r[0] - like[0]) + abs(r[1] - like[1])))
+        elif edge_coverage(ink, like, band=6) >= 0.6:
+            found.append(like)
+        else:
+            return frame, [], origin, back
+    return frame, _boxes(found, frame, 0), origin, back
 
 
 

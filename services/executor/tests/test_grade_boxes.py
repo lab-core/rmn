@@ -10,7 +10,12 @@ import cv2
 import numpy as np
 import pytest
 
-from process_copy.contours import find_grade_boxes
+from process_copy.contours import (
+    find_grade_boxes,
+    find_layout_boxes,
+    template_grade_layout,
+)
+from process_copy.imaging import cells_in_frame, frame_to_cells
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -23,13 +28,14 @@ def assert_boxes(cnts, rects, tol=6):
         assert max(abs(a - b) for a, b in zip(f, r)) <= tol, (found, rects)
 
 
-def column_table(grades=None, paper=255, ink=0, line=4):
+def column_table(grades=None, paper=255, ink=0, line=4, maximums_width=140):
     """The Réservé table of a cover page: label, grade and maximum columns,
     five questions and a taller total. Returns the frame and the grade cells
     (inside the lines)."""
     img = np.full((1100, 700), paper, np.uint8)
     tops = [50, 170, 290, 410, 530, 650, 830]
-    xs = [40, 220, 430, 570]  # the maximums narrower than the grades, as printed
+    # the maximums narrower than the grades, as printed
+    xs = [40, 220, 430, 430 + maximums_width]
     for x in xs:
         cv2.line(img, (x, tops[0]), (x, tops[-1]), ink, line)
     for y in tops:
@@ -212,3 +218,158 @@ def test_a_frame_without_any_box_gives_none():
     cv2.putText(img, "Total", (40, 150), FONT, 1.5, 0, 3)
 
     assert find_grade_boxes(img, thick=0) == []
+
+
+def turned(img, degrees, centre=None):
+    """The image as a scanner turns it, and how its points move."""
+    height, width = img.shape
+    centre = centre or (width / 2, height / 2)
+    turn = cv2.getRotationMatrix2D(centre, degrees, 1.0)
+    return cv2.warpAffine(img, turn, (width, height), borderValue=255), turn
+
+
+def centres(cnts, turn=None):
+    """The centres of contours, or of rectangles moved by ``turn``."""
+    if turn is None:
+        return np.array([c.reshape(-1, 2).mean(axis=0) for c in cnts])
+    points = np.array([[[x + w / 2, y + h / 2]] for x, y, w, h in cnts], np.float32)
+    return cv2.transform(points, turn)[:, 0]
+
+
+@pytest.mark.parametrize("degrees", [-8, -3, 0.5, 2, 5])
+@pytest.mark.parametrize("grades", [None, ["5", "8", "11", "6.5", "0", "30.5"]])
+def test_the_boxes_of_a_turned_scan_are_found_where_they_are(degrees, grades):
+    img, cells = column_table(grades)
+    img = np.pad(img, 150, constant_values=255)
+    cells = [(x + 150, y + 150, w, h) for x, y, w, h in cells]
+    img, turn = turned(img, degrees)
+
+    found = find_grade_boxes(img, thick=0)
+
+    assert len(found) == len(cells)
+    assert np.abs(centres(found) - centres(cells, turn)).max() <= 4
+
+
+# A page with a grade table: the frame of the template is around the table,
+# and the band a copy is searched in is 10% of the page around the frame.
+PAGE = (3300, 2550)
+AT = (1450, 600)  # where the table of the template starts on the page
+BOX = (0.55, 0.85, 0.15, 0.55)
+
+
+def page_with(table, dx=0, dy=0, degrees=0.0):
+    """The table on a page, moved by (dx, dy) and turned about its centre."""
+    page = np.full(PAGE, 255, np.uint8)
+    x, y = AT[0] + dx, AT[1] + dy
+    height, width = table.shape
+    page[slice(y, y + height), slice(x, x + width)] = table
+    turn = None
+    if degrees:
+        centre = (x + table.shape[1] / 2, y + table.shape[0] / 2)
+        page, turn = turned(page, degrees, centre)
+    return page, turn
+
+
+def layout_boxes_on_page(page, layout):
+    """The boxes ``find_layout_boxes`` gives, as contours of the page."""
+    _, boxes, (ox, oy), back = find_layout_boxes(page, layout)
+    if back is not None:
+        boxes = [cv2.transform(b.astype(np.float32), back) for b in boxes]
+    return [b + np.array([ox, oy]) for b in boxes]
+
+
+def expected(cells, dx=0, dy=0, turn=None):
+    """The centres of the grade cells of the table on the page."""
+    rects = [(x + AT[0] + dx, y + AT[1] + dy, w, h) for x, y, w, h in cells]
+    return centres(rects, turn) if turn is not None else centres(rects, np.eye(2, 3))
+
+
+GRADES = ["5", "8", "11", "6.5", "0", "30.5"]
+
+
+# measured on 101 scanned copies of one template: 45 to 60 px left and up to
+# 160 px up; a whole column (210 px) and a turn for good measure
+@pytest.mark.parametrize(
+    "dx, dy, degrees",
+    [
+        (0, 0, 0),
+        (15, 12, 0),
+        (-50, -160, 0),
+        (60, -200, 0),
+        (0, 140, 0),
+        (210, 0, 0),
+        (-210, 120, 0),
+        (-50, -160, 3),
+        (40, 90, -4),
+    ],
+)
+def test_the_layout_of_the_template_finds_the_grades_of_a_moved_copy(dx, dy, degrees):
+    """Maximums as wide as the grades and every box filled: the rules cannot
+    tell the two columns apart; the layout of the template can."""
+    template, cells = column_table(maximums_width=210)
+    layout, _ = template_grade_layout(page_with(template)[0], BOX)
+    copy, _ = column_table(GRADES, maximums_width=210)
+    page, turn = page_with(copy, dx, dy, degrees)
+
+    found = layout_boxes_on_page(page, layout)
+
+    assert len(found) == len(cells)
+    assert np.abs(centres(found) - expected(cells, dx, dy, turn)).max() <= 5
+
+
+def test_a_layout_that_fits_two_places_finds_nothing():
+    """The copy's table has more columns of the same size than the template's:
+    the template fits two of them as well, so which one holds the grades is
+    not known, and no box is better than a wrong one."""
+    template = np.full((900, 700), 255, np.uint8)
+    copy = np.full((900, 1000), 255, np.uint8)
+    for img, n in ((template, 3), (copy, 4)):
+        for i in range(n + 1):
+            cv2.line(img, (20 + 210 * i, 20), (20 + 210 * i, 740), 0, 4)
+        for j in range(7):
+            cv2.line(img, (20, 20 + 120 * j), (20 + 210 * n, 20 + 120 * j), 0, 4)
+    layout, _ = template_grade_layout(page_with(template)[0], BOX)
+    assert len(layout["boxes"]) == 6
+
+    page, _ = page_with(copy, -100)
+
+    assert layout_boxes_on_page(page, layout) == []
+
+
+def test_a_page_of_another_template_has_no_box_of_this_one():
+    template, _ = column_table()
+    layout, _ = template_grade_layout(page_with(template)[0], BOX)
+    other, _ = row_table(["2", "3", "4", "9"])
+    other = other[:, :1000]  # its four boxes, on the page
+
+    assert layout_boxes_on_page(page_with(other)[0], layout) == []
+    assert layout_boxes_on_page(np.full(PAGE, 255, np.uint8), layout) == []
+
+
+def test_a_box_the_copy_hides_is_where_the_template_has_it():
+    template, cells = column_table()
+    layout, _ = template_grade_layout(page_with(template)[0], BOX)
+    copy, _ = column_table(GRADES)
+    # a grade written over the lines of the third box
+    x, y, w, h = cells[2]
+    cv2.rectangle(copy, (x - 10, y + 10), (x + w + 10, y + h - 10), 0, -1)
+
+    found = layout_boxes_on_page(page_with(copy, 30, -70)[0], layout)
+
+    assert len(found) == len(cells)
+    assert np.abs(centres(found) - expected(cells, 30, -70)).max() <= 5
+
+
+def test_the_cells_of_a_template_land_on_the_same_place_of_any_frame():
+    box = (0.82, 0.96, 0.15, 0.55)
+    rects = [(30, 40, 200, 110), (30, 160, 200, 110)]
+    cells = frame_to_cells(rects, box, PAGE)
+    assert cells_in_frame(cells, box, PAGE) == rects
+
+    wider = (0.81, 0.97, 0.14, 0.56)
+    dx = int(box[0] * PAGE[1]) - int(wider[0] * PAGE[1])
+    dy = int(box[2] * PAGE[0]) - int(wider[2] * PAGE[0])
+    assert cells_in_frame(cells, wider, PAGE) == [
+        (x + dx, y + dy, w, h) for x, y, w, h in rects
+    ]
+    assert cells_in_frame(None, box, PAGE) is None

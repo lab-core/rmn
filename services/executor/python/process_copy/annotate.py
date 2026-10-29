@@ -1,6 +1,7 @@
 """Writing back onto a copy: its grades, and the boxes that were read."""
 
 import cv2
+import numpy as np
 import pymupdf
 from colorama import Fore, Style
 from process_copy.config import len_mat
@@ -10,6 +11,7 @@ from rmn_common.grades import format_points as format_grade_text
 from process_copy.contours import (
     find_digit_contours,
     find_grade_boxes,
+    find_layout_boxes,
     find_matricule_box_contours,
     find_matricule_digit_boxes,
 )
@@ -135,7 +137,7 @@ def box_candidates(box, attempts=BOX_ATTEMPTS):
 
 def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
                trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11),
-               grade_ratio: float = 0.5):
+               grade_ratio: float = 0.5, layout: dict = None):
     """Write the grades of a copy in the boxes of its grade table.
 
     The table is found on a raster of the page, and the grades are written in
@@ -151,6 +153,10 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
             only written when the table was found.
         shape (tuple): The size the raster is expected to have, in pixels.
         grade_ratio (float): How much of a cell a grade fills.
+        layout (dict): The layout of the template (see
+            ``contours.find_layout_boxes``): the boxes are then only where it
+            puts them, after the scan's shift is taken out, and nowhere else.
+            Without it, the crops of ``box_candidates`` are tried.
 
     Returns:
         bool: True when the page was written, False when no crop gave one
@@ -162,6 +168,29 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
         return False
     gray = grays[0]
     height, width = gray.shape[:2]
+
+    def write(boxes, offset):
+        """Write the grades in ``boxes``, contours of the raster from ``offset``."""
+        with pymupdf.open(pdf_path) as document:
+            page = document[0]
+            cells = cells_in_points(boxes, offset, (width, height), page.rect)
+            write_grade_texts(page, cells, numbers, grade_ratio)
+            document.save(out_path, garbage=3, deflate=True)
+
+    if layout:
+        # no crop to try and no rule to fall back on: a column next to the
+        # grades has its boxes too, and the grades written there are wrong
+        # with nothing to tell (the copy is left for a human instead)
+        _, boxes, origin, back = find_layout_boxes(gray, layout)
+        if len(boxes) != len(numbers):
+            print(Fore.RED + f"{pdf_path}: {len(boxes)} grade boxes where the template has "
+                  f"them, for {len(numbers)} grades: no overlay written" + Style.RESET_ALL)
+            return False
+        if back is not None:
+            boxes = [np.round(cv2.transform(b.astype(np.float32), back)).astype(np.int32)
+                     for b in boxes]
+        write(boxes, origin)
+        return True
 
     def grade_cells(candidate):
         """The cells of the table in this crop, or None when it is not one."""
@@ -186,12 +215,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
         # the crop the cells were found in is where they are on the page:
         # every copy that needed a wider crop used to have its grades written
         # the difference away from its boxes
-        offset = (int(candidate[0] * width), int(candidate[2] * height))
-        with pymupdf.open(pdf_path) as document:
-            page = document[0]
-            cells = cells_in_points(boxes, offset, (width, height), page.rect)
-            write_grade_texts(page, cells, numbers, grade_ratio)
-            document.save(out_path, garbage=3, deflate=True)
+        write(boxes, (int(candidate[0] * width), int(candidate[2] * height)))
         return True
 
     # nothing written when the boxes were not found: the caller keeps the
@@ -201,7 +225,8 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
     return False
 
 
-def write_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False, matricule=True):
+def write_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False, matricule=True,
+                       cnts=None):
     # create a gray copy of the image
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # fetch only the part in the box
@@ -266,8 +291,8 @@ def write_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False
             return None, True
         return find_matricule_box_contours(gray, box, draw_contour, biggest_child)
 
-    cropped = fetch_box(gray, box)
-    cnts = find_grade_boxes(cropped, False, thick=1)
+    if cnts is None:  # the grade boxes, unless the caller found them already
+        cnts = find_grade_boxes(fetch_box(gray, box), False, thick=1)
     for c in cnts:
         draw_contour_on_img(b_x, b_y, c)
         imwrite_png("rendered", img)
