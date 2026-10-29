@@ -15,7 +15,10 @@ describe('ChangePasswordDialogComponent', () => {
   let notification: jasmine.SpyObj<NotificationService>;
   let dialogRef: jasmine.SpyObj<MatDialogRef<any>>;
 
+  let user: any;
+
   beforeEach(() => {
+    user = userServiceStub();
     notification = notificationSpy();
     dialogRef = dialogRefSpy();
     TestBed.configureTestingModule({
@@ -26,7 +29,7 @@ describe('ChangePasswordDialogComponent', () => {
         provideHttpClientTesting(),
         { provide: NotificationService, useValue: notification },
         { provide: MatDialogRef, useValue: dialogRef },
-        { provide: UserService, useValue: userServiceStub() },
+        { provide: UserService, useValue: user },
       ],
     });
     fixture = TestBed.createComponent(ChangePasswordDialogComponent);
@@ -114,5 +117,13 @@ describe('ChangePasswordDialogComponent', () => {
     fixture.detectChanges();
     expect(component.hideCurrentPass).toBeFalse();
     expect(fixture.nativeElement.querySelector('input').type).toBe('text');
+  });
+
+  it('lifts the temporary-password limit once the server accepted the change', () => {
+    expect(component.forced).toBeFalse();
+    fill('temporary1', 'longenough1', 'longenough1');
+    component.attemptSave();
+    http.expectOne('/api/users/password').flush({ response: 'ok' });
+    expect(user.passwordChanged).toHaveBeenCalled();
   });
 });

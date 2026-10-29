@@ -5,6 +5,7 @@ import { NotificationService } from 'src/app/services/notification.service';
 import { Subject } from 'rxjs';
 import { SERVER_URL } from '../utils';
 import { db } from './offline-db';
+import { UserRole } from '../generated/rmn-contracts';
 
 
 @Injectable({
@@ -23,6 +24,8 @@ export class UserService {
   warningShown: boolean = true;
   /** The admin who opened this session in the user's place, if any. */
   impersonatedBy: string;
+  /** A temporary password to replace: the server refuses everything else until then. */
+  mustChangePassword: boolean = false;
   /** Fires after logout(): the socket and the pdf cache drop the previous
    *  user's state on it (they used to survive into the next session). */
   readonly loggedOut$ = new Subject<void>();
@@ -35,6 +38,7 @@ export class UserService {
     this.role = localStorage.getItem('role')
     this.token = localStorage.getItem('token')
     this.impersonatedBy = localStorage.getItem('impersonated_by') ?? undefined
+    this.mustChangePassword = localStorage.getItem('must_change_password') == 'true'
 
     const saveImages = localStorage.getItem('saveVerifiedImages')
     this.saveVerifiedImages = (saveImages && saveImages != "undefined") ? JSON.parse(localStorage.getItem('saveVerifiedImages')) : true
@@ -111,6 +115,7 @@ export class UserService {
     localStorage.setItem('token', response['token'])
     localStorage.setItem('saveVerifiedImages', JSON.stringify(response['saveVerifiedImages']))
     localStorage.setItem('moodleStructureInd', JSON.stringify(response['moodleStructureInd']))
+    this.setMustChangePassword(!!response['mustChangePassword']);
     if (response['impersonatedBy']) {
       localStorage.setItem('impersonated_by', response['impersonatedBy'])
     } else {
@@ -123,6 +128,37 @@ export class UserService {
     this.saveVerifiedImages = response['saveVerifiedImages'];
     this.moodleStructureInd = response['moodleStructureInd'];
     this.impersonatedBy = response['impersonatedBy'] ?? undefined;
+  }
+
+  private setMustChangePassword(value: boolean) {
+    this.mustChangePassword = value;
+    if (value) {
+      localStorage.setItem('must_change_password', 'true');
+    } else {
+      localStorage.removeItem('must_change_password');
+    }
+  }
+
+  /** The temporary password was replaced: the session is a full one again. */
+  passwordChanged() {
+    this.setMustChangePassword(false);
+  }
+
+  isAdmin(): boolean {
+    return this.role == UserRole.ADMIN;
+  }
+
+  /** Gestionnaires and Administrateurs create accounts. */
+  canCreateUsers(): boolean {
+    return this.role == UserRole.MANAGER || this.isAdmin();
+  }
+
+  /** The roles this user may give a new account: never above a Gestionnaire's own. */
+  creatableRoles(): string[] {
+    if (this.isAdmin()) {
+      return [UserRole.USER, UserRole.MANAGER, UserRole.ADMIN];
+    }
+    return this.canCreateUsers() ? [UserRole.USER, UserRole.MANAGER] : [];
   }
 
   /** The session as setSession() takes it back. */
@@ -201,6 +237,7 @@ export class UserService {
     this.currentUsername = undefined;
     this.role = undefined;
     this.impersonatedBy = undefined;
+    this.mustChangePassword = false;
     this.clearShareToken();
     // the student pdfs kept for offline correction are the previous user's
     db.clearAll().catch((error) => console.error('offline database not cleared', error));
@@ -252,6 +289,10 @@ export class UserService {
                      state: RouterStateSnapshot) {
     if (this.loggued()) {
       this.clearShareToken()
+      // a temporary password: the profile page asks for the new one first
+      if (this.mustChangePassword && !state?.url?.startsWith('/user-profile')) {
+        return this.router.createUrlTree(['/user-profile']);
+      }
       return true;
     } else {
       if(!this.warningShown) {

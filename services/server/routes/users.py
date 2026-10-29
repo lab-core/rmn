@@ -20,15 +20,15 @@ def login():
 
 @bp.route("/signup", methods=["POST"])
 @cross_origin()
-@verify_token(Role.ADMIN, check_username=False)  # the form's username is the new user
+@verify_token(Role.MANAGER, check_username=False)  # the form's username is the new user
 def signup(user_id):
     db = mongo["RMN"]
-    return UserService.signup(request, db)
+    return UserService.signup(request, db, creator=user_id)
 
 
 @bp.route("/logout", methods=["POST"])
 @cross_origin()
-@verify_token()
+@verify_token(allow_password_change=True)
 def logout(user_id):
     db = mongo["RMN"]
     return UserService.logout(request_token(request.form), db)
@@ -36,12 +36,30 @@ def logout(user_id):
 
 @bp.route("/all", methods=["GET"])
 @cross_origin()
-@verify_token(Role.ADMIN)
+@verify_token(Role.MANAGER)
 def all_users(user_id):
     db = mongo["RMN"]
     return Response(
-        response=json.dumps({"response": UserService.users_with_roles(db)}),
+        response=json.dumps({"response": UserService.users_with_roles(db, user_id)}),
         status=200,
+    )
+
+
+@bp.route("/reset_password", methods=["POST"])
+@cross_origin()
+@verify_token(Role.MANAGER, check_username=False)  # the form's username is the account reset
+def reset_password(user_id):
+    db = mongo["RMN"]
+    return UserService.reset_password(user_id, request.form.get("username"), db)
+
+
+@bp.route("/managers", methods=["POST"])
+@cross_origin()
+@verify_token(Role.ADMIN, check_username=False)  # the form's username is the managed account
+def set_managers(user_id):
+    db = mongo["RMN"]
+    return UserService.set_managers(
+        request.form.get("username"), request.form.getlist("managers"), db
     )
 
 
@@ -73,7 +91,7 @@ def update_moodle_structure_ind(user_id):
 
 @bp.route("/password", methods=["POST"])
 @cross_origin()
-@verify_token()
+@verify_token(allow_password_change=True)
 def change_password(user_id):
     db = mongo["RMN"]
     return UserService.change_password(request, db, True, username=user_id)

@@ -543,8 +543,20 @@ In the examples below, `$ADMIN_API_KEY` is the value exported above.
 anything and can be deleted: `kubectl delete secret admin-api-key`.)
 
 ##### Create a user
-Role can be either "Utilisateur" or "Administrateur"; passwords need 8 to 32
-characters (letters, digits and `! @ # $ % ^ & * . ? _ -`):
+Role is "Utilisateur", "Gestionnaire" or "Administrateur"; passwords need 8 to 32
+characters (letters, digits and `! @ # $ % ^ & * . ? _ -`). The three roles:
+
+- **Utilisateur** corrects their own tasks.
+- **Gestionnaire** also creates Utilisateurs and Gestionnaires, and lists and
+  resets the passwords of the accounts they manage: the ones they created and
+  the ones an Administrateur gave them (`POST /api/users/managers`).
+- **Administrateur** does all of that for every account, creates
+  Administrateurs and can take the role of any user.
+
+An account created from the webapp, or whose password was reset, must choose a
+new password at its next login: until then the server only accepts the
+password change. An account created with this operator route keeps the
+password given here.
 ```
 curl -X POST -H "Content-Type:multipart/form-data" -H "X-Admin-Key: $ADMIN_API_KEY" --form "username=admin" --form "password=testtest" --form "role=Administrateur" http://localhost/api/admin/signup
 ```

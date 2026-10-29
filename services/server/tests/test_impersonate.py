@@ -16,7 +16,9 @@ def test_only_an_admin_may_impersonate(client, user_factory, login):
     user_factory("alice")
     user_factory("bob")
     token = login("alice")
-    assert _impersonate(client, "alice", token, "bob").status_code == 401
+    resp = _impersonate(client, "alice", token, "bob")
+    # a role too low is refused without ending the session
+    assert resp.status_code == 403 and resp.get_json(force=True)["code"] == "forbidden"
 
 
 def test_the_session_is_the_users_own(
@@ -92,7 +94,7 @@ def test_unknown_or_missing_user(client, user_factory, login):
     assert resp.status_code == 400
 
 
-def test_users_list_is_for_admins(client, user_factory, login):
+def test_users_list_is_for_managers_and_admins(client, user_factory, login):
     user_factory("root", role=ADMIN)
     user_factory("Bob")
     user_factory("alice")
@@ -100,7 +102,7 @@ def test_users_list_is_for_admins(client, user_factory, login):
         client.get(
             "/users/all", headers={"Authorization": f"Bearer {login('alice')}"}
         ).status_code
-        == 401
+        == 403
     )
 
     resp = client.get(
@@ -108,9 +110,19 @@ def test_users_list_is_for_admins(client, user_factory, login):
     )
     assert resp.status_code == 200
     assert resp.get_json(force=True)["response"] == [
-        {"username": "alice", "role": USER},
-        {"username": "Bob", "role": USER},
-        {"username": "root", "role": ADMIN},
+        {
+            "username": "alice",
+            "role": USER,
+            "managers": [],
+            "mustChangePassword": False,
+        },
+        {"username": "Bob", "role": USER, "managers": [], "mustChangePassword": False},
+        {
+            "username": "root",
+            "role": ADMIN,
+            "managers": [],
+            "mustChangePassword": False,
+        },
     ]
 
 

@@ -4,7 +4,6 @@ import { MatDialogRef } from '@angular/material/dialog';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { first } from 'rxjs/operators';
-import { UserRole } from '../../generated/rmn-contracts';
 
 @Component({
     selector: 'app-create-user-dialog',
@@ -14,7 +13,6 @@ import { UserRole } from '../../generated/rmn-contracts';
     standalone: false
 })
 export class CreateUserDialogComponent implements OnInit {
-  readonly UserRole = UserRole;
   username: string = '';
   readonly passwordMinLength = PASSWORD_MIN_LENGTH;
   readonly passwordMaxLength = PASSWORD_MAX_LENGTH;
@@ -31,7 +29,11 @@ export class CreateUserDialogComponent implements OnInit {
   ) {
   }
 
+  /** The roles the current user may give, lowest first. */
+  roles: string[] = [];
+
   ngOnInit(): void {
+    this.roles = this.userService.creatableRoles();
   }
 
   updateCharacters(event: KeyboardEvent) {
