@@ -1,10 +1,11 @@
 """Signing in, and what a user may change about themselves."""
 
-from flask import Blueprint, request
+from flask import Blueprint, json, request
 from flask_cors import cross_origin
-from auth import verify_token
+from auth import request_token, verify_token
 from context import mongo
 from service.user_service import Role, UserService
+from utils.responses import Response
 
 
 bp = Blueprint("users", __name__, url_prefix="/users")
@@ -23,6 +24,35 @@ def login():
 def signup(user_id):
     db = mongo["RMN"]
     return UserService.signup(request, db)
+
+
+@bp.route("/logout", methods=["POST"])
+@cross_origin()
+@verify_token()
+def logout(user_id):
+    db = mongo["RMN"]
+    return UserService.logout(request_token(request.form), db)
+
+
+@bp.route("/all", methods=["GET"])
+@cross_origin()
+@verify_token(Role.ADMIN)
+def all_users(user_id):
+    db = mongo["RMN"]
+    return Response(
+        response=json.dumps({"response": UserService.users_with_roles(db)}),
+        status=200,
+    )
+
+
+@bp.route("/impersonate", methods=["POST"])
+@cross_origin()
+@verify_token(Role.ADMIN, check_username=False)  # the form's username is the user to become
+def impersonate(user_id):
+    db = mongo["RMN"]
+    return UserService.impersonate(
+        user_id, request_token(request.form), request.form.get("username"), db
+    )
 
 
 @bp.route("/updateSaveVerifiedImages", methods=["PUT"])

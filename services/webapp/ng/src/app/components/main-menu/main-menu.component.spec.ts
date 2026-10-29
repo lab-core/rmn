@@ -59,4 +59,16 @@ describe('MainMenuComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/login']);
     expect(notification.showInfo).toHaveBeenCalledWith('', 'Déconnecté!');
   });
+
+  it('offers the way back to the admin of a borrowed session', () => {
+    expect(fixture.nativeElement.querySelector('.stop-impersonating')).toBeNull();
+    user.impersonatedBy = 'root';
+    fixture.detectChanges();
+    const back = fixture.nativeElement.querySelector('.stop-impersonating') as HTMLElement;
+    expect(back.textContent).toContain('Revenir à root');
+    back.click();
+    expect(user.stopImpersonating).toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(['/user-profile']);
+    expect(notification.showInfo).toHaveBeenCalledWith('', 'De retour en tant que root');
+  });
 });

@@ -163,3 +163,13 @@ app-main-menu {
   ::ng-deep .mat-checkbox-checked .mat-checkbox-background {
     background-color: rgb(0, 255, 0) !important;
   }
+
+.impersonated-by {
+  display: block;
+  font-size: 14px;
+  color: #b00020;
+}
+
+.impersonate-button {
+  margin-top: 15px;
+}

@@ -73,6 +73,20 @@ def password_error(password):
 username_pattern = re.compile(r"^[A-Za-z0-9._@-]{3,64}$")
 
 
+def _session(userDB, token, impersonated_by=None):
+    """What the webapp keeps of a session: the login and impersonate answer."""
+    session = {
+        "username": userDB['username'],
+        "role": userDB['role'],
+        "token": token,
+        "saveVerifiedImages": userDB.get('saveVerifiedImages', True),
+        "moodleStructureInd": userDB.get('moodleStructureInd', True)
+    }
+    if impersonated_by is not None:
+        session["impersonatedBy"] = impersonated_by
+    return session
+
+
 class Role(Enum):
     USER = "Utilisateur"
     ADMIN = "Administrateur"
@@ -106,15 +120,23 @@ class UserService:
             [("creation_time", 1)], name=name, expireAfterSeconds=seconds
         )
 
-    def create_token(username, role, database):
+    def create_token(username, role, database, impersonated_by=None):
+        """A new login token for ``username``.
+
+        ``impersonated_by`` names the admin who opened the session in the
+        user's place: the token is the user's in every other respect.
+        """
         token = str(uuid.uuid4())
         collection = database["tokens"]
-        collection.insert_one({
+        record = {
           "token": token,
           "username": username,
           "role": role,
           "creation_time": dt.datetime.now(dt.UTC)
-        })
+        }
+        if impersonated_by is not None:
+            record["impersonated_by"] = impersonated_by
+        collection.insert_one(record)
         return token
 
     def verify_token(token, database, role=None):
@@ -169,16 +191,8 @@ class UserService:
         stored_hash = userDB['password'] if userDB is not None else _UNKNOWN_USER_HASH
         if check_password_hash(stored_hash, password) and userDB is not None:
             token = UserService.create_token(userDB['username'], userDB['role'], database)
-            response = {
-                    "username": userDB['username'],
-                    "role": userDB['role'],
-                    "token": token,
-                    "saveVerifiedImages": userDB.get('saveVerifiedImages', True),
-                    "moodleStructureInd": userDB.get('moodleStructureInd', True)
-                }
-
             return Response(
-                response=json.dumps({"response": response}),
+                response=json.dumps({"response": _session(userDB, token)}),
                 status=200
                 )
 
@@ -186,6 +200,51 @@ class UserService:
                 response=json.dumps({"response": f"Nom d'utilisateur/Mot de passe invalide"}),
                 status=404,
             )
+
+    def impersonate(admin, admin_token, username, database):
+        """Open a session as ``username`` for ``admin``.
+
+        The token is an ordinary one of ``username`` (role included, so an
+        admin can be impersonated too): every ownership check of the routes
+        holds unchanged. When the admin is already someone else, the session
+        stays attributed to the admin who started the chain, and going back to
+        that admin gives a plain session.
+        """
+        if not username:
+            return Response(
+                response=json.dumps({"response": "Error: username not provided."}),
+                status=400,
+            )
+        userDB = database["users"].find_one({"username": username})
+        if userDB is None:
+            return Response(
+                response=json.dumps({"response": f"Error: user {username} doesn't exist."}),
+                status=404,
+            )
+        tokenDB = database["tokens"].find_one({"token": admin_token}) or {}
+        origin = tokenDB.get("impersonated_by", admin)
+        impersonated_by = None if origin == username else origin
+        print(f"Impersonation: {origin} opens a session as {username}.")
+        token = UserService.create_token(
+            userDB['username'], userDB['role'], database, impersonated_by
+        )
+        return Response(
+            response=json.dumps({"response": _session(userDB, token, impersonated_by)}),
+            status=200
+        )
+
+    def logout(token, database):
+        """Delete one login token: the webapp drops a borrowed session with it."""
+        database["tokens"].delete_one({"token": token})
+        return Response(response=json.dumps({"response": "OK"}), status=200)
+
+    def users_with_roles(database):
+        """Every user and their role, by username."""
+        users = database["users"].find({}, {"_id": 0, "username": 1, "role": 1})
+        return sorted(
+            ({"username": u["username"], "role": u.get("role")} for u in users),
+            key=lambda u: u["username"].lower(),
+        )
 
     def signup(request, database):
         request_form = request.form

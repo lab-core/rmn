@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
 import { ChangePasswordDialogComponent } from '../change-password-dialog/change-password-dialog.component';
 import { CreateUserDialogComponent } from '../create-user-dialog/create-user-dialog.component';
+import { ImpersonateDialogComponent } from '../impersonate-dialog/impersonate-dialog.component';
 import { first } from 'rxjs/operators';
 import { UserRole } from '../../generated/rmn-contracts';
 
@@ -39,6 +40,13 @@ export class UserProfileComponent implements OnInit {
       width: '80%',
       maxWidth: '600px',
       height: '73%'
+    })
+  }
+
+  openImpersonateDialog(): void {
+    this.dialog.open(ImpersonateDialogComponent, {
+      width: '80%',
+      maxWidth: '600px',
     })
   }
 
