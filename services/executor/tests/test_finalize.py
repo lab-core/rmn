@@ -230,8 +230,10 @@ def test_finalized_job_writes_the_grades_csv_with_active_questions_only(
         0,
     ]  # a missing grade is 0
     assert carol[MF.grade] == 6.0
-    # a deleted copy and a student without a copy keep the roster values
-    assert df.loc["2222222", MF.grade] == 0 and pd.isna(df.loc["2222222", "Q1"])
+    # a deleted copy and a student without a copy keep the roster values: no
+    # 0 that the Moodle import would give an absent student, no new date
+    assert pd.isna(df.loc["2222222", MF.grade]) and pd.isna(df.loc["2222222", "Q1"])
+    assert df.loc["2222222", MF.mdate] == "-"
     assert df.loc["5555555", MF.grade] == 12.0
     assert df.loc["5555555", MF.mdate] == "lundi 01 septembre 2026, 10:00"
     # the copy whose matricule is not in the roster adds no row
@@ -597,7 +599,7 @@ def test_a_matricule_only_job_ships_the_original_copies(
 
     df = _grades_csv(storage_root)
     assert not [c for c in df.columns if c.startswith("Q")]
-    assert df.loc["1111111", MF.grade] == 0
+    assert pd.isna(df.loc["1111111", MF.grade])  # nothing was graded
     all_zip = storage_root / "output_zip" / "job_all.zip"
     assert _zip_names(all_zip) == {"A/Martin_Alice_1111111.pdf"}
     # the original stays in documents: it was copied, not moved

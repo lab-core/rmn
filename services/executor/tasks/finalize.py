@@ -106,10 +106,11 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
     # check if group or gr column is present
     l_group = group_label(df)
 
-    # initialize grade to 0 by default
-    df[MF.grade] = df[MF.grade].fillna(0)
+    # only the students with a graded copy get a grade and a date: a student
+    # without one (absent, copy deleted) keeps what Moodle sent. Filling in 0
+    # there made the import give 0 to every absent student, an excused one
+    # included, and an empty grade is one Moodle's import leaves alone.
     date = get_date()
-    df[MF.mdate] = df[MF.mdate].apply(lambda x: x if pd.notna(x) and x != '-' else date)
 
     # fetch questions information
     eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
