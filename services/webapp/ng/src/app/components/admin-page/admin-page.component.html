@@ -14,9 +14,11 @@
           <mat-label>Filtrer</mat-label>
           <input matInput (keyup)="applyFilter($event)" placeholder="Nom d'utilisateur">
         </mat-form-field>
-        <button class="create-user" mat-raised-button color="accent" (click)="createUser()">
-          <mat-icon>person_add</mat-icon> Créer un compte
-        </button>
+        <app-help-hover key="admin.create">
+          <button class="create-user" mat-raised-button color="accent" (click)="createUser()">
+            <mat-icon>person_add</mat-icon> Créer un compte
+          </button>
+        </app-help-hover>
       </div>
 
       <div class="table mat-elevation-z8">
@@ -26,13 +28,13 @@
             <td mat-cell *matCellDef="let row">
               {{row.username}}
               @if (row.mustChangePassword) {
-                <span class="temporary" title="Doit choisir son mot de passe à la prochaine connexion">mot de passe temporaire</span>
+                <app-help-hover key="admin.temporary"><span class="temporary">mot de passe temporaire</span></app-help-hover>
               }
             </td>
           </ng-container>
 
           <ng-container matColumnDef="role">
-            <th mat-header-cell *matHeaderCellDef> Rôle </th>
+            <th mat-header-cell *matHeaderCellDef> Rôle <app-help-tip key="admin.roles"></app-help-tip></th>
             <td mat-cell *matCellDef="let row">
               @if (isAdmin && !isSelf(row)) {
                 <mat-select class="role-select" [value]="row.role" (selectionChange)="changeRole(row, $event.value)">
@@ -47,7 +49,7 @@
           </ng-container>
 
           <ng-container matColumnDef="managers">
-            <th mat-header-cell *matHeaderCellDef> Gestionnaires </th>
+            <th mat-header-cell *matHeaderCellDef> Gestionnaires <app-help-tip key="admin.managers"></app-help-tip></th>
             <td mat-cell *matCellDef="let row">
               @if (row.role != UserRole.ADMIN) {
                 <mat-select class="managers-select" multiple placeholder="Aucun" [value]="row.managers"
@@ -79,20 +81,28 @@
             <td mat-cell *matCellDef="let row" class="actions">
               @if (!isSelf(row)) {
                 @if (isAdmin) {
-                  <button mat-stroked-button class="impersonate" title="Continuer en tant que {{row.username}}" (click)="impersonate(row)">
-                    <mat-icon>switch_account</mat-icon> Prendre le rôle
-                  </button>
+                  <app-help-hover key="admin.impersonate">
+                    <button mat-stroked-button class="impersonate" (click)="impersonate(row)">
+                      <mat-icon>switch_account</mat-icon> Prendre le rôle
+                    </button>
+                  </app-help-hover>
                 }
-                <button mat-icon-button class="reset" title="Réinitialiser le mot de passe" (click)="resetPassword(row)">
-                  <mat-icon>lock_reset</mat-icon>
-                </button>
+                <app-help-hover key="admin.reset">
+                  <button mat-icon-button class="reset" aria-label="Réinitialiser le mot de passe" (click)="resetPassword(row)">
+                    <mat-icon>lock_reset</mat-icon>
+                  </button>
+                </app-help-hover>
                 @if (isAdmin) {
-                  <button mat-icon-button class="sessions" title="Fermer ses sessions" (click)="closeSessions(row)">
-                    <mat-icon>logout</mat-icon>
-                  </button>
-                  <button mat-icon-button class="delete" color="warn" title="Supprimer le compte" (click)="deleteUser(row)">
-                    <mat-icon>delete</mat-icon>
-                  </button>
+                  <app-help-hover key="admin.sessions">
+                    <button mat-icon-button class="sessions" aria-label="Fermer ses sessions" (click)="closeSessions(row)">
+                      <mat-icon>logout</mat-icon>
+                    </button>
+                  </app-help-hover>
+                  <app-help-hover key="admin.delete">
+                    <button mat-icon-button class="delete" color="warn" aria-label="Supprimer le compte" (click)="deleteUser(row)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </app-help-hover>
                 }
               }
             </td>
@@ -129,7 +139,7 @@
             <div class="card-header">
               <mat-icon>auto_delete</mat-icon>
               <div>
-                <h3>Anciennes tâches</h3>
+                <h3>Anciennes tâches <app-help-tip key="admin.old-jobs"></app-help-tip></h3>
                 <p>Supprime les tâches de tous les utilisateurs, avec leurs copies.</p>
               </div>
             </div>
@@ -138,7 +148,9 @@
                 <mat-label>Âge minimum (jours)</mat-label>
                 <input matInput type="number" min="1" [(ngModel)]="jobDays">
               </mat-form-field>
-              <button mat-flat-button color="warn" class="delete-jobs" (click)="deleteJobs()"><mat-icon>delete</mat-icon> Supprimer</button>
+              <app-help-hover key="admin.old-jobs">
+                <button mat-flat-button color="warn" class="delete-jobs" (click)="deleteJobs()"><mat-icon>delete</mat-icon> Supprimer</button>
+              </app-help-hover>
             </div>
           </mat-card>
 
@@ -155,7 +167,9 @@
                 <mat-label>Âge minimum (jours)</mat-label>
                 <input matInput type="number" min="1" [(ngModel)]="tokenDays">
               </mat-form-field>
-              <button mat-stroked-button class="delete-tokens" (click)="deleteTokens()"><mat-icon>logout</mat-icon> Fermer</button>
+              <app-help-hover key="admin.old-sessions">
+                <button mat-stroked-button class="delete-tokens" (click)="deleteTokens()"><mat-icon>logout</mat-icon> Fermer</button>
+              </app-help-hover>
             </div>
           </mat-card>
         </div>
@@ -164,7 +178,7 @@
             <div class="card-header">
               <mat-icon>storage</mat-icon>
               <div>
-                <h3>Stockage</h3>
+                <h3>Stockage <app-help-tip key="admin.storage"></app-help-tip></h3>
                 <p>Les fichiers que plus aucune tâche ni aucun template ne possède, et l'occupation du disque.</p>
               </div>
             </div>
@@ -203,7 +217,9 @@
                 </div>
                 <div class="buttons">
                   <button mat-stroked-button class="scan" [disabled]="sweeping" (click)="scanStorage()"><mat-icon>refresh</mat-icon> Réanalyser</button>
-                  <button mat-flat-button color="warn" class="clean" [disabled]="sweeping" (click)="cleanStorage()"><mat-icon>cleaning_services</mat-icon> Nettoyer</button>
+                  <app-help-hover key="admin.storage">
+                    <button mat-flat-button color="warn" class="clean" [disabled]="sweeping" (click)="cleanStorage()"><mat-icon>cleaning_services</mat-icon> Nettoyer</button>
+                  </app-help-hover>
                 </div>
               </div>
             }

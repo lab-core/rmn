@@ -24,8 +24,10 @@ Ce guide suit une évaluation du début à la fin. Il couvre deux cas :
 | 9 | rmn | [Finaliser et télécharger](09-finalisation.md) | le csv des notes et les zip des copies corrigées |
 | 10 | Moodle | [Rendre les notes](10-retour-moodle.md) | les étudiants voient leur note et leur copie corrigée |
 
-Les [questions fréquentes](11-faq.md) regroupent les problèmes courants.
+Les [questions fréquentes](11-faq.md) regroupent les problèmes courants. Les gestionnaires et les administrateurs trouveront la gestion des comptes au chapitre [12. Administrer les comptes](12-administration.md).
 
 ## Aide dans l'application
 
-Les icônes **?** à côté des champs de rmn résument la section du guide qui les concerne. Survolez une icône pour lire l'aide ; cliquez dessus pour ouvrir cette section dans un nouvel onglet. Le guide complet est aussi accessible par le menu **Guide**.
+Les icônes **?** à côté des champs de rmn résument la section du guide qui les concerne. Survolez une icône pour lire l'aide ; cliquez dessus pour ouvrir cette section dans un nouvel onglet.
+
+Sur les boutons, l'aide apparaît au survol : une bulle explique ce que fait le bouton, et un petit **?** s'affiche dans son coin pour ouvrir la section du guide. Le guide complet est aussi accessible par le menu **Guide**.

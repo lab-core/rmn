@@ -58,6 +58,7 @@ import { UserProfileComponent } from './components/user-profile/user-profile.com
 import { WarningDialogComponent } from './components/warning-dialog/warning-dialog.component';
 import { ErrorInfoDialogComponent } from './components/error-info-dialog/error-info-dialog.component';
 import { HelpTipComponent } from './components/help-tip/help-tip.component';
+import { HelpHoverComponent } from './components/help-hover/help-hover.component';
 
 // providers
 import { ErrorInterceptor, FreshHttpInterceptor } from './services/interceptor.service';
@@ -117,6 +118,7 @@ import { AuthInterceptor } from './services/auth.interceptor';
         MatDialogModule,
         MatTooltipModule,
         HelpTipComponent,
+        HelpHoverComponent,
         ReactiveFormsModule,
         NgxExtendedPdfViewerModule,
         ToastrModule.forRoot({

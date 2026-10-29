@@ -41,8 +41,9 @@ Une ligne par question :
 - **Moyennes**, **Écart-types**, **Histogrammes** : calculés sur les notes validées.
 - **Bonus** : la question peut dépasser son maximum.
 - **Corriger** ouvre les copies de la question ([chapitre 8](08-correction.md)).
+- ⟳ **Relire** fait relire les notes que personne n'a encore confirmées ([chapitre 8](08-correction.md#relire-les-notes)) ; sur la ligne **Matricules**, les matricules ([chapitre 7](07-matricules.md#relire-les-matricules)).
 
-**Corriger** sur la ligne **Total** ouvre toutes les questions ; le menu « Numéro de la question » passe de l'une à l'autre. La ligne **Matricules** compte les matricules confirmés ; **Verifier** ouvre leur vérification ([chapitre 7](07-matricules.md)).
+**Corriger** sur la ligne **Total** ouvre toutes les questions ; le menu « Numéro de la question » passe de l'une à l'autre. La ligne **Matricules** compte les matricules confirmés ; **Vérifier** ouvre leur vérification ([chapitre 7](07-matricules.md)).
 
 Le crayon à côté du nom de la tâche permet de la renommer et de modifier ses paramètres (pages et points des questions). **Recherche index** choisit un étudiant : les pages de correction s'ouvriront sur sa copie.
 

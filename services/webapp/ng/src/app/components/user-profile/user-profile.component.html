@@ -70,10 +70,14 @@
                 <div class="buttons-container">
                   <button class="change-password" mat-raised-button color="primary" (click)="openChangePasswordDialog()">Changer le mot de passe</button>
                   @if (this.userService.canCreateUsers()) {
-                    <button class="profile-button" mat-raised-button color="accent" (click)="openCreateUserDialog()">Créer un compte</button>
+                    <app-help-hover key="admin.create">
+                      <button class="profile-button" mat-raised-button color="accent" (click)="openCreateUserDialog()">Créer un compte</button>
+                    </app-help-hover>
                   }
                   @if (this.userService.isAdmin()) {
-                    <button class="profile-button impersonate-button" mat-raised-button color="accent" (click)="openImpersonateDialog()">Prendre le rôle d'un utilisateur</button>
+                    <app-help-hover key="profile.impersonate">
+                      <button class="profile-button impersonate-button" mat-raised-button color="accent" (click)="openImpersonateDialog()">Prendre le rôle d'un utilisateur</button>
+                    </app-help-hover>
                   }
                 </div>
 
