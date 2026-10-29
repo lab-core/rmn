@@ -66,6 +66,8 @@ export interface DigitModelRun {
   error?: string;
   /** The model an evaluation scored, null for the shipped one. */
   model?: string | null;
+  /** The training whose model an evaluation was asked to score (else the model in use). */
+  target?: string;
   bank?: { samples: number, train: number, test: number };
   progress?: { epoch: number, epochs: number };
   results?: { model?: ModelScores, candidate?: ModelScores, current?: ModelScores };
@@ -146,9 +148,10 @@ export class AdminService {
     return this.http.get<{ response: DigitBankOverview }>(SERVER_URL + 'manage/digit-bank');
   }
 
-  /** Have the trainer worker retrain the model on the bank, or score the one in use. */
-  runDigitModel(action: 'train' | 'evaluate') {
-    return this.post('manage/digit-bank/run', { action });
+  /** Have the trainer worker retrain the model on the bank, or score a model:
+   *  the one in use, or with `target` the one a training wrote. */
+  runDigitModel(action: 'train' | 'evaluate', target?: string) {
+    return this.post('manage/digit-bank/run', target ? { action, target } : { action });
   }
 
   /** Have the executors run a trained model; an empty `runId` is the shipped one. */

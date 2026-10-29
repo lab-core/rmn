@@ -280,6 +280,14 @@ export const HELP: Record<string, HelpEntry> = {
     text: 'Entraîne un nouveau modèle sur la banque, sans le mettre en service : comparez ses scores, puis activez-le.',
     chapter: '12-administration', anchor: 'modèle-de-lecture',
   },
+  'admin.digit-model-reevaluate': {
+    text: 'Mesure à nouveau ce modèle sur la banque actuelle, sans le mettre en service : utile quand la banque a grandi depuis l\'entraînement.',
+    chapter: '12-administration', anchor: 'modèle-de-lecture',
+  },
+  'admin.digit-model-bank-score': {
+    text: 'Un modèle réentraîné a appris sur environ 80 % de la banque : pour lui, seule la partie test est une mesure honnête.',
+    chapter: '12-administration', anchor: 'modèle-de-lecture',
+  },
   'admin.digit-model-activate': {
     text: 'Met ce modèle en service pour les prochaines lectures de matricules et de notes. Les lectures déjà faites ne changent pas.',
     chapter: '12-administration', anchor: 'modèle-de-lecture',

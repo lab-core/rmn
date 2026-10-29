@@ -53,6 +53,7 @@ def test_an_evaluation_scores_the_model_in_use(mongo_db, fill_bank):
     assert scores["bank"]["n"] == 100
     assert scores["test"]["n"] == done["bank"]["test"]
     assert scores["mnist"]["n"] == 30
+    assert scores["model"] is None
 
 
 def test_a_run_is_taken_once(mongo_db):
@@ -91,7 +92,7 @@ def test_training_writes_a_model_scored_beside_the_one_in_use(
     assert done["progress"]["epoch"] == done["progress"]["epochs"] == 1
     candidate, current = done["results"]["candidate"], done["results"]["current"]
     assert candidate["test"]["n"] == current["test"]["n"] == done["bank"]["test"] > 0
-    assert current["model"] is None
+    assert current["model"] is None and candidate["model"] == RUN
     # written, but not activated: the admin decides
     assert (storage_root / digit_models.model_path(RUN)).is_file()
     assert digit_models.active_model(storage) is None
@@ -124,3 +125,35 @@ def test_the_training_set_mixes_the_framed_bank_with_mnist(fill_bank, monkeypatc
     # an empty bank gives MNIST only
     empty = bank_eval.Bank(bank.x[:0], bank.y[:0])
     assert retrain.training_set(empty, replay)[0].shape == (7, 28, 28)
+
+
+def test_an_evaluation_can_score_a_trained_model_that_is_not_in_use(
+    mongo_db, storage_root, fill_bank
+):
+    from process_copy.classifier import SHIPPED_MODEL
+
+    fill_bank(n_copies=10)
+    trained = "ab" * 16
+    model = storage_root / digit_models.model_path(trained)
+    model.parent.mkdir(parents=True)
+    model.write_bytes(open(SHIPPED_MODEL, "rb").read())
+    queue(mongo_db, digit_models.EVALUATE)
+    mongo_db[digit_models.COLLECTION].update_one(
+        {"run_id": RUN}, {"$set": {"target": trained}}
+    )
+
+    trainer.process(mongo_db, storage, RUN)
+
+    done = row(mongo_db)
+    assert done["status"] == Status.DONE.value, done.get("error")
+    assert done["model"] == done["results"]["model"]["model"] == trained
+    assert digit_models.active_model(storage) is None, "scored, not activated"
+
+    # its model deleted since: said so
+    model.unlink()
+    queue(mongo_db, digit_models.EVALUATE, run_id="ef" * 16)
+    mongo_db[digit_models.COLLECTION].update_one(
+        {"run_id": "ef" * 16}, {"$set": {"target": trained}}
+    )
+    trainer.process(mongo_db, storage, "ef" * 16)
+    assert "n'existe plus" in row(mongo_db, "ef" * 16)["error"]

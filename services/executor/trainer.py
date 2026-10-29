@@ -103,21 +103,34 @@ def model_scores(classifier, test, bank, replay_test):
     }
 
 
-def evaluate(run, storage):
-    """Score the model the executors run."""
+def evaluate(run, storage, target=None):
+    """Score a model: the one the executors run, or the model a training wrote.
+
+    Args:
+        target: The training run whose model is scored; None for the model in
+            use.
+    """
     from process_copy import bank_eval, retrain
-    from process_copy.classifier import load_classifier, model_in_use
+    from process_copy.classifier import DigitClassifier, load_classifier, model_in_use
 
     bank = bank_eval.load_bank(storage)
     train, test = bank.split()
-    path, model = model_in_use(storage)
+    if target:
+        path, model = storage.abs_path(digit_models.model_path(target)), target
+        if not os.path.isfile(path):
+            raise ValueError("Le modèle de cet entraînement n'existe plus.")
+        classifier = DigitClassifier(path)
+    else:
+        path, model = model_in_use(storage)
+        classifier = load_classifier(path)
     _, replay_test = retrain.mnist()
     run.set(
         model=model,
         bank={"samples": len(bank), "train": len(train), "test": len(test)},
     )
     print(f"Evaluating {model or 'the shipped model'} on {len(bank)} samples")
-    return {"model": model_scores(load_classifier(path), test, bank, replay_test)}
+    scores = model_scores(classifier, test, bank, replay_test)
+    return {"model": dict(scores, model=model)}
 
 
 def train(run, storage, work_dir):
@@ -160,7 +173,10 @@ def train(run, storage, work_dir):
     path, current_model = model_in_use(storage)
     current = model_scores(load_classifier(path), test, bank, replay_test)
     storage.move_to(str(local), digit_models.model_path(run.run_id))
-    return {"candidate": candidate, "current": dict(current, model=current_model)}
+    return {
+        "candidate": dict(candidate, model=run.run_id),
+        "current": dict(current, model=current_model),
+    }
 
 
 def process(db, storage, run_id):
@@ -177,7 +193,7 @@ def process(db, storage, run_id):
             if action == digit_models.TRAIN:
                 results = train(run, storage, Path(work))
             elif action == digit_models.EVALUATE:
-                results = evaluate(run, storage)
+                results = evaluate(run, storage, row.get("target"))
             else:
                 raise ValueError(f"unknown action {action!r}")
             run.set(status=Status.DONE.value, finished=now(), results=results)

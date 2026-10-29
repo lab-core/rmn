@@ -72,13 +72,17 @@ def get_digit_bank(user_id):
 @cross_origin()
 @verify_token(Role.ADMIN)
 def run_digit_model(user_id):
-    """Queue a run for the trainer worker: ``action`` is ``train`` or ``evaluate``."""
+    """Queue a run for the trainer worker: ``action`` is ``train`` or ``evaluate``.
+
+    An evaluation scores the model in use, or with ``target`` the model a
+    finished training wrote.
+    """
     try:
         action = request.form.get("action")
-        row = digit_bank.start_run(mongo["RMN"], redis, action, user_id)
-    except ValueError:
-        message = "Error: action must be train or evaluate."
-        return Response(response=json.dumps({"response": message}), status=400)
+        target = request.form.get("target") or None
+        row = digit_bank.start_run(mongo["RMN"], redis, action, user_id, target)
+    except ValueError as e:
+        return Response(response=json.dumps({"response": str(e)}), status=400)
     if row is None:
         return Response(
             response=json.dumps({"response": "Une demande est déjà en cours."}),

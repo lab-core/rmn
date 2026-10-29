@@ -218,3 +218,24 @@ def test_an_admin_s_only(client, user_factory, login):
             headers=_auth(token),
         )
         assert resp.status_code == 403
+
+
+def test_an_evaluation_can_target_a_finished_training(client, admin, db):
+    collection = db[digit_models.COLLECTION]
+    collection.insert_one({"run_id": RUN, "action": "train", "status": "RUNNING"})
+
+    def evaluate(target):
+        return _post(
+            client, "/manage/digit-bank/run", admin, action="evaluate", target=target
+        )
+
+    assert evaluate(RUN).status_code == 400, "not finished"
+    collection.update_one({"run_id": RUN}, {"$set": {"status": "DONE"}})
+    assert evaluate("cd" * 16).status_code == 400, "unknown"
+    resp = evaluate(RUN)
+    assert resp.status_code == 200
+    assert resp.get_json(force=True)["response"]["target"] == RUN
+    # a training never has a target
+    collection.update_one({"target": RUN}, {"$set": {"status": "DONE"}})
+    resp = _post(client, "/manage/digit-bank/run", admin, action="train", target=RUN)
+    assert resp.status_code == 400

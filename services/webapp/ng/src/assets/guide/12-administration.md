@@ -42,6 +42,8 @@ Le modèle qui lit les chiffres. **Évaluer** mesure la part de chiffres qu'il l
 
 Un modèle entraîné n'est pas mis en service tout seul. La liste des demandes montre son score sur la partie test, en vert quand il fait mieux que le modèle en service ; **Activer** le met en service pour les prochaines lectures, **Modèle d'origine** revient au modèle livré. Les lectures déjà faites ne changent pas. Une seule demande à la fois.
 
+Cliquez sur une demande pour son détail : les scores sur la partie test, sur toute la banque et sur MNIST, puis par chiffre, par origine, et les confusions les plus fréquentes (« 7 lu 1 × 3 » : trois 7 lus comme des 1). Pour un entraînement, le nouveau modèle et celui qui était en service sont côte à côte. **Réévaluer** mesure à nouveau un modèle entraîné sur la banque actuelle sans le mettre en service, par exemple quand elle a grandi depuis.
+
 ### Anciennes tâches et sessions
 
 **Anciennes tâches** supprime définitivement les tâches de **tous** les utilisateurs ajoutées depuis au moins le nombre de jours indiqué, avec leurs copies. **Anciennes sessions** déconnecte les sessions ouvertes depuis au moins ce nombre de jours.

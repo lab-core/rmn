@@ -43,6 +43,8 @@ export class AdminPageComponent implements OnInit, OnDestroy {
     { key: 'ink_grade', label: 'Notes manuscrites' },
   ];
   private digitBankTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The run whose details are open. */
+  selectedRunId: string | undefined;
   storageReport: any;
   sweeping = false;
   includeStrays = false;
@@ -263,11 +265,65 @@ export class AdminPageComponent implements OnInit, OnDestroy {
     return scores.model ? scores.test : scores.bank;
   }
 
+  get selectedRun(): DigitModelRun | undefined {
+    return this.digitBank?.runs.find(r => r.run_id == this.selectedRunId);
+  }
+
+  toggleRun(run: DigitModelRun) {
+    this.selectedRunId = this.selectedRunId == run.run_id ? undefined : run.run_id;
+  }
+
+  /** A model as the page names it: the shipped one, or the training that wrote it. */
+  modelLabel(model: string | null | undefined): string {
+    if (!model) {
+      return 'modèle d\'origine';
+    }
+    const training = this.digitBank?.runs.find(r => r.run_id == model);
+    return training ? `entraînement du ${this.formatDate(training.created)}` : `modèle ${model.slice(0, 6)}`;
+  }
+
+  runTitle(run: DigitModelRun): string {
+    if (run.action == 'train') {
+      return 'Entraînement';
+    }
+    const model = run.model !== undefined ? run.model : run.target;
+    return model === undefined && run.status != DigitModelStatus.DONE
+      ? 'Évaluation du modèle en service'
+      : `Évaluation, ${this.modelLabel(model)}`;
+  }
+
+  /** The models a run scored, side by side: the new one and the one then in service
+   *  for a training, the scored one for an evaluation. */
+  runColumns(run: DigitModelRun): { label: string, scores: ModelScores }[] {
+    const results = run.results;
+    if (!results) {
+      return [];
+    }
+    if (run.action == 'train') {
+      return [
+        ...(results.candidate ? [{ label: 'Nouveau modèle', scores: results.candidate }] : []),
+        ...(results.current ? [{ label: `En service (${this.modelLabel(results.current.model)})`, scores: results.current }] : []),
+      ];
+    }
+    return results.model ? [{ label: this.modelLabel(results.model.model ?? run.model), scores: results.model }] : [];
+  }
+
+  /** The digits a model mistakes most often for another, at most `limit`. */
+  confusions(scores: DigitScores | undefined, limit = 5): { digit: number, read: number, count: number }[] {
+    const out: { digit: number, read: number, count: number }[] = [];
+    (scores?.confusion ?? []).forEach((row, digit) => row.forEach((count, read) => {
+      if (read != digit && count) {
+        out.push({ digit, read, count });
+      }
+    }));
+    return out.sort((a, b) => b.count - a.count).slice(0, limit);
+  }
+
   isActive(run: DigitModelRun): boolean {
     return this.digitBank?.active?.run_id == run.run_id;
   }
 
-  async runDigitModel(action: 'train' | 'evaluate') {
+  async runDigitModel(action: 'train' | 'evaluate', target?: string) {
     if (action == 'train' && !await this.confirm({
       title: 'Réentraîner la lecture des chiffres',
       message: 'Le modèle d\'origine est réentraîné sur la banque, ce qui prend quelques minutes. '
@@ -276,7 +332,7 @@ export class AdminPageComponent implements OnInit, OnDestroy {
     })) {
       return;
     }
-    const resp = await this.run(this.adminService.runDigitModel(action),
+    const resp = await this.run(this.adminService.runDigitModel(action, target),
       action == 'train' ? 'Entraînement demandé' : 'Évaluation demandée', false);
     if (resp) {
       this.loadDigitBank();

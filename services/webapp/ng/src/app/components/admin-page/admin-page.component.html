@@ -328,8 +328,9 @@
                 <table class="usage runs">
                   <tr><th>Demande</th><th>État</th><th>Partie test</th><th></th></tr>
                   @for (run of overview.runs; track run.run_id) {
-                    <tr>
-                      <td>{{run.action == 'train' ? 'Entraînement' : 'Évaluation'}}<br><span class="hint">{{formatDate(run.created)}}</span></td>
+                    <tr class="run-row" [class.selected]="run.run_id == selectedRunId" (click)="toggleRun(run)"
+                        title="Voir le détail">
+                      <td>{{runTitle(run)}}<br><span class="hint">{{formatDate(run.created)}}</span></td>
                       <td>
                         @switch (run.status) {
                           @case ('DONE') { <span class="ok">terminé</span> }
@@ -354,7 +355,8 @@
                             <span class="in-service">en service</span>
                           } @else {
                             <app-help-hover key="admin.digit-model-activate">
-                              <button mat-stroked-button class="activate" [disabled]="!!pendingRun" (click)="activateDigitModel(run)">Activer</button>
+                              <button mat-stroked-button class="activate" [disabled]="!!pendingRun"
+                                      (click)="$event.stopPropagation(); activateDigitModel(run)">Activer</button>
                             </app-help-hover>
                           }
                         }
@@ -362,6 +364,82 @@
                     </tr>
                   }
                 </table>
+              }
+
+              @if (selectedRun; as run) {
+                <div class="run-details">
+                  <div class="details-header">
+                    <div>
+                      <strong>{{runTitle(run)}}</strong>
+                      <p class="hint">
+                        Demandé par {{run.requested_by}} le {{formatDate(run.created)}}@if (run.finished) {, terminé le {{formatDate(run.finished)}}}.
+                        @if (run.bank) {
+                          Banque : {{run.bank.samples}} chiffres, {{run.bank.train}} d'entraînement et {{run.bank.test}} de test.
+                        }
+                      </p>
+                    </div>
+                    <button mat-icon-button class="close-details" title="Fermer" (click)="selectedRunId = undefined"><mat-icon>close</mat-icon></button>
+                  </div>
+                  @if (run.error) {
+                    <p class="error-text">{{run.error}}</p>
+                  }
+                  @if (runColumns(run); as columns) {
+                    @if (columns.length) {
+                      <table class="usage compare">
+                        <tr><th>Bien reconnus</th>@for (c of columns; track c.label) {<th>{{c.label}}</th>}</tr>
+                        <tr><td>Partie test</td>@for (c of columns; track c.label) {<td>{{score(c.scores.test)}} <span class="hint">({{c.scores.test.correct}}/{{c.scores.test.n}})</span></td>}</tr>
+                        <tr><td>Toute la banque <app-help-tip key="admin.digit-model-bank-score"></app-help-tip></td>@for (c of columns; track c.label) {<td>{{score(c.scores.bank)}} <span class="hint">({{c.scores.bank.correct}}/{{c.scores.bank.n}})</span></td>}</tr>
+                        <tr><td>MNIST</td>@for (c of columns; track c.label) {<td>{{score(c.scores.mnist)}}</td>}</tr>
+                      </table>
+
+                      <table class="usage per-digit">
+                        <tr><th>Chiffre</th>@for (d of digits; track d) {<th>{{d}}</th>}</tr>
+                        @for (c of columns; track c.label) {
+                          @if (fairScores(c.scores); as fair) {
+                            <tr><td [title]="c.label">{{columns.length > 1 ? c.label : 'Bien reconnus'}}</td>@for (d of digits; track d) {
+                              <td [class.weak]="fair.per_digit[d].n && fair.per_digit[d].correct / fair.per_digit[d].n < 0.9">{{percent(fair.per_digit[d].correct, fair.per_digit[d].n)}}</td>
+                            }</tr>
+                          }
+                        }
+                      </table>
+
+                      <table class="usage kinds">
+                        <tr><th>Origine</th>@for (c of columns; track c.label) {<th>{{c.label}}</th>}</tr>
+                        @for (kind of kinds; track kind.key) {
+                          @if (fairScores(columns[0].scores)?.per_kind?.[kind.key]) {
+                            <tr><td>{{kind.label}}</td>@for (c of columns; track c.label) {
+                              <td>{{percent(fairScores(c.scores)?.per_kind?.[kind.key]?.correct, fairScores(c.scores)?.per_kind?.[kind.key]?.n)}}</td>
+                            }</tr>
+                          }
+                        }
+                      </table>
+
+                      @for (c of columns; track c.label) {
+                        <p class="confusions">
+                          <span class="hint">Confusions{{columns.length > 1 ? ' (' + c.label + ')' : ''}} :</span>
+                          @for (x of confusions(fairScores(c.scores)); track $index) {
+                            <span class="confusion">{{x.digit}} lu {{x.read}} × {{x.count}}</span>
+                          } @empty {
+                            <span class="hint">aucune</span>
+                          }
+                        </p>
+                      }
+                      <p class="hint">Par chiffre, par origine et confusions : sur toute la banque pour le modèle d'origine, sur la partie test pour un modèle réentraîné.</p>
+                    }
+                  }
+                  @if (run.action == 'train' && run.status == 'DONE') {
+                    <div class="buttons">
+                      <app-help-hover key="admin.digit-model-reevaluate">
+                        <button mat-stroked-button class="reevaluate" [disabled]="!!pendingRun" (click)="runDigitModel('evaluate', run.run_id)">
+                          <mat-icon>fact_check</mat-icon> Réévaluer
+                        </button>
+                      </app-help-hover>
+                      @if (!isActive(run)) {
+                        <button mat-flat-button color="accent" class="activate-details" [disabled]="!!pendingRun" (click)="activateDigitModel(run)">Activer</button>
+                      }
+                    </div>
+                  }
+                </div>
               }
 
               <div class="card-footer">

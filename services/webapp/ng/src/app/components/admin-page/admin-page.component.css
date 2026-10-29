@@ -369,6 +369,54 @@ td.mat-mdc-cell {
   white-space: nowrap;
 }
 
+.run-row {
+  cursor: pointer;
+}
+
+.run-row:hover, .run-row.selected {
+  background-color: #f5f6fb;
+}
+
+.run-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.compare td:not(:first-child), .compare th:not(:first-child) {
+  text-align: right;
+}
+
+.confusions {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.confusion {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.run-details .buttons {
+  align-self: flex-end;
+}
+
 .in-service {
   padding: 2px 8px;
   border-radius: 8px;

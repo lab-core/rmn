@@ -183,19 +183,31 @@ def overview(db, storage):
     }
 
 
-def start_run(db, redis, action, user_id):
+def start_run(db, redis, action, user_id, target=None):
     """Queue a run for the trainer worker.
+
+    Args:
+        target: For an evaluation, the training run whose model is scored
+            rather than the model in use.
 
     Returns:
         The new row, or None when a run is still queued or running: one run
         at a time, the trainer is a single worker.
 
     Raises:
-        ValueError: If ``action`` is not a run action.
+        ValueError: If ``action`` is not a run action, or ``target`` is not a
+            finished training.
     """
     if action not in digit_models.ACTIONS:
-        raise ValueError(action)
+        raise ValueError("Error: action must be train or evaluate.")
     collection = db[digit_models.COLLECTION]
+    if target:
+        if action != digit_models.EVALUATE or not _finished_training(
+            collection, target
+        ):
+            raise ValueError(
+                "Seul le modèle d'un entraînement terminé peut être évalué."
+            )
     close_dead_runs(collection)
     if collection.find_one({"status": {"$in": list(UNFINISHED)}}):
         return None
@@ -206,9 +218,21 @@ def start_run(db, redis, action, user_id):
         "requested_by": user_id,
         "created": dt.datetime.now(dt.UTC),
     }
+    if target:
+        row["target"] = target
     collection.insert_one(dict(row))
     redis.rpush(digit_models.TRAIN_QUEUE, json.dumps({"run_id": row["run_id"]}))
     return {key: _iso(value) for key, value in row.items()}
+
+
+def _finished_training(collection, run_id):
+    """Whether ``run_id`` is a training that ended with a model."""
+    row = collection.find_one({"run_id": run_id})
+    return (
+        row is not None
+        and row.get("action") == digit_models.TRAIN
+        and row.get("status") == Status.DONE.value
+    )
 
 
 def activate(db, storage, run_id, user_id):
@@ -220,12 +244,6 @@ def activate(db, storage, run_id, user_id):
     Raises:
         ValueError: With the reason, when the run cannot be activated.
     """
-    if run_id:
-        row = db[digit_models.COLLECTION].find_one({"run_id": run_id})
-        if (
-            row is None
-            or row.get("action") != digit_models.TRAIN
-            or row.get("status") != Status.DONE.value
-        ):
-            raise ValueError("Seul un entraînement terminé peut être activé.")
+    if run_id and not _finished_training(db[digit_models.COLLECTION], run_id):
+        raise ValueError("Seul un entraînement terminé peut être activé.")
     digit_models.set_active_model(storage, run_id or None, user_id)

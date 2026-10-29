@@ -321,7 +321,7 @@ describe('AdminPageComponent', () => {
 
       confirmed = true;
       await component.runDigitModel('train');
-      expect(admin.runDigitModel).toHaveBeenCalledWith('train');
+      expect(admin.runDigitModel).toHaveBeenCalledWith('train', undefined);
       fixture.detectChanges();
       expect(fixture.nativeElement.querySelector('.pending').textContent).toContain('passe 3 sur 10');
       expect(fixture.nativeElement.querySelector('.train').disabled).toBeTrue();
@@ -373,6 +373,59 @@ describe('AdminPageComponent', () => {
     await component.activateDigitModel(null);
     expect(admin.activateDigitModel).toHaveBeenCalledWith('');
     expect(component.digitBank!.active).toBeNull();
+  });
+
+  it('opens the details of a run on a click and re-evaluates its model', async () => {
+    create('Administrateur');
+    admin.status.and.returnValue(of({ response: { queue: 0 } }));
+    admin.settings.and.returnValue(of({ response: { saveVerifiedImages: true } }));
+    const confusion: number[][] = Array.from({ length: 10 }, (_, d) => Array.from({ length: 10 }, (_, r) => r == d ? 2 : 0));
+    confusion[7][1] = 3;
+    confusion[4][9] = 1;
+    const candidate = { ...scores(19, 20), confusion, per_kind: { matricule: { n: 20, correct: 19 } } };
+    const trained = {
+      run_id: 't1', action: 'train' as const, status: 'DONE', requested_by: 'root',
+      created: '2026-10-29T10:00:00+00:00', finished: '2026-10-29T10:20:00+00:00',
+      bank: { samples: 100, train: 80, test: 20 },
+      results: {
+        candidate: { test: candidate, bank: scores(99, 100), mnist: scores(985, 1000), model: 't1' },
+        current: { test: scores(17, 20), bank: scores(95, 100), mnist: scores(990, 1000), model: null },
+      },
+    };
+    const evaluation = {
+      run_id: 'e1', action: 'evaluate' as const, status: 'DONE', requested_by: 'root', target: 't1', model: 't1',
+      created: '2026-10-29T11:00:00+00:00', finished: '2026-10-29T11:01:00+00:00',
+      results: { model: { test: scores(19, 20), bank: scores(99, 100), mnist: scores(985, 1000), model: 't1' } },
+    };
+    admin.digitBank.and.returnValue(of({ response: overview({ runs: [evaluation, trained] }) }));
+    component.showView('system');
+    fixture.detectChanges();
+    const page: HTMLElement = fixture.nativeElement;
+    expect(page.querySelector('.run-details')).toBeNull();
+    // an evaluation of a trained model says which one
+    expect(page.querySelector('.run-row')!.textContent).toContain('Évaluation, entraînement du');
+
+    (page.querySelectorAll('.run-row')[1] as HTMLElement).click();
+    fixture.detectChanges();
+    const details = page.querySelector('.run-details') as HTMLElement;
+    const header = Array.from(details.querySelectorAll('.compare th')).map(c => c.textContent!.trim());
+    expect(header).toEqual(['Bien reconnus', 'Nouveau modèle', 'En service (modèle d\'origine)']);
+    expect(details.querySelector('.compare')!.textContent).toContain('(19/20)');
+    expect(Array.from(details.querySelectorAll('.confusion')).map(c => c.textContent)).toEqual(['7 lu 1 × 3', '4 lu 9 × 1']);
+    expect(details.textContent).toContain('80 d\'entraînement et 20 de test');
+
+    admin.runDigitModel.and.returnValue(of({ response: {} }));
+    (details.querySelector('.reevaluate') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(admin.runDigitModel).toHaveBeenCalledWith('evaluate', 't1');
+    expect(dialog.open).not.toHaveBeenCalled();
+
+    // the activate button of the row does not toggle the details
+    (page.querySelector('.runs .activate') as HTMLButtonElement).click();
+    expect(component.selectedRunId).toBe('t1');
+    (page.querySelector('.close-details') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(page.querySelector('.run-details')).toBeNull();
   });
 
   it('formats sizes', () => {
