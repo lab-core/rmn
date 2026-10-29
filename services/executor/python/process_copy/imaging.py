@@ -112,6 +112,14 @@ def cells_in_frame(cells, box, shape):
     ]
 
 
+def layout_in_frame(layout, box, shape):
+    """The layout of a template (``boxes`` and ``rects`` in page fractions) in
+    the pixels of the frame ``box`` of a page of ``shape``, None without it."""
+    if not layout or not layout.get("boxes"):
+        return None
+    return {key: cells_in_frame(layout.get(key), box, shape) for key in ("boxes", "rects")}
+
+
 def frame_to_cells(rects, box, shape):
     """The inverse of ``cells_in_frame``: rectangles of the frame in page fractions."""
     height, width = shape[:2]

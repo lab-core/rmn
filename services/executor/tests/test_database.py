@@ -117,20 +117,23 @@ def test_templates_info(mongo_db):
     assert db.get_templates_info("front") == ([0.1, 0.9, 0.6, 0.9], [0.05, 0.85, 0.15, 0.35], None)
 
 
-def test_template_grade_cells(mongo_db):
-    cells = [[0.85, 0.2, 0.08, 0.03], [0.85, 0.24, 0.08, 0.05]]
+def test_template_grade_layout(mongo_db):
+    layout = {
+        "boxes": [[0.85, 0.2, 0.08, 0.03], [0.85, 0.24, 0.08, 0.05]],
+        "rects": [[0.8, 0.2, 0.04, 0.03], [0.85, 0.2, 0.08, 0.03], [0.85, 0.24, 0.08, 0.05]],
+    }
     mongo_db["template"].insert_many(
         [
-            {"template_id": "front", "grade_cells": cells},
-            {"template_id": "old"},  # processed before the cells were kept
-            {"template_id": "none", "grade_cells": []},
+            {"template_id": "front", "grade_layout": layout},
+            {"template_id": "old"},  # processed before the layout was kept
+            {"template_id": "none", "grade_layout": {"boxes": [], "rects": []}},
         ]
     )
     db = Database()
-    assert db.get_template_grade_cells("front") == cells
-    assert db.get_template_grade_cells("old") is None
-    assert db.get_template_grade_cells("none") is None
-    assert db.get_template_grade_cells("nope") is None
+    assert db.get_template_grade_layout("front") == layout
+    assert db.get_template_grade_layout("old") is None
+    assert db.get_template_grade_layout("none") is None
+    assert db.get_template_grade_layout("nope") is None
 
 
 def test_collections_are_named_as_the_server_expects(mongo_db):

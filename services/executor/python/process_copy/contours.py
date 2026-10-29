@@ -328,7 +328,7 @@ def _fill_run(run, horizontal, thick):
 
 
 
-def find_grade_boxes(cropped, add_border=False, thick=5, n=None, like=None):
+def find_grade_boxes(cropped, add_border=False, thick=5, n=None, layout=None):
     """The grade boxes of the frame, as contours sorted along their alignment.
 
     The grade boxes are aligned, in a column or in a row, and empty on the
@@ -338,10 +338,13 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None, like=None):
     the most area wins (the most boxes, the biggest ones). A run of ``n``
     boxes, when the number of boxes is known, comes before all others.
 
-    A copy has the boxes of its template, found on the template where they
-    were empty (``like``): the run of as many boxes nearest to them wins, so
-    a column of labels as big as the grades is never taken for them. The
-    rules above only decide when no run is near (a copy scanned far off).
+    A copy has the layout of its template, found on the template where the
+    boxes were empty: its grade boxes and every rectangle of its frame. A
+    scan moves the page by a centimetre or more, so the shift that lays the
+    most rectangles of the template on the copy's is found first; the run of
+    as many boxes nearest to the shifted grade boxes then wins, so a column
+    of labels as big as the grades is never taken for them. The rules above
+    only decide when no run is near (a template without its rectangles).
 
     Args:
         cropped: The gray frame the grade box of the template gives.
@@ -349,8 +352,9 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None, like=None):
             it; the boxes on that border are then dropped from the run.
         thick: The thickness of the lines drawn around the boxes found.
         n: The number of boxes expected, None when unknown.
-        like: The boxes found on the template, ``(x, y, w, h)`` in this
-            frame (see ``imaging.cells_in_frame``), None when unknown.
+        layout: The ``boxes`` and the ``rects`` of the template, ``(x, y, w,
+            h)`` in this frame (see ``imaging.layout_in_frame``), None when
+            unknown.
 
     Returns:
         The contours of the boxes, ``[]`` when the frame holds none.
@@ -378,8 +382,11 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None, like=None):
     def area(run):
         return sum(r[2] * r[3] for r in run)
 
-    if like:
-        best = min((run for run in runs if len(run) == len(like)),
+    if layout and layout.get("boxes"):
+        dx, dy = _shift(layout.get("rects") or layout["boxes"], rects)
+        like = [(x + dx, y + dy, w, h) for x, y, w, h in layout["boxes"]]
+        best = min((run for run in runs
+                    if len(run) == len(like) and all(map(_similar, run, like))),
                    key=lambda run: _distance(run, like), default=None)
         # half a box away at most: the next column of the table is a box away
         if best and _distance(best, like) <= 0.5 * median(min(r[2:]) for r in like):
@@ -402,6 +409,35 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None, like=None):
 
 
 
+def _similar(a, b, tol=0.15):
+    """Whether two rectangles have the same size."""
+    return abs(a[2] - b[2]) <= tol * b[2] and abs(a[3] - b[3]) <= tol * b[3]
+
+
+
+
+def _shift(template, rects, tol=12):
+    """The shift ``(dx, dy)`` that lays the most rectangles of the template on
+    rectangles of the same size of the frame, the smallest one on a tie.
+
+    Every pair of rectangles of the same size proposes a shift; the right one
+    lays the whole table, while a shift by one row of a regular table loses
+    at least the row that leaves it (and the total, taller than the others).
+    """
+    def score(shift):
+        dx, dy = shift
+        return sum(
+            any(_similar(r, t) and abs(r[0] - t[0] - dx) <= tol and abs(r[1] - t[1] - dy) <= tol
+                for r in rects)
+            for t in template
+        )
+
+    shifts = {(r[0] - t[0], r[1] - t[1]) for t in template for r in rects if _similar(r, t)}
+    return max(shifts, key=lambda s: (score(s), -np.hypot(*s)), default=(0, 0))
+
+
+
+
 def _distance(run, like):
     """Mean distance between the centres of the boxes of two runs, in order."""
     return sum(
@@ -417,6 +453,14 @@ def _boxes(run, cropped, thick):
     boxes = [_rect_contour(r) for r in run]
     imwrite_contours("cropped_boxes2", cropped, boxes, thick=2 * (thick + 1))
     return boxes
+
+
+
+
+def frame_rectangles(cropped):
+    """Every rectangle of the frame, the inside of each box: what a copy
+    lays on its own to find how far the scan moved it from the template."""
+    return find_rectangles(cropped, inner=True)[0]
 
 
 

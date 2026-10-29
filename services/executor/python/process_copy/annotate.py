@@ -4,7 +4,7 @@ import cv2
 import pymupdf
 from colorama import Fore, Style
 from process_copy.config import len_mat
-from process_copy.imaging import cells_in_frame, fetch_box, imwrite_png
+from process_copy.imaging import fetch_box, imwrite_png, layout_in_frame
 from process_copy.pages import gray_images
 from rmn_common.grades import format_points as format_grade_text
 from process_copy.contours import (
@@ -135,7 +135,7 @@ def box_candidates(box, attempts=BOX_ATTEMPTS):
 
 def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
                trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11),
-               grade_ratio: float = 0.5, cells: list = None):
+               grade_ratio: float = 0.5, layout: dict = None):
     """Write the grades of a copy in the boxes of its grade table.
 
     The table is found on a raster of the page, and the grades are written in
@@ -166,7 +166,7 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
     def grade_cells(candidate):
         """The cells of the table in this crop, or None when it is not one."""
         boxes = find_grade_boxes(fetch_box(gray, candidate), add_border, thick=0, n=len(numbers),
-                                 like=cells_in_frame(cells, candidate, gray.shape))
+                                 layout=layout_in_frame(layout, candidate, gray.shape))
         if len(boxes) != len(numbers):
             print(f'The number of boxes ({len(boxes)}) found is different from '
                   f'the number of grades ({len(numbers)})')

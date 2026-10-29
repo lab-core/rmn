@@ -195,14 +195,16 @@ class Database:
             regular_template_matricule_box,
         )
 
-    def get_template_grade_cells(self, template_id):
-        """The grade boxes found on a template, ``[x, y, w, h]`` in page
+    def get_template_grade_layout(self, template_id):
+        """The grade boxes and the rectangles of the grade frame found on a
+        template, ``{"boxes": [[x, y, w, h]...], "rects": [...]}`` in page
         fractions; None for a template processed before they were kept, or
-        whose grade box held none."""
+        whose grade box held no box."""
         template = self.mongo_database["template"].find_one(
-            {"template_id": template_id}, {"grade_cells": 1}
+            {"template_id": template_id}, {"grade_layout": 1}
         )
-        return (template or {}).get("grade_cells") or None
+        layout = (template or {}).get("grade_layout")
+        return layout if layout and layout.get("boxes") else None
 
     # ---------------------------------------------------------- auto grades --
     # The rules live in rmn_common.auto_grade because the server starts a pass

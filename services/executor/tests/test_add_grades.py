@@ -72,7 +72,7 @@ def test_the_graded_page_is_written_beside_the_scan_not_over_it(
     # rerun read back what the previous run had written
     job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a",))
     monkeypatch.setattr(module, "add_grades",
-                        lambda grades, pdf, box, out_path, add_border, shape, cells=None:
+                        lambda grades, pdf, box, out_path, add_border, shape, layout=None:
                         _page_written(out_path))
     original = _scan(storage_root, "a").read_bytes()
 
@@ -94,7 +94,7 @@ def test_a_page_a_previous_run_overwrote_is_read_from_its_backup(
     _scan(storage_root, "a").write_bytes(b"%PDF already graded")
     read_from = []
 
-    def fake_add_grades(grades, pdf_path, box, out_path, add_border, shape, cells=None):
+    def fake_add_grades(grades, pdf_path, box, out_path, add_border, shape, layout=None):
         read_from.append(pdf_path)
         return _page_written(out_path)
 
@@ -110,7 +110,7 @@ def test_a_failed_overlay_leaves_the_copy_to_its_scanned_page(
         mongo_db, storage_root, pdf_factory, monkeypatch, tmp_path):
     job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a", "b"))
 
-    def fake_add_grades(grades, pdf_path, box, out_path, add_border, shape, cells=None):
+    def fake_add_grades(grades, pdf_path, box, out_path, add_border, shape, layout=None):
         if pdf_path.endswith("a_cover.pdf"):
             return _page_written(out_path)
         raise RuntimeError("box not found")
@@ -132,7 +132,7 @@ def test_a_graded_page_of_an_earlier_run_does_not_outlive_its_grades(
     stale.parent.mkdir(parents=True, exist_ok=True)
     stale.write_bytes(b"%PDF the grades of the previous run")
 
-    def no_overlay(grades, pdf_path, box, out_path, add_border, shape, cells=None):
+    def no_overlay(grades, pdf_path, box, out_path, add_border, shape, layout=None):
         raise RuntimeError("box not found")
 
     monkeypatch.setattr(module, "add_grades", no_overlay)
@@ -151,7 +151,7 @@ def test_the_copies_are_written_in_batches_the_memory_guard_closes(
     monkeypatch.setenv("MAX_RAM_GB", "4")
     monkeypatch.setattr(module, "memory_used_gb", lambda: 4.2)  # over the guard, always
     monkeypatch.setattr(module, "add_grades",
-                        lambda grades, pdf, box, out_path, add_border, shape, cells=None:
+                        lambda grades, pdf, box, out_path, add_border, shape, layout=None:
                         _page_written(out_path))
     starts = []
 
@@ -174,7 +174,7 @@ def test_a_batch_that_is_killed_skips_its_copy_and_the_others_are_written(
     job = _job_with_copies(mongo_db, storage_root, pdf_factory, ("a", "b", "c"))
     monkeypatch.setattr(module, "memory_used_gb", lambda: 0.1)
 
-    def fake_add_grades(grades, pdf_path, box, out_path, add_border, shape, cells=None):
+    def fake_add_grades(grades, pdf_path, box, out_path, add_border, shape, layout=None):
         if pdf_path.endswith("b_cover.pdf"):
             raise Killed("the kernel took the batch down on this page")
         return _page_written(out_path)
@@ -196,7 +196,7 @@ def test_batches_stop_being_restarted_once_too_many_die(
                            tuple(f"c{i}" for i in range(module.MAX_WORKER_DEATHS + 2)))
     monkeypatch.setattr(module, "memory_used_gb", lambda: 0.1)
 
-    def always_killed(grades, pdf_path, box, out_path, add_border, shape, cells=None):
+    def always_killed(grades, pdf_path, box, out_path, add_border, shape, layout=None):
         raise Killed("every page kills its batch")
 
     monkeypatch.setattr(module, "add_grades", always_killed)

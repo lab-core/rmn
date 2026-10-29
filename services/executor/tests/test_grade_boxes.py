@@ -10,8 +10,8 @@ import cv2
 import numpy as np
 import pytest
 
-from process_copy.contours import find_grade_boxes
-from process_copy.imaging import cells_in_frame, frame_to_cells
+from process_copy.contours import find_grade_boxes, frame_rectangles
+from process_copy.imaging import cells_in_frame, frame_to_cells, layout_in_frame
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -125,28 +125,46 @@ def test_the_boxes_the_frame_cuts_are_left_out_with_a_border():
     assert_boxes(find_grade_boxes(frame, add_border=True, thick=0), inside)
 
 
-def test_on_a_copy_the_boxes_of_the_template_tell_the_grades_from_their_neighbours():
+def template_layout(template):
+    """The layout a template keeps: its grade boxes and every rectangle."""
+    boxes = [cv2.boundingRect(c) for c in find_grade_boxes(template, thick=1)]
+    return {"boxes": boxes, "rects": frame_rectangles(template)}
+
+
+def moved(img, dx, dy):
+    """The page as a scan moves it: by (dx, dy), what leaves the frame lost."""
+    out = np.full_like(img, 255)
+    h, w = img.shape
+    out[max(dy, 0):h + min(dy, 0), max(dx, 0):w + min(dx, 0)] = \
+        img[max(-dy, 0):h - max(dy, 0), max(-dx, 0):w - max(dx, 0)]
+    return out
+
+
+# measured on 101 scanned copies of one template: 45 to 60 px left, up to
+# 160 px up (more than a row of the table), and a whole column for good measure
+@pytest.mark.parametrize("dx, dy", [(15, 12), (-50, -160), (210, 0), (-210, 120)])
+def test_on_a_copy_the_layout_of_the_template_tells_the_grades_from_their_neighbours(dx, dy):
     """Maximums as wide as the grades, all filled: the rules cannot tell the
-    columns apart, the boxes of the template can."""
+    columns apart, the layout of the template can, however far the scan moved."""
     template, cells = column_table(maximums_width=210)
-    on_template = find_grade_boxes(template, thick=1)
-    assert_boxes(on_template, cells)
-    like = [cv2.boundingRect(c) for c in on_template]
+    assert_boxes(find_grade_boxes(template, thick=1), cells)
+    layout = template_layout(template)
     copy, _ = column_table(["5", "8", "11", "6.5", "0", "30.5"], maximums_width=210)
-    # a scan a few pixels off the template
-    shifted = np.full_like(copy, 255)
-    shifted[12:, 15:] = copy[:-12, :-15]
+    copy = np.pad(copy, 250, constant_values=255)  # room for the scan to move in
+    cells = [(x + 250 + dx, y + 250 + dy, w, h) for x, y, w, h in cells]
+    layout = {key: [(x + 250, y + 250, w, h) for x, y, w, h in rects]
+              for key, rects in layout.items()}
 
-    found = find_grade_boxes(shifted, thick=0, like=like)
+    found = find_grade_boxes(moved(copy, dx, dy), thick=0, layout=layout)
 
-    assert_boxes(found, [(x + 15, y + 12, w, h) for x, y, w, h in cells])
+    assert_boxes(found, cells)
 
 
-def test_template_boxes_far_from_any_run_leave_the_choice_to_the_rules():
+def test_a_layout_far_from_any_run_leaves_the_choice_to_the_rules():
     copy, cells = column_table(["5", "8", "11", "6.5", "0", "30.5"])
     far = [(x + 600, y + 600, w, h) for x, y, w, h in cells]
 
-    assert_boxes(find_grade_boxes(copy, thick=0, like=far), cells)
+    assert_boxes(find_grade_boxes(copy, thick=0, layout={"boxes": far, "rects": far}), cells)
 
 
 def test_the_cells_of_a_template_land_on_the_same_place_of_any_frame():
@@ -164,6 +182,9 @@ def test_the_cells_of_a_template_land_on_the_same_place_of_any_frame():
         (x + dx, y + dy, w, h) for x, y, w, h in rects
     ]
     assert cells_in_frame(None, box, page.shape) is None
+    layout = {"boxes": cells, "rects": cells}
+    assert layout_in_frame(layout, box, page.shape) == {"boxes": rects, "rects": rects}
+    assert layout_in_frame({"boxes": [], "rects": cells}, box, page.shape) is None
 
 
 def test_a_frame_without_any_box_gives_none():
