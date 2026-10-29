@@ -280,7 +280,7 @@ export const HELP: Record<string, HelpEntry> = {
 
   // templates
   'template.zones': {
-    text: 'Identification : un rectangle autour des 7 cases du matricule. Questions : un rectangle autour de la seule colonne des cases de note, de Q1 jusqu\'au total, sans les libellés ni les maximums.',
+    text: 'Identification : un rectangle autour des 7 cases du matricule. Questions : un rectangle autour des cases de note, alignées en colonne ou en rangée et vides sur le template, de Q1 jusqu\'au total, au mieux sans les libellés ni les maximums.',
     chapter: '03-template', anchor: 'dessiner-les-zones',
   },
 
