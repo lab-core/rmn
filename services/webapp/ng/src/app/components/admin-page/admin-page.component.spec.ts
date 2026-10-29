@@ -7,6 +7,7 @@ import { AdminPageComponent } from './admin-page.component';
 import { AdminService, ManagedUser } from 'src/app/services/admin.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
+import { ImpersonateDialogComponent } from '../impersonate-dialog/impersonate-dialog.component';
 import { TemporaryPasswordDialogComponent } from '../temporary-password-dialog/temporary-password-dialog.component';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { MATERIAL_MODULES, MainMenuStubComponent, notificationSpy, userServiceStub } from '../../testing/helpers';
@@ -87,8 +88,15 @@ describe('AdminPageComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('.role-select').length).toBe(3);
   });
 
+  it('lets an admin pick a user to become from the toolbar', () => {
+    create('Administrateur');
+    (fixture.nativeElement.querySelector('.impersonate-user') as HTMLButtonElement).click();
+    expect(dialog.open).toHaveBeenCalledWith(ImpersonateDialogComponent, jasmine.any(Object));
+  });
+
   it('gives a Gestionnaire the reset only, without managers nor system view', () => {
     create('Gestionnaire', 'chef');
+    expect(fixture.nativeElement.querySelector('.impersonate-user')).toBeNull();
     expect(component.displayedColumns).not.toContain('managers');
     expect(fixture.nativeElement.querySelector('.views')).toBeNull();
     expect(fixture.nativeElement.querySelector('.role-select')).toBeNull();

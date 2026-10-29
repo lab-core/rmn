@@ -39,6 +39,15 @@ app-main-menu {
   align-items: center;
 }
 
+.toolbar-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.toolbar-buttons .impersonate-user {
+  background-color: white;
+}
+
 .toolbar mat-form-field {
   width: 30%;
 }

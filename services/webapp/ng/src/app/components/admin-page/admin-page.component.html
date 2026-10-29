@@ -14,9 +14,16 @@
           <mat-label>Filtrer</mat-label>
           <input matInput (keyup)="applyFilter($event)" placeholder="Nom d'utilisateur">
         </mat-form-field>
-        <button class="create-user" mat-raised-button color="accent" (click)="createUser()">
-          <mat-icon>person_add</mat-icon> Créer un compte
-        </button>
+        <div class="toolbar-buttons">
+          @if (isAdmin) {
+            <button class="impersonate-user" mat-stroked-button (click)="openImpersonateDialog()">
+              <mat-icon>switch_account</mat-icon> Prendre le rôle
+            </button>
+          }
+          <button class="create-user" mat-raised-button color="accent" (click)="createUser()">
+            <mat-icon>person_add</mat-icon> Créer un compte
+          </button>
+        </div>
       </div>
 
       <div class="table mat-elevation-z8">
