@@ -56,13 +56,6 @@ describe('UserProfileComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('chiffres');
   });
 
-  it('persists the profile flags once the server accepted them', () => {
-    create('Utilisateur');
-    component.updateSaveInMoodleStructure(false);
-    expect(user.moodleStructureInd).toBeFalse();
-    expect(localStorage.getItem('moodleStructureInd')).toBe('false');
-  });
-
   it('reroute goes back to the menu', () => {
     create('Utilisateur');
     const router = TestBed.inject(Router);

@@ -84,10 +84,9 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
         print("Merging already performed")
         corrected_copies = os.path.join(storage.abs_path('corrected_copies'), job_id)
 
-    #
-    # a deleted user keeps the defaults; a job without output cannot finalize
-    user = db.users_collection().find_one({"username": user_id}) or {}
-    moodle_ind = bool(int(user.get("moodleStructureInd", True)))
+    # the copies always go in the Moodle feedback zips too: a copy whose
+    # student has no Moodle participant id is left out of them, and a zip
+    # that would be empty is not made (mcc.zipdirbatch)
 
     #
     output = db.jobs_output_collection().find_one({"job_id": job_id})
@@ -240,42 +239,42 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
                 nom = safe_name
                 prenom = ""
 
-            # store copy for moodle zip if necessary
-            if moodle_ind:
-                # create participant moodle folder
-                # str: a column of plain participant numbers is read as
-                # integers, which re.search refuses (as in mcc.copy_files_for_moodle)
-                identifiant = str(df.at[matricule, MF.id])
-                m_id = re.search('\\d+', identifiant)
-                if not m_id:
-                    print("Moodle participant id not found in " + identifiant)
-                else:
-                    identifiant = m_id.group()
-                    folder_name = f"{safe_name}_{identifiant}_{safe_matricule}_assignsubmission_file_"
-                    m_folder = ensure_within(moodle_folder_path.joinpath(folder_name), moodle_folder_path)
-                    m_folder.mkdir(exist_ok=True)
-                    m_dest = m_folder.joinpath(f"{nom}_{prenom}_{safe_matricule}.pdf")
+            # the copy for the Moodle feedback zip, in its participant's
+            # folder; without a participant id (no column, no digits) it
+            # stays out of it. str: a column of plain participant numbers is
+            # read as integers, which re.search refuses (as in
+            # mcc.copy_files_for_moodle)
+            identifiant = str(df.at[matricule, MF.id]) if MF.id in df.columns else ""
+            m_id = re.search('\\d+', identifiant)
+            if not m_id:
+                print("Moodle participant id not found in " + identifiant)
+            else:
+                identifiant = m_id.group()
+                folder_name = f"{safe_name}_{identifiant}_{safe_matricule}_assignsubmission_file_"
+                m_folder = ensure_within(moodle_folder_path.joinpath(folder_name), moodle_folder_path)
+                m_folder.mkdir(exist_ok=True)
+                m_dest = m_folder.joinpath(f"{nom}_{prenom}_{safe_matricule}.pdf")
 
-                    # transfer file to folder
-                    shutil.copy(str(file), str(m_dest))
+                # transfer file to folder
+                shutil.copy(str(file), str(m_dest))
 
-                    # adding stats file
-                    filename = os.path.basename(file).rsplit(".", 1)[0]
-                    if statistics_for_students:
-                        try:
-                            file_index = filenames.index(filename)
-                            fpdf = create_stats_latex(nom_complet, file_index, n_questions,
-                                                      all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER,
-                                                      question_names=question_names)
-                            # print("Stats for", nom_complet, "created:", fpdf)
-                            shutil.move(fpdf, m_folder.joinpath(f"{nom}_{prenom}_{safe_matricule}_notes.pdf"))
-                        except ValueError:
-                            # file not found
-                            print(f"File {filename} does not correspond to a valid document.")
-                        except Exception as e:
-                            # the copy ships without its stats page rather
-                            # than failing the whole job
-                            print(f"Stats page for {filename} skipped: {e}")
+                # adding stats file
+                filename = os.path.basename(file).rsplit(".", 1)[0]
+                if statistics_for_students:
+                    try:
+                        file_index = filenames.index(filename)
+                        fpdf = create_stats_latex(nom_complet, file_index, n_questions,
+                                                  all_grades, question_totals, f_boxplots, TMP_DIR=TEX_FOLDER,
+                                                  question_names=question_names)
+                        # print("Stats for", nom_complet, "created:", fpdf)
+                        shutil.move(fpdf, m_folder.joinpath(f"{nom}_{prenom}_{safe_matricule}_notes.pdf"))
+                    except ValueError:
+                        # file not found
+                        print(f"File {filename} does not correspond to a valid document.")
+                    except Exception as e:
+                        # the copy ships without its stats page rather
+                        # than failing the whole job
+                        print(f"Stats page for {filename} skipped: {e}")
 
             # store copy in all copies folder
             copies_path = all_copies_folder_path
@@ -308,15 +307,14 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
 
     # create moodle zip files
     zip_id_list = [zip_file_id]
-    if moodle_ind:
-        try:
-            zip_file_ids = zipdirbatch(str(moodle_folder_path), str(moodle_folder_path), BATCH_SIZE)
-            for i, zip_file in enumerate(zip_file_ids):
-                moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_{i + 1}.zip")
-                storage.move_to(zip_file, moodle_zip_file_id)
-                zip_id_list.append(moodle_zip_file_id)
-        except Exception as e:
-            print(e)
+    try:
+        zip_file_ids = zipdirbatch(str(moodle_folder_path), str(moodle_folder_path), BATCH_SIZE)
+        for i, zip_file in enumerate(zip_file_ids):
+            moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_{i + 1}.zip")
+            storage.move_to(zip_file, moodle_zip_file_id)
+            zip_id_list.append(moodle_zip_file_id)
+    except Exception as e:
+        print(e)
 
     # adding stats for professors; as for a student's stats page, a failure
     # does not fail the job: the zips are already in storage by now, and

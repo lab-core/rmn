@@ -45,7 +45,6 @@ describe('UserService', () => {
     const service = fresh();
     expect(service.loggued()).toBeFalse();
     expect(service.shared()).toBeFalse();
-    expect(service.moodleStructureInd).toBeFalse();
     const form = new FormData();
     service.addTokens(form);
     expect(Array.from(form.keys())).toEqual([]);
@@ -53,13 +52,11 @@ describe('UserService', () => {
 
   it('restores the session from localStorage', () => {
     session();
-    localStorage.setItem('moodleStructureInd', 'undefined');
     const service = fresh();
 
     expect(service.loggued()).toBeTrue();
     expect(service.currentUsername).toBe('alice');
     expect(service.role).toBe('Utilisateur');
-    expect(service.moodleStructureInd).toBeFalse();
 
     const form = new FormData();
     service.addTokens(form);
@@ -78,7 +75,6 @@ describe('UserService', () => {
     expect((req.request.body as FormData).get('password')).toBe('pw');
     req.flush({ response: {
       username: 'alice', role: 'Administrateur', token: 'tok',
-      moodleStructureInd: false,
     } });
     await pending;
 
@@ -133,20 +129,6 @@ describe('UserService', () => {
     expect(router.serializeUrl(shared as UrlTree)).toBe('/login');
   });
 
-  it('profile flags are sent as 0/1 with the credentials', () => {
-    session();
-    const service = fresh();
-
-    service.updateMoodleStructureInd(false).subscribe();
-    const req = http.expectOne('/api/users/updateMoodleStructureInd');
-    expect(req.request.method).toBe('PUT');
-    expect((req.request.body as FormData).get('username')).toBe('alice');
-    expect((req.request.body as FormData).has('token')).toBeFalse();
-    expect((req.request.body as FormData).get('moodleStructureInd')).toBe('0');
-    req.flush({ response: 'ok' });
-    expect(service.moodleStructureInd).toBeFalse();
-  });
-
   it('signup carries the admin credentials and the new account', () => {
     session();
     const service = fresh();
@@ -169,7 +151,7 @@ describe('UserService', () => {
   };
   const borrowed = (username: string, token: string) => ({ response: {
     username, role: 'Utilisateur', token,
-    moodleStructureInd: true, impersonatedBy: 'root',
+    impersonatedBy: 'root',
   } });
 
   it('impersonate becomes the user and stopImpersonating comes back', async () => {
@@ -259,7 +241,7 @@ describe('UserService', () => {
     const pending = service.login('alice', 'temp');
     http.expectOne('/api/users/login').flush({ response: {
       username: 'alice', role: 'Utilisateur', token: 'tok',
-      moodleStructureInd: false, mustChangePassword: true,
+      mustChangePassword: true,
     } });
     await pending;
     expect(service.mustChangePassword).toBeTrue();

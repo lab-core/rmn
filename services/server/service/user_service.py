@@ -81,7 +81,6 @@ def _session(userDB, token, impersonated_by=None):
         "username": userDB['username'],
         "role": userDB['role'],
         "token": token,
-        "moodleStructureInd": userDB.get('moodleStructureInd', True),
         # an impersonated session is never forced: the admin does not choose
         # the user's password
         "mustChangePassword": impersonated_by is None and userDB.get('must_change_password', False),
@@ -470,7 +469,6 @@ class UserService:
             "username": username,
             "password": hashed_password,
             "role": role,
-            "moodleStructureInd": True,  # "moodleStructureInd" in request_form
             "managers": managers,
             # the operator route sets a password its owner chose
             "must_change_password": creator is not None,
@@ -480,26 +478,6 @@ class UserService:
         return Response(
             response=json.dumps({"response": f'Utilisateur Créé'}),
             status=200
-        )
-
-    def update_moodle_structure_ind(username, request, database):
-        """Set the moodleStructureInd flag of ``username`` (the token's owner)."""
-        request_form = request.form
-        if "moodleStructureInd" not in request_form:
-            return Response(
-                response=json.dumps({"response": f"Error: moodleStructureInd not provided."}),
-                status=400,
-            )
-        moodle_structure_ind = bool(int(request_form['moodleStructureInd']))
-
-        collection = database["users"]
-
-        user = { "$set": { 'moodleStructureInd': moodle_structure_ind } }
-
-        collection.update_one({'username': username}, user)
-
-        return Response(
-            response=json.dumps({"response": f'Utilisateur mise-à-jour'}),
         )
 
     def delete(username, database):

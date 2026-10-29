@@ -103,7 +103,6 @@ def _job(
     points: list = POINTS,
     pages: list = PAGES,
     bonus: list = BONUS,
-    moodle: bool = True,
     student_stats: bool = True,
     roster: pd.DataFrame = ROSTER,
     absent_zero: bool | None = None,
@@ -127,9 +126,7 @@ def _job(
         job["absent_zero"] = absent_zero
     mongo_db["eval_jobs"].insert_one(dict(job))
     mongo_db["template"].insert_one({"template_id": "front", "grade_box": GRADE_BOX})
-    mongo_db["users"].insert_one(
-        {"username": "teacher", "moodleStructureInd": "1" if moodle else "0"}
-    )
+    mongo_db["users"].insert_one({"username": "teacher"})
     mongo_db["jobs_output"].insert_one(
         {
             "job_id": "job",
@@ -443,15 +440,17 @@ def test_teacher_stats_have_the_averages_and_no_student_column(
     assert "{Q2.png}" not in teacher
 
 
-def test_without_moodle_structure_nor_student_stats_only_the_flat_zip_is_made(
+def test_without_participant_ids_no_moodle_zip_is_made(
     tmp_path: Path,
     storage_root: Path,
     mongo_db: Any,
     scanned_copy_factory: Callable[..., Path],
     fake_pdflatex: list[str],
 ) -> None:
-    roster = ROSTER.drop(columns=["Groupe"])
-    job = _job(mongo_db, storage_root, moodle=False, student_stats=False, roster=roster)
+    """A roster that is not Moodle's (no Identifiant column): the copies only
+    go in the flat zip, and no empty Moodle archive is offered."""
+    roster = ROSTER.drop(columns=["Groupe", MF.id])
+    job = _job(mongo_db, storage_root, student_stats=False, roster=roster)
     _split_copies(tmp_path, mongo_db, scanned_copy_factory, {"alice": COPIES["alice"]})
 
     _finalize(job, tmp_path)

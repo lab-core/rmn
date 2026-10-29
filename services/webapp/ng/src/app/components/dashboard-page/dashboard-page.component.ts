@@ -802,7 +802,7 @@ export class DashboardPageComponent {
     } else {
       this.disableButtons = true;
       this.tasksService.setvalidatingTaskId(this.task.job_id);
-      const response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
+      const response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId());
       if (response === 'OK') {
         // this.router.navigate(['/tasks-history']);
         const message = 'La tâche est en cours de finalisation!';

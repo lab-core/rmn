@@ -537,8 +537,7 @@ export class MatriculeVerificationComponent implements OnInit {
   async finalizeJob(): Promise<void> {
     this.disabledValidationcontainer = true;
     this.pdfLoadStarts();
-    const response = await this.validationService.validateJob(
-      this.tasksService.getvalidatingTaskId(), this.userService.moodleStructureInd);
+    const response = await this.validationService.validateJob(this.tasksService.getvalidatingTaskId());
     if (response === 'OK') {
       this.router.navigate(['/tasks-history']);
       this.notificationService.showInfo('La tâche est en cours de finalisation!', 'Alerte!');

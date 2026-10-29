@@ -259,7 +259,7 @@ describe('DashboardPageComponent', () => {
     spyOn(PDFSource, 'clearAll');
     component.getTotalQuestion().validatedCount = 2;
     await component.validateJob();
-    expect(validation.validateJob).toHaveBeenCalledWith('job', false);
+    expect(validation.validateJob).toHaveBeenCalledWith('job');
     expect(component.disableButtons).toBeTrue();
     expect(notification.showInfo).toHaveBeenCalledWith(jasmine.stringContaining('finalisation'), 'Alerte!');
     expect(PDFSource.clearAll).toHaveBeenCalledWith('job', 4);

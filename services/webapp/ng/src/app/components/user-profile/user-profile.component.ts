@@ -4,7 +4,6 @@ import { Router } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
 import { ChangePasswordDialogComponent } from '../change-password-dialog/change-password-dialog.component';
 import { CreateUserDialogComponent } from '../create-user-dialog/create-user-dialog.component';
-import { first } from 'rxjs/operators';
 import { UserRole } from '../../generated/rmn-contracts';
 
 @Component({
@@ -46,17 +45,6 @@ export class UserProfileComponent implements OnInit {
       width: '80%',
       maxWidth: '500px',
     })
-  }
-
-  updateSaveInMoodleStructure(moodleStructureInd: boolean): void {
-    this.userService.updateMoodleStructureInd(moodleStructureInd).pipe(first()).subscribe(
-      (data) => {
-        this.userService.moodleStructureInd = moodleStructureInd;
-        localStorage.setItem('moodleStructureInd', JSON.stringify(moodleStructureInd))
-
-
-      }
-    );
   }
 
   reroute() {

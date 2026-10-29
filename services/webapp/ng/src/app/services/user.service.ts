@@ -7,7 +7,6 @@ import { SERVER_URL } from '../utils';
 import { db } from './offline-db';
 import { UserRole } from '../generated/rmn-contracts';
 
-
 @Injectable({
   providedIn: 'root'
 })
@@ -18,7 +17,6 @@ export class UserService {
   private shareToken: string;
   private questionIndex: string;
   role: string;
-  moodleStructureInd: boolean = false;
   warningShown: boolean = true;
   /** The admin who opened this session in the user's place, if any. */
   impersonatedBy: string;
@@ -38,8 +36,6 @@ export class UserService {
     this.impersonatedBy = localStorage.getItem('impersonated_by') ?? undefined
     this.mustChangePassword = localStorage.getItem('must_change_password') == 'true'
 
-    const moodleInd = localStorage.getItem('moodleStructureInd')
-    this.moodleStructureInd = (moodleInd && moodleInd != "undefined") ? JSON.parse(localStorage.getItem('moodleStructureInd')) : false
   }
 
   private setShareToken(queryParams): void {
@@ -108,7 +104,6 @@ export class UserService {
     localStorage.setItem('user_id', response['username'])
     localStorage.setItem('role', response['role'])
     localStorage.setItem('token', response['token'])
-    localStorage.setItem('moodleStructureInd', JSON.stringify(response['moodleStructureInd']))
     this.setMustChangePassword(!!response['mustChangePassword']);
     if (response['impersonatedBy']) {
       localStorage.setItem('impersonated_by', response['impersonatedBy'])
@@ -119,7 +114,6 @@ export class UserService {
     this.currentUsername = response['username']
     this.role = response['role']
     this.token = response['token']
-    this.moodleStructureInd = response['moodleStructureInd'];
     this.impersonatedBy = response['impersonatedBy'] ?? undefined;
   }
 
@@ -160,7 +154,6 @@ export class UserService {
       username: this.currentUsername,
       role: this.role,
       token: this.token,
-      moodleStructureInd: this.moodleStructureInd,
     };
   }
 
@@ -242,20 +235,9 @@ export class UserService {
     formdata.append('username', username);
     formdata.append('password', password);
     formdata.append('role', role);
-    if (this.moodleStructureInd) formdata.append('moodleStructureInd', "on");
     const url = SERVER_URL + "users/signup"
 
     return this.http.post(url, formdata)
-  }
-
-  updateMoodleStructureInd(moodleStructureInd: boolean) {
-    this.moodleStructureInd = moodleStructureInd;
-    const formdata: FormData = new FormData();
-    formdata.append('username', this.currentUsername);
-    formdata.append('moodleStructureInd', (+moodleStructureInd).toString());
-    const url = SERVER_URL + 'users/updateMoodleStructureInd';
-
-    return this.http.put(url, formdata);
   }
 
   loggued(): boolean {

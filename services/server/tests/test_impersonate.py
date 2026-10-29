@@ -4,6 +4,10 @@ ADMIN = "Administrateur"
 USER = "Utilisateur"
 
 
+def db_job(app_module_fixture):
+    return app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"job_id": "job-a"})
+
+
 def _impersonate(client, admin, token, username):
     return client.post(
         "/users/impersonate",
@@ -44,12 +48,13 @@ def test_the_session_is_the_users_own(
     jobs = client.post("/jobs", data={"user_id": "alice"}, headers=headers)
     assert jobs.status_code == 200
     assert [j["job_id"] for j in jobs.get_json(force=True)["response"]] == ["job-a"]
-    resp = client.put(
-        "/users/updateMoodleStructureInd",
-        data={"username": "alice", "moodleStructureInd": "1"},
+    resp = client.post(
+        "/jobs/update/stats",
+        data={"user_id": "alice", "job_id": "job-a", "statistics_for_students": "true"},
         headers=headers,
     )
     assert resp.status_code == 200
+    assert db_job(app_module_fixture)["statistics_for_students"] is True
     # and the admin's own session still works
     assert (
         client.get(

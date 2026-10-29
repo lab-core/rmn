@@ -116,14 +116,6 @@ def impersonate(user_id):
     )
 
 
-@bp.route("/updateMoodleStructureInd", methods=["PUT"])
-@cross_origin()
-@verify_token()
-def update_moodle_structure_ind(user_id):
-    db = mongo["RMN"]
-    return UserService.update_moodle_structure_ind(user_id, request, db)
-
-
 @bp.route("/password", methods=["POST"])
 @cross_origin()
 @verify_token(allow_password_change=True)
