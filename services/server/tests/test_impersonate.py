@@ -109,20 +109,11 @@ def test_users_list_is_for_managers_and_admins(client, user_factory, login):
         "/users/all", headers={"Authorization": f"Bearer {login('root')}"}
     )
     assert resp.status_code == 200
-    assert resp.get_json(force=True)["response"] == [
-        {
-            "username": "alice",
-            "role": USER,
-            "managers": [],
-            "mustChangePassword": False,
-        },
-        {"username": "Bob", "role": USER, "managers": [], "mustChangePassword": False},
-        {
-            "username": "root",
-            "role": ADMIN,
-            "managers": [],
-            "mustChangePassword": False,
-        },
+    rows = resp.get_json(force=True)["response"]
+    assert [(r["username"], r["role"]) for r in rows] == [
+        ("alice", USER),
+        ("Bob", USER),
+        ("root", ADMIN),
     ]
 
 

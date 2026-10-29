@@ -13,12 +13,21 @@ import { TemplatesPageComponent } from './components/templates-page/templates-pa
 import { UserGuideComponent } from './components/user-guide/user-guide.component';
 import { UserProfileComponent } from './components/user-profile/user-profile.component';
 import { UserService } from './services/user.service';
+import { AdminPageComponent } from './components/admin-page/admin-page.component';
 
 const canActivateLoggued: CanActivateFn = (
   route: ActivatedRouteSnapshot,
   state: RouterStateSnapshot,
 ) => {
   return inject(UserService).canActivateLoggued(route, state);
+};
+
+// the admin page: Gestionnaires and Administrateurs
+const canActivateManager: CanActivateFn = (
+  route: ActivatedRouteSnapshot,
+  state: RouterStateSnapshot,
+) => {
+  return inject(UserService).canActivateManager(route, state);
 };
 
 const canActivateShared: CanActivateFn = (
@@ -112,6 +121,11 @@ const routes: Routes = [
         path: 'user-profile',
         component : UserProfileComponent,
         canActivate: [canActivateLoggued],
+    },
+    {
+        path: 'admin',
+        component: AdminPageComponent,
+        canActivate: [canActivateManager],
     },
     {
         path: 'user-guide',

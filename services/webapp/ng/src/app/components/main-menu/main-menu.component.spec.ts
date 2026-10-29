@@ -68,4 +68,12 @@ describe('MainMenuComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/user-profile']);
     expect(notification.showInfo).toHaveBeenCalledWith('', 'De retour en tant que root');
   });
+
+  it('offers the admin page to Gestionnaires and Administrateurs', () => {
+    expect(fixture.nativeElement.querySelector('.admin-entry')).toBeNull();
+    user.role = 'Gestionnaire';
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.admin-entry') as HTMLElement).click();
+    expect(router.navigate).toHaveBeenCalledWith(['/admin']);
+  });
 });

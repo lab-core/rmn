@@ -232,6 +232,9 @@ class UserService:
                 userDB['username'], userDB['role'], database,
                 must_change_password=userDB.get('must_change_password', False),
             )
+            collection.update_one(
+                {"_id": userDB["_id"]}, {"$set": {"last_login": dt.datetime.now(dt.UTC)}}
+            )
             return Response(
                 response=json.dumps({"response": _session(userDB, token)}),
                 status=200
@@ -306,6 +309,12 @@ class UserService:
         if not Role.at_least(UserService.role_of(manager, database), Role.ADMIN):
             query = {"managers": manager, "role": {"$ne": Role.ADMIN.value}}
         users = database["users"].find(query)
+        tasks = {
+            row["_id"]: row["n"]
+            for row in database["eval_jobs"].aggregate(
+                [{"$group": {"_id": "$user_id", "n": {"$sum": 1}}}]
+            )
+        }
         return sorted(
             (
                 {
@@ -313,11 +322,37 @@ class UserService:
                     "role": u.get("role"),
                     "managers": u.get("managers", []),
                     "mustChangePassword": u.get("must_change_password", False),
+                    "lastLogin": _utc(u["last_login"]).isoformat() if u.get("last_login") else None,
+                    "tasks": tasks.get(u["username"], 0),
                 }
                 for u in users
             ),
             key=lambda u: u["username"].lower(),
         )
+
+    def set_role(admin, username, role, database):
+        """Give ``username`` another role; their sessions close (a token keeps
+        the role it was opened with). An admin cannot change their own role,
+        so the last admin cannot lock everyone out by mistake."""
+        if username == admin:
+            return Response(
+                response=json.dumps({"response": "Error: you cannot change your own role."}),
+                status=400,
+            )
+        if not Role.available(role):
+            return Response(
+                response=json.dumps({"response": f"Error: role {role} n'existe pas."}),
+                status=400,
+            )
+        result = database["users"].update_one({"username": username or ""}, {"$set": {"role": role}})
+        if result.matched_count == 0:
+            return Response(
+                response=json.dumps({"response": f"Error: user {username} doesn't exist."}),
+                status=404,
+            )
+        UserService.delete_tokens(username, 0, database)
+        print(f"Role change: {admin} makes {username} {role}.")
+        return Response(response=json.dumps({"response": role}), status=200)
 
     def reset_password(manager, username, database):
         """Give ``username`` a temporary password, to change at the next login.
@@ -500,6 +535,8 @@ class UserService:
         UserService.delete_tokens(username, 0, database)
         collection = database["users"]
         collection.delete_many({'username': username})
+        # nobody is managed by a user who is gone
+        collection.update_many({'managers': username}, {'$pull': {'managers': username}})
         print("Delete user:", username)
 
     def users(database):

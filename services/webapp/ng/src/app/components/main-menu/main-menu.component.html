@@ -27,6 +27,12 @@
                     <mat-icon>library_books</mat-icon>
                     <span> Guide </span>
                 </div> -->
+                @if (canManage) {
+                    <div class="admin-entry" (click)="goToAdminPage()">
+                        <mat-icon>manage_accounts</mat-icon>
+                        <span> Admin </span>
+                    </div>
+                }
                 <div (click)="goToProfilePage()">
                     <mat-icon>person</mat-icon>
                     <span> Profil </span>

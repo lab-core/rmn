@@ -64,6 +64,15 @@ export class MainMenuComponent implements OnInit {
     this.router.navigate(['/presentation-page']);
   }
 
+  /** Gestionnaires and Administrateurs get the admin page. */
+  get canManage(): boolean {
+    return this.userService.canCreateUsers();
+  }
+
+  goToAdminPage(): void {
+    this.router.navigate(['/admin']);
+  }
+
   goToProfilePage(): void {
     this.router.navigate(['/user-profile']);
   }
