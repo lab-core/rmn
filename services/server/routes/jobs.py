@@ -375,6 +375,22 @@ def get_jobs(user_id):
     # Get all jobs from DB
     jobs = [j for j in collection.find({"user_id": user_id})]
 
+    # the copies whose graded cover page the grader should look at: written
+    # where the template has its boxes, with a box put back, with boxes found
+    # without the template's layout, or not written (the executor's
+    # annotate.add_grades records how, as cover_check)
+    cover_checks = {}
+    for doc in db["job_documents"].find(
+        {"job_id": {"$in": [j["job_id"] for j in jobs]}, "cover_check": {"$exists": True}},
+        {"job_id": 1, "document_index": 1, "filename": 1, "matricule": 1, "cover_check": 1},
+    ):
+        cover_checks.setdefault(doc["job_id"], []).append({
+            "document_index": doc["document_index"],
+            "filename": doc.get("filename"),
+            "matricule": doc.get("matricule"),
+            "check": doc["cover_check"],
+        })
+
     #
     resp = [
         {
@@ -390,6 +406,9 @@ def get_jobs(user_id):
             # so the task list can say a reading is under way
             "auto_grade_running": auto_grade.is_running(
                 db["job_questions"], job["job_id"]
+            ),
+            "cover_checks": sorted(
+                cover_checks.get(job["job_id"], []), key=lambda c: c["document_index"]
             ),
         }
         for job in jobs

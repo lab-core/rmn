@@ -5,7 +5,7 @@ import numpy as np
 import pymupdf
 from colorama import Fore, Style
 from process_copy.config import len_mat
-from process_copy.imaging import fetch_box, imwrite_png
+from process_copy.imaging import cells_in_frame, fetch_box, imwrite_png
 from process_copy.pages import gray_images
 from rmn_common.grades import format_points as format_grade_text
 from process_copy.contours import (
@@ -135,6 +135,15 @@ def box_candidates(box, attempts=BOX_ATTEMPTS):
         yield (box[0] + dx0, box[1] + dx1, box[2] + dy0, box[3] + dy1)
 
 
+# How the grades of a copy were placed (see add_grades); stored with the copy
+# as its cover_check, for the task list to show the grader, unless WRITTEN.
+WRITTEN = "written"
+BOX_FROM_TEMPLATE = "box_from_template"
+TEMPLATE_POSITION = "template_position"
+RULES = "rules"
+NOT_WRITTEN = "not_written"
+
+
 def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
                trim: bool = None, add_border: bool = False, shape: tuple = (8.5, 11),
                grade_ratio: float = 0.5, layout: dict = None):
@@ -159,8 +168,14 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
             Without it, the crops of ``box_candidates`` are tried.
 
     Returns:
-        bool: True when the page was written, False when no crop gave one
-              cell per grade -- the caller then keeps the page as it is.
+        str: How the grades were placed, None when they were not written
+             (the caller then keeps the page as it is):
+             ``WRITTEN`` in the boxes found, ``BOX_FROM_TEMPLATE`` when a
+             box the copy hides was put back where the template has it,
+             ``TEMPLATE_POSITION`` where the template has its boxes, none
+             being found on the copy, ``RULES`` in boxes found without the
+             layout of the template (a neighbouring column is possible).
+             All but ``WRITTEN`` are for the grader to look at.
     """
     grays = gray_images(pdf_path, [0], straighten=False, shape=shape)
     if not grays:
@@ -180,17 +195,26 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
     if layout:
         # no crop to try and no rule to fall back on: a column next to the
         # grades has its boxes too, and the grades written there are wrong
-        # with nothing to tell (the copy is left for a human instead)
-        _, boxes, origin, back = find_layout_boxes(gray, layout)
-        if len(boxes) != len(numbers):
-            print(Fore.RED + f"{pdf_path}: {len(boxes)} grade boxes where the template has "
-                  f"them, for {len(numbers)} grades: no overlay written" + Style.RESET_ALL)
-            return False
-        if back is not None:
-            boxes = [np.round(cv2.transform(b.astype(np.float32), back)).astype(np.int32)
-                     for b in boxes]
-        write(boxes, origin)
-        return True
+        # with nothing to tell
+        _, boxes, origin, back, put_back = find_layout_boxes(gray, layout)
+        if len(boxes) == len(numbers):
+            if back is not None:
+                boxes = [np.round(cv2.transform(b.astype(np.float32), back)).astype(np.int32)
+                         for b in boxes]
+            write(boxes, origin)
+            return BOX_FROM_TEMPLATE if put_back else WRITTEN
+        # not found on the copy: where the template has its boxes, the copy
+        # flagged for the grader to look at
+        cells = cells_in_frame(layout["boxes"], (0, 1, 0, 1), gray.shape)
+        if len(cells) != len(numbers):
+            print(Fore.RED + f"{pdf_path}: the template has {len(cells)} grade boxes for "
+                  f"{len(numbers)} grades: no overlay written" + Style.RESET_ALL)
+            return None
+        print(Fore.YELLOW + f"{pdf_path}: grade boxes not found, the grades are written "
+              "where the template has them" + Style.RESET_ALL)
+        write([np.array([[x, y], [x + w - 1, y + h - 1]], np.int32) for x, y, w, h in cells],
+              (0, 0))
+        return TEMPLATE_POSITION
 
     def grade_cells(candidate):
         """The cells of the table in this crop, or None when it is not one."""
@@ -216,13 +240,13 @@ def add_grades(numbers: list, pdf_path: str, box: tuple, out_path: str,
         # every copy that needed a wider crop used to have its grades written
         # the difference away from its boxes
         write(boxes, (int(candidate[0] * width), int(candidate[2] * height)))
-        return True
+        return RULES
 
     # nothing written when the boxes were not found: the caller keeps the
     # scanned cover page and flags the copy (a page without grades used to be
     # written silently)
     print(Fore.RED + "%s: grade boxes not found, no overlay written" % pdf_path + Style.RESET_ALL)
-    return False
+    return None
 
 
 def write_box_contours(img, box, color=(0, 0, 255), thick=5, biggest_child=False, matricule=True,

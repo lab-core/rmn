@@ -24,6 +24,7 @@ from process_copy.contours import template_grade_layout
 from process_copy.database import Database
 from process_copy.imaging import memory_used_gb
 from process_copy.pages import template_image
+from process_copy.annotate import NOT_WRITTEN, WRITTEN
 from process_copy.recognize import add_grades
 from rmn_common.questions import ignored_positions
 from rmn_common.status import Document_Status
@@ -170,15 +171,15 @@ def write_cover_page(doc, grades, box_grades, shape, layout=None):
             they were kept.
 
     Returns:
-        bool: True when the graded page was written, False when the table was
-              not found -- the scan is then the only page there is, and the
-              merge falls back to it.
+        str: How the grades were placed (see annotate.add_grades), None when
+             they were not written -- the scan is then the only page there
+             is, and the merge falls back to it.
     """
     source = scan_path(doc["rel_filepath"])
     target = graded_path(doc["rel_filepath"])
     os.makedirs(os.path.dirname(target), exist_ok=True)
 
-    written = False
+    written = None
     try:
         written = add_grades(grades, source, box_grades, target, add_border=False, shape=shape,
                              layout=layout)
@@ -206,9 +207,10 @@ def write_batch(documents, start, n_docs, settings, events):
         n_docs (int): Number of copies of the job, for the progress lines.
         settings (dict): box_grades, shape, n_questions, ignored and
             max_RAM_GB.
-        events (queue): ("done"|"kept"|"failed", position) per copy -- written,
-            left as it was, or no overlay -- then ("next", position) when the
-            batch stops.
+        events (queue): ("done", position, placed) per copy written, with how
+            its grades were placed (see annotate.add_grades), ("kept"|"failed",
+            position) per copy left as it was or without overlay, then
+            ("next", position) when the batch stops.
     """
     position = start - 1
     for position, doc in enumerate(documents, start=start):
@@ -239,7 +241,7 @@ def write_batch(documents, start, n_docs, settings, events):
         else:
             print(f"({position + 1}/{n_docs}) Grades NOT written for "
                   f"{doc['rel_filepath']}: the scanned cover page is used as it is")
-        events.put(("done" if written else "failed", position))
+        events.put(("done", position, written) if written else ("failed", position))
 
         used = memory_used_gb()
         if used >= settings["max_RAM_GB"]:
@@ -305,8 +307,9 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
     return failed
 
 
-def _record_cover(db, job_id, doc, signature):
-    """Record what the graded page of a copy was drawn from, or that it has none.
+def _record_cover(db, job_id, doc, signature, placed=WRITTEN):
+    """Record what the graded page of a copy was drawn from, or that it has
+    none, and whether the grader should look at it.
 
     Args:
         db (Database): The database.
@@ -314,9 +317,17 @@ def _record_cover(db, job_id, doc, signature):
         doc (dict): The copy.
         signature (dict): See cover_signature; None when the copy has no
             graded page any more.
+        placed (str): How its grades were placed (see annotate.add_grades),
+            NOT_WRITTEN without a graded page. Anything but WRITTEN is kept
+            as the copy's cover_check, which the task list shows.
     """
     change = ({"$set": {"graded_cover": signature}} if signature
               else {"$unset": {"graded_cover": ""}})
+    # a fake overlay in the tests says True: written, nothing to look at
+    if isinstance(placed, str) and placed != WRITTEN:
+        change.setdefault("$set", {})["cover_check"] = placed
+    else:
+        change.setdefault("$unset", {})["cover_check"] = ""
     db.documents_collection().update_one(
         {"job_id": job_id, "document_index": doc["document_index"]}, change)
 
@@ -342,7 +353,7 @@ def _write_all(db, job_id, documents, settings, failed, batches):
 
         resume = None
         last_done = position - 1
-        for kind, value in received:
+        for kind, value, *placed in received:
             if kind == "next":
                 resume = value
                 continue
@@ -353,11 +364,12 @@ def _write_all(db, job_id, documents, settings, failed, batches):
                 # leaves it alone
                 texts = grades_to_write(doc["grades"], settings["n_questions"], settings["ignored"])
                 _record_cover(db, job_id, doc, cover_signature(
-                    texts, settings["box_grades"], settings.get("grade_layout")))
+                    texts, settings["box_grades"], settings.get("grade_layout")),
+                    placed[0] if placed else WRITTEN)
             elif kind == "failed":
                 failed.append(doc["document_index"])
                 # there is no graded page any more: the next run must try again
-                _record_cover(db, job_id, doc, None)
+                _record_cover(db, job_id, doc, None, NOT_WRITTEN)
 
         if resume is None:
             # killed (the container ran out of memory, a page the imaging
@@ -371,6 +383,6 @@ def _write_all(db, job_id, documents, settings, failed, batches):
                 raise RuntimeError(f"{deaths} batches died while writing the cover pages of {job_id}")
             if dead_at < n_docs:
                 failed.append(documents[dead_at]["document_index"])
-                _record_cover(db, job_id, documents[dead_at], None)
+                _record_cover(db, job_id, documents[dead_at], None, NOT_WRITTEN)
             resume = dead_at + 1
         position = resume

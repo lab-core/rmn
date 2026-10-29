@@ -272,7 +272,7 @@ def page_with(table, dx=0, dy=0, degrees=0.0):
 
 def layout_boxes_on_page(page, layout):
     """The boxes ``find_layout_boxes`` gives, as contours of the page."""
-    _, boxes, (ox, oy), back = find_layout_boxes(page, layout)
+    _, boxes, (ox, oy), back, _ = find_layout_boxes(page, layout)
     if back is not None:
         boxes = [cv2.transform(b.astype(np.float32), back) for b in boxes]
     return [b + np.array([ox, oy]) for b in boxes]

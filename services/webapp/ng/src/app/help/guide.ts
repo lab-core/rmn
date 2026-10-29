@@ -140,6 +140,11 @@ export const HELP: Record<string, HelpEntry> = {
   },
 
   // task list
+  'tasks.cover_checks': {
+    text: 'Les copies dont les notes ont peut-être été mal placées sur la page de garde, et pourquoi. Seule la page est en cause : notes.csv et Moodle reçoivent les notes validées.',
+    chapter: '09-finalisation', anchor: 'les-pages-de-garde-à-vérifier',
+  },
+
   'tasks.status': {
     text: 'En préparation → Prêt à la correction → En attente d\'être finalisé → Finalisation en cours → Archivée. « Rectifier les pdf » : des copies n\'ont pas le bon nombre de pages, cliquez sur la tâche.',
     chapter: '06-suivi', anchor: 'les-statuts',

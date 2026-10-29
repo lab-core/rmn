@@ -670,10 +670,11 @@ def find_layout_boxes(gray, layout, tol=12):
         tol: How far, in pixels, a box may be from where the shift puts it.
 
     Returns:
-        ``(frame, boxes, origin, back)``: the straightened band, the boxes
-        as contours of it (``[]`` when not found), where the band starts on
-        the page, and the matrix that takes points of ``frame`` back to the
-        band as scanned (None when it was not turned).
+        ``(frame, boxes, origin, back, put_back)``: the straightened band, the
+        boxes as contours of it (``[]`` when not found), where the band starts
+        on the page, the matrix that takes points of ``frame`` back to the
+        band as scanned (None when it was not turned), and how many of the
+        boxes were put back where the template has them.
     """
     band = layout["band"]
     height, width = gray.shape[:2]
@@ -684,9 +685,9 @@ def find_layout_boxes(gray, layout, tol=12):
     boxes = cells_in_frame(layout["boxes"], band, gray.shape)
     shift = _shift(template, rects, boxes, tol) if rects and boxes else None
     if shift is None:
-        return frame, [], origin, back
+        return frame, [], origin, back, 0
     scale, offset = _fit(template, rects, shift, tol)
-    found = []
+    found, put_back = [], 0
     for x, y, w, h in boxes:
         cx, cy = np.array([x + w / 2, y + h / 2]) * scale + offset
         w, h = int(round(w * scale[0])), int(round(h * scale[1]))
@@ -697,9 +698,10 @@ def find_layout_boxes(gray, layout, tol=12):
             found.append(min(near, key=lambda r: abs(r[0] - like[0]) + abs(r[1] - like[1])))
         elif edge_coverage(ink, like, band=6) >= 0.6:
             found.append(like)
+            put_back += 1
         else:
-            return frame, [], origin, back
-    return frame, _boxes(found, frame, 0), origin, back
+            return frame, [], origin, back, 0
+    return frame, _boxes(found, frame, 0), origin, back, put_back
 
 
 

@@ -73,6 +73,14 @@
                 Lecture des notes en cours
               </div>
             }
+            @if (row.cover_checks?.length) {
+              <button mat-stroked-button class="cover-checks-button" (click)="openCoverChecksDialog(row)"
+                      title="Les copies dont les notes ont peut-être été mal placées sur la page de garde">
+                <mat-icon>warning</mat-icon>
+                {{ row.cover_checks.length }} page{{ row.cover_checks.length > 1 ? 's' : '' }} de garde à vérifier
+              </button>
+              <app-help-tip key="tasks.cover_checks"></app-help-tip>
+            }
           </td>
         </ng-container>
 
