@@ -21,6 +21,19 @@ Un étudiant du formulaire d'évaluation sans copie notée (absent, ou copie sup
 
 > Une tâche archivée ne se modifie plus. **Restaurer** la rouvre, par exemple pour corriger une note, puis il faut finaliser à nouveau.
 
+## Les pages de garde à vérifier
+
+rmn écrit les notes dans les cases reconnues sur le template ([étape 3](03-template.md#vérifier-la-reconnaissance)), là où elles se trouvent sur chaque copie, même décalée, réduite ou tournée au scan. Quand il n'en est pas sûr, la tâche archivée l'indique dans la colonne **Informations** de la [liste des tâches](06-suivi.md#la-liste-des-tâches) : **N pages de garde à vérifier**. Un clic donne la liste de ces copies, avec la raison :
+
+| Raison | Ce qui a été fait |
+|--------|-------------------|
+| cases introuvables sur la copie | les notes sont écrites à l'emplacement des cases du template |
+| une case aux bords recouverts | la case, cachée par exemple par une note qui déborde, a été replacée d'après le template |
+| cases trouvées sans le gabarit du template | le template a été enregistré avant que rmn retienne la position de ses cases, et son fichier n'a pas pu être relu : la colonne des notes peut être la mauvaise |
+| cases introuvables | la page de garde est rendue sans les notes |
+
+Ouvrez ces copies dans `copies.zip` pour voir où sont les notes. Seule la page de garde est en cause : `notes.csv` et les notes importées dans Moodle viennent des notes validées, pas de la page.
+
 ## Télécharger les fichiers
 
 Sur la tâche archivée : **Télécharger copies**.

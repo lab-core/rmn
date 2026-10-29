@@ -24,6 +24,10 @@ const JOBS = [
   {
     job_id: 'j2', job_name: 'Validate me', job_status: 'VALIDATION', queued_time: '2026-09-02 10:00:00',
     front_template_name: 'Front', regular_template_name: 'Regular', job_infos: '',
+    cover_checks: [
+      { document_index: 0, filename: 'a.pdf', matricule: '2000001', check: 'template_position' },
+      { document_index: 4, filename: 'e.pdf', matricule: '2000005', check: 'not_written' },
+    ],
   },
 ];
 
@@ -139,6 +143,25 @@ describe('TasksHistoryComponent', () => {
     component.openErrorInfoDialog({ job_name: 'Failed', job_infos: 'Échec de la finalisation : pdflatex failed' });
     expect(dialog.open).toHaveBeenCalledWith(ErrorInfoDialogComponent, jasmine.objectContaining({
       data: { taskName: 'Failed', infos: 'Échec de la finalisation : pdflatex failed' },
+    }));
+  });
+
+  it('lists the cover pages to look at, with why, for the tasks that have some', () => {
+    const buttons = fixture.nativeElement.querySelectorAll('.cover-checks-button');
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent).toContain('2 pages de garde à vérifier');
+
+    spyOn(dialog, 'open');
+    buttons[0].click();
+    expect(dialog.open).toHaveBeenCalledWith(ErrorInfoDialogComponent, jasmine.objectContaining({
+      data: {
+        title: 'Pages de garde à vérifier',
+        taskName: 'Validate me',
+        infos: [
+          "Copie 1 — a.pdf (matricule 2000001) : cases introuvables sur la copie : notes écrites à l'emplacement des cases du template",
+          'Copie 5 — e.pdf (matricule 2000005) : cases introuvables : la page de garde est rendue sans les notes',
+        ],
+      },
     }));
   });
 

@@ -3,8 +3,8 @@
 import json
 import cv2
 import numpy as np
-from pdf2image import convert_from_path
-from PIL import Image
+from python.process_copy.contours import template_grade_layout
+from python.process_copy.pages import template_image
 from python.process_copy.recognize import write_box_contours
 from runtime import timestamped_print
 
@@ -23,15 +23,12 @@ def process_template(db, storage, sio, temp_id, WORK_TMP_DIR):
 
     template_file = str(WORK_TMP_DIR.joinpath(template["template_file_id"]))
     storage.copy_from(template["template_file_id"], template_file)
-    if template_file.endswith(".pdf"):
-        img = convert_from_path(template_file, dpi=300)[0]
-    else:
-        img = Image.open(template_file)
+    img = template_image(template_file)
 
-    def draw_boxes_on_template(box, np_img, mat):
+    def draw_boxes_on_template(box, np_img, mat, cnts=None):
         box = tuple([round(x, 2) for x in box])
         np_img2 = np.copy(np_img)
-        b, r = write_box_contours(np_img2, box, matricule=mat)
+        b, r = write_box_contours(np_img2, box, matricule=mat, cnts=cnts)
         if not r and mat:
             np_img2 = np.copy(np_img)
             write_box_contours(np_img2, box, matricule=mat, biggest_child=True)
@@ -39,15 +36,23 @@ def process_template(db, storage, sio, temp_id, WORK_TMP_DIR):
 
     # fetch the user-defined boxes
     np_img = np.array(img)
+    # the boxes are found on the page as uploaded: a frame drawn first in red
+    # (the matricule's, overlapping the grade box) used to cut the grade boxes
+    gray = np.array(img.convert("L"))
     matricule_box = template.get("matricule_box", None)
     if matricule_box:
         np_img, _ = draw_boxes_on_template(matricule_box, np_img, True)
 
-    # number of grade boxes found
+    # the grade boxes found and every rectangle around them, kept for the
+    # copies to find theirs where they are (see contours.find_layout_boxes)
     n_questions = 0
+    grade_layout = None
     grade_box = template.get("grade_box", None)
     if grade_box:
-        np_img, n_questions = draw_boxes_on_template(grade_box, np_img, False)
+        box = tuple(round(x, 2) for x in grade_box)
+        grade_layout, cnts = template_grade_layout(gray, box)
+        np_img, _ = draw_boxes_on_template(box, np_img, False, cnts)
+        n_questions = len(cnts)
 
     tmp_img = str(WORK_TMP_DIR.joinpath("rendered.png"))
     cv2.imwrite(tmp_img, np_img)
@@ -70,7 +75,8 @@ def process_template(db, storage, sio, temp_id, WORK_TMP_DIR):
             {"template_id": temp_id},
             {"$set": {
                 "template_rendered_file_id": rendered_path,
-                "n_questions": n_questions - 1
+                "n_questions": n_questions - 1,
+                "grade_layout": grade_layout,
             }
         })
     except Exception as e:

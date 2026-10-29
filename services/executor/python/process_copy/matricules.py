@@ -34,6 +34,7 @@ from process_copy.contours import (
     find_matricule_box_contours,
     find_matricule_digit_boxes,
     get_clean_thresh,
+    straighten_frame,
 )
 from process_copy.digits import (
     extract_all_digits, extract_digit, most_probable_digits)
@@ -105,8 +106,12 @@ def find_matricule(
 
     The later pages are only read when the cover page is not enough: a
     student of the class list read with at least ``cover_confidence``. Each
-    page costs ~2 s (rendered at 300 dpi, straightened), and a booklet with
-    the boxes on every page was read for ~30 s.
+    page costs ~2 s (rendered at 300 dpi), and a booklet with the boxes on
+    every page was read for ~30 s.
+
+    The pages are read as scanned: each frame is straightened on its own boxes
+    (see ``straighten_frame``), the way the grade table is. The whole page
+    used to be straightened on its longest line first, 1.3 s a page.
     """
     roster = [str(m) for g in grades_dfs for m in g.index]
     possible_digits = [{} for i in range(len_mat)]
@@ -189,6 +194,10 @@ def find_matricule(
         with digit_bank.reading():
             return _find_digits(gray_box, cnt, split)
 
+    def frame(gray, box):
+        """The frame ``box`` of a page, straightened."""
+        return straighten_frame(fetch_box(gray, box))[0]
+
     def find_boxed_digits(gray, box):
         """Read the row of digit boxes in the frame ``box`` of a page.
 
@@ -200,7 +209,7 @@ def find_matricule(
         """
         if not separate_box:
             return False
-        cropped = fetch_box(gray, box)
+        cropped = frame(gray, box)
         cnts = find_matricule_digit_boxes(cropped, len_mat)
         if not cnts:
             return False
@@ -252,12 +261,13 @@ def find_matricule(
         return index is not None
 
     # find the id box
-    cropped = fetch_box(grays[0], front_box)
+    cropped = frame(grays[0], front_box)
     if find_boxed_digits(grays[0], front_box):
         cnts, _, pos = biggest_contour(cropped)
         biggest_c = cnts[pos] if pos is not None else None
     else:
-        biggest_c, ret = find_matricule_box_contours(grays[0], front_box, find_digits, True)
+        biggest_c, ret = find_matricule_box_contours(
+            grays[0], front_box, find_digits, True, straighten=True)
 
     def cover_is_enough():
         if not roster:
@@ -273,7 +283,7 @@ def find_matricule(
         for i in range(1, len(grays)):
             gray = grays[i]
             if not find_boxed_digits(gray, regular_box):
-                find_matricule_box_contours(gray, regular_box, find_digits)
+                find_matricule_box_contours(gray, regular_box, find_digits, straighten=True)
             if stop_processing():
                 break
 
@@ -327,7 +337,7 @@ def find_file_matricule(job_id, doc_index, file, db, classifier, shape, grades_d
     if not m:
         # Find matricule in pdf file
         print("Matricule wasn't found in " + doc['filename'])
-        grays = GrayPages(file, shape=shape)
+        grays = GrayPages(file, straighten=False, shape=shape)
         if box_matricule is None:
             raise Exception
         m, id_box, id_csv, confidence = find_matricule(
@@ -540,7 +550,7 @@ def find_all_matricules(paths, box, grades_csv=[], dpi=300, shape=(8.5, 11)):
                     continue
                 file = os.path.join(root, f)
                 if os.path.isfile(file):
-                    grays = gray_images(file, shape=shape)
+                    grays = gray_images(file, straighten=False, shape=shape)
                     if grays is None:
                         print(Fore.RED + "%s: No valid pdf" % f + Style.RESET_ALL)
                         continue

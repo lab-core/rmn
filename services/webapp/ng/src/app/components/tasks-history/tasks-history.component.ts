@@ -23,6 +23,15 @@ import { firstValueFrom } from 'rxjs';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 
 
+// why the grades of a copy may not be where they should on its cover page
+// (cover_check, recorded by the executor when it writes them at finalisation)
+export const COVER_CHECK_REASONS: {[check: string]: string} = {
+  template_position: "cases introuvables sur la copie : notes écrites à l'emplacement des cases du template",
+  box_from_template: "une case aux bords recouverts a été replacée d'après le template",
+  rules: 'cases trouvées sans le gabarit du template : la colonne des notes peut être la mauvaise',
+  not_written: 'cases introuvables : la page de garde est rendue sans les notes',
+};
+
 // the opening of the progress message a grade reading emits; matching it is
 // what tells a reading apart from any other progress the executor reports
 const READING_INFOS = 'Lecture des notes';
@@ -235,6 +244,21 @@ export class TasksHistoryComponent implements OnInit {
         const cleanedInfos = task.job_infos.slice(1, -1).replace(/['",]/g, '');
         task.job_infos = cleanedInfos.split(/(?<=[.?!])\s+/).map(info => info.trim());
     }
+  }
+
+  /** Lists the copies whose graded cover page the grader should look at. */
+  openCoverChecksDialog(task): void {
+    this.dialog.open(ErrorInfoDialogComponent, {
+      width: '80%',
+      maxWidth: '700px',
+      data: {
+        title: 'Pages de garde à vérifier',
+        taskName: task.job_name,
+        infos: task.cover_checks.map(c =>
+          `Copie ${c.document_index + 1} — ${c.filename} (matricule ${c.matricule}) : `
+          + (COVER_CHECK_REASONS[c.check] ?? c.check)),
+      },
+    });
   }
 
   openErrorInfoDialog(task): void {

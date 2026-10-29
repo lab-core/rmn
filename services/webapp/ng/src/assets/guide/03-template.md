@@ -24,9 +24,18 @@ Menu **Template** → **Créer un nouveau template**. Glissez-déposez le PDF de
 1. Donnez un **nom** au template.
 2. Choisissez l'outil **Rectangles**.
 3. Cliquez sur **Identification**, puis tracez un rectangle qui englobe exactement la rangée des 7 cases du matricule, avec une petite marge, sans le mot « Matricule » ni les champs voisins.
-4. Pour une page de garde, cliquez sur **Questions**, puis tracez un rectangle autour de la **colonne des cases où s'écrivent les notes**, de la première question jusqu'à la case du total comprise. Laissez dehors les libellés (Q1, Q2…) et les maximums (/9, /8…) : seules les cases de note doivent être dans le rectangle.
+4. Pour une page de garde, cliquez sur **Questions**, puis tracez un rectangle autour des **cases où s'écrivent les notes**, de la première question jusqu'à la case du total comprise. Le mieux est de n'englober que ces cases, sans les libellés (Q1, Q2…) ni les maximums (/9, /8…).
 5. **Selection** déplace ou redimensionne un rectangle ; **Supression** l'efface.
 6. **Confirmer** enregistre le template et lance la reconnaissance des cases (voir ci-dessous).
+
+### Les cases de notes
+
+rmn cherche dans le rectangle Questions des **cases alignées** : une colonne (une case par question, de haut en bas) ou une rangée (de gauche à droite), le total en dernier. La case du total peut être plus grande que les autres.
+
+- Sur le template, ces cases sont **vides** : si le rectangle déborde sur les libellés ou les maximums, rmn retient les cases alignées restées vides et laisse les autres de côté.
+- Sur une copie, les cases portent les notes : rmn retient les cases alignées **à la place de celles reconnues sur le template**. C'est pourquoi il faut vérifier les encadrés rouges du template (voir ci-dessous) : ce sont eux que rmn cherchera sur chaque copie.
+
+Ne laissez aucune note écrite sur la page qui sert de template.
 
 ## Vérifier la reconnaissance
 

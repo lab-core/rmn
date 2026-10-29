@@ -90,6 +90,40 @@ def fetch_box(img, box):
 
 
 
+def cells_in_frame(cells, box, shape):
+    """The cells of a template, in page fractions, as rectangles of the frame
+    ``fetch_box`` cuts with ``box`` from a page of ``shape`` (height, width).
+
+    Args:
+        cells: ``(x, y, w, h)`` in fractions of the page width and height.
+        box: The frame, (x1, x2, y1, y2) in fractions of the page.
+        shape: The shape of the page image.
+
+    Returns:
+        list: ``(x, y, w, h)`` in pixels of the frame, None without cells.
+    """
+    if not cells:
+        return None
+    height, width = shape[:2]
+    x0, y0 = int(box[0] * width), int(box[2] * height)
+    return [
+        (round(x * width) - x0, round(y * height) - y0, round(w * width), round(h * height))
+        for x, y, w, h in cells
+    ]
+
+
+def frame_to_cells(rects, box, shape):
+    """The inverse of ``cells_in_frame``: rectangles of the frame in page fractions."""
+    height, width = shape[:2]
+    x0, y0 = int(box[0] * width), int(box[2] * height)
+    return [
+        [round((x + x0) / width, 5), round((y + y0) / height, 5),
+         round(w / width, 5), round(h / height, 5)]
+        for x, y, w, h in rects
+    ]
+
+
+
 
 def get_image_from_contour(img, cnt, border=0):
     (x, y, w, h) = cv2.boundingRect(cnt)
