@@ -1,4 +1,4 @@
-# 12. Gérer les comptes
+# 11. Gérer les comptes
 
 Ce chapitre s'adresse aux gestionnaires. Leur page **Admin**, dans le menu, liste les comptes qu'ils gèrent.
 

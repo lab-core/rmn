@@ -90,26 +90,26 @@ describe('UserGuideComponent', () => {
   it('keeps the account chapters for those who manage accounts', async () => {
     const titles = () => Array.from(fixture.nativeElement.querySelectorAll('.guide-toc a'))
       .map((a: HTMLElement) => a.textContent.trim());
-    expect(titles()).not.toContain('12. Gérer les comptes');
-    expect(titles()).not.toContain('13. Administrer rmn');
+    expect(titles()).not.toContain('11. Gérer les comptes');
+    expect(titles()).not.toContain('12. Administrer rmn');
     http.match(() => true).forEach((request) => request.flush('# x'));
 
     TestBed.resetTestingModule();
     role = 'Gestionnaire';
     create();
-    expect(titles()).toContain('12. Gérer les comptes');
-    expect(titles()).not.toContain('13. Administrer rmn');
+    expect(titles()).toContain('11. Gérer les comptes');
+    expect(titles()).not.toContain('12. Administrer rmn');
     http.match(() => true).forEach((request) => request.flush('# x'));
 
     TestBed.resetTestingModule();
     role = 'Administrateur';
     create();
-    expect(titles()).toContain('13. Administrer rmn');
+    expect(titles()).toContain('12. Administrer rmn');
     await new Promise((resolve) => setTimeout(resolve));
     http.match(() => true).forEach((request) => request.flush('# x'));
   });
 
-  it('shows the admin the whole guide while they act as a user', async () => {
+  it('lists the guide of the user an admin acts as, and still opens the admin chapter', async () => {
     http.match(() => true).forEach((request) => request.flush('# x'));
     TestBed.resetTestingModule();
     role = 'Utilisateur';
@@ -117,13 +117,19 @@ describe('UserGuideComponent', () => {
     create();
     const titles = Array.from(fixture.nativeElement.querySelectorAll('.guide-toc a'))
       .map((a: HTMLElement) => a.textContent.trim());
-    expect(titles).toContain('13. Administrer rmn');
+    expect(titles).not.toContain('11. Gérer les comptes');
+    expect(titles).not.toContain('12. Administrer rmn');
     await new Promise((resolve) => setTimeout(resolve));
     http.match(() => true).forEach((request) => request.flush('# x'));
+
+    // the help of « Revenir à … » leads there
+    params.next(convertToParamMap({chapter: '12-administration'}));
+    await answer('12-administration', '# 12. Administrer rmn');
+    expect(fixture.componentInstance.current.file).toBe('12-administration');
   });
 
   it('opens the overview for a chapter the role does not see', async () => {
-    params.next(convertToParamMap({chapter: '13-administration'}));
+    params.next(convertToParamMap({chapter: '12-administration'}));
     await new Promise((resolve) => setTimeout(resolve));
     http.match('assets/guide/05-nouvelle-tache.md').forEach((request) => request.flush('# x'));
     await answer('README', '# Vue d\'ensemble');

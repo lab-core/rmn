@@ -61,9 +61,13 @@ function safeDecode(text: string): string {
 export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('content', {static: true}) content: ElementRef<HTMLElement>;
 
-  // the chapters of the reader's role (see visibleChapters); a hidden one
-  // opens the overview, like an unknown one
+  // the table of contents: the chapters of the session's role (see
+  // visibleChapters), so an admin acting as a user sees that user's guide
   chapters: GuideChapter[];
+  // the chapters that open; a hidden one opens the overview, like an unknown
+  // one. An admin acting as a user still reaches theirs: the help of
+  // « Revenir à … » leads to one
+  private reachable: GuideChapter[];
   current: GuideChapter = GUIDE_CHAPTERS[0];
   html = '';
   error = '';
@@ -73,8 +77,8 @@ export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   constructor(private http: HttpClient, private route: ActivatedRoute, private router: Router,
               userService: UserService) {
-    // a borrowed session is read by the admin who took it, not by its user
-    this.chapters = visibleChapters(userService.impersonatedBy ? UserRole.ADMIN : userService.role);
+    this.chapters = visibleChapters(userService.role);
+    this.reachable = userService.impersonatedBy ? visibleChapters(UserRole.ADMIN) : this.chapters;
   }
 
   ngOnInit(): void {
@@ -87,7 +91,7 @@ export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   async show(file: string | null, fragment: string | null): Promise<void> {
-    const chapter = this.chapters.find((c) => c.file === file) || this.chapters[0];
+    const chapter = this.reachable.find((c) => c.file === file) || this.chapters[0];
     if (chapter !== this.current || !this.html) {
       this.current = chapter;
       try {

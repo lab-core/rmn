@@ -1,6 +1,6 @@
-# 13. Administrer rmn
+# 12. Administrer rmn
 
-Ce chapitre s'adresse aux administrateurs. Il complète le chapitre [12. Gérer les comptes](12-comptes.md) : un administrateur peut tout ce que peut un gestionnaire, sur tous les comptes, et en plus ce qui suit. Seul un administrateur peut créer un autre administrateur.
+Ce chapitre s'adresse aux administrateurs. Il complète le chapitre [11. Gérer les comptes](11-comptes.md) : un administrateur peut tout ce que peut un gestionnaire, sur tous les comptes, et en plus ce qui suit. Seul un administrateur peut créer un autre administrateur.
 
 ## Choisir les gestionnaires d'un compte
 

@@ -24,7 +24,7 @@ Ce guide suit une évaluation du début à la fin. Il couvre deux cas :
 | 9 | rmn | [Finaliser et télécharger](09-finalisation.md) | le csv des notes et les zip des copies corrigées |
 | 10 | Moodle | [Rendre les notes](10-retour-moodle.md) | les étudiants voient leur note et leur copie corrigée |
 
-Les [questions fréquentes](11-faq.md) regroupent les problèmes courants.
+Les [questions fréquentes](faq.md) regroupent les problèmes courants.
 
 ## Aide dans l'application
 

@@ -59,17 +59,26 @@ describe('visibleChapters', () => {
   const files = (role?: string) => visibleChapters(role).map((c) => c.file);
 
   it('keeps the account chapters out of an Utilisateur\'s guide', () => {
-    expect(files('Utilisateur')).not.toContain('12-comptes');
-    expect(files(undefined)).not.toContain('12-comptes');
-    expect(files('Utilisateur')).toContain('11-faq');
+    expect(files('Utilisateur')).not.toContain('11-comptes');
+    expect(files(undefined)).not.toContain('11-comptes');
+    expect(files('Utilisateur')).toContain('faq');
   });
 
   it('gives a Gestionnaire the accounts, not the administration', () => {
-    expect(files('Gestionnaire')).toContain('12-comptes');
-    expect(files('Gestionnaire')).not.toContain('13-administration');
+    expect(files('Gestionnaire')).toContain('11-comptes');
+    expect(files('Gestionnaire')).not.toContain('12-administration');
   });
 
   it('gives an Administrateur every chapter', () => {
     expect(files('Administrateur')).toEqual(GUIDE_CHAPTERS.map((c) => c.file));
+  });
+});
+
+describe('the table of contents', () => {
+  it('ends with the questions, whatever the role sees', () => {
+    for (const role of ['Utilisateur', 'Gestionnaire', 'Administrateur']) {
+      const files = visibleChapters(role).map((c) => c.file);
+      expect(files[files.length - 1]).withContext(role).toBe('faq');
+    }
   });
 });

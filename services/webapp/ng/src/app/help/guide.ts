@@ -31,9 +31,10 @@ export const GUIDE_CHAPTERS: GuideChapter[] = [
   {file: '08-correction', title: '8. Corriger les copies'},
   {file: '09-finalisation', title: '9. Finaliser et télécharger'},
   {file: '10-retour-moodle', title: '10. Rendre les notes sur Moodle'},
-  {file: '11-faq', title: 'Questions fréquentes'},
-  {file: '12-comptes', title: '12. Gérer les comptes', minRole: UserRole.MANAGER},
-  {file: '13-administration', title: '13. Administrer rmn', minRole: UserRole.ADMIN},
+  {file: '11-comptes', title: '11. Gérer les comptes', minRole: UserRole.MANAGER},
+  {file: '12-administration', title: '12. Administrer rmn', minRole: UserRole.ADMIN},
+  // always last, whatever chapters the role sees
+  {file: 'faq', title: 'Questions fréquentes'},
 ];
 
 const ROLE_ORDER: string[] = [UserRole.USER, UserRole.MANAGER, UserRole.ADMIN];
@@ -123,15 +124,15 @@ export const HELP: Record<string, HelpEntry> = {
   },
   'menu.admin': {
     text: 'Les comptes que vous gérez : en créer, réinitialiser un mot de passe.',
-    chapter: '12-comptes',
+    chapter: '11-comptes',
   },
   'menu.profile': {
     text: 'Votre compte : changer votre mot de passe, la sauvegarde des chiffres lus pour améliorer la lecture.',
-    chapter: '11-faq', anchor: 'changer-mon-mot-de-passe',
+    chapter: 'faq', anchor: 'changer-mon-mot-de-passe',
   },
   'menu.stop-impersonating': {
     text: 'Vous agissez à la place d\'un utilisateur : quitte son compte et revient au vôtre.',
-    chapter: '13-administration', anchor: 'prendre-le-rôle-dun-utilisateur',
+    chapter: '12-administration', anchor: 'prendre-le-rôle-dun-utilisateur',
   },
   'menu.logout': {
     text: 'Ferme votre session sur ce navigateur. Les copies gardées pour la correction hors ligne y sont effacées.',
@@ -216,55 +217,55 @@ export const HELP: Record<string, HelpEntry> = {
   // administration (admin page, profile)
   'admin.roles': {
     text: 'Utilisateur : ses propres tâches. Gestionnaire : crée des comptes et réinitialise ceux qu\'il gère. Administrateur : tous les comptes.',
-    chapter: '12-comptes', anchor: 'les-rôles',
+    chapter: '11-comptes', anchor: 'les-rôles',
   },
   'admin.managers': {
     text: 'Les gestionnaires qui voient ce compte et peuvent réinitialiser son mot de passe. Celui qui crée un compte en devient le gestionnaire.',
-    chapter: '13-administration', anchor: 'choisir-les-gestionnaires-dun-compte',
+    chapter: '12-administration', anchor: 'choisir-les-gestionnaires-dun-compte',
   },
   'admin.create': {
     text: 'Nouveau compte, avec un mot de passe à transmettre : la personne devra le changer à sa première connexion.',
-    chapter: '12-comptes', anchor: 'créer-un-compte',
+    chapter: '11-comptes', anchor: 'créer-un-compte',
   },
   'admin.temporary': {
     text: 'Ce compte doit choisir un nouveau mot de passe à sa prochaine connexion.',
-    chapter: '12-comptes', anchor: 'premier-mot-de-passe',
+    chapter: '11-comptes', anchor: 'premier-mot-de-passe',
   },
   'admin.impersonate': {
     text: 'Ouvre rmn en tant que cet utilisateur, avec tous ses droits. « Revenir à … » dans le menu ramène à votre compte.',
-    chapter: '13-administration', anchor: 'prendre-le-rôle-dun-utilisateur',
+    chapter: '12-administration', anchor: 'prendre-le-rôle-dun-utilisateur',
   },
   'admin.reset': {
     text: 'Génère un mot de passe temporaire, affiché une seule fois, et ferme les sessions de l\'utilisateur.',
-    chapter: '12-comptes', anchor: 'réinitialiser-un-mot-de-passe',
+    chapter: '11-comptes', anchor: 'réinitialiser-un-mot-de-passe',
   },
   'admin.sessions': {
     text: 'Déconnecte l\'utilisateur de tous ses appareils.',
-    chapter: '13-administration', anchor: 'changer-le-rôle-fermer-les-sessions-supprimer',
+    chapter: '12-administration', anchor: 'changer-le-rôle-fermer-les-sessions-supprimer',
   },
   'admin.delete': {
     text: 'Supprime définitivement le compte, ses tâches et ses templates.',
-    chapter: '13-administration', anchor: 'changer-le-rôle-fermer-les-sessions-supprimer',
+    chapter: '12-administration', anchor: 'changer-le-rôle-fermer-les-sessions-supprimer',
   },
   'admin.storage': {
     text: 'Analyser compte les fichiers que plus aucune tâche ni aucun template ne possède ; Nettoyer les supprime. Rien de modifié depuis moins de 24 h n\'est touché.',
-    chapter: '13-administration', anchor: 'stockage',
+    chapter: '12-administration', anchor: 'stockage',
   },
   'admin.old-jobs': {
     text: 'Supprime définitivement les tâches de tous les utilisateurs ajoutées depuis au moins ce nombre de jours, avec leurs copies.',
-    chapter: '13-administration', anchor: 'anciennes-tâches-et-sessions',
+    chapter: '12-administration', anchor: 'anciennes-tâches-et-sessions',
   },
   'admin.old-sessions': {
     text: 'Déconnecte les sessions ouvertes depuis au moins ce nombre de jours.',
-    chapter: '13-administration', anchor: 'anciennes-tâches-et-sessions',
+    chapter: '12-administration', anchor: 'anciennes-tâches-et-sessions',
   },
   'profile.impersonate': {
     text: 'Choisissez un compte et continuez en tant que cet utilisateur, avec tous ses droits. « Revenir à … » dans le menu ramène à votre compte.',
-    chapter: '13-administration', anchor: 'prendre-le-rôle-dun-utilisateur',
+    chapter: '12-administration', anchor: 'prendre-le-rôle-dun-utilisateur',
   },
   'password.temporary': {
     text: 'Votre mot de passe a été créé ou réinitialisé par un gestionnaire : choisissez-en un nouveau, différent du temporaire.',
-    chapter: '11-faq', anchor: 'on-me-demande-un-nouveau-mot-de-passe-à-la-connexion',
+    chapter: 'faq', anchor: 'on-me-demande-un-nouveau-mot-de-passe-à-la-connexion',
   },
 
   // matricules
