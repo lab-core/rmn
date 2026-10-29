@@ -169,3 +169,7 @@ app-main-menu {
   font-size: 14px;
   color: #b00020;
 }
+
+.impersonate-button {
+  margin-top: 15px;
+}
