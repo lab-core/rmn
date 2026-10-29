@@ -492,7 +492,15 @@ def test_a_template_grade_box_is_counted_in_questions(
     templates.process_template(Database(), Storage(), MagicMock(), "front", tmp_path)
 
     # six boxes: five questions and the total
-    assert mongo_db["template"].find_one({"template_id": "front"})["n_questions"] == 5
+    record = mongo_db["template"].find_one({"template_id": "front"})
+    assert record["n_questions"] == 5
+    # kept, in page fractions, for the copies to find theirs where they are
+    cells = record["grade_cells"]
+    assert len(cells) == 6
+    x1, x2, y1, y2 = grade_box
+    for x, y, w, h in cells:
+        assert x1 <= x and x + w <= x2 and y1 <= y and y + h <= y2
+    assert [y for _, y, _, _ in cells] == sorted(y for _, y, _, _ in cells)
 
 
 def test_an_unknown_template_is_refused(tmp_path: Path, mongo_db: Any) -> None:

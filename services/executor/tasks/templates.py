@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from pdf2image import convert_from_path
 from PIL import Image
+from python.process_copy.imaging import frame_to_cells
 from python.process_copy.recognize import write_box_contours
 from runtime import timestamped_print
 
@@ -43,11 +44,17 @@ def process_template(db, storage, sio, temp_id, WORK_TMP_DIR):
     if matricule_box:
         np_img, _ = draw_boxes_on_template(matricule_box, np_img, True)
 
-    # number of grade boxes found
+    # the grade boxes found, kept for the copies to find theirs where they are
     n_questions = 0
+    grade_cells = None
     grade_box = template.get("grade_box", None)
     if grade_box:
-        np_img, n_questions = draw_boxes_on_template(grade_box, np_img, False)
+        page_shape = np_img.shape
+        np_img, cnts = draw_boxes_on_template(grade_box, np_img, False)
+        n_questions = len(cnts)
+        # the frame as the copies cut it (apply_template_boxes rounds it too)
+        frame = tuple(round(x, 2) for x in grade_box)
+        grade_cells = frame_to_cells([cv2.boundingRect(c) for c in cnts], frame, page_shape)
 
     tmp_img = str(WORK_TMP_DIR.joinpath("rendered.png"))
     cv2.imwrite(tmp_img, np_img)
@@ -70,7 +77,8 @@ def process_template(db, storage, sio, temp_id, WORK_TMP_DIR):
             {"template_id": temp_id},
             {"$set": {
                 "template_rendered_file_id": rendered_path,
-                "n_questions": n_questions - 1
+                "n_questions": n_questions - 1,
+                "grade_cells": grade_cells,
             }
         })
     except Exception as e:

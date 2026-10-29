@@ -328,7 +328,7 @@ def _fill_run(run, horizontal, thick):
 
 
 
-def find_grade_boxes(cropped, add_border=False, thick=5, n=None):
+def find_grade_boxes(cropped, add_border=False, thick=5, n=None, like=None):
     """The grade boxes of the frame, as contours sorted along their alignment.
 
     The grade boxes are aligned, in a column or in a row, and empty on the
@@ -338,12 +338,19 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None):
     the most area wins (the most boxes, the biggest ones). A run of ``n``
     boxes, when the number of boxes is known, comes before all others.
 
+    A copy has the boxes of its template, found on the template where they
+    were empty (``like``): the run of as many boxes nearest to them wins, so
+    a column of labels as big as the grades is never taken for them. The
+    rules above only decide when no run is near (a copy scanned far off).
+
     Args:
         cropped: The gray frame the grade box of the template gives.
         add_border: Close the boxes the frame cuts with a border drawn around
             it; the boxes on that border are then dropped from the run.
         thick: The thickness of the lines drawn around the boxes found.
         n: The number of boxes expected, None when unknown.
+        like: The boxes found on the template, ``(x, y, w, h)`` in this
+            frame (see ``imaging.cells_in_frame``), None when unknown.
 
     Returns:
         The contours of the boxes, ``[]`` when the frame holds none.
@@ -371,6 +378,13 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None):
     def area(run):
         return sum(r[2] * r[3] for r in run)
 
+    if like:
+        best = min((run for run in runs if len(run) == len(like)),
+                   key=lambda run: _distance(run, like), default=None)
+        # half a box away at most: the next column of the table is a box away
+        if best and _distance(best, like) <= 0.5 * median(min(r[2:]) for r in like):
+            return _boxes(best, cropped, thick)
+
     def narrow(runs, keep):
         """The runs that pass ``keep``, or all of them when none does."""
         return [run for run in runs if keep(run)] or runs
@@ -383,7 +397,24 @@ def find_grade_boxes(cropped, add_border=False, thick=5, n=None):
     runs = narrow(runs, lambda run: all(ink_share(ink, r) < 0.01 for r in run))
     if not runs:
         return []
-    boxes = [_rect_contour(r) for r in max(runs, key=area)]
+    return _boxes(max(runs, key=area), cropped, thick)
+
+
+
+
+def _distance(run, like):
+    """Mean distance between the centres of the boxes of two runs, in order."""
+    return sum(
+        np.hypot(a[0] + a[2] / 2 - b[0] - b[2] / 2, a[1] + a[3] / 2 - b[1] - b[3] / 2)
+        for a, b in zip(run, like)
+    ) / len(like)
+
+
+
+
+def _boxes(run, cropped, thick):
+    """The run as the contours the callers read."""
+    boxes = [_rect_contour(r) for r in run]
     imwrite_contours("cropped_boxes2", cropped, boxes, thick=2 * (thick + 1))
     return boxes
 

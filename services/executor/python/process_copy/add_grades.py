@@ -114,7 +114,7 @@ def graded_path(rel_filepath):
     return os.path.join(os.path.dirname(path), GRADED_COVER_DIR, os.path.basename(path))
 
 
-def write_cover_page(doc, grades, box_grades, shape):
+def write_cover_page(doc, grades, box_grades, shape, cells=None):
     """
     Write the grades of one copy on a copy of its cover page.
 
@@ -123,6 +123,8 @@ def write_cover_page(doc, grades, box_grades, shape):
         grades (list): One text per grade box (see grades_to_write).
         box_grades (tuple): The grade table of the template, in page fractions.
         shape (tuple): The size the raster of the page should have, in pixels.
+        cells (list): The grade boxes found on the template, in page
+            fractions; None for a template processed before they were kept.
 
     Returns:
         bool: True when the graded page was written, False when the table was
@@ -135,7 +137,8 @@ def write_cover_page(doc, grades, box_grades, shape):
 
     written = False
     try:
-        written = add_grades(grades, source, box_grades, target, add_border=False, shape=shape)
+        written = add_grades(grades, source, box_grades, target, add_border=False, shape=shape,
+                             cells=cells)
     except Exception as e:
         print(f"Error while adding grades to {source}: {e}")
     if not written and os.path.exists(target):
@@ -184,7 +187,8 @@ def write_batch(documents, start, n_docs, settings, events):
             events.put(("kept", position))
             continue
 
-        written = write_cover_page(doc, grades, settings["box_grades"], settings["shape"])
+        written = write_cover_page(doc, grades, settings["box_grades"], settings["shape"],
+                                   settings.get("grade_cells"))
         if written:
             print(f"({position + 1}/{n_docs}) Graded cover page saved as "
                   f"{graded_path(doc['rel_filepath'])}")
@@ -227,6 +231,7 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
     box_grades_list, _, _ = db.get_templates_info(front_template_id, regular_template_id)
     if box_grades_list is not None:
         box_grades = box_grades_list
+    grade_cells = db.get_template_grade_cells(front_template_id)
     n_pages_per_question = job.get("n_pages_per_question")
     if n_pages_per_question is None:
         n_pages_per_question = db.eval_jobs_collection().find_one({"job_id": job_id})["n_pages_per_question"]
@@ -238,6 +243,7 @@ def process_writing(job, TMP_DIR, dpi=300, shape=(8.5, 11), batches=None):
 
     settings = {
         "box_grades": box_grades,
+        "grade_cells": grade_cells,
         "shape": shape,
         "n_questions": len(n_pages_per_question),
         "ignored": ignored_positions(n_pages_per_question),

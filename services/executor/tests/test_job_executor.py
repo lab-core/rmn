@@ -177,14 +177,17 @@ def test_a_pod_that_did_not_get_the_lock_leaves_it_alone(mongo_db):
 def test_template_boxes_fall_back_to_the_defaults():
     from process_copy.config import DEFAULT_GRADE_BOX, DEFAULT_MATRICULE_BOX
 
-    runtime.apply_template_boxes([0.1, 0.9, 0.6, 0.9], [0.2, 0.8, 0.1, 0.3], None)
+    runtime.apply_template_boxes([0.1, 0.9, 0.6, 0.9], [0.2, 0.8, 0.1, 0.3], None,
+                                 [[0.2, 0.7, 0.1, 0.05]])
     assert runtime.grade_box["exam"]["grade"] == (0.1, 0.9, 0.6, 0.9)
+    assert runtime.grade_box["exam"]["cells"] == [[0.2, 0.7, 0.1, 0.05]]
     assert runtime.matricule_box["exam"]["front"] == (0.2, 0.8, 0.1, 0.3)
     assert runtime.matricule_box["exam"]["regular"] == DEFAULT_MATRICULE_BOX["exam"]["regular"]
 
     # the next job has no boxes: it must not inherit the previous job's
     runtime.apply_template_boxes(None, None, None)
     assert runtime.grade_box["exam"]["grade"] == DEFAULT_GRADE_BOX["exam"]["grade"]
+    assert runtime.grade_box["exam"]["cells"] is None
     assert runtime.matricule_box["exam"]["front"] == DEFAULT_MATRICULE_BOX["exam"]["front"]
 
 

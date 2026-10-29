@@ -195,6 +195,15 @@ class Database:
             regular_template_matricule_box,
         )
 
+    def get_template_grade_cells(self, template_id):
+        """The grade boxes found on a template, ``[x, y, w, h]`` in page
+        fractions; None for a template processed before they were kept, or
+        whose grade box held none."""
+        template = self.mongo_database["template"].find_one(
+            {"template_id": template_id}, {"grade_cells": 1}
+        )
+        return (template or {}).get("grade_cells") or None
+
     # ---------------------------------------------------------- auto grades --
     # The rules live in rmn_common.auto_grade because the server starts a pass
     # and the executor runs it: written twice, the two would drift.

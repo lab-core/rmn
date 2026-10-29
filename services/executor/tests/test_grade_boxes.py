@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 from process_copy.contours import find_grade_boxes
+from process_copy.imaging import cells_in_frame, frame_to_cells
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -23,13 +24,14 @@ def assert_boxes(cnts, rects, tol=6):
         assert max(abs(a - b) for a, b in zip(f, r)) <= tol, (found, rects)
 
 
-def column_table(grades=None):
+def column_table(grades=None, maximums_width=140):
     """The Réservé table of a cover page: label, grade and maximum columns,
     five questions and a taller total. Returns the frame and the grade cells
     (inside the lines)."""
     img = np.full((1100, 700), 255, np.uint8)
     tops = [50, 170, 290, 410, 530, 650, 830]
-    xs = [40, 220, 430, 570]  # the maximums narrower than the grades, as printed
+    # the maximums narrower than the grades, as printed
+    xs = [40, 220, 430, 430 + maximums_width]
     for x in xs:
         cv2.line(img, (x, tops[0]), (x, tops[-1]), 0, 4)
     for y in tops:
@@ -121,6 +123,47 @@ def test_the_boxes_the_frame_cuts_are_left_out_with_a_border():
     inside = [(x - 120, y, w, h) for x, y, w, h in cells]
 
     assert_boxes(find_grade_boxes(frame, add_border=True, thick=0), inside)
+
+
+def test_on_a_copy_the_boxes_of_the_template_tell_the_grades_from_their_neighbours():
+    """Maximums as wide as the grades, all filled: the rules cannot tell the
+    columns apart, the boxes of the template can."""
+    template, cells = column_table(maximums_width=210)
+    on_template = find_grade_boxes(template, thick=1)
+    assert_boxes(on_template, cells)
+    like = [cv2.boundingRect(c) for c in on_template]
+    copy, _ = column_table(["5", "8", "11", "6.5", "0", "30.5"], maximums_width=210)
+    # a scan a few pixels off the template
+    shifted = np.full_like(copy, 255)
+    shifted[12:, 15:] = copy[:-12, :-15]
+
+    found = find_grade_boxes(shifted, thick=0, like=like)
+
+    assert_boxes(found, [(x + 15, y + 12, w, h) for x, y, w, h in cells])
+
+
+def test_template_boxes_far_from_any_run_leave_the_choice_to_the_rules():
+    copy, cells = column_table(["5", "8", "11", "6.5", "0", "30.5"])
+    far = [(x + 600, y + 600, w, h) for x, y, w, h in cells]
+
+    assert_boxes(find_grade_boxes(copy, thick=0, like=far), cells)
+
+
+def test_the_cells_of_a_template_land_on_the_same_place_of_any_frame():
+    page = np.full((3300, 2550), 255, np.uint8)
+    box = (0.82, 0.96, 0.15, 0.55)
+    rects = [(30, 40, 200, 110), (30, 160, 200, 110)]
+    cells = frame_to_cells(rects, box, page.shape)
+    assert cells_in_frame(cells, box, page.shape) == rects
+
+    # the overlay tries wider frames: the cells move with their origin
+    wider = (0.81, 0.97, 0.14, 0.56)
+    dx = int(box[0] * 2550) - int(wider[0] * 2550)
+    dy = int(box[2] * 3300) - int(wider[2] * 3300)
+    assert cells_in_frame(cells, wider, page.shape) == [
+        (x + dx, y + dy, w, h) for x, y, w, h in rects
+    ]
+    assert cells_in_frame(None, box, page.shape) is None
 
 
 def test_a_frame_without_any_box_gives_none():
