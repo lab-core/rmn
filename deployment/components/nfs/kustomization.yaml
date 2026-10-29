@@ -38,7 +38,7 @@ configMapGenerator:
       #       kubectl get svc nfs -o jsonpath='{.spec.clusterIP}'
       - nfs-ip=10.105.99.184
 
-# swap the storage hostPath of server and executor for the NFS mount; the test
+# swap the storage hostPath of server, executor and trainer for the NFS mount; the test
 # op fails the build if volume 0 is no longer the storage volume
 patches:
   - target:
@@ -59,7 +59,8 @@ patches:
             readOnly: false
   - target:
       kind: ScaledJob
-      name: job-executor
+      # the trainer reads the digit bank and writes its models there too
+      name: ^(job-executor|trainer)$
     patch: |-
       - op: test
         path: /spec/jobTargetRef/template/spec/volumes/0/name

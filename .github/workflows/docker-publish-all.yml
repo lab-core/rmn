@@ -49,6 +49,18 @@ jobs:
       rebuild_all: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_all }}
     secrets: inherit
 
+  push_trainer_to_dockerhub:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'build-images'
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      image: rmni/trainer
+      context: ./services
+      dockerfile: executor/Dockerfile.trainer
+      watch: services/executor services/common
+      push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.push) }}
+      rebuild_all: ${{ github.event_name == 'workflow_dispatch' && inputs.rebuild_all }}
+    secrets: inherit
+
   push_server_to_dockerhub:
     if: github.event_name != 'pull_request' || github.event.label.name == 'build-images'
     uses: ./.github/workflows/docker-publish.yml

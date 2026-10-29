@@ -13,6 +13,77 @@ export interface ManagedUser {
   tasks: number;
 }
 
+/** A count of digits, with how many the model read and how many it read right. */
+export interface DigitCount {
+  n: number;
+  read: number;
+  correct: number;
+}
+
+/** What the digit bank holds (/manage/digit-bank `bank`). */
+export interface DigitBank {
+  samples: number;
+  bytes: number;
+  per_digit: DigitCount[];
+  per_kind: Record<string, DigitCount>;
+  /** What the model in use at the time read, against what the graders confirmed. */
+  reading: DigitCount;
+  jobs: number;
+  copies: number;
+  first: string | null;
+  last: string | null;
+  staged: { jobs: number, readings: number };
+}
+
+/** How a model reads a set of digits (process_copy.bank_eval.scores). */
+export interface DigitScores {
+  n: number;
+  correct: number;
+  accuracy: number | null;
+  per_digit: { n: number, correct: number }[];
+  per_kind: Record<string, { n: number, correct: number }>;
+  confusion: number[][];
+}
+
+/** A model scored on the bank's test part, the whole bank and MNIST. */
+export interface ModelScores {
+  test: DigitScores;
+  bank: DigitScores;
+  mnist: DigitScores;
+  /** The run that trained it, null for the shipped model. */
+  model?: string | null;
+}
+
+/** A run of the trainer worker (rmn_common.digit_models). */
+export interface DigitModelRun {
+  run_id: string;
+  action: 'train' | 'evaluate';
+  status: string;
+  requested_by: string;
+  created: string;
+  started?: string;
+  finished?: string;
+  error?: string;
+  /** The model an evaluation scored, null for the shipped one. */
+  model?: string | null;
+  bank?: { samples: number, train: number, test: number };
+  progress?: { epoch: number, epochs: number };
+  results?: { model?: ModelScores, candidate?: ModelScores, current?: ModelScores };
+}
+
+/** The model the executors run, null for the shipped one. */
+export interface ActiveModel {
+  run_id: string;
+  activated_at: string;
+  activated_by: string;
+}
+
+export interface DigitBankOverview {
+  bank: DigitBank;
+  active: ActiveModel | null;
+  runs: DigitModelRun[];
+}
+
 /** The account actions and operator commands of the admin page.
  *
  *  Account actions name the account in `username`; the caller's own name
@@ -68,6 +139,22 @@ export class AdminService {
   /** Keep, or stop keeping, the confirmed digits to retrain the recogniser. */
   setSaveVerifiedImages(on: boolean) {
     return this.post('manage/settings', { saveVerifiedImages: on ? '1' : '0' });
+  }
+
+  /** The digit bank, the model in use and the trainer's latest runs. */
+  digitBank() {
+    return this.http.get<{ response: DigitBankOverview }>(SERVER_URL + 'manage/digit-bank');
+  }
+
+  /** Have the trainer worker retrain the model on the bank, or score the one in use. */
+  runDigitModel(action: 'train' | 'evaluate') {
+    return this.post('manage/digit-bank/run', { action });
+  }
+
+  /** Have the executors run a trained model; an empty `runId` is the shipped one. */
+  activateDigitModel(runId: string) {
+    return this.http.post<{ response: DigitBankOverview }>(
+      SERVER_URL + 'manage/digit-bank/activate', this.form({ run_id: runId }));
   }
 
   status() {

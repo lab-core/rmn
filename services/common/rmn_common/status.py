@@ -46,3 +46,12 @@ class User_Role(Enum):
     USER = "Utilisateur"
     MANAGER = "Gestionnaire"
     ADMIN = "Administrateur"
+
+
+class Digit_Model_Status(Enum):
+    """Where a run of the digit model worker stands (``digit_models`` rows)."""
+
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    DONE = "DONE"
+    ERROR = "ERROR"

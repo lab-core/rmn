@@ -130,3 +130,55 @@ def make_scanned_copy(
 def scanned_copy_factory() -> Callable[..., Path]:
     """``make_scanned_copy``, as a fixture."""
     return make_scanned_copy
+
+
+def printed_digit(digit: int, variant: int = 0):
+    """A digit as the digit bank stores it: white on black, cropped, 64 x 64.
+
+    Printed rather than handwritten: no student wrote these. Each ``variant``
+    is drawn at its own size and weight, so the bank keeps them all (it
+    deduplicates by pixels).
+    """
+    import cv2
+    import numpy as np
+    from process_copy import digit_bank
+
+    canvas = np.zeros((120, 120), dtype="uint8")
+    scale = 2.0 + 0.2 * variant
+    weight = 4 + variant % 3
+    cv2.putText(
+        canvas, str(digit), (15, 100), cv2.FONT_HERSHEY_SIMPLEX, scale, 255, weight
+    )
+    left, top, width, height = cv2.boundingRect(canvas)
+    bottom, right = top + height, left + width
+    return digit_bank.canonical(canvas[top:bottom, left:right])
+
+
+@pytest.fixture
+def printed():
+    """:func:`printed_digit`, as a fixture."""
+    return printed_digit
+
+
+@pytest.fixture
+def fill_bank() -> Callable[..., None]:
+    """Fill the digit bank with ``n_copies`` copies of the ten printed digits.
+
+    Each copy belongs to a job of its own, as if read from as many copies.
+    """
+    from process_copy import digit_bank
+    from process_copy.imaging import storage
+
+    def fill(n_copies: int = 10, kind: str = digit_bank.MATRICULE) -> None:
+        for copy in range(n_copies):
+            for digit in range(10):
+                meta = {
+                    "kind": kind,
+                    "job_id": f"job-{copy}",
+                    "document_index": 0,
+                    "read": digit,
+                }
+                crop = printed_digit(digit, copy)
+                digit_bank.add_sample(storage, crop, str(digit), meta)
+
+    return fill

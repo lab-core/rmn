@@ -37,3 +37,10 @@ export enum UserRole {
   MANAGER = 'Gestionnaire',
   ADMIN = 'Administrateur',
 }
+
+export enum DigitModelStatus {
+  QUEUED = 'QUEUED',
+  RUNNING = 'RUNNING',
+  DONE = 'DONE',
+  ERROR = 'ERROR',
+}

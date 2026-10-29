@@ -4,12 +4,32 @@ import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { AdminPageComponent } from './admin-page.component';
-import { AdminService, ManagedUser } from 'src/app/services/admin.service';
+import { AdminService, DigitBankOverview, DigitScores, ManagedUser } from 'src/app/services/admin.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { TemporaryPasswordDialogComponent } from '../temporary-password-dialog/temporary-password-dialog.component';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { MATERIAL_MODULES, MainMenuStubComponent, notificationSpy, userServiceStub } from '../../testing/helpers';
+
+const scores = (correct: number, n: number): DigitScores => ({
+  n, correct, accuracy: n ? correct / n : null,
+  per_digit: Array.from({ length: 10 }, (_, d) => ({ n: n / 10, correct: d == 7 ? n / 10 - 2 : n / 10 })),
+  per_kind: {}, confusion: [],
+});
+
+const overview = (extra: Partial<DigitBankOverview> = {}): DigitBankOverview => ({
+  bank: {
+    samples: 100, bytes: 2048,
+    per_digit: Array.from({ length: 10 }, (_, d) => ({ n: d + 1, read: d + 1, correct: d })),
+    per_kind: { matricule: { n: 70, read: 70, correct: 63 }, ink_grade: { n: 30, read: 20, correct: 20 } },
+    reading: { n: 100, read: 90, correct: 83 },
+    jobs: 3, copies: 12, first: '2026-09-01T10:00:00+00:00', last: '2026-10-01T10:00:00+00:00',
+    staged: { jobs: 2, readings: 40 },
+  },
+  active: null,
+  runs: [],
+  ...extra,
+});
 
 const row = (username: string, role = 'Utilisateur', extra: Partial<ManagedUser> = {}): ManagedUser => ({
   username, role, managers: [], mustChangePassword: false, lastLogin: null, tasks: 0, ...extra,
@@ -40,7 +60,9 @@ describe('AdminPageComponent', () => {
     admin = jasmine.createSpyObj<AdminService>('AdminService', [
       'resetPassword', 'setRole', 'setManagers', 'closeSessions', 'deleteUser',
       'status', 'settings', 'setSaveVerifiedImages', 'storageSweep', 'deleteJobs', 'deleteTokens',
+      'digitBank', 'runDigitModel', 'activateDigitModel',
     ]);
+    admin.digitBank.and.returnValue(of({ response: overview() }));
     notification = notificationSpy();
     TestBed.configureTestingModule({
       declarations: [AdminPageComponent, MainMenuStubComponent],
@@ -244,6 +266,113 @@ describe('AdminPageComponent', () => {
     admin.setSaveVerifiedImages.and.returnValue(throwError(() => ({ error: { response: 'Error' } })));
     await component.setSaveVerifiedImages(true);
     expect(component.saveVerifiedImages).toBeFalse();
+  });
+
+  it('shows what the digit bank holds and how the model in use reads it', () => {
+    create('Administrateur');
+    admin.status.and.returnValue(of({ response: { queue: 0 } }));
+    admin.settings.and.returnValue(of({ response: { saveVerifiedImages: true } }));
+    admin.digitBank.and.returnValue(of({ response: overview({
+      runs: [{
+        run_id: 'e1', action: 'evaluate', status: 'DONE', requested_by: 'root', model: null,
+        created: '2026-10-29T10:00:00+00:00', finished: '2026-10-29T10:05:00+00:00',
+        results: { model: { test: scores(18, 20), bank: scores(95, 100), mnist: scores(990, 1000), model: null } },
+      }],
+    }) }));
+    component.showView('system');
+    fixture.detectChanges();
+
+    const page: HTMLElement = fixture.nativeElement;
+    const bankTiles = Array.from(page.querySelectorAll('.bank-tiles .value')).map(e => e.textContent);
+    expect(bankTiles).toEqual(['100', '12', '40']);
+    expect(page.querySelectorAll('.digit-bar').length).toBe(10);
+    expect(component.digitBar(9)).toBe(100);
+    expect(component.digitBar(0)).toBe(10);
+    const kinds = Array.from(page.querySelectorAll('.kinds tr')).map(r =>
+      Array.from(r.children).map(c => c.textContent!.trim()).join(' '));
+    expect(kinds).toContain('Matricules 70 90,0 %');
+    expect(kinds).toContain('Total 100 92,2 %');
+
+    const modelTiles = Array.from(page.querySelectorAll('.model-card .tiles .value')).map(e => e.textContent);
+    expect(modelTiles).toEqual(['90,0 %', '95,0 %', '99,0 %']);
+    // the shipped model never saw the bank: its digits are scored on all of it
+    expect(Array.from(page.querySelectorAll('.per-digit td.weak')).map(c => c.textContent)).toEqual(['80,0 %']);
+    expect(page.querySelector('.model-card')!.textContent).toContain('modèle d\'origine');
+    expect(page.querySelector('.activate')).toBeNull();
+  });
+
+  it('retrains after a confirmation and follows the run until it ends', async () => {
+    create('Administrateur');
+    admin.status.and.returnValue(of({ response: { queue: 0 } }));
+    admin.settings.and.returnValue(of({ response: { saveVerifiedImages: true } }));
+    jasmine.clock().install();
+    try {
+      component.showView('system');
+      admin.runDigitModel.and.returnValue(of({ response: {} }));
+      const running = overview({ runs: [{
+        run_id: 't1', action: 'train', status: 'RUNNING', requested_by: 'root',
+        created: '2026-10-29T10:00:00+00:00', progress: { epoch: 3, epochs: 10 },
+      }] });
+      admin.digitBank.and.returnValue(of({ response: running }));
+
+      confirmed = false;
+      await component.runDigitModel('train');
+      expect(admin.runDigitModel).not.toHaveBeenCalled();
+
+      confirmed = true;
+      await component.runDigitModel('train');
+      expect(admin.runDigitModel).toHaveBeenCalledWith('train');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.pending').textContent).toContain('passe 3 sur 10');
+      expect(fixture.nativeElement.querySelector('.train').disabled).toBeTrue();
+
+      const calls = admin.digitBank.calls.count();
+      jasmine.clock().tick(5001);
+      expect(admin.digitBank.calls.count()).toBe(calls + 1);
+
+      // over: no more polling
+      admin.digitBank.and.returnValue(of({ response: overview() }));
+      jasmine.clock().tick(5001);
+      jasmine.clock().tick(5001);
+      expect(admin.digitBank.calls.count()).toBe(calls + 2);
+      expect(component.pendingRun).toBeUndefined();
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
+
+  it('activates a trained model and goes back to the shipped one', async () => {
+    create('Administrateur');
+    admin.status.and.returnValue(of({ response: { queue: 0 } }));
+    admin.settings.and.returnValue(of({ response: { saveVerifiedImages: true } }));
+    const trained = {
+      run_id: 't1', action: 'train' as const, status: 'DONE', requested_by: 'root',
+      created: '2026-10-29T10:00:00+00:00', finished: '2026-10-29T10:20:00+00:00',
+      results: {
+        candidate: { test: scores(19, 20), bank: scores(99, 100), mnist: scores(985, 1000) },
+        current: { test: scores(17, 20), bank: scores(95, 100), mnist: scores(990, 1000), model: null },
+      },
+    };
+    admin.digitBank.and.returnValue(of({ response: overview({ runs: [trained] }) }));
+    component.showView('system');
+    fixture.detectChanges();
+    const runRow = fixture.nativeElement.querySelector('.runs tr:nth-child(2)').textContent;
+    expect(runRow).toContain('95,0 %');
+    expect(runRow).toContain('contre 85,0 %');
+    expect(fixture.nativeElement.querySelector('.runs .better')).not.toBeNull();
+
+    const active = { run_id: 't1', activated_at: '2026-10-29T10:30:00+00:00', activated_by: 'root' };
+    admin.activateDigitModel.and.returnValue(of({ response: overview({ runs: [trained], active }) }));
+    await component.activateDigitModel(trained);
+    expect(admin.activateDigitModel).toHaveBeenCalledWith('t1');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.in-service')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.activate')).toBeNull();
+
+    admin.activateDigitModel.and.returnValue(of({ response: overview({ runs: [trained] }) }));
+    await component.activateDigitModel(null);
+    expect(admin.activateDigitModel).toHaveBeenCalledWith('');
+    expect(component.digitBank!.active).toBeNull();
   });
 
   it('formats sizes', () => {

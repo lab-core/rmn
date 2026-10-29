@@ -24,6 +24,8 @@ resources:
   - webapp.yml
   # KEDA-scaled job runner (needs KEDA installed, see README)
   - executor.yml
+  # KEDA-scaled trainer of the digit model, started from the admin page
+  - trainer.yml
   # routing
   - ingress.yml
   # requeues the jobs whose executor died (every 10 min)

@@ -10,8 +10,8 @@ from flask_cors import cross_origin
 from rmn_common import settings
 
 from auth import verify_token
-from context import mongo
-from service import operations
+from context import mongo, redis, storage
+from service import digit_bank, operations
 from service.user_service import Role
 from utils.forms import form_int
 from utils.responses import Response
@@ -55,6 +55,54 @@ def update_settings(user_id):
     settings.set_save_verified_images(mongo["RMN"][settings.SETTINGS_COLLECTION], value == "1")
     print(f"Settings: {user_id} sets saveVerifiedImages to {value}.")
     return Response(response=json.dumps({"response": {"saveVerifiedImages": value == "1"}}), status=200)
+
+
+@bp.route("/digit-bank", methods=["GET"])
+@cross_origin()
+@verify_token(Role.ADMIN)
+def get_digit_bank(user_id):
+    """The digit bank, the model the executors run and the latest runs."""
+    return Response(
+        response=json.dumps({"response": digit_bank.overview(mongo["RMN"], storage)}),
+        status=200,
+    )
+
+
+@bp.route("/digit-bank/run", methods=["POST"])
+@cross_origin()
+@verify_token(Role.ADMIN)
+def run_digit_model(user_id):
+    """Queue a run for the trainer worker: ``action`` is ``train`` or ``evaluate``."""
+    try:
+        action = request.form.get("action")
+        row = digit_bank.start_run(mongo["RMN"], redis, action, user_id)
+    except ValueError:
+        message = "Error: action must be train or evaluate."
+        return Response(response=json.dumps({"response": message}), status=400)
+    if row is None:
+        return Response(
+            response=json.dumps({"response": "Une demande est déjà en cours."}),
+            status=409,
+        )
+    print(f"Digit model: {user_id} queues a {row['action']} run ({row['run_id']}).")
+    return Response(response=json.dumps({"response": row}), status=200)
+
+
+@bp.route("/digit-bank/activate", methods=["POST"])
+@cross_origin()
+@verify_token(Role.ADMIN)
+def activate_digit_model(user_id):
+    """Have the executors run a trained model: ``run_id``, empty for the shipped one."""
+    run_id = request.form.get("run_id", "")
+    try:
+        digit_bank.activate(mongo["RMN"], storage, run_id, user_id)
+    except ValueError as e:
+        return Response(response=json.dumps({"response": str(e)}), status=400)
+    print(f"Digit model: {user_id} activates {run_id or 'the shipped model'}.")
+    return Response(
+        response=json.dumps({"response": digit_bank.overview(mongo["RMN"], storage)}),
+        status=200,
+    )
 
 
 @bp.route("/storage/clean", methods=["POST"])

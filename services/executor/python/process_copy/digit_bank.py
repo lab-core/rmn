@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 from hashlib import sha1
 from typing import Any, Dict, Iterator, List, Optional
 
-from rmn_common import settings
+from rmn_common import digit_models, settings
 
 import cv2
 import numpy as np
@@ -50,12 +50,13 @@ from process_copy.imaging import make_square, storage as default_storage
 # native size of the crops, not the model's input.
 SAMPLE_SIZE = 64
 
-BANK_DIR = "digit_bank"
 # staged crops live under the job so deleting the job drops them (see
-# rmn_common.storage.Storage._JOB_DIRS); labelled samples never do.
-STAGED_DIR = os.path.join(BANK_DIR, "staged")
-SAMPLES_DIR = os.path.join(BANK_DIR, "samples")
-INDEX_FILE = os.path.join(BANK_DIR, "index.jsonl")
+# rmn_common.storage.Storage._JOB_DIRS); labelled samples never do. The
+# server reads the same layout for the admin page.
+BANK_DIR = digit_models.BANK_DIR
+STAGED_DIR = digit_models.STAGED_DIR
+SAMPLES_DIR = digit_models.SAMPLES_DIR
+INDEX_FILE = digit_models.INDEX_FILE
 
 # what a reading was read off, kept with every sample: the three paths reach
 # the same classifier but not the same ink
