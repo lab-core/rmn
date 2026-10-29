@@ -69,16 +69,11 @@
       @if (currentCopy >= 0) {
         <div class="validation-check-container" [ngClass]="{'expanded': isSidebarHidden}">
           <div class="validation-block container-block">
-            @if (isSidebarHidden) {
-              <div class="sidebar-toggle-button" (click)="toggleSidebar()">
-                <mat-icon>visibility</mat-icon>
-              </div>
-            }
-            @if (!isSidebarHidden) {
-              <div class="sidebar-toggle-button" (click)="toggleSidebar()">
-                <mat-icon>visibility_off</mat-icon>
-              </div>
-            }
+            <!-- open eye while the list of copies shows: a click hides it (full screen), as the guide says -->
+            <div class="sidebar-toggle-button" (click)="toggleSidebar()"
+              [title]="isSidebarHidden ? 'Afficher la liste des copies' : 'Masquer la liste des copies (plein écran)'">
+              <mat-icon>{{isSidebarHidden ? 'visibility_off' : 'visibility'}}</mat-icon>
+            </div>
             @if (readingInfo) {
               <div class="reading-info" id="reading-info">{{readingInfo}}</div>
             } @else if (readingStateForQuestion()) {
