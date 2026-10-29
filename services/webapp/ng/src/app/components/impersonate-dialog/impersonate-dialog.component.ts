@@ -40,7 +40,7 @@ export class ImpersonateDialogComponent implements OnInit {
       return;
     }
     try {
-      await this.userService.impersonate(this.selected);
+      await this.userService.impersonate(this.selected, this.router.url);
     } catch (err) {
       this.notification.showError(err.error?.response, "Impossible de prendre le rôle");
       return;

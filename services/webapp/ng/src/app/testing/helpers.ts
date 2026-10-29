@@ -70,7 +70,7 @@ export function userServiceStub(overrides: Record<string, any> = {}): any {
     signup: jasmine.createSpy('signup').and.returnValue(of({})),
     listUsers: jasmine.createSpy('listUsers').and.returnValue(of({ response: [] })),
     impersonate: jasmine.createSpy('impersonate').and.resolveTo(undefined),
-    stopImpersonating: jasmine.createSpy('stopImpersonating'),
+    stopImpersonating: jasmine.createSpy('stopImpersonating').and.returnValue('/admin'),
     mustChangePassword: false,
     passwordChanged: jasmine.createSpy('passwordChanged'),
     isAdmin() { return this.role == UserRole.ADMIN; },

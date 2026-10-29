@@ -62,7 +62,7 @@ describe('ImpersonateDialogComponent', () => {
     create(listed);
     component.selected = 'boss';
     await component.impersonate();
-    expect(user.impersonate).toHaveBeenCalledWith('boss');
+    expect(user.impersonate).toHaveBeenCalledWith('boss', jasmine.any(String));
     expect(dialogRef.close).toHaveBeenCalledWith('boss');
     expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);
     expect(notification.showInfo).toHaveBeenCalled();

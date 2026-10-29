@@ -180,7 +180,7 @@ export class AdminPageComponent implements OnInit {
 
   async impersonate(row: ManagedUser) {
     try {
-      await this.userService.impersonate(row.username);
+      await this.userService.impersonate(row.username, this.router.url);
     } catch (err) {
       this.fail(err, 'Impossible de prendre le rôle');
       return;

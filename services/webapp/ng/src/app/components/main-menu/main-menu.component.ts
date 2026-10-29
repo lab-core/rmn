@@ -33,8 +33,8 @@ export class MainMenuComponent implements OnInit {
 
   stopImpersonating(): void {
     const admin = this.userService.impersonatedBy;
-    this.userService.stopImpersonating();
-    this.router.navigate(['/user-profile']);
+    // back where the role was taken (the admin page, the profile...)
+    this.router.navigateByUrl(this.userService.stopImpersonating());
     this.notificationService.showInfo("", `De retour en tant que ${admin}`)
   }
 
