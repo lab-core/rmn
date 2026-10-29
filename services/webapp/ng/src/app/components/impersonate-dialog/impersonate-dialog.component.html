@@ -1,19 +1,16 @@
-<div class="container">
-    <h1>Prendre le rôle d'un utilisateur</h1>
-
+<h2 mat-dialog-title><mat-icon>switch_account</mat-icon> Prendre le rôle d'un utilisateur</h2>
+<mat-dialog-content>
     <p>Vous agirez en son nom, avec tous ses droits, jusqu'à revenir à votre compte depuis le menu.</p>
-
-    <div class="input">
-        <mat-form-field appearance="fill">
-            <mat-label>Utilisateur</mat-label>
-            <mat-select [(value)]="selected">
-              @for (user of users; track user.username) {
-                <mat-option [value]="user.username">{{user.username}} ({{user.role}})</mat-option>
-              }
-            </mat-select>
-        </mat-form-field>
-    </div>
-    <div class="button-div">
-        <button class="button" mat-flat-button color="accent" (click)="impersonate()">PRENDRE LE RÔLE</button>
-    </div>
-</div>
+    <mat-form-field appearance="outline">
+        <mat-label>Utilisateur</mat-label>
+        <mat-select [(value)]="selected">
+          @for (user of users; track user.username) {
+            <mat-option [value]="user.username">{{user.username}} ({{user.role}})</mat-option>
+          }
+        </mat-select>
+    </mat-form-field>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+    <button mat-stroked-button mat-dialog-close>Annuler</button>
+    <button class="button" mat-flat-button color="primary" (click)="impersonate()">Prendre le rôle</button>
+</mat-dialog-actions>

@@ -32,6 +32,7 @@ import { ChangePasswordDialogComponent } from './components/change-password-dial
 import { CreateUserDialogComponent } from './components/create-user-dialog/create-user-dialog.component';
 import { ImpersonateDialogComponent } from './components/impersonate-dialog/impersonate-dialog.component';
 import { AdminPageComponent } from './components/admin-page/admin-page.component';
+import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
 import { TemporaryPasswordDialogComponent } from './components/temporary-password-dialog/temporary-password-dialog.component';
 import { CsvUpdateDialogComponent } from './components/csv-update/csv-update-dialog.component';
 import { TaskSettingsDialogComponent } from './components/task-settings/task-settings-dialog.component';
@@ -72,6 +73,7 @@ import { AuthInterceptor } from './services/auth.interceptor';
         CreateUserDialogComponent,
         ImpersonateDialogComponent,
         AdminPageComponent,
+        ConfirmDialogComponent,
         TemporaryPasswordDialogComponent,
         CsvUpdateDialogComponent,
         TaskSettingsDialogComponent,

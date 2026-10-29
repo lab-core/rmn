@@ -45,8 +45,7 @@ export class UserProfileComponent implements OnInit {
   openCreateUserDialog(): void {
     const dialogRef = this.dialog.open(CreateUserDialogComponent, {
       width: '80%',
-      maxWidth: '600px',
-      height: '73%'
+      maxWidth: '500px',
     })
   }
 

@@ -66,7 +66,7 @@
 
           <ng-container matColumnDef="lastLogin">
             <th mat-header-cell *matHeaderCellDef> Dernière connexion </th>
-            <td mat-cell *matCellDef="let row"> {{row.lastLogin ? (row.lastLogin | date:'short') : 'jamais'}} </td>
+            <td mat-cell *matCellDef="let row"> {{row.lastLogin ? (row.lastLogin | date:'dd/MM/yyyy HH:mm') : 'jamais'}} </td>
           </ng-container>
 
           <ng-container matColumnDef="tasks">
@@ -107,66 +107,111 @@
 
     @if (view == 'system') {
       <div class="system">
-        <mat-card>
-          <mat-card-title>File d'attente</mat-card-title>
-          <mat-card-content>
-            <p class="queue">{{queue ?? '…'}} tâche(s) en attente d'un executor</p>
-            <button mat-stroked-button (click)="loadStatus()"><mat-icon>refresh</mat-icon> Rafraîchir</button>
-            <button mat-stroked-button class="wake" (click)="wakeExecutor()"><mat-icon>play_arrow</mat-icon> Relancer l'executor</button>
-          </mat-card-content>
-        </mat-card>
+        <div class="column">
+          <mat-card class="queue-card">
+            <div class="card-header">
+              <mat-icon>pending_actions</mat-icon>
+              <div>
+                <h3>File d'attente</h3>
+                <p>Les tâches qui attendent qu'un executor les traite.</p>
+              </div>
+            </div>
+            <div class="stat">
+              <span class="value queue">{{queue ?? '…'}}</span>
+              <span class="label">tâche(s) en attente</span>
+              <button mat-icon-button class="refresh" title="Rafraîchir" (click)="loadStatus()"><mat-icon>refresh</mat-icon></button>
+            </div>
+            <div class="card-footer">
+              <p class="hint">Ajoute une tâche vide à la file : sur le cluster, un executor démarre et la retire.
+                Sert à vérifier que les executors démarrent, ou à précharger leur image après un déploiement.</p>
+              <button mat-stroked-button class="wake" (click)="wakeExecutor()"><mat-icon>play_arrow</mat-icon> Démarrer un executor de test</button>
+            </div>
+          </mat-card>
 
-        <mat-card>
-          <mat-card-title>Stockage</mat-card-title>
-          <mat-card-content>
-            <button mat-stroked-button class="scan" [disabled]="sweeping" (click)="scanStorage()"><mat-icon>search</mat-icon> Analyser</button>
-            @if (sweeping) {
-              <mat-spinner diameter="24"></mat-spinner>
-            }
-            @if (storageReport) {
-              <p class="report">
-                {{storageReport.orphans.length}} élément(s) sans propriétaire ({{formatBytes(storageReport.bytes)}}),
-                {{storageReport.empty_jobs.length}} tâche(s) sans fichier, {{storageReport.strays.length}} inconnu(s).
-              </p>
+          <mat-card class="danger-card">
+            <div class="card-header">
+              <mat-icon>auto_delete</mat-icon>
+              <div>
+                <h3>Anciennes tâches</h3>
+                <p>Supprime les tâches de tous les utilisateurs, avec leurs copies.</p>
+              </div>
+            </div>
+            <div class="inline-form">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Âge minimum (jours)</mat-label>
+                <input matInput type="number" min="1" [(ngModel)]="jobDays">
+              </mat-form-field>
+              <button mat-flat-button color="warn" class="delete-jobs" (click)="deleteJobs()"><mat-icon>delete</mat-icon> Supprimer</button>
+            </div>
+          </mat-card>
+
+          <mat-card>
+            <div class="card-header">
+              <mat-icon>key_off</mat-icon>
+              <div>
+                <h3>Anciennes sessions</h3>
+                <p>Déconnecte les sessions ouvertes depuis longtemps ; leurs utilisateurs devront se reconnecter.</p>
+              </div>
+            </div>
+            <div class="inline-form">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Âge minimum (jours)</mat-label>
+                <input matInput type="number" min="1" [(ngModel)]="tokenDays">
+              </mat-form-field>
+              <button mat-stroked-button class="delete-tokens" (click)="deleteTokens()"><mat-icon>logout</mat-icon> Fermer</button>
+            </div>
+          </mat-card>
+        </div>
+        <div class="column">
+          <mat-card class="storage-card">
+            <div class="card-header">
+              <mat-icon>storage</mat-icon>
+              <div>
+                <h3>Stockage</h3>
+                <p>Les fichiers que plus aucune tâche ni aucun template ne possède, et l'occupation du disque.</p>
+              </div>
+            </div>
+            @if (!storageReport) {
+              <div class="empty-state">
+                <button mat-stroked-button class="scan" [disabled]="sweeping" (click)="scanStorage()"><mat-icon>search</mat-icon> Analyser</button>
+                @if (sweeping) {
+                  <mat-spinner diameter="24"></mat-spinner>
+                }
+              </div>
+            } @else {
               @if (storageReport.usage?.disk) {
-                <p>Disque : {{formatBytes(storageReport.usage.disk.used)}} utilisés sur {{formatBytes(storageReport.usage.disk.total)}}.</p>
+                <div class="disk">
+                  <div class="disk-label">
+                    <span>Disque</span>
+                    <span>{{formatBytes(storageReport.usage.disk.used)}} / {{formatBytes(storageReport.usage.disk.total)}} ({{diskPercent()}} %)</span>
+                  </div>
+                  <div class="bar"><div class="fill" [class.full]="diskPercent() >= 90" [style.width.%]="diskPercent()"></div></div>
+                </div>
               }
+              <div class="tiles">
+                <div class="tile"><span class="value">{{storageReport.orphans.length}}</span><span class="label">sans propriétaire<br>{{formatBytes(storageReport.bytes)}}</span></div>
+                <div class="tile"><span class="value">{{storageReport.strays.length}}</span><span class="label">fichiers inconnus</span></div>
+                <div class="tile"><span class="value">{{storageReport.empty_jobs.length}}</span><span class="label">tâches sans fichier</span></div>
+              </div>
               <table class="usage">
                 <tr><th>Fichiers de plus de</th><th>Taille</th><th>Nombre</th></tr>
                 @for (row of usageRows(); track row.days) {
-                  <tr><td>{{row.days}} jour(s)</td><td>{{formatBytes(row.bytes)}}</td><td>{{row.files}}</td></tr>
+                  <tr><td>{{row.days == '0' ? 'tous' : row.days + ' jours'}}</td><td>{{formatBytes(row.bytes)}}</td><td>{{row.files}}</td></tr>
                 }
               </table>
-              <div class="options">
-                <mat-checkbox [(ngModel)]="includeStrays">Aussi les fichiers inconnus</mat-checkbox>
-                <mat-checkbox [(ngModel)]="includeEmptyJobs">Aussi les tâches sans fichier</mat-checkbox>
+              <div class="card-footer">
+                <div class="options">
+                  <mat-checkbox [(ngModel)]="includeStrays">Aussi les fichiers inconnus</mat-checkbox>
+                  <mat-checkbox [(ngModel)]="includeEmptyJobs">Aussi les tâches sans fichier</mat-checkbox>
+                </div>
+                <div class="buttons">
+                  <button mat-stroked-button class="scan" [disabled]="sweeping" (click)="scanStorage()"><mat-icon>refresh</mat-icon> Réanalyser</button>
+                  <button mat-flat-button color="warn" class="clean" [disabled]="sweeping" (click)="cleanStorage()"><mat-icon>cleaning_services</mat-icon> Nettoyer</button>
+                </div>
               </div>
-              <button mat-raised-button color="warn" class="clean" [disabled]="sweeping" (click)="cleanStorage()">Nettoyer</button>
             }
-          </mat-card-content>
-        </mat-card>
-
-        <mat-card>
-          <mat-card-title>Anciennes tâches</mat-card-title>
-          <mat-card-content>
-            <mat-form-field appearance="outline">
-              <mat-label>Ajoutées il y a au moins (jours)</mat-label>
-              <input matInput type="number" min="1" [(ngModel)]="jobDays">
-            </mat-form-field>
-            <button mat-raised-button color="warn" class="delete-jobs" (click)="deleteJobs()">Supprimer</button>
-          </mat-card-content>
-        </mat-card>
-
-        <mat-card>
-          <mat-card-title>Anciennes sessions</mat-card-title>
-          <mat-card-content>
-            <mat-form-field appearance="outline">
-              <mat-label>Ouvertes il y a au moins (jours)</mat-label>
-              <input matInput type="number" min="1" [(ngModel)]="tokenDays">
-            </mat-form-field>
-            <button mat-raised-button color="warn" class="delete-tokens" (click)="deleteTokens()">Fermer</button>
-          </mat-card-content>
-        </mat-card>
+          </mat-card>
+        </div>
       </div>
     }
   </div>

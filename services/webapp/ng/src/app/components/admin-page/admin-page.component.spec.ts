@@ -8,7 +8,7 @@ import { AdminService, ManagedUser } from 'src/app/services/admin.service';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { TemporaryPasswordDialogComponent } from '../temporary-password-dialog/temporary-password-dialog.component';
-import { WarningDialogComponent } from '../warning-dialog/warning-dialog.component';
+import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { MATERIAL_MODULES, MainMenuStubComponent, notificationSpy, userServiceStub } from '../../testing/helpers';
 
 const row = (username: string, role = 'Utilisateur', extra: Partial<ManagedUser> = {}): ManagedUser => ({
@@ -55,7 +55,7 @@ describe('AdminPageComponent', () => {
     dialog = TestBed.inject(MatDialog);
     confirmed = true;
     spyOn(dialog, 'open').and.callFake(((component: any) => ({
-      afterClosed: () => of(component === WarningDialogComponent ? confirmed : undefined),
+      afterClosed: () => of(component === ConfirmDialogComponent ? confirmed : undefined),
     })) as any);
     router = TestBed.inject(Router);
     spyOn(router, 'navigate').and.resolveTo(true);
@@ -172,7 +172,7 @@ describe('AdminPageComponent', () => {
 
     component.showView('system');
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.queue').textContent).toContain('2 tâche(s)');
+    expect(fixture.nativeElement.querySelector('.queue').textContent).toBe('2');
 
     await component.scanStorage();
     expect(admin.storageSweep).toHaveBeenCalledWith(false);
@@ -191,6 +191,29 @@ describe('AdminPageComponent', () => {
     expect(admin.deleteTokens).toHaveBeenCalledWith(30);
     await component.wakeExecutor();
     expect(admin.status).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks before deleting, in red', async () => {
+    create('Administrateur');
+    admin.deleteUser.and.returnValue(of({}));
+    await component.deleteUser(rows[0]);
+    expect(dialog.open).toHaveBeenCalledWith(ConfirmDialogComponent, jasmine.objectContaining({
+      data: jasmine.objectContaining({ title: 'Supprimer le compte', danger: true }),
+    }));
+  });
+
+  it('shows the disk usage as a share', async () => {
+    create('Administrateur');
+    admin.storageSweep.and.returnValue(of({
+      orphans: [], strays: [], empty_jobs: [], bytes: 0,
+      usage: { older_than_days: {}, disk: { used: 95, total: 100 } },
+    }));
+    admin.status.and.returnValue(of({ response: { queue: 0 } }));
+    component.showView('system');
+    await component.scanStorage();
+    fixture.detectChanges();
+    expect(component.diskPercent()).toBe(95);
+    expect(fixture.nativeElement.querySelector('.fill.full')).not.toBeNull();
   });
 
   it('formats sizes', () => {

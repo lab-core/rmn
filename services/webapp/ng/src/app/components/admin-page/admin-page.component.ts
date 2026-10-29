@@ -9,7 +9,7 @@ import { UserService } from 'src/app/services/user.service';
 import { UserRole } from '../../generated/rmn-contracts';
 import { CreateUserDialogComponent } from '../create-user-dialog/create-user-dialog.component';
 import { TemporaryPasswordDialogComponent } from '../temporary-password-dialog/temporary-password-dialog.component';
-import { WarningDialogComponent } from '../warning-dialog/warning-dialog.component';
+import { ConfirmData, ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 /** The admin page: the accounts a Gestionnaire manages (every account for an
  *  Administrateur) and, for an Administrateur, the operator commands. */
@@ -83,11 +83,11 @@ export class AdminPageComponent implements OnInit {
     });
   }
 
-  private confirm(message: string): Promise<boolean> {
-    const dialogRef = this.dialog.open(WarningDialogComponent, {
+  private confirm(data: ConfirmData): Promise<boolean> {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
       width: '80%',
-      maxWidth: '500px',
-      data: message,
+      maxWidth: '480px',
+      data,
     });
     return firstValueFrom(dialogRef.afterClosed()).then(result => !!result);
   }
@@ -123,7 +123,11 @@ export class AdminPageComponent implements OnInit {
   }
 
   async resetPassword(row: ManagedUser) {
-    if (!await this.confirm(`Réinitialiser le mot de passe de ${row.username} ? Ses sessions seront fermées.`)) {
+    if (!await this.confirm({
+      title: 'Réinitialiser le mot de passe',
+      message: `${row.username} recevra un mot de passe temporaire à changer à sa prochaine connexion. Ses sessions ouvertes seront fermées.`,
+      confirm: 'Réinitialiser',
+    })) {
       return;
     }
     const resp = await this.run(this.adminService.resetPassword(row.username), '');
@@ -137,7 +141,11 @@ export class AdminPageComponent implements OnInit {
   }
 
   async changeRole(row: ManagedUser, role: string) {
-    if (!await this.confirm(`Donner le rôle ${role} à ${row.username} ? Ses sessions seront fermées.`)) {
+    if (!await this.confirm({
+      title: 'Changer le rôle',
+      message: `${row.username} deviendra ${role}. Ses sessions ouvertes seront fermées.`,
+      confirm: 'Changer',
+    })) {
       this.loadUsers();  // put the select back
       return;
     }
@@ -149,14 +157,23 @@ export class AdminPageComponent implements OnInit {
   }
 
   async closeSessions(row: ManagedUser) {
-    if (await this.confirm(`Déconnecter ${row.username} de toutes ses sessions ?`)) {
+    if (await this.confirm({
+      title: 'Fermer les sessions',
+      message: `${row.username} sera déconnecté de tous ses appareils.`,
+      confirm: 'Déconnecter',
+    })) {
       await this.run(this.adminService.closeSessions(row.username), 'Sessions fermées', false);
     }
   }
 
   async deleteUser(row: ManagedUser) {
-    const tasks = row.tasks ? ` et ses ${row.tasks} tâche(s)` : '';
-    if (await this.confirm(`Supprimer définitivement le compte ${row.username}${tasks} ?`)) {
+    const tasks = row.tasks ? `, ses ${row.tasks} tâche(s)` : '';
+    if (await this.confirm({
+      title: 'Supprimer le compte',
+      message: `Le compte ${row.username}${tasks} et ses templates seront supprimés définitivement.`,
+      confirm: 'Supprimer',
+      danger: true,
+    })) {
       await this.run(this.adminService.deleteUser(row.username), 'Compte supprimé');
     }
   }
@@ -180,7 +197,7 @@ export class AdminPageComponent implements OnInit {
   }
 
   async wakeExecutor() {
-    await this.run(this.adminService.wakeExecutor(), 'Executor relancé', false);
+    await this.run(this.adminService.wakeExecutor(), 'Tâche de test ajoutée à la file', false);
     this.loadStatus();
   }
 
@@ -191,7 +208,14 @@ export class AdminPageComponent implements OnInit {
   }
 
   async cleanStorage() {
-    if (!await this.confirm('Supprimer les fichiers que plus aucune tâche ni template ne possède ?')) {
+    if (!await this.confirm({
+      title: 'Nettoyer le stockage',
+      message: 'Les fichiers que plus aucune tâche ni aucun template ne possède seront supprimés'
+        + (this.includeStrays ? ', ainsi que les fichiers inconnus' : '')
+        + (this.includeEmptyJobs ? ', ainsi que les tâches sans fichier' : '') + '.',
+      confirm: 'Nettoyer',
+      danger: true,
+    })) {
       return;
     }
     this.sweeping = true;
@@ -210,7 +234,12 @@ export class AdminPageComponent implements OnInit {
       this.notification.showWarning('Indiquez un âge d\'au moins 1 jour.', 'Âge');
       return;
     }
-    if (!await this.confirm(`Supprimer les tâches de TOUS les utilisateurs ajoutées il y a ${this.jobDays} jours ou plus ?`)) {
+    if (!await this.confirm({
+      title: 'Supprimer les anciennes tâches',
+      message: `Les tâches de tous les utilisateurs ajoutées il y a ${this.jobDays} jours ou plus seront supprimées définitivement, avec leurs copies.`,
+      confirm: 'Supprimer',
+      danger: true,
+    })) {
       return;
     }
     const resp = await this.run(this.adminService.deleteJobs(this.jobDays), '');
@@ -224,7 +253,11 @@ export class AdminPageComponent implements OnInit {
       this.notification.showWarning('Indiquez un âge d\'au moins 1 jour.', 'Âge');
       return;
     }
-    if (await this.confirm(`Fermer les sessions ouvertes il y a ${this.tokenDays} jours ou plus ?`)) {
+    if (await this.confirm({
+      title: 'Fermer les anciennes sessions',
+      message: `Les sessions ouvertes il y a ${this.tokenDays} jours ou plus seront fermées : leurs utilisateurs devront se reconnecter.`,
+      confirm: 'Fermer',
+    })) {
       await this.run(this.adminService.deleteTokens(this.tokenDays), 'Sessions fermées', false);
     }
   }
@@ -235,6 +268,12 @@ export class AdminPageComponent implements OnInit {
     return Object.keys(buckets)
       .sort((a, b) => Number(a) - Number(b))
       .map(days => ({ days, ...buckets[days] }));
+  }
+
+  /** The share of the disk in use, in percent. */
+  diskPercent(): number {
+    const disk = this.storageReport?.usage?.disk;
+    return disk?.total ? Math.round(100 * disk.used / disk.total) : 0;
   }
 
   formatBytes(bytes: number): string {
