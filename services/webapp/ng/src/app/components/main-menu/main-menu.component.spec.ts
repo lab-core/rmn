@@ -32,20 +32,23 @@ describe('MainMenuComponent', () => {
 
   const entries = () => Array.from(fixture.nativeElement.querySelectorAll('.buttons-container > div')) as HTMLElement[];
 
-  it('shows the four menu entries', () => {
+  it('shows the menu entries', () => {
     expect(entries().map(e => e.textContent.replace(/\s+/g, ' ').trim())).toEqual([
-      'list_alt Tâches', 'post_add Nouvelle tâche', 'manage_search Template', 'person Profil', 'exit_to_app Déconnexion',
+      'list_alt Tâches', 'post_add Nouvelle tâche', 'manage_search Template', 'library_books Guide',
+      'person Profil', 'exit_to_app Déconnexion',
     ]);
   });
 
   it('navigates from each entry', () => {
-    const [tasks, newTask, templates, profile] = entries();
+    const [tasks, newTask, templates, guide, profile] = entries();
     tasks.click();
     expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);
     newTask.click();
     expect(router.navigate).toHaveBeenCalledWith(['/new-exam-correction']);
     templates.click();
     expect(router.navigate).toHaveBeenCalledWith(['/templates']);
+    guide.click();
+    expect(router.navigate).toHaveBeenCalledWith(['/user-guide']);
     profile.click();
     expect(router.navigate).toHaveBeenCalledWith(['/user-profile']);
   });

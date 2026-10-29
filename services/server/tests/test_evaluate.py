@@ -15,7 +15,7 @@ import pytest
 from rmn_common.questions import validate_questions
 
 
-def _evaluate(client, user, token, pages, points, bonus=None):
+def _evaluate(client, user, token, pages, points, bonus=None, **extra):
     keys = [k for k, _ in pages]
     if bonus is None:
         bonus = [[k, False] for k in keys]
@@ -33,6 +33,7 @@ def _evaluate(client, user, token, pages, points, bonus=None):
         "bonus_enabled_map": json.dumps(bonus),
         "notes_csv_file": (io.BytesIO(b"Matricule,Nom complet\n"), "notes.csv"),
         "zip_file": (io.BytesIO(b"PK\x05\x06" + b"\x00" * 18), "copies.zip"),
+        **extra,
     }
     return client.post("/jobs/evaluate", data=data, content_type="multipart/form-data")
 
@@ -51,6 +52,20 @@ def test_ignored_question_is_stored_as_zero(
     job = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"user_id": "alice"})
     assert job["n_pages_per_question"] == pages
     assert job["n_max_points_per_question"] == points
+
+
+@pytest.mark.parametrize("sent,stored", [({}, True), ({"absent_zero": "false"}, False)])
+def test_absent_zero_is_on_unless_unchecked(
+    client, user_factory, login, app_module_fixture, sent, stored
+):
+    user_factory("alice")
+    token = login("alice")
+
+    resp = _evaluate(client, "alice", token, [["Q1", 1]], [["Q1", 5]], **sent)
+
+    assert resp.status_code == 200, resp.data
+    job = app_module_fixture.mongo["RMN"]["eval_jobs"].find_one({"user_id": "alice"})
+    assert job["absent_zero"] is stored
 
 
 @pytest.mark.parametrize(

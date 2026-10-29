@@ -156,6 +156,18 @@ tbody td {
   align-items: center;
   justify-content: space-between;
   flex-direction: row;
+  /* buttons and options go to a second line rather than squeezing each
+     other: a squeezed "Finaliser" was cut off */
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.checkbox-container > * {
+  flex-shrink: 0;
+}
+
+.checkbox-container label {
+  white-space: nowrap;
 }
 
 .validate-job-button {
@@ -292,4 +304,10 @@ tbody td {
 
 .read-again, .read-matricules-again {
   vertical-align: middle;
+}
+
+/* a button and its help bubble wrap together */
+.with-help {
+  display: inline-flex;
+  align-items: center;
 }

@@ -486,3 +486,9 @@ mat-spinner {
 #name-field {
   margin-bottom: -1.25em;
 }
+
+/* an upload button and its help bubble stay side by side */
+.with-help {
+  display: inline-flex;
+  align-items: center;
+}
