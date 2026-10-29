@@ -11,7 +11,7 @@ from utils.responses import Response
 from flask_cors import cross_origin
 from werkzeug.utils import secure_filename
 from rmn_common import auto_grade
-from rmn_common.status import Document_Status
+from rmn_common.status import Document_Status, Job_Status
 from auth import question_allowed, verify_share_token
 from context import mongo, redis, sio, storage
 from service.documents import (
@@ -219,6 +219,15 @@ def read_grades(validity):
     # verify_share_token has already refused a job this caller cannot see
     job_id = str(request_form["job_id"])
     db = mongo["RMN"]
+    # the executor only reads the grades of a job being corrected
+    job = db["eval_jobs"].find_one({"job_id": job_id}, {"job_status": 1}) or {}
+    if job.get("job_status") not in (
+        Job_Status.QUEUED.value, Job_Status.RUN.value, Job_Status.VALIDATION.value
+    ):
+        return Response(
+            response=json.dumps({"response": "Error: the grades are read only while the job is being corrected."}),
+            status=400,
+        )
 
     if "question_index" in request_form:
         questions = [form_int(request_form, "question_index")]

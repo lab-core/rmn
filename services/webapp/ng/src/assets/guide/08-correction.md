@@ -20,6 +20,12 @@ Plutôt que de la taper, vous pouvez écrire la note **à la main sur la premiè
 
 Dans le tableau de bord, la colonne Copies corrigées affiche l'avancement de la lecture (« Lecture en cours : N % », puis « Notes lues : … »).
 
+## Relire les notes
+
+Le bouton ⟳ **Relire** d'une ligne de question, dans le tableau de bord, relit les notes écrites sur les copies de cette question ; celui de la ligne **Total** relit toutes les questions. Seules les notes que personne n'a confirmées sont relues : une note validée n'est jamais remplacée. Pratique après avoir annoté des copies, ou pour une tâche dont les notes n'ont jamais été lues. L'avancement s'affiche dans la colonne Copies corrigées.
+
+Avec un lien de partage, un correcteur peut relire les notes des questions qui lui ont été partagées.
+
 ## Les couleurs des copies
 
 | Couleur | Signification |

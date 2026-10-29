@@ -850,6 +850,20 @@ describe('TaskVerificationComponent', () => {
     expect(component.isSidebarHidden).toBeFalse();
   });
 
+  it('the eye is open while the list of copies shows and crossed in full screen', async () => {
+    await create();
+    await component.changeCurrentExam(0);
+    const icon = () => {
+      fixture.detectChanges();
+      return fixture.nativeElement.querySelector('.sidebar-toggle-button mat-icon').textContent.trim();
+    };
+    expect(icon()).toBe('visibility');
+    fixture.nativeElement.querySelector('.sidebar-toggle-button').click();
+    await settle();
+    expect(component.isSidebarHidden).toBeTrue();
+    expect(icon()).toBe('visibility_off');
+  });
+
   it('reminds to send the zip back when the last copy is reached after a download', async () => {
     await create();
     component.hasDownloadedZip = true;

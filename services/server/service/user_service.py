@@ -7,6 +7,8 @@ import os
 import uuid
 from enum import Enum
 import re
+import secrets
+import string
 
 # Login tokens expire after this many days. Enforced twice: a Mongo TTL index
 # purges expired tokens in the background (Mongo runs it about once a minute),
@@ -73,12 +75,49 @@ def password_error(password):
 username_pattern = re.compile(r"^[A-Za-z0-9._@-]{3,64}$")
 
 
+def _session(userDB, token, impersonated_by=None):
+    """What the webapp keeps of a session: the login and impersonate answer."""
+    session = {
+        "username": userDB['username'],
+        "role": userDB['role'],
+        "token": token,
+        "moodleStructureInd": userDB.get('moodleStructureInd', True),
+        # an impersonated session is never forced: the admin does not choose
+        # the user's password
+        "mustChangePassword": impersonated_by is None and userDB.get('must_change_password', False),
+    }
+    if impersonated_by is not None:
+        session["impersonatedBy"] = impersonated_by
+    return session
+
+
+def temporary_password():
+    """A random password the password rules accept, for a reset."""
+    alphabet = string.ascii_letters + string.digits
+    characters = [secrets.choice(alphabet) for _ in range(11)]
+    characters.append(secrets.choice(PASSWORD_SPECIAL_CHARACTERS))
+    secrets.SystemRandom().shuffle(characters)
+    return "".join(characters)
+
+
 class Role(Enum):
+    """The roles, lowest first: each one may do what the ones before it do."""
     USER = "Utilisateur"
+    # creates accounts and resets the passwords of the accounts it manages
+    MANAGER = "Gestionnaire"
     ADMIN = "Administrateur"
 
     def available(role):
-        return role == Role.USER.value or role == Role.ADMIN.value
+        return Role.rank(role) >= 0
+
+    def rank(role):
+        """The place of a role value among the roles, -1 when it is none."""
+        order = [r.value for r in Role]
+        return order.index(role) if role in order else -1
+
+    def at_least(role, minimum):
+        """Whether the role value ``role`` may do what ``minimum`` may."""
+        return Role.rank(role) >= Role.rank(minimum.value)
 
 
 class UserService:
@@ -106,30 +145,50 @@ class UserService:
             [("creation_time", 1)], name=name, expireAfterSeconds=seconds
         )
 
-    def create_token(username, role, database):
+    def create_token(username, role, database, impersonated_by=None, must_change_password=False):
+        """A new login token for ``username``.
+
+        ``impersonated_by`` names the admin who opened the session in the
+        user's place: the token is the user's in every other respect.
+        ``must_change_password`` limits the token to changing the password
+        (check_token), until change_password lifts it.
+        """
         token = str(uuid.uuid4())
         collection = database["tokens"]
-        collection.insert_one({
+        record = {
           "token": token,
           "username": username,
           "role": role,
           "creation_time": dt.datetime.now(dt.UTC)
-        })
+        }
+        if impersonated_by is not None:
+            record["impersonated_by"] = impersonated_by
+        if must_change_password:
+            record["must_change_password"] = True
+        collection.insert_one(record)
         return token
 
-    def verify_token(token, database, role=None):
+    def find_token(token, database):
+        """The record of a live login token, None when unknown or expired."""
         collection = database["tokens"]
         tokenDB = collection.find_one({"token": token})
         if tokenDB is None:
-            return False, ""
+            return None
         if token_expired(tokenDB):
             # the TTL index removes it eventually; do it now so it cannot be
             # retried in the meantime
             collection.delete_one({"_id": tokenDB["_id"]})
+            return None
+        return tokenDB
+
+    def verify_token(token, database, role=None):
+        """(valid, username) of a token; ``role`` is the least role it needs."""
+        tokenDB = UserService.find_token(token, database)
+        if tokenDB is None:
             return False, ""
         if role is None:
             return True, tokenDB["username"]
-        return tokenDB["role"] == role.value, tokenDB["username"]
+        return Role.at_least(tokenDB["role"], role), tokenDB["username"]
 
     def delete_tokens(username, n_days_old, database):
        r = {}
@@ -168,17 +227,15 @@ class UserService:
         userDB = collection.find_one({"username": username})
         stored_hash = userDB['password'] if userDB is not None else _UNKNOWN_USER_HASH
         if check_password_hash(stored_hash, password) and userDB is not None:
-            token = UserService.create_token(userDB['username'], userDB['role'], database)
-            response = {
-                    "username": userDB['username'],
-                    "role": userDB['role'],
-                    "token": token,
-                    "saveVerifiedImages": userDB.get('saveVerifiedImages', True),
-                    "moodleStructureInd": userDB.get('moodleStructureInd', True)
-                }
-
+            token = UserService.create_token(
+                userDB['username'], userDB['role'], database,
+                must_change_password=userDB.get('must_change_password', False),
+            )
+            collection.update_one(
+                {"_id": userDB["_id"]}, {"$set": {"last_login": dt.datetime.now(dt.UTC)}}
+            )
             return Response(
-                response=json.dumps({"response": response}),
+                response=json.dumps({"response": _session(userDB, token)}),
                 status=200
                 )
 
@@ -187,7 +244,170 @@ class UserService:
                 status=404,
             )
 
-    def signup(request, database):
+    def impersonate(admin, admin_token, username, database):
+        """Open a session as ``username`` for ``admin``.
+
+        The token is an ordinary one of ``username`` (role included, so an
+        admin can be impersonated too): every ownership check of the routes
+        holds unchanged. When the admin is already someone else, the session
+        stays attributed to the admin who started the chain, and going back to
+        that admin gives a plain session.
+        """
+        if not username:
+            return Response(
+                response=json.dumps({"response": "Error: username not provided."}),
+                status=400,
+            )
+        userDB = database["users"].find_one({"username": username})
+        if userDB is None:
+            return Response(
+                response=json.dumps({"response": f"Error: user {username} doesn't exist."}),
+                status=404,
+            )
+        tokenDB = database["tokens"].find_one({"token": admin_token}) or {}
+        origin = tokenDB.get("impersonated_by", admin)
+        impersonated_by = None if origin == username else origin
+        print(f"Impersonation: {origin} opens a session as {username}.")
+        token = UserService.create_token(
+            userDB['username'], userDB['role'], database, impersonated_by
+        )
+        return Response(
+            response=json.dumps({"response": _session(userDB, token, impersonated_by)}),
+            status=200
+        )
+
+    def logout(token, database):
+        """Delete one login token: the webapp drops a borrowed session with it."""
+        database["tokens"].delete_one({"token": token})
+        return Response(response=json.dumps({"response": "OK"}), status=200)
+
+    def role_of(username, database):
+        """The role of a user as stored now, None for an unknown user."""
+        userDB = database["users"].find_one({"username": username}, {"role": 1})
+        return userDB.get("role") if userDB else None
+
+    def may_manage(manager, userDB, database):
+        """Whether ``manager`` may see and reset the account ``userDB``.
+
+        An Administrateur manages everyone; a Gestionnaire only the accounts
+        that list them among their managers (the ones they created and the
+        ones an admin gave them), never an Administrateur.
+        """
+        role = UserService.role_of(manager, database)
+        if Role.at_least(role, Role.ADMIN):
+            return True
+        return (
+            Role.at_least(role, Role.MANAGER)
+            and userDB.get("role") != Role.ADMIN.value
+            and manager in userDB.get("managers", [])
+        )
+
+    def users_with_roles(database, manager):
+        """The users ``manager`` manages, by username, with what the lists show."""
+        query = {}
+        if not Role.at_least(UserService.role_of(manager, database), Role.ADMIN):
+            query = {"managers": manager, "role": {"$ne": Role.ADMIN.value}}
+        users = database["users"].find(query)
+        tasks = {
+            row["_id"]: row["n"]
+            for row in database["eval_jobs"].aggregate(
+                [{"$group": {"_id": "$user_id", "n": {"$sum": 1}}}]
+            )
+        }
+        return sorted(
+            (
+                {
+                    "username": u["username"],
+                    "role": u.get("role"),
+                    "managers": u.get("managers", []),
+                    "mustChangePassword": u.get("must_change_password", False),
+                    "lastLogin": _utc(u["last_login"]).isoformat() if u.get("last_login") else None,
+                    "tasks": tasks.get(u["username"], 0),
+                }
+                for u in users
+            ),
+            key=lambda u: u["username"].lower(),
+        )
+
+    def set_role(admin, username, role, database):
+        """Give ``username`` another role; their sessions close (a token keeps
+        the role it was opened with). An admin cannot change their own role,
+        so the last admin cannot lock everyone out by mistake."""
+        if username == admin:
+            return Response(
+                response=json.dumps({"response": "Error: you cannot change your own role."}),
+                status=400,
+            )
+        if not Role.available(role):
+            return Response(
+                response=json.dumps({"response": f"Error: role {role} n'existe pas."}),
+                status=400,
+            )
+        result = database["users"].update_one({"username": username or ""}, {"$set": {"role": role}})
+        if result.matched_count == 0:
+            return Response(
+                response=json.dumps({"response": f"Error: user {username} doesn't exist."}),
+                status=404,
+            )
+        UserService.delete_tokens(username, 0, database)
+        print(f"Role change: {admin} makes {username} {role}.")
+        return Response(response=json.dumps({"response": role}), status=200)
+
+    def reset_password(manager, username, database):
+        """Give ``username`` a temporary password, to change at the next login.
+
+        The password is generated and returned once: it is never stored in
+        clear. The user's sessions are closed.
+        """
+        userDB = database["users"].find_one({"username": username or ""})
+        if userDB is None or not UserService.may_manage(manager, userDB, database):
+            # an account the caller does not manage looks like a missing one
+            return Response(
+                response=json.dumps({"response": f"Error: user {username} doesn't exist."}),
+                status=404,
+            )
+        password = temporary_password()
+        database["users"].update_one(
+            {"username": username},
+            {"$set": {"password": generate_password_hash(password), "must_change_password": True}},
+        )
+        UserService.delete_tokens(username, 0, database)
+        print(f"Password reset: {manager} resets the password of {username}.")
+        return Response(
+            response=json.dumps({"response": {"username": username, "password": password}}),
+            status=200,
+        )
+
+    def set_managers(username, managers, database):
+        """Replace the managers of ``username``; each one must be a Gestionnaire."""
+        users = database["users"]
+        if users.find_one({"username": username or ""}) is None:
+            return Response(
+                response=json.dumps({"response": f"Error: user {username} doesn't exist."}),
+                status=404,
+            )
+        managers = sorted(set(managers))
+        found = {
+            u["username"]
+            for u in users.find({"username": {"$in": managers}, "role": Role.MANAGER.value})
+        }
+        refused = [m for m in managers if m not in found]
+        if refused:
+            return Response(
+                response=json.dumps({"response": f"Error: not a Gestionnaire: {', '.join(refused)}."}),
+                status=400,
+            )
+        users.update_one({"username": username}, {"$set": {"managers": managers}})
+        return Response(response=json.dumps({"response": managers}), status=200)
+
+    def signup(request, database, creator=None):
+        """Create the account the form describes.
+
+        ``creator`` is the user creating it, None on the operator route: a
+        Gestionnaire cannot create an Administrateur, and the creator becomes
+        the first manager of the account. The new user chooses their own
+        password at the first login.
+        """
         request_form = request.form
         if "username" not in request_form:
             return Response(
@@ -203,7 +423,7 @@ class UserService:
 
         if "role" not in request_form:
             return Response(
-                response=json.dumps({"response": f"Error: password not provided."}),
+                response=json.dumps({"response": f"Error: role not provided."}),
                 status=400,
             )
 
@@ -228,6 +448,15 @@ class UserService:
             )
 
         collection = database["users"]
+        managers = []
+        if creator is not None and not Role.at_least(UserService.role_of(creator, database), Role.ADMIN):
+            if role == Role.ADMIN.value:
+                return Response(
+                    response=json.dumps({"response": "Error: only an Administrateur creates an Administrateur."}),
+                    status=403,
+                )
+            # an admin manages everyone already
+            managers = [creator]
         isUserExisting = collection.count_documents({"username": username}) > 0
         if isUserExisting :
             return Response(
@@ -241,41 +470,16 @@ class UserService:
             "username": username,
             "password": hashed_password,
             "role": role,
-            # on by default: the digits of a validated copy are what the
-            # recogniser is retrained on (process_copy.digit_bank). The
-            # profile screen turns it off.
-            "saveVerifiedImages": True,
-            "moodleStructureInd": True  # "moodleStructureInd" in request_form
+            "moodleStructureInd": True,  # "moodleStructureInd" in request_form
+            "managers": managers,
+            # the operator route sets a password its owner chose
+            "must_change_password": creator is not None,
         }
         collection.insert_one(user)
 
         return Response(
             response=json.dumps({"response": f'Utilisateur Créé'}),
             status=200
-        )
-
-    def update_save_verified_images(username, request, database):
-        """Set the saveVerifiedImages flag of ``username`` (the token's owner).
-
-        The form's ``username`` used to be trusted; ``check_token`` now refuses
-        a form naming another user and the handlers no longer read it.
-        """
-        request_form = request.form
-        if "saveVerifiedImages" not in request_form:
-            return Response(
-                response=json.dumps({"response": f"Error: saveVerifiedImages not provided."}),
-                status=400,
-            )
-        save_verified_images = bool(int(request_form['saveVerifiedImages']))
-
-        collection = database["users"]
-
-        user = { "$set": { 'saveVerifiedImages': save_verified_images } }
-
-        collection.update_one({'username': username}, user)
-
-        return Response(
-            response=json.dumps({"response": f'Utilisateur mise-à-jour'}),
         )
 
     def update_moodle_structure_ind(username, request, database):
@@ -302,6 +506,8 @@ class UserService:
         UserService.delete_tokens(username, 0, database)
         collection = database["users"]
         collection.delete_many({'username': username})
+        # nobody is managed by a user who is gone
+        collection.update_many({'managers': username}, {'$pull': {'managers': username}})
         print("Delete user:", username)
 
     def users(database):
@@ -352,14 +558,22 @@ class UserService:
                     status=500
                 )
 
+        if userDB.get('must_change_password') and check_password_hash(userDB['password'], new_password):
+            return Response(
+                response=json.dumps({"response": "Le nouveau mot de passe doit être différent du mot de passe temporaire."}),
+                status=400,
+            )
+
         collection.update_one(
             {
                 'username': username
             },
             {
-                "$set": {'password': generate_password_hash(new_password)}
+                "$set": {'password': generate_password_hash(new_password), 'must_change_password': False}
             }
         )
+        # the sessions opened with the old password are no longer limited
+        database["tokens"].update_many({"username": username}, {"$unset": {"must_change_password": ""}})
 
         return Response(
                 response=json.dumps({"response": 'Le mot de passe a été modifié!'}),

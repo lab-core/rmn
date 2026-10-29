@@ -30,7 +30,7 @@ describe('ErrorInterceptor', () => {
   let backend: HttpTestingController;
   let router: Router;
   let toastr: jasmine.SpyObj<ToastrService>;
-  const user = { loggued: () => true, logout: jasmine.createSpy('logout') };
+  const user: any = { loggued: () => true, logout: jasmine.createSpy('logout') };
 
   beforeEach(() => {
     toastr = jasmine.createSpyObj('ToastrService', ['success', 'error', 'info', 'warning']);
@@ -70,6 +70,18 @@ describe('ErrorInterceptor', () => {
     expect(user.logout).toHaveBeenCalled();
     expect(router.navigate).toHaveBeenCalledWith(['/login']);
     expect(router.navigate).not.toHaveBeenCalledWith(['/']);
+  });
+
+  it('sends a session with a temporary password to the profile page', async () => {
+    const pending = firstValueFrom(http.post('/api/jobs', {})).catch(e => e);
+    backend.expectOne('/api/jobs').flush(
+      { response: 'Veuillez changer votre mot de passe temporaire.', code: 'password_change_required' },
+      { status: 403, statusText: 'Forbidden' });
+
+    expect((await pending).status).toBe(403);
+    expect(user.mustChangePassword).toBeTrue();
+    expect(router.navigate).toHaveBeenCalledWith(['/user-profile']);
+    expect(user.logout).not.toHaveBeenCalled();
   });
 
   it('leaves a share-link visitor alone on a dead-session 401', async () => {
@@ -200,7 +212,7 @@ describe('FreshHttpInterceptor', () => {
     expect(FreshHttpInterceptor.isRetryable(post('/api//documents'))).toBeTrue();
     expect(FreshHttpInterceptor.isRetryable(post('/api/documents/update'))).toBeFalse();
     expect(FreshHttpInterceptor.isRetryable(post('/api//documents/replace'))).toBeFalse();
-    expect(FreshHttpInterceptor.isRetryable(new HttpRequest('PUT', '/api/users/updateSaveVerifiedImages', {}))).toBeFalse();
+    expect(FreshHttpInterceptor.isRetryable(new HttpRequest('PUT', '/api/users/updateMoodleStructureInd', {}))).toBeFalse();
     expect(FreshHttpInterceptor.isRetryable(new HttpRequest('GET', '/api/admin/executor'))).toBeTrue();
   });
 

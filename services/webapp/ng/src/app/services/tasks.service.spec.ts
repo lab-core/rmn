@@ -63,6 +63,27 @@ describe('TasksService', () => {
     expect(await pending).toEqual({ job_id: 'job-1', job_name: 'Exam' });
   });
 
+  it('reads the matricules and the grades again', async () => {
+    const matricules = service.readMatriculesAgain('job');
+    let req = http.expectOne('/api/jobs/read_matricules');
+    expect((req.request.body as FormData).get('job_id')).toBe('job');
+    expect((req.request.body as FormData).get('user_id')).toBe('alice');
+    req.flush({ response: 'OK', documents: 4 });
+    expect(await matricules).toBe(4);
+
+    const one = service.readGradesAgain('job', 3);
+    req = http.expectOne('/api/documents/read_grades');
+    expect((req.request.body as FormData).get('question_index')).toBe('3');
+    req.flush({ response: 'OK', questions: [3] });
+    expect(await one).toEqual([3]);
+
+    const all = service.readGradesAgain('job');
+    req = http.expectOne('/api/documents/read_grades');
+    expect((req.request.body as FormData).has('question_index')).toBeFalse();
+    req.flush({ response: 'OK', questions: [1, 3] });
+    expect(await all).toEqual([1, 3]);
+  });
+
   it('sends the status, stats and bonus updates with the credentials', async () => {
     const status = service.updateTaskStatus('job', 'ARCHIVED');
     let req = http.expectOne('/api/jobs/update/status');

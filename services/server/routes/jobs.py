@@ -1089,6 +1089,61 @@ def continue_job(user_id):
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
+@bp.route("/read_matricules", methods=["POST"])
+@cross_origin()
+@verify_token()
+def read_matricules(user_id):
+    """Read again the matricules of a job's copies that nobody validated.
+
+    The copies validated (or deleted) on the matricule page keep the
+    teacher's answer; the others go back to NOT READY and the job to the
+    queue, where the executor reads only those (``find_file_matricule``
+    skips any other status) and returns the job to VALIDATION. What a
+    teacher validates while the pass runs still wins over the reading
+    (``update_document(only_if_status=NOT_READY)``).
+
+    Form fields: ``job_id``. Only for a job in VALIDATION.
+    """
+    if "job_id" not in request.form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id not provided."}),
+            status=400,
+        )
+    job_id = str(request.form["job_id"])
+    db = mongo["RMN"]
+    job = db["eval_jobs"].find_one({"job_id": job_id, "user_id": user_id})
+    if job is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
+            status=404,
+        )
+    if job["job_status"] != Job_Status.VALIDATION.value:
+        return Response(
+            response=json.dumps({"response": "Error: the matricules are read again only while the job is in validation."}),
+            status=400,
+        )
+
+    reset = db["job_documents"].update_many(
+        {
+            "job_id": job_id,
+            "status": {"$in": [Document_Status.TO_VALIDATE.value, Document_Status.HIGH_ACCURACY.value]},
+        },
+        {"$set": {"status": Document_Status.NOT_READY.value}, "$unset": {"matricule_confidence": ""}},
+    ).modified_count
+    if reset == 0:
+        return Response(
+            response=json.dumps({"response": "Error: every matricule is already validated."}),
+            status=400,
+        )
+    db["eval_jobs"].update_one(
+        {"job_id": job_id},
+        {"$set": {"job_status": Job_Status.QUEUED.value}, "$unset": {"job_infos": ""}},
+    )
+    redis.rpush("job_queue", json.dumps({"job_id": job_id}))
+    print(f"Matricules of {job_id}: {reset} copies to read again.")
+    return Response(response=json.dumps({"response": "OK", "documents": reset}), status=200)
+
+
 @bp.route("/validate", methods=["POST"])
 @cross_origin()
 @verify_token()

@@ -78,10 +78,10 @@
                   <app-help-tip key="dashboard.reading"></app-help-tip></div>
               }
               @if (question.aboveMax > 0 && !question.bonus) {
-                <button type="button" class="above-max" [disabled]="disableButtons"
-                        title="Notes validées au-dessus du maximum de la question : les voir"
-                        (click)="correctQuestion(question, true)">{{ question.aboveMax }} note(s) &gt; max</button>
-                <app-help-tip key="dashboard.above-max"></app-help-tip>
+                <app-help-hover key="dashboard.above-max">
+                  <button type="button" class="above-max" [disabled]="disableButtons"
+                          (click)="correctQuestion(question, true)">{{ question.aboveMax }} note(s) &gt; max</button>
+                </app-help-hover>
               }
             </td>
             <td>{{ question.average | number:'1.2-2' }} / {{ question.max }}</td>
@@ -107,12 +107,23 @@
 }
             </td>
             <td class="action-buttons">
-              @if (!disableButtons) {
-<button class="correct-button" mat-raised-button color="primary" [disabled]="question.count === 0" (click)="correctQuestion(question)">Corriger</button>
-}
-              @if (!shared() && !disableButtons) {
-<button class="correct-button" mat-raised-button color="primary" (click)="shareQuestion(question.name !== 'Total' ? question.index : undefined)">Partager</button>
-}
+              <div class="row-actions">
+                @if (!disableButtons) {
+                  <button class="correct-button" mat-raised-button color="primary" [disabled]="question.count === 0" (click)="correctQuestion(question)">Corriger</button>
+                }
+                @if (!shared() && !disableButtons) {
+                  <app-help-hover key="dashboard.share">
+                    <button class="correct-button share-button" mat-raised-button color="primary" (click)="shareQuestion(question.name !== 'Total' ? question.index : undefined)">Partager</button>
+                  </app-help-hover>
+                }
+                @if (canReadAgain() && (question.name !== 'Total' || !shared())) {
+                  <app-help-hover key="dashboard.read-grades">
+                    <button class="read-again" mat-stroked-button [disabled]="question.count === 0" (click)="readGradesAgain(question)">
+                      <mat-icon>autorenew</mat-icon> Relire
+                    </button>
+                  </app-help-hover>
+                }
+              </div>
             </td>
           </tr>
 }
@@ -124,13 +135,23 @@
             <td></td>
             <td></td>
             <td class="action-buttons">
-              @if (!disableButtons) {
-<button class="correct-button" mat-raised-button color="primary" (click)="verifyMatricules()">Verifier</button>
-}
-              @if (!shared() && !disableButtons) {
-<button class="correct-button" mat-raised-button color="primary" (click)="shareMatricule()">Partager</button>
-<app-help-tip key="dashboard.share"></app-help-tip>
-}
+              <div class="row-actions">
+                @if (!disableButtons) {
+                  <button class="correct-button" mat-raised-button color="primary" (click)="verifyMatricules()">Vérifier</button>
+                }
+                @if (!shared() && !disableButtons) {
+                  <app-help-hover key="dashboard.share">
+                    <button class="correct-button share-button" mat-raised-button color="primary" (click)="shareMatricule()">Partager</button>
+                  </app-help-hover>
+                }
+                @if (canReadAgain() && loggued() && !shared()) {
+                  <app-help-hover key="dashboard.read-matricules">
+                    <button class="read-matricules-again" mat-stroked-button [disabled]="totalVerifiedMatricules >= examsCount" (click)="readMatriculesAgain()">
+                      <mat-icon>autorenew</mat-icon> Relire
+                    </button>
+                  </app-help-hover>
+                }
+              </div>
             </td>
           </tr>
         </tbody>
@@ -139,14 +160,12 @@
       @if (loggued() && !shared() && !disableButtons) {
 <div class="validate-job-container">
         <div class="checkbox-container">
-          <span class="with-help">
+          <app-help-hover key="dashboard.add-copies">
             <button class="copies-job-button" mat-raised-button color="primary" (click)="addCopies()">Copies additionnelles</button>
-            <app-help-tip key="dashboard.add-copies"></app-help-tip>
-          </span>
-          <span class="with-help">
+          </app-help-hover>
+          <app-help-hover key="dashboard.update-csv">
             <button class="csv-job-button" mat-raised-button color="primary" (click)="updateCsv()">Mettre à jour csv</button>
-            <app-help-tip key="dashboard.update-csv"></app-help-tip>
-          </span>
+          </app-help-hover>
           @if (questions.length >0) {
 <label>
               <input type="checkbox" [(ngModel)]="taskStats" (change)="taskStatsChange()" [ngModelOptions]="{standalone: true}">

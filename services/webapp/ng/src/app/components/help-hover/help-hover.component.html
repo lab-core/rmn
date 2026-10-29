@@ -1,0 +1,7 @@
+<span class="help-hover" [matTooltip]="entry.text" matTooltipClass="help-tip-tooltip" [matTooltipShowDelay]="300">
+  <ng-content></ng-content>
+  <a class="guide-link" [href]="link" target="_blank" rel="noopener" (click)="$event.stopPropagation()"
+     title="Ouvrir le guide" [attr.aria-label]="'Guide : ' + entry.text">
+    <mat-icon fontIcon="help"></mat-icon>
+  </a>
+</span>

@@ -59,4 +59,25 @@ describe('MainMenuComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/login']);
     expect(notification.showInfo).toHaveBeenCalledWith('', 'Déconnecté!');
   });
+
+  it('offers the way back to the admin of a borrowed session', () => {
+    expect(fixture.nativeElement.querySelector('.stop-impersonating')).toBeNull();
+    user.impersonatedBy = 'root';
+    fixture.detectChanges();
+    const back = fixture.nativeElement.querySelector('.stop-impersonating') as HTMLElement;
+    expect(back.textContent).toContain('Revenir à root');
+    back.click();
+    expect(user.stopImpersonating).toHaveBeenCalled();
+    // back to the admin page, where roles are taken
+    expect(router.navigate).toHaveBeenCalledWith(['/admin']);
+    expect(notification.showInfo).toHaveBeenCalledWith('', 'De retour en tant que root');
+  });
+
+  it('offers the admin page to Gestionnaires and Administrateurs', () => {
+    expect(fixture.nativeElement.querySelector('.admin-entry')).toBeNull();
+    user.role = 'Gestionnaire';
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.admin-entry') as HTMLElement).click();
+    expect(router.navigate).toHaveBeenCalledWith(['/admin']);
+  });
 });

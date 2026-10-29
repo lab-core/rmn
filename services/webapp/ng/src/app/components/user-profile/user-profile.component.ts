@@ -22,34 +22,30 @@ export class UserProfileComponent implements OnInit {
     public router: Router) { }
 
   ngOnInit(): void {
+    if (this.userService.mustChangePassword) {
+      this.openChangePasswordDialog();
+    }
   }
 
 
 
   openChangePasswordDialog(): void {
+    const forced = this.userService.mustChangePassword;
     const dialogRef = this.dialog.open(ChangePasswordDialogComponent, {
         width: '80%',
         maxWidth: '400px',
-        height: '60%'
+        height: '60%',
+        data: { forced },
+        // a temporary password: nothing else works until it is replaced
+        disableClose: forced,
       })
   }
 
   openCreateUserDialog(): void {
     const dialogRef = this.dialog.open(CreateUserDialogComponent, {
       width: '80%',
-      maxWidth: '600px',
-      height: '73%'
+      maxWidth: '500px',
     })
-  }
-
-  updateSaveVerifiedImagesValue(saveVerifiedImages: boolean): void {
-    this.userService.updateSaveVerifiedImagesValue(saveVerifiedImages).pipe(first()).subscribe(
-      (data) => {
-        this.userService.saveVerifiedImages = saveVerifiedImages;
-        localStorage.setItem('saveVerifiedImages', JSON.stringify(saveVerifiedImages))
-
-      }
-    );
   }
 
   updateSaveInMoodleStructure(moodleStructureInd: boolean): void {

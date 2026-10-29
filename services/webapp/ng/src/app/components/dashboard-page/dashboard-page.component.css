@@ -302,6 +302,31 @@ tbody td {
   text-decoration: none;
 }
 
+/* Corriger, Partager and Relire on one line, the same height */
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.row-actions .correct-button {
+  margin: 0;
+}
+
+.read-again, .read-matricules-again {
+  font-size: 0.75em;
+  border-radius: 10px;
+  background-color: white;
+}
+
+.read-again mat-icon, .read-matricules-again mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
 /* a button and its help bubble wrap together */
 .with-help {
   display: inline-flex;
