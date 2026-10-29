@@ -34,5 +34,6 @@ export enum OutputFile {
 
 export enum UserRole {
   USER = 'Utilisateur',
+  MANAGER = 'Gestionnaire',
   ADMIN = 'Administrateur',
 }

@@ -9,10 +9,14 @@
  * heading of the guide).
  */
 
+import { UserRole } from '../generated/rmn-contracts';
+
 /** A chapter of the guide: src/assets/guide/<file>.md, shown at /user-guide/<file>. */
 export interface GuideChapter {
   file: string;
   title: string;
+  /** The least role that sees the chapter in the app; everyone when unset. */
+  minRole?: UserRole;
 }
 
 export const GUIDE_CHAPTERS: GuideChapter[] = [
@@ -27,8 +31,21 @@ export const GUIDE_CHAPTERS: GuideChapter[] = [
   {file: '08-correction', title: '8. Corriger les copies'},
   {file: '09-finalisation', title: '9. Finaliser et télécharger'},
   {file: '10-retour-moodle', title: '10. Rendre les notes sur Moodle'},
-  {file: '11-faq', title: 'Questions fréquentes'},
+  {file: '11-comptes', title: '11. Gérer les comptes', minRole: UserRole.MANAGER},
+  {file: '12-administration', title: '12. Administrer rmn', minRole: UserRole.ADMIN},
+  // always last, whatever chapters the role sees
+  {file: 'faq', title: 'Questions fréquentes'},
 ];
+
+const ROLE_ORDER: string[] = [UserRole.USER, UserRole.MANAGER, UserRole.ADMIN];
+
+/** The chapters a role sees: the account chapters stay out of an Utilisateur's
+ *  guide, the administration one out of a Gestionnaire's. The files themselves
+ *  are not secret (they are on GitHub): this only keeps the guide relevant. */
+export function visibleChapters(role: string | undefined): GuideChapter[] {
+  const rank = ROLE_ORDER.indexOf(role ?? '');
+  return GUIDE_CHAPTERS.filter((c) => !c.minRole || rank >= ROLE_ORDER.indexOf(c.minRole));
+}
 
 /** A help bubble: its text and the guide section that says more. */
 export interface HelpEntry {
@@ -46,6 +63,11 @@ export function headingId(text: string): string {
   return text.trim().toLowerCase()
     .replace(/[^\p{L}\p{N}\s_-]/gu, '')
     .replace(/\s/g, '-');
+}
+
+/** The page of the guide a help entry points to: its chapter, and its heading if any. */
+export function guideLink(entry: HelpEntry): string {
+  return `/user-guide/${entry.chapter}` + (entry.anchor ? `#${entry.anchor}` : '');
 }
 
 export const HELP: Record<string, HelpEntry> = {
@@ -81,6 +103,40 @@ export const HELP: Record<string, HelpEntry> = {
   'wizard.csv': {
     text: 'Le « formulaire d\'évaluation » téléchargé du devoir Moodle (colonnes Matricule, Identifiant, Nom complet, Note maximale…), sans le modifier.',
     chapter: '05-nouvelle-tache', anchor: 'étape-4--téléverser-le-csv-de-moodle',
+  },
+
+  // top menu
+  'menu.tasks': {
+    text: 'Vos tâches et leur statut. Cliquez sur une tâche pour ouvrir son tableau de bord.',
+    chapter: '06-suivi', anchor: 'la-liste-des-tâches',
+  },
+  'menu.new-task': {
+    text: 'Créer une tâche : son nom, les templates, le zip des copies et le csv de Moodle.',
+    chapter: '05-nouvelle-tache',
+  },
+  'menu.templates': {
+    text: 'Vos templates : où rmn lit le matricule et les notes sur les pages de vos examens.',
+    chapter: '03-template',
+  },
+  'menu.guide': {
+    text: 'Le guide d\'utilisation, de la préparation du devoir Moodle au retour des notes.',
+    chapter: 'README',
+  },
+  'menu.admin': {
+    text: 'Les comptes que vous gérez : en créer, réinitialiser un mot de passe.',
+    chapter: '11-comptes',
+  },
+  'menu.profile': {
+    text: 'Votre compte : changer votre mot de passe, la sauvegarde des chiffres lus pour améliorer la lecture.',
+    chapter: 'faq', anchor: 'changer-mon-mot-de-passe',
+  },
+  'menu.stop-impersonating': {
+    text: 'Vous agissez à la place d\'un utilisateur : quitte son compte et revient au vôtre.',
+    chapter: '12-administration', anchor: 'prendre-le-rôle-dun-utilisateur',
+  },
+  'menu.logout': {
+    text: 'Ferme votre session sur ce navigateur. Les copies gardées pour la correction hors ligne y sont effacées.',
+    chapter: '08-correction', anchor: 'corriger-hors-ligne',
   },
 
   // task list
@@ -131,6 +187,15 @@ export const HELP: Record<string, HelpEntry> = {
     chapter: '06-suivi', anchor: 'partager-la-correction',
   },
 
+  'dashboard.read-grades': {
+    text: 'Relit les notes écrites sur les copies de cette question (de toutes, sur la ligne Total). Les notes déjà validées sont gardées.',
+    chapter: '08-correction', anchor: 'relire-les-notes',
+  },
+  'dashboard.read-matricules': {
+    text: 'Relit les matricules que personne n\'a confirmés. Les copies confirmées ou supprimées ne changent pas.',
+    chapter: '07-matricules', anchor: 'relire-les-matricules',
+  },
+
   // grading
   'grading.score': {
     text: 'Tapez la note, puis Entrée pour valider et passer à la copie suivante. Une note proposée par rmn est encadrée de couleur : vérifiez-la.',
@@ -147,6 +212,56 @@ export const HELP: Record<string, HelpEntry> = {
   'grading.shortcuts': {
     text: 'Entrée : valider. ← → : copie précédente / suivante. ↑ ↓ : quatre copies plus haut / plus bas.',
     chapter: '08-correction', anchor: 'raccourcis-clavier',
+  },
+
+  // administration (admin page, profile)
+  'admin.roles': {
+    text: 'Utilisateur : ses propres tâches. Gestionnaire : crée des comptes et réinitialise ceux qu\'il gère. Administrateur : tous les comptes.',
+    chapter: '11-comptes', anchor: 'les-rôles',
+  },
+  'admin.managers': {
+    text: 'Les gestionnaires qui voient ce compte et peuvent réinitialiser son mot de passe. Celui qui crée un compte en devient le gestionnaire.',
+    chapter: '12-administration', anchor: 'choisir-les-gestionnaires-dun-compte',
+  },
+  'admin.create': {
+    text: 'Nouveau compte, avec un mot de passe à transmettre : la personne devra le changer à sa première connexion.',
+    chapter: '11-comptes', anchor: 'créer-un-compte',
+  },
+  'admin.temporary': {
+    text: 'Ce compte doit choisir un nouveau mot de passe à sa prochaine connexion.',
+    chapter: '11-comptes', anchor: 'premier-mot-de-passe',
+  },
+  'admin.impersonate': {
+    text: 'Ouvre rmn en tant que cet utilisateur, avec tous ses droits. « Revenir à … » dans le menu ramène à votre compte.',
+    chapter: '12-administration', anchor: 'prendre-le-rôle-dun-utilisateur',
+  },
+  'admin.reset': {
+    text: 'Génère un mot de passe temporaire, affiché une seule fois, et ferme les sessions de l\'utilisateur.',
+    chapter: '11-comptes', anchor: 'réinitialiser-un-mot-de-passe',
+  },
+  'admin.sessions': {
+    text: 'Déconnecte l\'utilisateur de tous ses appareils.',
+    chapter: '12-administration', anchor: 'changer-le-rôle-fermer-les-sessions-supprimer',
+  },
+  'admin.delete': {
+    text: 'Supprime définitivement le compte, ses tâches et ses templates.',
+    chapter: '12-administration', anchor: 'changer-le-rôle-fermer-les-sessions-supprimer',
+  },
+  'admin.storage': {
+    text: 'Analyser compte les fichiers que plus aucune tâche ni aucun template ne possède ; Nettoyer les supprime. Rien de modifié depuis moins de 24 h n\'est touché.',
+    chapter: '12-administration', anchor: 'stockage',
+  },
+  'admin.old-jobs': {
+    text: 'Supprime définitivement les tâches de tous les utilisateurs ajoutées depuis au moins ce nombre de jours, avec leurs copies.',
+    chapter: '12-administration', anchor: 'anciennes-tâches-et-sessions',
+  },
+  'admin.old-sessions': {
+    text: 'Déconnecte les sessions ouvertes depuis au moins ce nombre de jours.',
+    chapter: '12-administration', anchor: 'anciennes-tâches-et-sessions',
+  },
+  'password.temporary': {
+    text: 'Votre mot de passe a été créé ou réinitialisé par un gestionnaire : choisissez-en un nouveau, différent du temporaire.',
+    chapter: 'faq', anchor: 'on-me-demande-un-nouveau-mot-de-passe-à-la-connexion',
   },
 
   // matricules

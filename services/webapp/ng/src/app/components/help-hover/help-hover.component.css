@@ -1,0 +1,38 @@
+:host {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.help-hover {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* the way to the guide: hidden until the button is hovered or focused */
+.guide-link {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 2;
+  display: inline-flex;
+  border-radius: 50%;
+  background-color: white;
+  color: #3f51b5;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.help-hover:hover .guide-link,
+.help-hover:focus-within .guide-link {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.guide-link mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
