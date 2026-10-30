@@ -240,6 +240,19 @@ describe('DashboardPageComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);
   });
 
+  it('opens the cover pages finalizing flagged, even on an archived task', async () => {
+    await create({ ...TASK, job_status: 'ARCHIVED' });
+    expect(fixture.nativeElement.querySelector('.cover-checks')).toBeNull();
+
+    component.examsList[1].cover_check = 'rules';
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector('.cover-checks') as HTMLButtonElement;
+    expect(button.textContent).toContain('Pages de garde (1)');
+    button.click();
+    expect(tasks.setvalidatingTaskId).toHaveBeenCalledWith('job');
+    expect(router.navigate).toHaveBeenCalledWith(['/matricule-validation', 'job'], { queryParams: { covers: 'true' } });
+  });
+
   it('without a task id it returns to the history', async () => {
     await create(TASK, {});
     expect(router.navigate).toHaveBeenCalledWith(['/tasks-history']);

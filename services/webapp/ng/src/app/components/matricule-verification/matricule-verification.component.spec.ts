@@ -45,7 +45,7 @@ describe('MatriculeVerificationComponent', () => {
   let docs: any;
   let validation: any;
 
-  const create = async (job: any = JOB, queryParams: any = {}) => {
+  const create = async (job: any = JOB, queryParams: any = {}, exams: any[] = EXAMS) => {
     localStorage.clear();
     notification = notificationSpy();
     socket = socketServiceStub();
@@ -53,7 +53,7 @@ describe('MatriculeVerificationComponent', () => {
     docs = {
       documentsList: [],
       getDocuments: jasmine.createSpy('getDocuments').and.callFake(async () => {
-        docs.documentsList = docs.documentsList.length ? docs.documentsList : JSON.parse(JSON.stringify(EXAMS));
+        docs.documentsList = docs.documentsList.length ? docs.documentsList : JSON.parse(JSON.stringify(exams));
       }),
       getPdfSource: jasmine.createSpy('getPdfSource').and.callFake(async (jobId, index) => ({ url: `blob:${index}` })),
       clearPdfSources: jasmine.createSpy('clearPdfSources'),
@@ -108,6 +108,41 @@ describe('MatriculeVerificationComponent', () => {
     await create({ ...JOB, job_status: 'ARCHIVED' });
     expect(notification.showWarning).toHaveBeenCalledWith(jasmine.any(String), 'Tâche inactive');
     expect(docs.getDocuments).not.toHaveBeenCalled();
+  });
+
+  it('shows only the flagged cover pages of a finalized task, as written, and changes nothing', async () => {
+    const flagged = JSON.parse(JSON.stringify(EXAMS)).map((e: any) => ({ ...e, status: 'VALIDATED' }));
+    flagged[1].cover_check = 'not_written';
+    flagged[3].cover_check = 'box_from_template';
+    flagged[3].matricule = '1234567';  // a duplicate would be flagged again in the normal mode
+    await create({ ...JOB, job_status: 'ARCHIVED' }, { covers: 'true' }, flagged);
+
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(docs.clearPdfSources).toHaveBeenCalled();
+    expect(component.subExamsList.map((e: any) => e.document_index)).toEqual([1, 3]);
+    expect(component.currentCopy).toBe(1);
+    // the page as finalizing wrote it
+    expect(docs.getPdfSource).toHaveBeenCalledWith('job', 1, false, undefined, undefined, true);
+
+    const page: HTMLElement = fixture.nativeElement;
+    const tiles = Array.from(page.querySelectorAll('.cover-check-copy')) as HTMLElement[];
+    expect(tiles.map(t => t.textContent!.trim())).toEqual(['2', '4']);
+    expect(tiles[0].title).toContain('notes non écrites');
+    expect(tiles[0].style.backgroundColor).toBe('rgb(255, 0, 0)');
+    expect(page.querySelector('.cover-check-reason')!.textContent).toContain('rendue sans les notes');
+    expect(page.querySelector('.validate-container')).toBeNull();
+    expect(component.disabledValidationButton).toBeTrue();
+
+    component.nextCopy();
+    await settle();
+    fixture.detectChanges();
+    expect(component.currentCopy).toBe(3);
+    expect(page.querySelector('.cover-check-level')!.textContent).toBe('placement probable');
+
+    // Enter validates nothing, no status is written back
+    component.onKeydownHandler(new KeyboardEvent('keydown'));
+    http.expectNone(() => true);
+    expect(localStorage.getItem('job_matricule_copy')).toBeNull();
   });
 
   it('loads the copies, the students and opens the first available copy', async () => {

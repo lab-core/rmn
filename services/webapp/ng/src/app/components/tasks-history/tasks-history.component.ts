@@ -21,16 +21,8 @@ import { SERVER_URL } from 'src/app/utils';
 import { filter, first } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
+import { COVER_CHECK_REASONS } from 'src/app/cover-checks';
 
-
-// why the grades of a copy may not be where they should on its cover page
-// (cover_check, recorded by the executor when it writes them at finalisation)
-export const COVER_CHECK_REASONS: {[check: string]: string} = {
-  template_position: "cases introuvables sur la copie : notes écrites à l'emplacement des cases du template",
-  box_from_template: "une case aux bords recouverts a été replacée d'après le template",
-  rules: 'cases trouvées sans le gabarit du template : la colonne des notes peut être la mauvaise',
-  not_written: 'cases introuvables : la page de garde est rendue sans les notes',
-};
 
 // the opening of the progress message a grade reading emits; matching it is
 // what tells a reading apart from any other progress the executor reports

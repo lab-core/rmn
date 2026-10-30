@@ -111,6 +111,7 @@ def test_owner_lists_the_copies(client, job, owner):
     [doc] = body["response"]
     assert doc["matricule"] == "1234567" and doc["exec_time"] == 1.5
     assert doc["n_total_doc"] == 1 and doc["group"] == ""
+    assert doc["cover_check"] is None
 
 
 def test_owner_lists_the_questions_filtered_by_index(client, job, owner):
@@ -166,6 +167,30 @@ def test_owner_downloads_the_cover_page_of_a_copy(client, job, owner):
     assert resp.data == b"%PDF cover"
     # a file keeps its own type, whatever the json default of the api
     assert resp.mimetype == "application/pdf"
+
+
+def test_the_graded_cover_page_is_served_when_finalizing_wrote_one(
+    client, job, owner, db, app_module_fixture
+):
+    # not finalized yet: the scan
+    resp = _download(client, job, owner, document_index="0", graded="true")
+    assert resp.status_code == 200 and resp.data == b"%PDF cover"
+
+    _put(
+        app_module_fixture.storage,
+        f"cover_pages/{job}/graded/copy1_cover.pdf",
+        b"%PDF graded",
+    )
+    db["job_documents"].update_one(
+        {"job_id": job}, {"$set": {"cover_check": "template_position"}}
+    )
+    assert _download(client, job, owner, document_index="0", graded="1").data == (
+        b"%PDF graded"
+    )
+    # the validation screen still gets the scan
+    assert _download(client, job, owner, document_index="0").data == b"%PDF cover"
+    [doc] = _list(client, job, owner)[1]["response"]
+    assert doc["cover_check"] == "template_position"
 
 
 def test_a_question_download_serves_the_base_of_the_last_version(client, job, owner):
@@ -369,9 +394,13 @@ def test_a_saved_pdf_is_the_new_version(client, job, owner, db, app_module_fixtu
     # served back as such, the first version untouched
     resp = _annotations(client, job, owner, document_index="0")
     assert resp.get_json(force=True) == {"annotations": [], "last_version": 1}
-    resp = _download(client, job, owner, document_index="0", questions="true", version="1")
+    resp = _download(
+        client, job, owner, document_index="0", questions="true", version="1"
+    )
     assert resp.data == b"%PDF annotated"
-    resp = _download(client, job, owner, document_index="0", questions="true", version="0")
+    resp = _download(
+        client, job, owner, document_index="0", questions="true", version="0"
+    )
     assert resp.data == b"%PDF initial Q1"
 
 
@@ -381,7 +410,12 @@ def test_each_save_is_a_version_of_its_own(client, job, owner, db, app_module_fi
         assert resp.status_code == 200, resp.data
     for version, content in ((1, b"%PDF first"), (2, b"%PDF second")):
         resp = _download(
-            client, job, owner, document_index="1", questions="true", version=str(version)
+            client,
+            job,
+            owner,
+            document_index="1",
+            questions="true",
+            version=str(version),
         )
         assert resp.data == content
 
@@ -434,9 +468,7 @@ def test_update_of_an_unknown_question_is_404(client, job, owner):
 def test_grading_a_question_of_a_missing_copy_is_404(client, job, owner, db):
     # the question is there, the job_documents row of its copy is not
     db["job_documents"].delete_many({"job_id": job})
-    resp = _save(
-        client, job, owner, document_index="0", question_index="1", grades="2"
-    )
+    resp = _save(client, job, owner, document_index="0", question_index="1", grades="2")
     assert resp.status_code == 404, resp.data
     assert resp.get_json(force=True) == {"response": "Error: document copy1 not found."}
 
@@ -473,7 +505,9 @@ def test_read_grades_of_a_job_without_questions_is_refused(
 ):
     job_factory("no-questions", "alice")
     before = redis_queue()
-    resp = client.post("/documents/read_grades", data={"job_id": "no-questions", **owner})
+    resp = client.post(
+        "/documents/read_grades", data={"job_id": "no-questions", **owner}
+    )
     assert resp.status_code == 401
     assert redis_queue() == before
 
@@ -523,7 +557,13 @@ def test_a_grade_that_is_not_a_finite_number_is_400(client, job, owner, db, grad
     # float() made "x" a 500, and stored "nan"/"inf" as a grade, which then
     # broke the JSON of every response carrying it
     resp = _save(
-        client, job, owner, document_index="0", question_index="1", status="VALIDATED", grades=grade
+        client,
+        job,
+        owner,
+        document_index="0",
+        question_index="1",
+        status="VALIDATED",
+        grades=grade,
     )
     assert resp.status_code == 400, resp.data
     assert resp.get_json(force=True) == {"response": "Error: grades is not a number."}
@@ -532,14 +572,19 @@ def test_a_grade_that_is_not_a_finite_number_is_400(client, job, owner, db, grad
     assert db["job_documents"].find_one({"job_id": job})["grades"] == [None, None]
 
 
-@pytest.mark.parametrize("grades", ['["x", 2]', '[1, NaN]', '[true, 2]', '"12"', "{}"])
-def test_whole_copy_grades_that_are_not_finite_numbers_are_400(client, job, owner, db, grades):
+@pytest.mark.parametrize("grades", ['["x", 2]', "[1, NaN]", "[true, 2]", '"12"', "{}"])
+def test_whole_copy_grades_that_are_not_finite_numbers_are_400(
+    client, job, owner, db, grades
+):
     resp = _save(client, job, owner, document_index="0", grades=grades)
     assert resp.status_code == 400, resp.data
     assert db["job_documents"].find_one({"job_id": job})["grades"] == [None, None]
 
 
 def test_whole_copy_grades_still_take_numbers_and_an_empty_list(client, job, owner, db):
-    assert _save(client, job, owner, document_index="0", grades="[1.5, 2]").status_code == 200
+    assert (
+        _save(client, job, owner, document_index="0", grades="[1.5, 2]").status_code
+        == 200
+    )
     assert db["job_documents"].find_one({"job_id": job})["grades"] == [1.5, 2.0]
     assert _save(client, job, owner, document_index="0", grades="[]").status_code == 200

@@ -32,7 +32,7 @@ rmn écrit les notes dans les cases reconnues sur le template ([étape 3](03-tem
 | cases trouvées sans le gabarit du template | le template a été enregistré avant que rmn retienne la position de ses cases, et son fichier n'a pas pu être relu : la colonne des notes peut être la mauvaise |
 | cases introuvables | la page de garde est rendue sans les notes |
 
-Ouvrez ces copies dans `copies.zip` pour voir où sont les notes. Seule la page de garde est en cause : `notes.csv` et les notes importées dans Moodle viennent des notes validées, pas de la page.
+Pour voir où sont les notes, ouvrez la tâche : sur la ligne **Matricules**, **Pages de garde (N)** affiche ces seules copies dans la page des matricules, telles qu'elles sont rendues aux étudiants, notes écrites, sans rien y modifier. La couleur de chaque copie, à gauche, dit la confiance dans le placement des notes, du bleu (placement probable) au rouge (notes non écrites), et la raison s'affiche à côté du matricule. Elles sont aussi dans `copies.zip`. Seule la page de garde est en cause : `notes.csv` et les notes importées dans Moodle viennent des notes validées, pas de la page.
 
 ## Télécharger les fichiers
 

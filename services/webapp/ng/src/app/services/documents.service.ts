@@ -61,11 +61,17 @@ export class DocumentsService {
     }
   }
 
-  async downloadPdf(jobId: string, index: number, fetchAnnotations: boolean=true, version=undefined): Promise<PDFSource> {
+  /** A copy's pdf; with `graded`, its cover page as finalizing wrote it, grades
+   *  in (the scan while it has none). */
+  async downloadPdf(jobId: string, index: number, fetchAnnotations: boolean=true, version=undefined,
+                    graded=false): Promise<PDFSource> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', jobId);
     formdata.append('document_index', index.toString());
+    if (graded) {
+      formdata.append('graded', 'true');
+    }
     if (!fetchAnnotations) {
       formdata.append('with_annotations', 'true');
     }
@@ -120,12 +126,12 @@ export class DocumentsService {
   }
 
   async getPdfSource(jobId: string, index: number, fetchAnnotations: boolean=true,
-                     version=undefined, minutes=undefined): Promise<PDFSource> {
+                     version=undefined, minutes=undefined, graded=false): Promise<PDFSource> {
     const pdfSource = this.getAvailablePdfSource(jobId, index, version, minutes || this.refreshMinutes);
     if (pdfSource !== undefined) {
       return pdfSource;
     } else {
-      const pdfSource = await this.downloadPdf(jobId, index, fetchAnnotations, version);
+      const pdfSource = await this.downloadPdf(jobId, index, fetchAnnotations, version, graded);
       return pdfSource;
     }
   }
