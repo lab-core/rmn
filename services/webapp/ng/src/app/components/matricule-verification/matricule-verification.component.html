@@ -16,35 +16,42 @@
           @for (exam of this.subExamsList; track exam; let i = $index) {
             <div class="file-container"
               (click)="changeCurrentCopy(exam.document_index, exam.status, false)">
-              @if (exam.status == DocumentStatus.NOT_READY) {
-                <div [ngClass]="exam.document_index == this.currentCopy ? 'disabled-copy chosen-copy' : 'disabled-copy'"
-                  title="Pas encore lue">
-                  <strong>{{i + 1}}</strong>
+              @if (coverMode) {
+                <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy cover-check-copy chosen-copy' : 'high-precision-copy cover-check-copy'"
+                  [style.background-color]="coverCheck(exam)?.colour" [title]="coverCheck(exam)?.label + ' : ' + coverCheck(exam)?.reason">
+                  <strong>{{exam.document_index - initialCopyIndex + 1}}</strong>
                 </div>
-              }
-              @if (exam.status == DocumentStatus.VALIDATED) {
-                <div [ngClass]="exam.document_index == this.currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
-                  >
-                  <strong>{{i + 1}}</strong>
-                </div>
-              }
-              @if (exam.status == DocumentStatus.TO_VALIDATE) {
-                <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
-                  [style.background-color]="tileColour(exam)" [title]="tileTitle(exam)">
-                  <strong>{{i + 1}}</strong>
-                </div>
-              }
-              @if (exam.status == DocumentStatus.HIGH_ACCURACY) {
-                <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
-                  [style.background-color]="tileColour(exam)" [title]="tileTitle(exam)">
-                  <strong>{{i + 1}}</strong>
-                </div>
-              }
-              @if (exam.status == DocumentStatus.DELETED) {
-                <div [ngClass]="exam.document_index == this.currentCopy ? 'deleted-copy chosen-copy' : 'deleted-copy'"
-                  >
-                  <strong>{{i + 1}}</strong>
-                </div>
+              } @else {
+                @if (exam.status == DocumentStatus.NOT_READY) {
+                  <div [ngClass]="exam.document_index == this.currentCopy ? 'disabled-copy chosen-copy' : 'disabled-copy'"
+                    title="Pas encore lue">
+                    <strong>{{i + 1}}</strong>
+                  </div>
+                }
+                @if (exam.status == DocumentStatus.VALIDATED) {
+                  <div [ngClass]="exam.document_index == this.currentCopy ? 'validated-copy chosen-copy' : 'validated-copy'"
+                    >
+                    <strong>{{i + 1}}</strong>
+                  </div>
+                }
+                @if (exam.status == DocumentStatus.TO_VALIDATE) {
+                  <div [ngClass]="exam.document_index == this.currentCopy ? 'to-validate-copy chosen-copy' : 'to-validate-copy'"
+                    [style.background-color]="tileColour(exam)" [title]="tileTitle(exam)">
+                    <strong>{{i + 1}}</strong>
+                  </div>
+                }
+                @if (exam.status == DocumentStatus.HIGH_ACCURACY) {
+                  <div [ngClass]="exam.document_index == this.currentCopy ? 'high-precision-copy chosen-copy' : 'high-precision-copy'"
+                    [style.background-color]="tileColour(exam)" [title]="tileTitle(exam)">
+                    <strong>{{i + 1}}</strong>
+                  </div>
+                }
+                @if (exam.status == DocumentStatus.DELETED) {
+                  <div [ngClass]="exam.document_index == this.currentCopy ? 'deleted-copy chosen-copy' : 'deleted-copy'"
+                    >
+                    <strong>{{i + 1}}</strong>
+                  </div>
+                }
               }
             </div>
           }
@@ -77,23 +84,35 @@
                 }
               </div>
             </div>
-            <div class="validate-container">
-              <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                (click)="updateMatricule()" [disabled]="disabledValidationButton">
-                <mat-icon>done_outline</mat-icon>
-              </button>
-              @if (!pdfDeleted) {
-                <button (click)="deletePdf()" class="delete-button">
-                  <mat-icon>delete</mat-icon>
+            @if (!coverMode) {
+              <div class="validate-container">
+                <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
+                  (click)="updateMatricule()" [disabled]="disabledValidationButton">
+                  <mat-icon>done_outline</mat-icon>
                 </button>
-              }
-              @if (pdfDeleted) {
-                <button (click)="restorePdf()" class="delete-button">
-                  <mat-icon>restore</mat-icon>
-                </button>
-              }
-            </div>
+                @if (!pdfDeleted) {
+                  <button (click)="deletePdf()" class="delete-button">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                }
+                @if (pdfDeleted) {
+                  <button (click)="restorePdf()" class="delete-button">
+                    <mat-icon>restore</mat-icon>
+                  </button>
+                }
+              </div>
+            }
           </div>
+        }
+        @if (!disabledValidationcontainer && horizontalValidation) {
+          @if (currentCoverCheck(); as check) {
+            <div class="cover-check cover-check-bar">
+              <strong>Notes sur la page de garde</strong>
+              <app-help-tip key="matricules.cover-check"></app-help-tip> :
+              <span class="cover-check-level" [style.color]="check.colour">{{check.label}}</span>
+              <span class="cover-check-reason">&nbsp;— {{check.reason}}</span>
+            </div>
+          }
         }
         @if (!this.disabledValidationcontainer) {
           <div [ngClass]="horizontalValidation ? 'picture-container horizontal-picture' : 'picture-container vertical-picture'">
@@ -133,13 +152,22 @@
                   </div>
                 }
               </div>
+              @if (currentCoverCheck(); as check) {
+                <div class="cover-check">
+                  <h3>Notes sur la page de garde <app-help-tip key="matricules.cover-check"></app-help-tip></h3>
+                  <span class="cover-check-level" [style.color]="check.colour">{{check.label}}</span>
+                  <p class="cover-check-reason">{{check.reason}}</p>
+                </div>
+              }
             </div>
-            <div class="validate-container">
-              <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
-                (click)="updateMatricule()" [disabled]="disabledValidationButton">
-                <mat-icon>done_outline</mat-icon>
-              </button>
-            </div>
+            @if (!coverMode) {
+              <div class="validate-container">
+                <button [ngClass]="this.colorChosen == 'red' ? 'validate-button red' : 'validate-button ' + (this.colorChosen == 'blue' ? 'validate-button blue' : 'validate-button ' + (this.colorChosen == 'green' ? 'validate-button green' : 'validate-button'))"
+                  (click)="updateMatricule()" [disabled]="disabledValidationButton">
+                  <mat-icon>done_outline</mat-icon>
+                </button>
+              </div>
+            }
           </div>
         }
         @if (pdfLoading && disabledValidationcontainer) {

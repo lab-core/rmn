@@ -12,6 +12,7 @@ from flask_cors import cross_origin
 from werkzeug.utils import secure_filename
 from rmn_common import auto_grade
 from rmn_common.status import Document_Status, Job_Status
+from rmn_common.storage import graded_cover_path
 from auth import question_allowed, verify_share_token
 from context import mongo, redis, sio, storage
 from service.documents import (
@@ -107,6 +108,9 @@ def get_documents(validity):
                 # how sure the executor is of the matricule it read (None for
                 # copies read before it was stored, or typed by hand)
                 "matricule_confidence": doc.get("matricule_confidence"),
+                # why its graded cover page may be wrong (see the executor's
+                # annotate.add_grades), set at finalization; None when plain
+                "cover_check": doc.get("cover_check"),
             }
             for doc in docs
         ]
@@ -534,6 +538,11 @@ def download_document(validity):
                 status=404,
             )
         file_path = doc["rel_filepath"]
+        if request_form.get("graded") is not None:
+            # the cover page as finalizing wrote it, grades in, when it has one
+            graded = graded_cover_path(file_path)
+            if os.path.isfile(storage.abs_path(graded)):
+                file_path = graded
 
     print("document_file: ", doc)
     return send_file(storage.abs_path(file_path))

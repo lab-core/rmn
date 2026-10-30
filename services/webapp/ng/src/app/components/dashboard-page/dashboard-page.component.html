@@ -151,6 +151,13 @@
                     </button>
                   </app-help-hover>
                 }
+                @if (loggued() && !shared() && coverChecks.length) {
+                  <app-help-hover key="dashboard.cover-checks">
+                    <button class="cover-checks" mat-stroked-button (click)="openCoverChecks()">
+                      <mat-icon>warning</mat-icon> Pages de garde ({{ coverChecks.length }})
+                    </button>
+                  </app-help-hover>
+                }
               </div>
             </td>
           </tr>

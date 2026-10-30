@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from rmn_common.storage import Storage
+from rmn_common.storage import Storage, graded_cover_path
 
 
 def _touch(path, content="x"):
@@ -308,3 +308,9 @@ def test_copy_inside_refuses_a_missing_source_or_a_path_outside_the_root(tmp_pat
     _touch(str(tmp_path / "zips" / "a.zip"), "x")
     with pytest.raises(ValueError):
         storage.copy_inside("zips/a.zip", "../escaped.zip")
+
+
+def test_a_graded_cover_page_sits_beside_its_scan():
+    assert graded_cover_path("cover_pages/j1/a_cover.pdf") == (
+        os.path.join("cover_pages", "j1", "graded", "a_cover.pdf")
+    )

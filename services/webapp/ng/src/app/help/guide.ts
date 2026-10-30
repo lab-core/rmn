@@ -196,6 +196,15 @@ export const HELP: Record<string, HelpEntry> = {
     text: 'Relit les notes écrites sur les copies de cette question (de toutes, sur la ligne Total). Les notes déjà validées sont gardées.',
     chapter: '08-correction', anchor: 'relire-les-notes',
   },
+  'dashboard.cover-checks': {
+    text: 'Les pages de garde que la finalisation a signalées, telles qu\'elles sont rendues aux étudiants, avec la raison : rien ne s\'y modifie.',
+    chapter: '09-finalisation', anchor: 'les-pages-de-garde-à-vérifier',
+  },
+  'matricules.cover-check': {
+    text: 'Pourquoi les notes de cette page de garde sont peut-être mal placées. Seule la page est en cause : notes.csv et Moodle reçoivent les notes validées.',
+    chapter: '09-finalisation', anchor: 'les-pages-de-garde-à-vérifier',
+  },
+
   'dashboard.read-matricules': {
     text: 'Relit les matricules que personne n\'a confirmés. Les copies confirmées ou supprimées ne changent pas.',
     chapter: '07-matricules', anchor: 'relire-les-matricules',

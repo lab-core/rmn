@@ -28,7 +28,7 @@ from process_copy.annotate import NOT_WRITTEN, WRITTEN
 from process_copy.recognize import add_grades
 from rmn_common.questions import ignored_positions
 from rmn_common.status import Document_Status
-from rmn_common.storage import GRADED_COVER_DIR
+from rmn_common.storage import graded_cover_path
 from utils.storage import Storage
 
 storage = Storage()
@@ -153,8 +153,7 @@ def graded_path(rel_filepath):
     Returns:
         str: The absolute path of the graded page, under ``graded/``.
     """
-    path = storage.abs_path(rel_filepath)
-    return os.path.join(os.path.dirname(path), GRADED_COVER_DIR, os.path.basename(path))
+    return storage.abs_path(graded_cover_path(rel_filepath))
 
 
 def write_cover_page(doc, grades, box_grades, shape, layout=None):

@@ -559,3 +559,30 @@ input::-webkit-inner-spin-button {
   font-weight: bold;
   white-space: nowrap;
 }
+
+/* cover mode: where finalizing put the grades of the copy on screen */
+.cover-check {
+  margin: 8px 0;
+}
+
+.cover-check h3 {
+  margin: 0 0 4px;
+}
+
+.cover-check-level {
+  font-weight: bold;
+}
+
+.cover-check-reason {
+  margin: 4px 0 0;
+  font-size: 0.9em;
+  max-width: 45ch;
+}
+
+.cover-check-bar {
+  margin: 0 16px 8px;
+}
+
+.cover-check-bar .cover-check-reason {
+  max-width: none;
+}

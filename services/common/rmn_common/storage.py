@@ -18,6 +18,21 @@ from pathlib import Path
 GRADED_COVER_DIR = "graded"
 
 
+def graded_cover_path(rel_filepath):
+    """Storage-relative path of the graded version of a cover page.
+
+    Args:
+        rel_filepath: The cover page of a copy, as recorded with it.
+
+    Returns:
+        The page under :data:`GRADED_COVER_DIR`, beside the scan; it exists
+        once a finalization wrote the grades on it.
+    """
+    return os.path.join(
+        os.path.dirname(rel_filepath), GRADED_COVER_DIR, os.path.basename(rel_filepath)
+    )
+
+
 # Template images live outside the per-job layout: they are owned by a row of
 # the ``template`` collection, not by a job, and outlive the jobs using them.
 TEMPLATE_DIR = "template"

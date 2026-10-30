@@ -700,6 +700,17 @@ export class DashboardPageComponent {
     }
   }
 
+  /** The copies whose graded cover page finalizing flagged (cover_check). */
+  get coverChecks(): any[] {
+    return (this.examsList ?? []).filter((doc) => doc.cover_check);
+  }
+
+  /** The flagged cover pages in the matricule page, as finalizing wrote them, to look at. */
+  public openCoverChecks() {
+    this.tasksService.setvalidatingTaskId(this.task.job_id);
+    this.router.navigate([`/matricule-validation`, this.taskId], { queryParams: { covers: 'true' } });
+  }
+
   public shareMatricule() {
     this.shareTask(false);
   }

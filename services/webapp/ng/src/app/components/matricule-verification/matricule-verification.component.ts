@@ -16,6 +16,7 @@ import { first } from 'rxjs/operators';
 import { DocumentStatus, JobStatus } from '../../generated/rmn-contracts';
 import { selectedCopyIndex } from 'src/app/selected-copy';
 import { confidenceColour, confidenceLabel } from 'src/app/confidence';
+import { coverCheck } from 'src/app/cover-checks';
 
 
 @Component({
@@ -46,6 +47,9 @@ export class MatriculeVerificationComponent implements OnInit {
   disabledValidationButton = true;
   disabledDropDown = false;
   shareAll: boolean = false;
+  // the cover pages finalizing flagged, as it wrote them, to look at only
+  // (the dashboard's "Pages de garde"): nothing on the page changes a copy
+  coverMode: boolean = false;
   horizontalValidation = true;
   preloadNCopies: number = 10;
 
@@ -79,6 +83,11 @@ export class MatriculeVerificationComponent implements OnInit {
     if (this.route.snapshot.queryParams['all']) {
       this.shareAll = true;
     }
+    this.coverMode = !!this.route.snapshot.queryParams['covers'];
+    if (this.coverMode) {
+      // the dashboard may have kept the scans of these copies
+      this.docService.clearPdfSources();
+    }
 
     // fetch job and documents
     this.job = await this.tasksService.getTask();
@@ -86,9 +95,9 @@ export class MatriculeVerificationComponent implements OnInit {
       // reroute page
       this.notificationService.showWarning('Veuillez sélectionner une tâche valide!', 'Tâche indisponible');
       this.router.navigate(['/tasks-history']);
-    } else if (this.job.job_status === JobStatus.VALIDATED ||
+    } else if (!this.coverMode && (this.job.job_status === JobStatus.VALIDATED ||
               this.job.job_status === JobStatus.FINALIZING ||
-              this.job.job_status === JobStatus.ARCHIVED) {
+              this.job.job_status === JobStatus.ARCHIVED)) {
       // reroute page
       this.notificationService.showWarning('Veuillez sélectionner une tâche active!', 'Tâche inactive');
       this.router.navigate(['/tasks-history']);
@@ -100,6 +109,9 @@ export class MatriculeVerificationComponent implements OnInit {
       this.getMatriculeList();
       await this.getDocuments();
       this.loadSubExamsList();
+      if (this.coverMode) {
+        return;  // a finalized task: no reading, no status to follow
+      }
 
       this.socketService.join(this.job["job_id"]);
       this.onDocumentReady = async (params: any) => {
@@ -236,7 +248,9 @@ export class MatriculeVerificationComponent implements OnInit {
       this.initialCopyIndex = this.examsList[0].document_index;
       this.initializeCopy();
     }
-    await this.updateStatusOfAllDuplicatedMatricules();
+    if (!this.coverMode) {
+      await this.updateStatusOfAllDuplicatedMatricules();
+    }
   }
 
   initializeCopy() {
@@ -245,7 +259,9 @@ export class MatriculeVerificationComponent implements OnInit {
     // on (its own key: the correction page counts differently), then the first
     const selected = selectedCopyIndex(jobId, this.examsList);
     const sCopy = localStorage.getItem(`${jobId}_matricule_copy`);
-    if (selected >= 0) {
+    if (this.coverMode) {
+      this.currentCopy = this.initialCopyIndex;  // the first flagged one, below
+    } else if (selected >= 0) {
       this.currentCopy = selected + this.initialCopyIndex;
     } else if (sCopy != undefined) {
       const copy = parseInt(sCopy);
@@ -259,18 +275,15 @@ export class MatriculeVerificationComponent implements OnInit {
     const jobId = this.tasksService.getvalidatingTaskId();
     this.currentCopy = copy;
     copy -= this.initialCopyIndex;
-    localStorage.setItem(`${jobId}_matricule_copy`, copy.toString());
+    if (!this.coverMode) {
+      localStorage.setItem(`${jobId}_matricule_copy`, copy.toString());
+    }
   }
 
   getSubExamsList(): void {
-    if (this.group) {
-      const subExamsList = [];
-      this.examsList.forEach((exam: any) => {
-        if (exam['group'] == this.group) {
-          subExamsList.push(exam);
-        }
-      });
-      this.subExamsList = subExamsList;
+    if (this.group || this.coverMode) {
+      this.subExamsList = this.examsList.filter((exam: any) =>
+        (!this.group || exam['group'] == this.group) && (!this.coverMode || exam.cover_check));
     } else {
       this.subExamsList = this.examsList;
     }
@@ -293,7 +306,7 @@ export class MatriculeVerificationComponent implements OnInit {
     if (this.currentExam()) {
       this.pdfLoadStarts();
       try {
-        const pdfSource = await this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.currentCopy, false);
+        const pdfSource = await this.pdfSource(this.currentCopy);
         if (pdfSource?.url) {
           this.pdfUrl = pdfSource.url;
         }
@@ -301,6 +314,12 @@ export class MatriculeVerificationComponent implements OnInit {
         this.pdfLoadEnds();  // a failed download used to leave the spinner on
       }
     }
+  }
+
+  /** A copy's pdf: its scan, or in cover mode the page finalizing wrote. */
+  pdfSource(copyIndex: number) {
+    return this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), copyIndex, false,
+      undefined, undefined, this.coverMode);
   }
 
   async changeCurrentCopy(copyIndex: number, status: string, updateScroll: boolean=true) {
@@ -350,7 +369,7 @@ export class MatriculeVerificationComponent implements OnInit {
     let nextIndex = this.nextCopyIndex();
     let i = 0;
     while (i < this.preloadNCopies && nextIndex < this.examsList.length) {
-      this.docService.getPdfSource(this.tasksService.getvalidatingTaskId(), this.initialCopyIndex + nextIndex, false);
+      this.pdfSource(this.initialCopyIndex + nextIndex);
       nextIndex = this.nextCopyIndex(nextIndex);
       i++;
     }
@@ -384,6 +403,15 @@ export class MatriculeVerificationComponent implements OnInit {
   tileTitle(exam: any): string {
     return exam.status === DocumentStatus.VALIDATED || !this.proposesAMatricule(exam)
       ? '' : confidenceLabel(exam.matricule_confidence);
+  }
+
+  /** Where finalizing put the grades of the current copy, in cover mode. */
+  currentCoverCheck(): { label: string, reason: string, colour: string } | null {
+    return this.coverMode ? coverCheck(this.currentExam()?.cover_check) : null;
+  }
+
+  coverCheck(exam: any) {
+    return coverCheck(exam?.cover_check);
   }
 
   /** How sure the executor was of the current copy's matricule, until a human validates it. */
@@ -496,7 +524,10 @@ export class MatriculeVerificationComponent implements OnInit {
 
   pdfLoadEnds() {
     this.pdfLoading = false;
-    if (this.currentExam().status == DocumentStatus.DELETED) {
+    if (this.coverMode) {
+      this.disabledValidationButton = true;
+      this.pdfDeleted = false;
+    } else if (this.currentExam().status == DocumentStatus.DELETED) {
       this.disabledValidationButton = true;
       this.pdfDeleted = true;
     } else {
