@@ -578,3 +578,11 @@ input::-webkit-inner-spin-button {
   font-size: 0.9em;
   max-width: 45ch;
 }
+
+.cover-check-bar {
+  margin: 0 16px 8px;
+}
+
+.cover-check-bar .cover-check-reason {
+  max-width: none;
+}

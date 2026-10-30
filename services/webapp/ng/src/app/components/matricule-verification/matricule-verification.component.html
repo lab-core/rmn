@@ -83,13 +83,6 @@
                   </div>
                 }
               </div>
-              @if (currentCoverCheck(); as check) {
-                <div class="cover-check">
-                  <h3>Notes sur la page de garde <app-help-tip key="matricules.cover-check"></app-help-tip></h3>
-                  <span class="cover-check-level" [style.color]="check.colour">{{check.label}}</span>
-                  <p class="cover-check-reason">{{check.reason}}</p>
-                </div>
-              }
             </div>
             @if (!coverMode) {
               <div class="validate-container">
@@ -110,6 +103,16 @@
               </div>
             }
           </div>
+        }
+        @if (!disabledValidationcontainer && horizontalValidation) {
+          @if (currentCoverCheck(); as check) {
+            <div class="cover-check cover-check-bar">
+              <strong>Notes sur la page de garde</strong>
+              <app-help-tip key="matricules.cover-check"></app-help-tip> :
+              <span class="cover-check-level" [style.color]="check.colour">{{check.label}}</span>
+              <span class="cover-check-reason">&nbsp;— {{check.reason}}</span>
+            </div>
+          }
         }
         @if (!this.disabledValidationcontainer) {
           <div [ngClass]="horizontalValidation ? 'picture-container horizontal-picture' : 'picture-container vertical-picture'">
