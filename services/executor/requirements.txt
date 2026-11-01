@@ -2,19 +2,19 @@
 # TensorFlow is not one of them: the digit model runs through LiteRT
 # (python/process_copy/classifier.py). Training and export need
 # requirements-train.txt.
-ai-edge-litert==2.2.0
+ai-edge-litert==2.3.0
 colorama==0.4.6
 fpdf==1.7.2
 img2pdf==0.6.3
 imutils==0.5.4
 matplotlib==3.11.2
-numpy==2.5.3
+numpy==2.5.4
 opencv-python-headless==5.0.0.93
 pandas==3.0.6
 pdf2image==1.17.0
 pillow==13.0.0
 psutil==7.2.2
-pymongo==4.18.3
+pymongo==4.19.0
 PyMuPDF==1.28.2
 pypdf==6.21.2
 python-socketio==5.17.0
