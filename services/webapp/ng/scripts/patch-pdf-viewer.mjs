@@ -1,12 +1,11 @@
-// Temporary fixes to ngx-extended-pdf-viewer 31.0.0-alpha.1, applied to
-// node_modules after every install (package.json "postinstall"): local
-// installs, the CI and both Dockerfiles get the same viewer.
+// Temporary fixes to ngx-extended-pdf-viewer 31.0.1, applied to node_modules
+// after every install (package.json "postinstall"): local installs, the CI
+// and both Dockerfiles get the same viewer.
 //
-// They are submitted upstream (stephanrauh/pdf.js for the bleeding-edge
-// bundle, stephanrauh/ngx-extended-pdf-viewer for the undo/redo buttons);
-// drop each one when a release ships it. A replacement whose original text
-// is gone (another version) stops the install, so a bump cannot silently
-// ship the viewer without them, or with them half applied.
+// They are submitted upstream (stephanrauh/pdf.js #16, for the bleeding-edge
+// bundle); drop each one when a release ships it. A replacement whose
+// original text is gone (another version) stops the install, so a bump
+// cannot silently ship the viewer without them, or with them half applied.
 //
 // - eraser on a rotated page (/Rotate 90 or 270, our scanned pages): the
 //   eraser area was shrunk and shifted, and its cursor drawn away from the
@@ -15,8 +14,6 @@
 //   annotations of the previous viewer): the cut drawing was redrawn turned;
 // - restored drawings were recorded twice in the undo history, so every
 //   other undo did nothing;
-// - undo/redo buttons only enabled while a tool is active, although pdf.js
-//   undoes as well without one;
 // - a mode switch threw on an eraser left without a page, or on a page whose
 //   editor layer was not created yet (a copy changed while pages render).
 //
@@ -30,10 +27,9 @@ import { fileURLToPath } from 'node:url';
 
 const app = join(dirname(fileURLToPath(import.meta.url)), '..');
 const root = join(app, 'node_modules', 'ngx-extended-pdf-viewer');
-const VERSION = '31.0.0-alpha.1';
-const VIEWER = 'bleeding-edge/viewer-6.3.1315.mjs';
-const VIEWER_MIN = 'bleeding-edge/viewer-6.3.1315.min.mjs';
-const FESM = 'fesm2022/ngx-extended-pdf-viewer.mjs';
+const VERSION = '31.0.1';
+const VIEWER = 'bleeding-edge/viewer-6.5.1205.mjs';
+const VIEWER_MIN = 'bleeding-edge/viewer-6.5.1205.min.mjs';
 
 const patches = {
   [VIEWER]: [
@@ -103,8 +99,16 @@ const patches = {
     };`,
     },
     {
-      what: 'a restored drawing or highlight is one undo step, not two',
-      count: 2,
+      what: 'a restored drawing is one undo step, not two',
+      from: `    if (!this.annotationElementId && this._drawId !== null) {
+      this.parent.addUndoableEditor(this);
+    }`,
+      to: `    if (!this.annotationElementId && this._drawId !== null && !this._uiManager.isRestoringAnnotations) {
+      this.parent.addUndoableEditor(this);
+    }`,
+    },
+    {
+      what: 'a restored highlight is one undo step, not two',
       from: `    if (!this.annotationElementId) {
       this.parent.addUndoableEditor(this);
     }`,
@@ -145,18 +149,6 @@ const patches = {
   }
   show() {
     if (!this.div || !this.annotationEditorLayer || this.annotationEditorLayer.isInvisible) {`,
-    },
-  ],
-  [FESM]: [
-    {
-      what: 'undo button enabled without an active tool',
-      from: 'this.canUndo = isEditing && !!details.hasSomethingToUndo;',
-      to: 'this.canUndo = !!details.hasSomethingToUndo;',
-    },
-    {
-      what: 'redo button enabled without an active tool',
-      from: 'this.canRedo = isEditing && !!details.hasSomethingToRedo;',
-      to: 'this.canRedo = !!details.hasSomethingToRedo;',
     },
   ],
 };

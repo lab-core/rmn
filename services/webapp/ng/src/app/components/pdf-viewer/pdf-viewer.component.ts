@@ -103,7 +103,7 @@ export class PDFViewerComponent implements OnChanges, OnDestroy {
 
   constructor(private ngxService: NgxExtendedPdfViewerService, private host: ElementRef<HTMLElement>) {
       // the eraser and the undo/redo buttons only exist in the bleeding-edge
-      // bundle (pdf.js 6.3), copied to /bleeding-edge/ by angular.json
+      // bundle (pdf.js 6.5), copied to /bleeding-edge/ by angular.json
       pdfDefaultOptions.assetsFolder = 'bleeding-edge';
       pdfDefaultOptions.doubleTapZoomsInHandMode = false;
       pdfDefaultOptions.doubleTapZoomsInTextSelectionMode = false;
