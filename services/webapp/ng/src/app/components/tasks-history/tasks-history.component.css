@@ -19,8 +19,11 @@ app-main-menu {
   margin: auto;
 }
 
+/* as wide as the page and no wider: a narrow screen scrolls the table, not the page */
 .tasks-history-container {
   z-index: 1;
+  width: 100%;
+  min-width: 0;
   height: 90%;
   margin-top: 10%;
   text-align: center;
@@ -45,6 +48,13 @@ app-main-menu {
     overflow: auto;
 }
 
+/* below that, the table needs the margins to keep its buttons in sight */
+@media (max-width: 1100px) {
+    .container_tasks {
+        width: 96%;
+    }
+}
+
 mat-form-field {
     font-size: 14px;
     width: 30%;
@@ -54,6 +64,13 @@ mat-form-field {
 
 td, th {
     width: 17.75%;
+}
+
+/* the buttons take their own width, the text columns share the rest */
+.mat-column-job_deletion, .mat-column-job_duplicate, .mat-column-job_share {
+    width: 1%;
+    white-space: nowrap;
+    padding: 0 4px;
 }
 
 td {
@@ -192,6 +209,7 @@ mat-progress-spinner {
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
+    padding: 0 4px;
     font-size: 20px;
 }
 

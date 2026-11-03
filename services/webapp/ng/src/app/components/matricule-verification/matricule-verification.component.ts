@@ -757,10 +757,4 @@ export class MatriculeVerificationComponent implements OnInit {
     return (this.loggued() || this.shareAll) && this.groupsList.length > 1;
   }
 
-  filesListHeight(): string {
-    let height = 80;
-    if (!this.userService.shared()) height += 10;
-    if (!this.showFilter()) height += 10;
-    return height + "%";
-  }
 }
