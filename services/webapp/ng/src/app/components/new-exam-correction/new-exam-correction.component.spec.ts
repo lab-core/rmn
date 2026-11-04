@@ -1,7 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { MatDialogConfig, MatDialogRef } from '@angular/material/dialog';
 
 import { NewExamCorrectionComponent } from './new-exam-correction.component';
 import { NotificationService } from 'src/app/services/notification.service';
@@ -202,7 +204,7 @@ describe('NewExamCorrectionComponent', () => {
     component.CsvFileEvent({ target: { files: [valid] } } as unknown as Event);
     for (let i = 0; i < 50 && component.csvName === ''; i++) { await settle(1); }
     expect(component.csvName).toBe('notes.csv');
-    expect(component.csv).toBe(valid);
+    expect(component.csvs).toEqual([valid]);
     expect(fixture.nativeElement.querySelector('#csv-upload-label').textContent).toBe('notes.csv');
 
     const invalid = new File(['Matricule,Nom complet,Groupe,Note\n1234567,Alice A\n'], 'bad.csv', { type: 'text/csv' });
@@ -210,7 +212,33 @@ describe('NewExamCorrectionComponent', () => {
     for (let i = 0; i < 50 && !notification.showError.calls.count(); i++) { await settle(1); }
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('ligne est invalide'), 'ERREUR');
     expect(notification.showError).toHaveBeenCalledWith('Veuillez fournir un csv valide', 'ERREUR');
-    expect(component.csvName).toBe('');
+    // the invalid file is not added; the valid one stays
+    expect(component.csvs).toEqual([valid]);
+    expect(component.csvName).toBe('notes.csv');
+  });
+
+  it('takes one class list per file, several at once, and lets one be removed', async () => {
+    await create();
+    const a = new File(['Matricule,Nom complet\n1234567,Alice A\n'], 'A.csv', { type: 'text/csv' });
+    const b = new File(['Matricule,Nom complet\n7654321,Bob B\n'], 'B.csv', { type: 'text/csv' });
+    component.CsvFileEvent({ target: { files: [a, b] } } as unknown as Event);
+    for (let i = 0; i < 50 && component.csvs.length < 2; i++) { await settle(1); }
+    expect(component.csvs.map((f) => f.name)).toEqual(['A.csv', 'B.csv']);
+    expect(component.csvName).toBe('A.csv, B.csv');
+    fixture.detectChanges();
+    const items = fixture.nativeElement.querySelectorAll('.class-lists li');
+    expect(items.length).toBe(2);
+    expect(fixture.nativeElement.querySelector('.class-lists-hint')).not.toBeNull();
+
+    // the same name again replaces the file
+    const a2 = new File(['Matricule,Nom complet\n1111111,Ann A\n'], 'A.csv', { type: 'text/csv' });
+    component.CsvFileEvent({ target: { files: [a2] } } as unknown as Event);
+    for (let i = 0; i < 50 && !component.csvs.includes(a2); i++) { await settle(1); }
+    expect(component.csvs).toEqual([b, a2]);
+
+    (fixture.nativeElement.querySelector('.remove-class-list') as HTMLButtonElement).click();
+    expect(component.csvs).toEqual([a2]);
+    expect(component.csvName).toBe('A.csv');
   });
 
   it('builds a valid empty zip when no copy is uploaded', async () => {
@@ -228,7 +256,7 @@ describe('NewExamCorrectionComponent', () => {
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('toutes les étapes'), 'ERREUR');
 
     component.csvName = 'notes.csv';
-    component.csv = new File([''], 'notes.csv');
+    component.csvs = [new File([''], 'notes.csv')];
     selectFront();
     await component.createTask();
     expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('Q1, Q2, Q3'), 'ERREUR');
@@ -239,7 +267,7 @@ describe('NewExamCorrectionComponent', () => {
     await create();
     component.taskName = 'Quiz';
     component.csvName = 'notes.csv';
-    component.csv = new File([''], 'notes.csv');
+    component.csvs = [new File([''], 'notes.csv')];
     component.selectedRegularTemplate = 't2';
     selectFront();
     component.updatePageCount('Q1', change('2'));
@@ -255,14 +283,14 @@ describe('NewExamCorrectionComponent', () => {
     expect(tasks.addTask).toHaveBeenCalledTimes(1);
     const args = tasks.addTask.calls.mostRecent().args;
     expect((args[0] as File).size).toBe(22);
-    expect(args[1]).toBe(component.csv);
+    expect(args[1]).toBe(component.csvs);
     expect([args[2], args[3]]).toEqual(['t1', 't2']);
     expect(Array.from(args[4].entries())).toEqual([['Q1', 2], ['Q2', 0], ['Q3', 1]]);
     expect(Array.from(args[5].entries())).toEqual([['Q1', 10], ['Q2', 0], ['Q3', 5]]);
     expect(Array.from(args[6].entries())).toEqual([['Q1', false], ['Q2', false], ['Q3', false]]);
     // the last two are the task this one was created from and the token of
     // its share link: none here
-    expect(args.slice(7)).toEqual(['Quiz', 'Front', 'Regular', true, true, null, null]);
+    expect(args.slice(7)).toEqual(['Quiz', 'Front', 'Regular', true, true, null, null, null]);
     expect(localStorage.getItem('newTask')).toBeNull();
     expect(router.navigate).toHaveBeenCalledWith(['/main-menu']);
   });
@@ -270,7 +298,7 @@ describe('NewExamCorrectionComponent', () => {
   it('a task without correction sends empty maps', async () => {
     await create();
     component.csvName = 'notes.csv';
-    component.csv = new File([''], 'notes.csv');
+    component.csvs = [new File([''], 'notes.csv')];
     selectFront();
     component.selectedRegularTemplate = 't2';
     component.correct = false;
@@ -284,13 +312,52 @@ describe('NewExamCorrectionComponent', () => {
     await create();
     tasks.addTask.and.rejectWith(new Error('413'));
     component.csvName = 'notes.csv';
-    component.csv = new File([''], 'notes.csv');
+    component.csvs = [new File([''], 'notes.csv')];
     selectFront();
     component.selectedRegularTemplate = 't2';
     component.correct = false;
     await component.createTask();
     expect(component.uploading).toBeFalse();
     expect(notification.showError).toHaveBeenCalledWith('Échec de la création de la tâche.', 'ERREUR');
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('asks which list a student found in several belongs to, and sends again', async () => {
+    await create();
+    const duplicates = [{ matricule: '2345678', name: 'Bob B', lists: ['A', 'B'] }];
+    tasks.addTask.and.returnValues(
+      Promise.reject({ status: 409, error: { duplicates } }), Promise.resolve(undefined));
+    const open = spyOn(component['dialog'], 'open').and.returnValue(
+      { afterClosed: () => of({ '2345678': 'B' }) } as unknown as MatDialogRef<unknown>);
+    component.csvName = 'A.csv, B.csv';
+    component.csvs = [new File([''], 'A.csv'), new File([''], 'B.csv')];
+    selectFront();
+    component.selectedRegularTemplate = 't2';
+    component.correct = false;
+
+    await component.createTask();
+
+    expect((open.calls.mostRecent().args[1] as MatDialogConfig).data).toEqual({ duplicates });
+    expect(tasks.addTask).toHaveBeenCalledTimes(2);
+    expect(tasks.addTask.calls.mostRecent().args[14]).toEqual({ '2345678': 'B' });
+    expect(router.navigate).toHaveBeenCalled();
+  });
+
+  it('creates nothing when the choice of lists is cancelled', async () => {
+    await create();
+    tasks.addTask.and.rejectWith({ status: 409, error: { duplicates: [{ matricule: '1', name: 'X', lists: ['A', 'B'] }] } });
+    spyOn(component['dialog'], 'open').and.returnValue({ afterClosed: () => of(undefined) } as unknown as MatDialogRef<unknown>);
+    component.csvName = 'A.csv, B.csv';
+    component.csvs = [new File([''], 'A.csv'), new File([''], 'B.csv')];
+    selectFront();
+    component.selectedRegularTemplate = 't2';
+    component.correct = false;
+
+    await component.createTask();
+
+    expect(tasks.addTask).toHaveBeenCalledTimes(1);
+    expect(component.uploading).toBeFalse();
+    expect(notification.showError).not.toHaveBeenCalled();
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
@@ -419,7 +486,7 @@ describe('NewExamCorrectionComponent', () => {
     component.CsvFileEvent({ target: { files: [new File([''], 'empty.csv')] } } as unknown as Event);
     for (let i = 0; i < 50 && !notification.showError.calls.count(); i++) { await settle(1); }
     expect(notification.showError).toHaveBeenCalledWith('Veuillez fournir un csv valide', 'ERREUR');
-    expect(component.csv).toBeUndefined();
+    expect(component.csvs).toEqual([]);
   });
 
   describe('front pages', () => {
@@ -556,7 +623,7 @@ describe('NewExamCorrectionComponent', () => {
       el('csv-upload-label').setAttribute('value', 'od.csv');
       component.getDropBoxUploadCSV();
       expect(component.csvName).toBe('');
-      expect(component.csv).toBeNull();
+      expect(component.csvs).toEqual([]);
       expect(el('csv-onedrive-input').getAttribute('value')).toBeNull();
       expect((window as any).dropboxCSV).toHaveBeenCalled();
 
@@ -606,7 +673,7 @@ describe('NewExamCorrectionComponent', () => {
 
       await component.createTask();
 
-      const [copies, csv] = tasks.addTask.calls.mostRecent().args;
+      const [copies, [csv]] = tasks.addTask.calls.mostRecent().args;
       expect(copies.name).toBe('dropbox.zip');
       expect(await copies.text()).toBe('copies-zip');
       expect(csv.name).toBe('dropbox.csv');
@@ -625,7 +692,7 @@ describe('NewExamCorrectionComponent', () => {
 
       await component.createTask();
 
-      const [copies, csv] = tasks.addTask.calls.mostRecent().args;
+      const [copies, [csv]] = tasks.addTask.calls.mostRecent().args;
       expect(copies.name).toBe('onedrive.zip');
       expect(await copies.text()).toBe('od-zip');
       expect(csv.name).toBe('onedrive.csv');
@@ -654,7 +721,7 @@ describe('NewExamCorrectionComponent', () => {
       expect(args[1]).toBeNull();
       expect(args.slice(2, 4)).toEqual(['t1', 't2']);
       expect(args.slice(8, 10)).toEqual(['Front', 'Regular']);
-      expect(args.slice(12)).toEqual(['src-1', 'dash-token']);
+      expect(args.slice(12)).toEqual(['src-1', 'dash-token', null]);
     });
 
     it('a user without any template of their own can still create it', async () => {

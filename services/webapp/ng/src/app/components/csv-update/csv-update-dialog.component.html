@@ -1,13 +1,45 @@
 <div class="dialog-container">
-  <div class="pdf-container">
-    <h3> Mise à jour du csv des notes </h3>
+  <h3>Listes de classe</h3>
+  <p class="hint">Un fichier csv Moodle par devoir : chaque liste aura son dossier de copies, ses notes et
+    ses fichiers Moodle.</p>
 
-    <div class="upload-container">
-      <button class="replace-zip-button" mat-flat-button (click)="fileInput.click()">Téléverser</button>
-      <input #fileInput type="file" id="file-input" accept=".csv" (change)="onFileSelected($event)">
-      <div class="drop-zone" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
-        <p>Déposez votre fichier csv ici</p>
-      </div>
+  <ul class="class-lists" aria-label="Listes de la tâche">
+    @for (list of kept; track list.name) {
+      <li [class.removed]="!list.keep">
+        <span class="list-name">{{ list.name }}</span>
+        @if (list.keep) {
+          <button mat-stroked-button type="button" class="remove-list" (click)="list.keep = false"
+                  [attr.aria-label]="'Retirer ' + list.name">Retirer</button>
+        } @else {
+          <button mat-stroked-button type="button" class="restore-list" (click)="list.keep = true"
+                  [attr.aria-label]="'Garder ' + list.name">Garder</button>
+        }
+      </li>
+    }
+    @for (file of added; track file.name; let i = $index) {
+      <li class="added">
+        <span class="list-name">{{ file.name }} <small>(ajoutée)</small></span>
+        <button mat-stroked-button type="button" class="remove-added" (click)="removeAdded(i)"
+                [attr.aria-label]="'Retirer ' + file.name">Retirer</button>
+      </li>
+    }
+  </ul>
+
+  <div class="upload-container">
+    <button class="replace-zip-button" mat-flat-button (click)="fileInput.click()">Ajouter des fichiers csv</button>
+    <input #fileInput type="file" id="file-input" accept=".csv" multiple
+           (click)="fileInput.value = ''" (change)="onFileSelected($event)">
+    <div class="drop-zone" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
+      <p>Déposez vos fichiers csv ici</p>
     </div>
+  </div>
+
+  @if (changed() && remaining() === 0) {
+    <p class="alert">Il faut garder ou ajouter au moins une liste.</p>
+  }
+  <div class="actions">
+    <button mat-stroked-button type="button" (click)="dialogRef.close(false)">Annuler</button>
+    <button mat-flat-button color="primary" type="button" class="save-lists"
+            [disabled]="!changed() || remaining() === 0 || saving" (click)="save()">Enregistrer</button>
   </div>
 </div>

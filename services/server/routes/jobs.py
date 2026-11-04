@@ -18,11 +18,19 @@ from utils.responses import Response
 from flask_cors import cross_origin
 from werkzeug.utils import secure_filename
 from rmn_common import auto_grade
+from rmn_common.class_lists import lists_of_combined, metadata
 from rmn_common.moodle import MoodleFields as MF
 from rmn_common.questions import validate_bonus_map, validate_questions
 from rmn_common.status import Document_Status, Job_Status
 from auth import verify_share_token, verify_token
 from context import TEMP_FOLDER, mongo, redis, sio, storage
+from service.class_lists import (
+    duplicates_answer,
+    read_assignments,
+    read_uploads,
+    students_of,
+    write_combined,
+)
 from service.job_cleanup import delete_job
 from service.template_service import TemplateService
 from utils.uploads import save_csv, temp_upload_path
@@ -109,6 +117,13 @@ def evaluate(user_id):
     Form fields: the templates, the per-question pages, points and bonus, the
     name and the two switches; files: ``zip_file`` (the copies) and
     ``notes_csv_file`` (the Moodle export).
+
+    ``notes_csv_file`` may be given several times, one Moodle export per
+    assignment: the task keeps them in one csv and splits its notes and
+    Moodle files per export at the end (``rmn_common.class_lists``). A
+    student found in several is answered with a 409 listing them
+    (``duplicates``); the form is sent again with ``assignments``, the
+    export of each, and the student is removed from the others.
 
     ``source_job_id`` creates the task from an existing one of the same user,
     or from one shared with them by its dashboard link, whose token comes in
@@ -210,6 +225,19 @@ def evaluate(user_id):
                 status=400,
             )
 
+    # several Moodle exports, one per assignment: read now, so that a student
+    # found in two of them is asked about before anything is created
+    csv_uploads = request.files.getlist("notes_csv_file")
+    class_lists, assignments = [], {}
+    if len(csv_uploads) > 1:
+        class_lists, error = read_uploads(csv_uploads)
+        if error is None:
+            assignments, error = read_assignments(request_form)
+        if error is None:
+            error = duplicates_answer(class_lists, assignments)
+        if error is not None:
+            return error
+
     front_template_id = str(request_form["front_template_id"])
     regular_template_id = str(request_form["regular_template_id"])
     front_template_name = str(request_form["front_template_name"])
@@ -298,6 +326,11 @@ def evaluate(user_id):
         # 0 for a student without a copy when finalizing, unless unchecked
         "absent_zero": request_form.get("absent_zero", "true").lower() == "true",
     }
+    # the exports of a task given several (a single one is the csv itself)
+    if class_lists:
+        job["class_lists"] = metadata(class_lists)
+    elif source_csv and source.get("class_lists"):
+        job["class_lists"] = source["class_lists"]
 
     try:
         collection.insert_one(job)
@@ -315,6 +348,8 @@ def evaluate(user_id):
         if source_csv:
             # already normalised to a comma separator when it was first stored
             storage.copy_inside(source_csv, notes_file_id)
+        elif class_lists:
+            write_combined(class_lists, assignments, notes_file_id)
         else:
             notes_csv_file = request.files.get("notes_csv_file")
             notes_csv_file_name = temp_upload_path(notes_csv_file.filename)
@@ -475,6 +510,9 @@ def get_job():
         # a task made before the option gives 0 to the absent, as it always did
         "absent_zero": job.get("absent_zero", True),
         "groups": job.get("groups", [""]),
+        # the names of the class lists; a task given a single one has none
+        # recorded, and goes by the name the csv dialog gives it
+        "class_lists": [entry["name"] for entry in job.get("class_lists") or []] or ["notes"],
         "copies_errors": job.get("copies_errors"),
         # how far the grade reading has got, question by question, so the
         # dashboard and the correction screen can say what is waiting on what
@@ -889,6 +927,14 @@ def stats_job(user_id):
 @cross_origin()
 @verify_token()
 def csv_job(user_id):
+    """Replace the class list of a task.
+
+    Without ``keep``, the one ``csv`` uploaded replaces the task's csv, as it
+    always did. With ``keep`` (a json list of the names of the task's lists to
+    keep), the lists not named are removed and each ``csv`` uploaded is added
+    as a list of its own; a student then found in several is answered with a
+    409, as on creation (``evaluate``).
+    """
     request_form = request.form
 
     if "job_id" not in request_form:
@@ -898,7 +944,7 @@ def csv_job(user_id):
         )
     job_id = str(request_form["job_id"])
 
-    if "csv" not in request.files:
+    if "csv" not in request.files and "keep" not in request_form:
         return Response(
             response=json.dumps({"response": "Error: csv file not provided."}),
             status=400,
@@ -906,11 +952,15 @@ def csv_job(user_id):
 
     # scope to the requesting user (before any file work) so one user cannot
     # overwrite another's job csv
-    if mongo["RMN"]["eval_jobs"].find_one({"job_id": job_id, "user_id": user_id}) is None:
+    job = mongo["RMN"]["eval_jobs"].find_one({"job_id": job_id, "user_id": user_id})
+    if job is None:
         return Response(
             response=json.dumps({"response": f"Error: job {job_id} for user {user_id} doesn't exist."}),
             status=404,
         )
+
+    if "keep" in request_form:
+        return replace_class_lists(job, request_form, request.files.getlist("csv"))
 
     # save csv locally
     if not os.path.exists(TEMP_FOLDER):
@@ -933,6 +983,70 @@ def csv_job(user_id):
         {"$set": { "students_list": students_list }
     })
 
+    return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+def replace_class_lists(job, form, uploads):
+    """Keep the lists of ``job`` named in ``keep`` and add ``uploads``
+    (``csv_job``).
+
+    The kept lists keep their rows as they are in the task's csv, with what
+    the processing wrote in them. The result goes to the csv the processing
+    starts from and to the one it wrote, so that copies added later are read
+    against the new lists too.
+    """
+    job_id = job["job_id"]
+    try:
+        keep = json.loads(form["keep"])
+    except ValueError:
+        keep = None
+    if not isinstance(keep, list) or not all(isinstance(n, str) for n in keep):
+        return Response(
+            response=json.dumps({"response": "Error: keep invalide."}), status=400
+        )
+
+    output_id = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
+    notes_file_id = job.get("notes_file_id") or os.path.join("csv", f"{job_id}.csv")
+    current_id = output_id if os.path.isfile(storage.abs_path(output_id)) else notes_file_id
+    recorded = job.get("class_lists") or []
+    current = []
+    if os.path.isfile(storage.abs_path(current_id)):
+        with open(storage.abs_path(current_id), encoding="utf-8-sig") as f:
+            current = lists_of_combined(f.read(), recorded)
+    unknown = [n for n in keep if n not in {c.name for c in current}]
+    if unknown:
+        return Response(
+            response=json.dumps({"response": f"Error: liste inconnue : {', '.join(unknown)}."}),
+            status=400,
+        )
+
+    kept = [c for c in current if c.name in keep]
+    added, error = read_uploads(uploads, taken=[c.name for c in kept])
+    if error is not None:
+        return error
+    lists = kept + added
+    if not lists:
+        return Response(
+            response=json.dumps({"response": "Error: il faut au moins une liste de classe."}),
+            status=400,
+        )
+    assignments, error = read_assignments(form)
+    if error is None:
+        error = duplicates_answer(lists, assignments)
+    if error is not None:
+        return error
+
+    write_combined(lists, assignments, output_id, notes_file_id)
+    # a kept list keeps the columns of its export, not those of the others
+    # that its rows carry in the task's csv
+    columns = {entry["name"]: entry["columns"] for entry in recorded}
+    meta = [
+        {"name": c.name, "columns": columns.get(c.name, c.columns)} for c in kept
+    ] + metadata(added)
+    mongo["RMN"]["eval_jobs"].update_one(
+        {"job_id": job_id},
+        {"$set": {"students_list": students_of(lists, assignments), "class_lists": meta}},
+    )
     return Response(response=json.dumps({"response": "OK"}), status=200)
 
 
@@ -1281,9 +1395,17 @@ def get_info_zip():
         )
     #
     nZips = len(output_files["zip_id_list"])
+    resp = {"nZips": nZips, "stats": stats}
+    # a task of several class lists: the Moodle zips and the notes of each
+    # (the first zip, of every copy, is the task's)
+    if output_files.get("class_lists"):
+        resp["lists"] = [
+            {"name": entry["name"], "zips": entry["zip_indices"]}
+            for entry in output_files["class_lists"]
+        ]
 
     #
-    return Response(response=json.dumps({"nZips": nZips, "stats": stats}), status=200)
+    return Response(response=json.dumps(resp), status=200)
 
 
 @bp.route("/incorrect/download", methods=["POST"])

@@ -23,6 +23,7 @@ from pypdf import PdfReader
 import tasks.dispatch as dispatch
 import tasks.finalize as finalize
 from process_copy.database import Database
+from rmn_common.class_lists import LIST_COLUMN
 from rmn_common.moodle import MoodleFields as MF
 from utils import stats
 from utils.split import split_and_save
@@ -992,3 +993,77 @@ def test_finalize_compiles_real_stats_pdfs(
     )
     assert notes.startswith(b"%PDF")
     assert mongo_db["eval_jobs"].find_one({"job_id": "job"})["job_status"] == "ARCHIVED"
+
+
+# ------------------------------------------------------ several class lists
+
+
+def test_each_class_list_gets_its_folder_notes_and_moodle_zip(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    """Two Moodle exports, one per assignment: the copies of each go in its
+    own folder, and each gets the notes and the Moodle zip to give back to its
+    own assignment."""
+    roster = ROSTER.assign(**{LIST_COLUMN: ["Section A", "Section A", "Section B", "Section B"]})
+    columns = [c for c in ROSTER.columns]
+    job = _job(mongo_db, storage_root, roster=roster)
+    lists = [{"name": "Section A", "columns": columns}, {"name": "Section B", "columns": columns}]
+    mongo_db["eval_jobs"].update_one({"job_id": "job"}, {"$set": {"class_lists": lists}})
+    job["class_lists"] = lists
+    _split_copies(tmp_path, mongo_db, scanned_copy_factory)
+
+    _finalize(job, tmp_path)
+
+    assert _zip_names(storage_root / "output_zip" / "job_all.zip") == {
+        "Section A/A/Martin_Alice_1111111.pdf",
+        "Section B/B/Tremblay_Carol_3333333.pdf",
+    }
+    output = mongo_db["jobs_output"].find_one({"job_id": "job"})
+    assert output["zip_id_list"] == [
+        "output_zip/job_all.zip", "output_zip/job_1.zip", "output_zip/job_2.zip"]
+    assert output["class_lists"] == [
+        {"name": "Section A", "zip_indices": [1], "notes_csv_file_id": "output_csv/job_1.csv"},
+        {"name": "Section B", "zip_indices": [2], "notes_csv_file_id": "output_csv/job_2.csv"},
+    ]
+    assert {n.split("/")[0] for n in _zip_names(storage_root / "output_zip" / "job_1.zip")} == {
+        ALICE_MOODLE_FOLDER.rstrip("/")}
+    assert {n.split("/")[0] for n in _zip_names(storage_root / "output_zip" / "job_2.zip")} == {
+        "Tremblay Carol_103_3333333_assignsubmission_file_"}
+
+    # the notes of each list: its students, its export's columns in its order
+    # then the grade of each question, without the column of the lists
+    a = pd.read_csv(storage_root / "output_csv" / "job_1.csv", dtype={MF.mat: str})
+    b = pd.read_csv(storage_root / "output_csv" / "job_2.csv", dtype={MF.mat: str})
+    assert list(a[MF.mat]) == ["1111111", "2222222"]
+    assert list(b[MF.mat]) == ["3333333", "5555555"]
+    assert list(a.columns)[: len(columns)] == columns
+    assert LIST_COLUMN not in a.columns
+    assert "Q1" in a.columns
+    assert a.set_index(MF.mat).at["1111111", MF.grade] == 8
+    # and the task's own csv keeps every student, with their list
+    assert set(_grades_csv(storage_root)[LIST_COLUMN]) == {"Section A", "Section B"}
+
+
+def test_a_task_of_one_class_list_records_no_lists(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    job = _job(mongo_db, storage_root)
+    lists = [{"name": "Section A", "columns": list(ROSTER.columns)}]
+    mongo_db["eval_jobs"].update_one({"job_id": "job"}, {"$set": {"class_lists": lists}})
+    mongo_db["jobs_output"].update_one({"job_id": "job"}, {"$set": {"class_lists": ["stale"]}})
+    _split_copies(tmp_path, mongo_db, scanned_copy_factory)
+
+    _finalize(job, tmp_path)
+
+    output = mongo_db["jobs_output"].find_one({"job_id": "job"})
+    assert "class_lists" not in output
+    assert output["zip_id_list"] == ["output_zip/job_all.zip", "output_zip/job_1.zip"]
+    assert not (storage_root / "output_csv" / "job_1.csv").exists()

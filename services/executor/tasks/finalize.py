@@ -8,6 +8,7 @@ import pandas as pd
 from python.process_copy.add_grades import process_writing
 from python.process_copy.mcc import group_label, zipdirbatch
 from python.process_copy.recognize import get_date
+from rmn_common.class_lists import LIST_COLUMN, output_columns
 from rmn_common.moodle import MoodleFields as MF
 from rmn_common.paths import ensure_within, safe_path_component
 from rmn_common.questions import ignored_positions, question_sort_key
@@ -107,6 +108,12 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
 
     # fetch questions information
     eval_job = db.eval_jobs_collection().find_one({"job_id": job_id})
+
+    # a task given several class lists, one Moodle export per assignment:
+    # each gets its folder in the copies zip, its notes file and its Moodle
+    # zips (rmn_common.class_lists); a single one gives what it always gave
+    class_lists = eval_job.get("class_lists") or []
+    several = len(class_lists) > 1 and LIST_COLUMN in df.columns
 
     # a student without a graded copy (absent, copy deleted) gets 0 and today's
     # date unless the task says otherwise: then the row keeps what Moodle
@@ -262,6 +269,9 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
             # beside it in the copies zip instead. str: a column of plain
             # participant numbers is read as integers, which re.search
             # refuses (as in mcc.copy_files_for_moodle)
+            # the folder of the student's class list, in both zips
+            list_folder = (safe_path_component(str(df.at[matricule, LIST_COLUMN]))
+                           if several else "")
             identifiant = str(df.at[matricule, MF.id]) if MF.id in df.columns else ""
             m_id = re.search('\\d+', identifiant)
             if not m_id:
@@ -269,8 +279,9 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
             else:
                 identifiant = m_id.group()
                 folder_name = f"{safe_name}_{identifiant}_{safe_matricule}_assignsubmission_file_"
-                m_folder = ensure_within(moodle_folder_path.joinpath(folder_name), moodle_folder_path)
-                m_folder.mkdir(exist_ok=True)
+                m_folder = ensure_within(moodle_folder_path.joinpath(list_folder, folder_name),
+                                         moodle_folder_path)
+                m_folder.mkdir(parents=True, exist_ok=True)
                 m_dest = m_folder.joinpath(f"{nom}_{prenom}_{safe_matricule}.pdf")
                 shutil.copy(str(file), str(m_dest))
                 if stats_pdf:
@@ -278,7 +289,9 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
                     stats_pdf = None
 
             # store copy in all copies folder
-            copies_path = all_copies_folder_path
+            copies_path = ensure_within(all_copies_folder_path.joinpath(list_folder),
+                                        all_copies_folder_path)
+            copies_path.mkdir(exist_ok=True)
             if l_group:
                 group = df.at[matricule, l_group]
                 copies_path = ensure_within(copies_path.joinpath(safe_path_component(group)),
@@ -308,16 +321,28 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
     except Exception as e:
         print(e)
 
-    # create moodle zip files
+    # create moodle zip files: one series for the task, or one per class
+    # list, each in its own folder (a Moodle zip goes to one assignment)
     zip_id_list = [zip_file_id]
-    try:
-        zip_file_ids = zipdirbatch(str(moodle_folder_path), str(moodle_folder_path), BATCH_SIZE)
-        for i, zip_file in enumerate(zip_file_ids):
-            moodle_zip_file_id = os.path.normpath(f"output_zip{os.sep}{job_id}_{i + 1}.zip")
-            storage.move_to(zip_file, moodle_zip_file_id)
-            zip_id_list.append(moodle_zip_file_id)
-    except Exception as e:
-        print(e)
+    series = ([(safe_path_component(entry["name"]), entry) for entry in class_lists]
+              if several else [("", None)])
+    lists_output = []
+    for k, (folder, entry) in enumerate(series):
+        list_zips = []
+        source = ensure_within(moodle_folder_path.joinpath(folder), moodle_folder_path)
+        try:
+            if source.is_dir():
+                archive = VALIDATE_FOLDER.joinpath(f"moodle_{k}" if several else "moodle")
+                for zip_file in zipdirbatch(str(source), str(archive), BATCH_SIZE):
+                    moodle_zip_file_id = os.path.normpath(
+                        f"output_zip{os.sep}{job_id}_{len(zip_id_list)}.zip")
+                    storage.move_to(zip_file, moodle_zip_file_id)
+                    list_zips.append(len(zip_id_list))
+                    zip_id_list.append(moodle_zip_file_id)
+        except Exception as e:
+            print(e)
+        if entry is not None:
+            lists_output.append({"name": entry["name"], "zip_indices": list_zips})
 
     # adding stats for professors; as for a student's stats page, a failure
     # does not fail the job: the zips are already in storage by now, and
@@ -343,6 +368,22 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
         return
 
     try:
+        # the notes of each class list, with the columns of its own export
+        # and those the task added (the grade of each question...), to be
+        # imported in its own Moodle assignment
+        if several:
+            finished = df.reset_index()
+            every_list = [entry["columns"] for entry in class_lists]
+            for k, (entry, out) in enumerate(zip(class_lists, lists_output)):
+                rows = finished[finished[LIST_COLUMN] == entry["name"]]
+                columns = output_columns(entry["columns"], every_list, list(finished.columns))
+                list_csv = str(VALIDATE_FOLDER.joinpath(f"notes_{k + 1}.csv"))
+                rows[columns].to_csv(list_csv, index=False)
+                defuse_csv(list_csv)
+                out["notes_csv_file_id"] = os.path.normpath(
+                    f"output_csv{os.sep}{job_id}_{k + 1}.csv")
+                storage.move_to(list_csv, out["notes_csv_file_id"])
+
         #
         n_csv = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
         storage.move_to(csv_file_path, n_csv)
@@ -352,10 +393,15 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
             "notes_csv_file_id": notes_csv_file_id,
             "zip_id_list": zip_id_list
         }}
+        if several:
+            outputs["$set"]["class_lists"] = lists_output
         if stats_file_id:
             outputs["$set"]["stats_file_id"] = stats_file_id
         else:
             outputs["$unset"] = {"stats_file_id": ""}
+        if not several:
+            # a task whose lists became one since an earlier finalization
+            outputs.setdefault("$unset", {})["class_lists"] = ""
         db.jobs_output_collection().update_one({"job_id": job_id}, outputs)
 
         # every matricule and every grade of this job is settled now: the

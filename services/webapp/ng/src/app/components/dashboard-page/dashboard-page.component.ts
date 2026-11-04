@@ -600,7 +600,7 @@ export class DashboardPageComponent {
           width: '80%',
           maxWidth: '600px',
           height: '90%',
-          data: { taskId: jobId, nbZipFile: data.nZips, stats: data.stats, share: this.userService.shared() },
+          data: { taskId: jobId, nbZipFile: data.nZips, stats: data.stats, share: this.userService.shared(), lists: data.lists },
         });
         dialogRef.afterClosed().pipe(first()).subscribe(async (result) => {
           if (result) {
@@ -804,9 +804,13 @@ export class DashboardPageComponent {
   public updateCsv() {
     this.dialog.open(CsvUpdateDialogComponent, {
       width: '80%',
-      maxWidth: '400px',
-      height: '40%',
-      data: { jobId: this.taskId },
+      maxWidth: '480px',
+      maxHeight: '90vh',
+      data: { jobId: this.taskId, lists: this.task?.class_lists },
+    }).afterClosed().pipe(first()).subscribe(async (saved) => {
+      if (saved) {
+        await this.getTask();  // the names of the lists, for next time
+      }
     });
   }
 

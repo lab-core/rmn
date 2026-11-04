@@ -47,6 +47,8 @@ La ligne **Total** additionne pages et points. Le total des points doit être é
 
 **Téléverser localement** : choisissez le formulaire d'évaluation téléchargé du devoir ([voir étape 4 du guide](04-fichiers-moodle.md#le-formulaire-dévaluation-csv)). rmn vérifie que chaque ligne du fichier est bien formée.
 
+**Plusieurs devoirs Moodle** (deux sections d'un même cours, par exemple) : téléversez le formulaire d'évaluation de chacun, en même temps ou l'un après l'autre. Chaque fichier devient une liste de classe ; à la fin, chacune a son dossier dans le zip des copies, son `notes` et ses zip Moodle, à rendre à son propre devoir. Un étudiant présent dans deux fichiers est signalé : corrigez le fichier Moodle si c'est une erreur, et choisissez sa liste, il est retiré des autres.
+
 Cliquez sur **Commencer** : les fichiers sont envoyés au serveur, puis la liste des tâches s'affiche.
 
 > **Dupliquer** une tâche, depuis la liste des tâches ou son tableau de bord, ouvre cet assistant prérempli. Pratique pour un examen différé ou une autre section du même cours.

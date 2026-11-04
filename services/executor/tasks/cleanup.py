@@ -29,11 +29,12 @@ def cleanup_deleted_job(db, storage, job_id):
             storage.remove(file_id)
         except Exception:
             pass
-    for zip_path in glob.glob(storage.abs_path(os.path.normpath(f"output_zip{os.sep}{job_id}_*.zip"))):
-        try:
-            os.remove(zip_path)
-        except Exception:
-            pass
+    for pattern in (f"output_zip{os.sep}{job_id}_*.zip", f"output_csv{os.sep}{job_id}_*.csv"):
+        for output_path in glob.glob(storage.abs_path(os.path.normpath(pattern))):
+            try:
+                os.remove(output_path)
+            except Exception:
+                pass
     try:
         db.documents_collection().delete_many({"job_id": job_id})
         db.questions_collection().delete_many({"job_id": job_id})

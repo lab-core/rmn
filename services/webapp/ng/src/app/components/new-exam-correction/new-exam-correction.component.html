@@ -208,7 +208,7 @@
                 <form [formGroup]="thirdFormGroup">
                     <div class="files-steps-options-container">
                         <input #csvInput hidden="true" type="file" (click)="csvInput.value = ''"
-                            (change)="CsvFileEvent($event)" accept=".csv" />
+                            (change)="CsvFileEvent($event)" accept=".csv" multiple />
                         <span class="with-help">
                           <app-help-hover key="wizard.csv">
                             <button id="csv-input-button" mat-flat-button background-color="green"
@@ -231,6 +231,24 @@
 }
                     </div>
                     <span id="csv-upload-label"></span>
+                    @if (csvs.length > 1 || (csvs.length === 1 && !reuseCsv)) {
+                      <ul class="class-lists" aria-label="Listes de classe">
+                        @for (file of csvs; track file.name; let i = $index) {
+                          <li>
+                            {{ file.name }}
+                            <button mat-icon-button type="button" class="remove-class-list"
+                                    [attr.aria-label]="'Retirer ' + file.name"
+                                    (click)="removeCsv(i)" [disabled]="this.uploading">
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                      @if (csvs.length > 1) {
+                        <small class="class-lists-hint">Une liste par devoir Moodle : chacune aura son
+                          dossier de copies, ses notes et ses fichiers Moodle.</small>
+                      }
+                    }
                     @if (reuseCsv) {
 <div class="info" id="reused-csv">
                         <small>Notes réutilisées de « {{ sourceTask.name }} ».

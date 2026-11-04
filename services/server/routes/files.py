@@ -51,6 +51,8 @@ def share_archive():
                 status=400,
             )
         zip_index = str(request_form["zip_index"])
+    # the notes of one class list of a task given several
+    list_index = request_form.get("list_index")
 
     # Define db and collection used
     db = mongo["RMN"]
@@ -82,6 +84,8 @@ def share_archive():
     share_url = f"{protocol}://{host}/api{download}?job_id={job_id}&token={token}&file={target_file}"
     if zip_index:
         share_url += f"&zip_index={zip_index}"
+    if list_index is not None and list_index.isdigit():
+        share_url += f"&list_index={list_index}"
 
     resp = {
         "job_id": job["job_id"],
@@ -190,6 +194,15 @@ def download_file():
                 status=404
             )
         file_id = file_id[zip_index]
+    if target_file == Output_File.NOTES_CSV_FILE and "list_index" in request_form:
+        lists = output_files.get("class_lists") or []
+        list_index = form_int(request_form, "list_index")
+        if not 0 <= list_index < len(lists):
+            return Response(
+                response=json.dumps({"response": f"Error: list {list_index} doesn't exist."}),
+                status=404
+            )
+        file_id = lists[list_index]["notes_csv_file_id"]
     if file_id is None:
         return Response(
             response=json.dumps({"response": f"Error: {target_file.value} doesn't exist."}),

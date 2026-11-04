@@ -54,6 +54,6 @@ Le crayon à côté du nom de la tâche permet de la renommer et de modifier ses
 ## Ajouter des copies ou remplacer le csv
 
 - **Copies additionnelles** : ajoute des copies arrivées plus tard (examen différé, copie retrouvée…), sans recréer la tâche.
-- **Mettre à jour csv** : remplace le formulaire d'évaluation, par exemple si un étudiant s'est inscrit après son téléchargement. Retéléchargez-le de Moodle, puis déposez-le ici.
+- **Mettre à jour csv** : remplace le formulaire d'évaluation, par exemple si un étudiant s'est inscrit après son téléchargement. Retéléchargez-le de Moodle, retirez l'ancienne liste et ajoutez le nouveau fichier, puis **Enregistrer**. Une tâche de plusieurs devoirs Moodle y garde une liste par devoir : on peut en retirer ou en ajouter.
 
 Suite : [7. Vérifier les matricules](07-matricules.md).

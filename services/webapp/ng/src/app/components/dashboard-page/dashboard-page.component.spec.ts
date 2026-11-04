@@ -385,7 +385,7 @@ describe('DashboardPageComponent', () => {
     }));
 
     component.updateCsv();
-    expect(dialog.open).toHaveBeenCalledWith(CsvUpdateDialogComponent, jasmine.objectContaining({ data: { jobId: 'job' } }));
+    expect(dialog.open).toHaveBeenCalledWith(CsvUpdateDialogComponent, jasmine.objectContaining({ data: { jobId: 'job', lists: undefined } }));
 
     (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of(false) } as any);
     component.addCopies();

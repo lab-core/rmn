@@ -88,23 +88,28 @@ export class TasksService {
 
   /** Create a task.
    *
-   *  ``copies`` and ``csv`` may be null when ``sourceJobId`` names the task to
+   *  ``copies`` and ``csvs`` may be null when ``sourceJobId`` names the task to
    *  take them from: the server copies that task's files for each one that is
    *  not sent, which is how the same exam is corrected a second time.
+   *  ``csvs`` holds one Moodle export per assignment; a student found in
+   *  several is refused with a 409 until ``assignments`` gives their list
+   *  (askClassListAssignments).
    *  ``sourceShareToken`` is the dashboard link's token of a task shared by
    *  someone else: it lets the server copy that task, templates included.
    */
-  async addTask(copies, csv, front_template_id, regular_template_id,
+  async addTask(copies, csvs: File[] | null, front_template_id, regular_template_id,
                 n_pages_per_question, n_max_points_per_question, bonus_enabled_map,
                 taskName, front_template_name, regular_template_name,
                 statistics_for_students, validateMatricule, sourceJobId = null,
-                sourceShareToken: string = null): Promise<void> {
+                sourceShareToken: string = null,
+                assignments: Record<string, string> = null): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('front_template_id', front_template_id);
     formdata.append('regular_template_id', regular_template_id);
     if (copies) formdata.append('zip_file', copies);
-    if (csv) formdata.append('notes_csv_file', csv);
+    for (const csv of csvs ?? []) formdata.append('notes_csv_file', csv);
+    if (assignments) formdata.append('assignments', JSON.stringify(assignments));
     if (sourceJobId) formdata.append('source_job_id', sourceJobId);
     if (sourceJobId && sourceShareToken) formdata.append('source_share_token', sourceShareToken);
     // formdata.append('nb_pages', number_pages.toString());
