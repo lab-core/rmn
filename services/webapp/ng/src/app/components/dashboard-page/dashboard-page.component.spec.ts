@@ -415,6 +415,23 @@ describe('DashboardPageComponent', () => {
     expect(component.totalVerifiedMatricules).toBe(2);
   });
 
+  it('a copy deleted over the socket leaves the counts and no longer holds back the finalisation', async () => {
+    await create();
+    expect(component.questions.map(q => q.count)).toEqual([2, 2, 2]);
+    // b's Q1 is not corrected; deleting b's copy is what is left to do
+    docs.exams[1].status = 'DELETED';
+    await socket.socket.fire('doc_validated', JSON.stringify({ matricule: true, questions: false, document_index: 1 }));
+    await settle();
+    expect(component.gradedCount).toBe(1);
+    expect(component.questions.map(q => q.count)).toEqual([1, 1, 1]);
+    expect(component.getTotalQuestion().validatedCount).toBe(1);
+    expect(component.ongoingTask).toBeFalse();
+
+    spyOn(PDFSource, 'clearAll');
+    await component.validateJob();
+    expect(validation.validateJob).toHaveBeenCalledWith('job');
+  });
+
   it('a socket update lands on the row with that document index, wherever it sits', async () => {
     await create();
     // positions no longer equal document indices (the stub shares this array,

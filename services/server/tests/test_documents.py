@@ -156,6 +156,29 @@ def test_non_consecutive_question_documents_are_refused(client, job, owner, db):
     assert "consecutive" in body["Error"]
 
 
+def test_the_pages_of_a_deleted_copy_are_flagged(client, job, owner, db):
+    status, body = _list(client, job, owner, questions="true")
+    assert [d["copy_deleted"] for d in body["response"]] == [False, False]
+    db["job_documents"].update_one({"job_id": job}, {"$set": {"status": "DELETED"}})
+    status, body = _list(client, job, owner, questions="true")
+    assert status == 200
+    assert [d["copy_deleted"] for d in body["response"]] == [True, True]
+
+
+def test_a_deleted_copy_keeps_the_grades_saved_meanwhile(client, job, db):
+    """An offline correction synced after the copy was deleted: the grade is
+    kept for a restore, and the copy stays deleted."""
+    db["job_documents"].update_one({"job_id": job}, {"$set": {"status": "DELETED"}})
+    resp = _save(
+        client, job, _q1(), document_index="0", status="validated", grades="4.5"
+    )
+    assert resp.status_code == 200, resp.data
+    q1 = db["job_questions"].find_one({"job_id": job, "document_index": 0})
+    assert (q1["status"], q1["grade"]) == ("VALIDATED", 4.5)
+    copy = db["job_documents"].find_one({"job_id": job})
+    assert (copy["status"], copy["grades"]) == ("DELETED", [4.5, None])
+
+
 # ------------------------------------------------------- /document/download ---
 def _download(client, job_id, auth, **extra):
     return client.post("/documents/download", data={"job_id": job_id, **auth, **extra})

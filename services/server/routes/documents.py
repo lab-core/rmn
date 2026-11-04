@@ -52,6 +52,11 @@ def get_documents(validity):
             question = f"Q{validity}"
         docs = list(db["job_questions"].find(query))
         count = db["job_questions"].count_documents(query)
+        # the pages of a deleted copy stay listed and keep taking grades, so
+        # that restoring the copy brings back what was corrected meanwhile;
+        # the webapp hides them from grading and from the counts
+        deleted_copies = set(db["job_documents"].distinct(
+            "filename", {"job_id": job_id, "status": Document_Status.DELETED.value}))
         # whether a copy carries annotations is read from its pdf once, then
         # kept: copies stored before the field have none yet
         for doc in docs:
@@ -69,6 +74,7 @@ def get_documents(validity):
                 "question_index": doc["question_index"],
                 "question": doc["question"],
                 "basename": doc["basename"],
+                "copy_deleted": doc["basename"] in deleted_copies,
                 "grade": doc["grade"],
                 "tag": doc.get("tag"),
                 # validated in the app with no grade: corrected, its grade

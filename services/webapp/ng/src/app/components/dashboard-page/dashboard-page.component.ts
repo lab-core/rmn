@@ -55,6 +55,8 @@ export class DashboardPageComponent {
   public examsList: Array<any> = [];
   public questionsDocList: Array<any> = [];
   public examsCount = 0;
+  /// The copies left to grade: every copy but the deleted ones.
+  public gradedCount = 0;
   public questions: Question[] = [];
   public totalVerifiedMatricules = 0;
   public ongoingTask = true;
@@ -100,6 +102,10 @@ export class DashboardPageComponent {
           await this.docService.getDocuments(this.taskId, false, docIndices);
           this.replaceDocument(this.examsList, this.docService.documentsList[0]);
           this.computeTotalMatricules();
+          // a copy deleted or restored: its pages leave or join the counts
+          if (this.questionsDocList) {
+            this.computeQuestions();
+          }
         }
         // if question has been validated
         if (questions) {
@@ -352,7 +358,18 @@ export class DashboardPageComponent {
     this.questionsDocList = this.docService.documentsList;
   }
 
+  /// The file names of the deleted copies, whose pages are not counted.
+  ///
+  /// Taken from the copies rather than from the pages' own flag, so that a
+  /// copy deleted while the dashboard is open leaves the counts at once.
+  public deletedCopies(): Set<string> {
+    return new Set((this.examsList || [])
+      .filter((doc) => doc.status === DocumentStatus.DELETED)
+      .map((doc) => doc.filename));
+  }
+
   public computeTotalMatricules() {
+    this.gradedCount = this.examsCount - this.deletedCopies().size;
     this.totalVerifiedMatricules = 0;
     this.examsList.forEach((doc) => {
       if (doc.status === DocumentStatus.VALIDATED || doc.status === DocumentStatus.DELETED) {
@@ -396,10 +413,11 @@ export class DashboardPageComponent {
       if (questionsStats[element[0]]) { questionsStats[element[0]].bonus = element[1]; }
     });
 
-    // populate stats
+    // populate stats, without the pages of the deleted copies
+    const deleted = this.deletedCopies();
     this.questionsDocList.forEach((doc) => {
       const stats = questionsStats[doc.question];
-      if (!stats) { return; }
+      if (!stats || deleted.has(doc.basename)) { return; }
       stats.count++;
       if (doc.status === DocumentStatus.VALIDATED) {
         stats.validatedCount++;
@@ -481,7 +499,7 @@ export class DashboardPageComponent {
       index: this.questions.length,
       bonus: false,
       max: 0,
-      count: this.examsCount,
+      count: this.gradedCount,
       validatedCount: 0,
       total: 0,
       average: 0,
@@ -528,7 +546,7 @@ export class DashboardPageComponent {
   public checkIfTaskFinished() {
     this.ongoingTask = this.totalVerifiedMatricules < this.examsCount
           || (this.questions.length > 0 &&
-              this.getTotalQuestion().validatedCount < this.examsCount);
+              this.getTotalQuestion().validatedCount < this.gradedCount);
   }
 
   public getTotalQuestion() {
@@ -808,7 +826,7 @@ export class DashboardPageComponent {
     if (this.totalVerifiedMatricules < this.examsCount) {
       this.notificationService.showError('Veuillez vérifier tous les matricules avant de valider la tâche!', 'Erreur!');
     } else if (this.questions.length > 0 &&
-               this.getTotalQuestion().validatedCount < this.examsCount) {
+               this.getTotalQuestion().validatedCount < this.gradedCount) {
       this.notificationService.showError('Veuillez corriger toutes les copies avant de valider la tâche!', 'Erreur!');
     } else {
       this.disableButtons = true;

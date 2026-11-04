@@ -352,6 +352,35 @@ describe('TaskVerificationComponent', () => {
     expect(notification.showSuccess).toHaveBeenCalled();
   });
 
+  // student b's copy deleted: its pages are still sent by the server
+  const WITH_B_DELETED = QUESTION_DOCS.map(d => ({ ...d, copy_deleted: d.basename === 'b' }));
+
+  it('leaves the pages of a deleted copy out of grading and of the validation button', async () => {
+    await create(JOB, {}, {}, WITH_B_DELETED.map(d => ({ ...d, status: d.basename === 'a' ? 'VALIDATED' : d.status })));
+    expect(component.examsList.map(e => e.filename)).toEqual(['a_Q1', 'a_Q3']);
+    expect(fixture.nativeElement.querySelectorAll('.file-container').length).toBe(2);
+    // b_Q3 is still to validate, but its copy is deleted: nothing blocks
+    expect(component.disabledValidationButton).toBeFalse();
+    // the zip import still finds them, to keep what was corrected
+    expect(component.allPages.length).toBe(4);
+  });
+
+  it('an offline correction still sends the pages of a copy deleted meanwhile', async () => {
+    await create(JOB, {}, {}, WITH_B_DELETED);
+    const saveCopy = spyOn(component, 'saveCopy').and.resolveTo(true);
+    const pdfSrc = new PDFSource(13, 'blob:13', 0);
+    component.offlineCopies.set(13, {
+      pdfSrc, file64: 'data:application/pdf;base64,JVBERi0xLjQ=', updated: false,
+      grade: 2, status: 'VALIDATED', questionIndex: 'Q3',
+    } as any);
+
+    await component.uploadOffline(false);
+
+    expect((saveCopy.calls.mostRecent().args[1] as File).name).toBe('b_Q3.pdf');
+    expect(notification.showError).not.toHaveBeenCalled();
+    expect(notification.showSuccess).toHaveBeenCalledWith('Téléversement terminé!', 'Success');
+  });
+
   it('skipping a copy tags it and keeps it to validate', async () => {
     await create();
     await component.skipCurrentCopy('2');
@@ -949,7 +978,8 @@ describe('TaskVerificationComponent', () => {
       expect(data.jobId).toBe('job');
       expect(data.jobName).toBe('Exam');
       expect(data.examsList).toBe(component.subExamsList);
-      expect(data.allExamsList).toBe(component.examsList);
+      // the deleted copies included: a zip may hold their pages
+      expect(data.allExamsList).toBe(component.allPages);
       expect(data.nPagesPerQuestion).toEqual(JOB.n_pages_per_question);
       expect(component.hasDownloadedZip).toBeTrue();
       expect(component.hasUploadedZip).toBeFalse();
