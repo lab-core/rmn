@@ -2,6 +2,7 @@ import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/cor
 import { HttpClient } from '@angular/common/http';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { firstValueFrom } from 'rxjs';
+import { saveAs } from 'file-saver';
 import { NotificationService } from 'src/app/services/notification.service';
 import { UserService } from 'src/app/services/user.service';
 import { SERVER_URL } from 'src/app/utils';
@@ -16,7 +17,8 @@ export interface DialogData {
 
 /** The class lists of a task: one Moodle export per assignment.
  *
- *  A list can be removed and files added, each a list of its own, then
+ *  A list can be downloaded as the task has it now (to fix it before adding
+ *  it again), removed, and files added, each a list of its own, then
  *  everything is saved at once (``jobs/update/csv`` with ``keep``). A student
  *  then found in several lists is asked about, as when the task is created.
  *  Closes with true once saved. */
@@ -67,6 +69,22 @@ export class CsvUpdateDialogComponent implements OnInit {
 
   removeAdded(index: number) {
     this.added = this.added.filter((_, i) => i !== index);
+  }
+
+  /** Save one of the task's lists as it has it now, as a csv. */
+  async download(name: string) {
+    const formdata = new FormData();
+    this.userService.addTokens(formdata);
+    formdata.append('job_id', this.data.jobId);
+    formdata.append('name', name);
+    try {
+      const csv = await firstValueFrom(
+        this.http.post(`${SERVER_URL}jobs/class_lists/download`, formdata, { responseType: 'blob' }));
+      saveAs(csv, `${name}.csv`);
+    } catch (error) {
+      console.error(error);
+      this.notificationService.showError(`La liste « ${name} » n'a pas pu être téléchargée.`, 'Erreur');
+    }
   }
 
   /** How many lists the task would have once saved. */

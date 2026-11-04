@@ -7,6 +7,8 @@
     @for (list of kept; track list.name) {
       <li [class.removed]="!list.keep">
         <span class="list-name">{{ list.name }}</span>
+        <button mat-stroked-button type="button" class="download-list" (click)="download(list.name)"
+                [attr.aria-label]="'Télécharger ' + list.name">Télécharger</button>
         @if (list.keep) {
           <button mat-stroked-button type="button" class="remove-list" (click)="list.keep = false"
                   [attr.aria-label]="'Retirer ' + list.name">Retirer</button>

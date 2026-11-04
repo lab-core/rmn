@@ -130,6 +130,34 @@ describe('CsvUpdateDialogComponent', () => {
     expect(notification.showError).toHaveBeenCalledWith('Erreur lors du remplacement du fichier csv', 'Erreur');
   });
 
+  it('downloads a list as the task has it now', async () => {
+    create(['Section A', 'Section B']);
+    const saved: string[] = [];
+    spyOn(HTMLAnchorElement.prototype, 'dispatchEvent').and.callFake(function (this: HTMLAnchorElement) {
+      saved.push(this.download);
+      return true;
+    });
+    (fixture.nativeElement.querySelectorAll('.download-list')[1] as HTMLButtonElement).click();
+
+    const req = http.expectOne('/api/jobs/class_lists/download');
+    const form = req.request.body as FormData;
+    expect(form.get('job_id')).toBe('job-1');
+    expect(form.get('name')).toBe('Section B');
+    expect(req.request.responseType).toBe('blob');
+    req.flush(new Blob(['Matricule\n1\n'], { type: 'text/csv' }));
+    await waitUntil(() => saved.length > 0);
+    expect(saved).toEqual(['Section B.csv']);
+    expect(component.kept.every((l) => l.keep)).toBeTrue();  // downloading removes nothing
+  });
+
+  it('says when a list cannot be downloaded', async () => {
+    create(['A']);
+    component.download('A');
+    http.expectOne('/api/jobs/class_lists/download').flush(new Blob(['x']), { status: 404, statusText: 'Not Found' });
+    await waitUntil(() => notification.showError.calls.count() > 0);
+    expect(notification.showError).toHaveBeenCalledWith("La liste « A » n'a pas pu être téléchargée.", 'Erreur');
+  });
+
   it('accepts dropped files and lets the drag through', () => {
     create();
     const drop = new DragEvent('drop', { cancelable: true });

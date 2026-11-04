@@ -6,6 +6,8 @@ teacher's choice for a student found in several lists, the answer that asks
 for it, and the combined csv written to the share.
 """
 
+import csv
+import io
 import math
 import os
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -17,6 +19,7 @@ from rmn_common.class_lists import (
     ClassList,
     combine,
     list_name,
+    lists_of_combined,
     read_class_list,
     unresolved,
 )
@@ -113,6 +116,40 @@ def students_of(
                     {"matricule": row[MF.mat], MF.name: row.get(MF.name, "")}
                 )
     return students
+
+
+def task_csv_ids(job: dict) -> Tuple[str, str]:
+    """The csv the processing starts from and the one it wrote, by file id."""
+    job_id = job["job_id"]
+    notes_file_id = job.get("notes_file_id") or os.path.join("csv", f"{job_id}.csv")
+    return notes_file_id, os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
+
+
+def current_lists(job: dict) -> List[ClassList]:
+    """The task's lists as its csv has them now: the one the processing wrote
+    once there is one (with what it read), the uploaded one before."""
+    notes_file_id, output_id = task_csv_ids(job)
+    current_id = (
+        output_id if os.path.isfile(storage.abs_path(output_id)) else notes_file_id
+    )
+    if not os.path.isfile(storage.abs_path(current_id)):
+        return []
+    with open(storage.abs_path(current_id), encoding="utf-8-sig") as f:
+        return lists_of_combined(f.read(), job.get("class_lists") or [])
+
+
+def list_csv(job: dict, class_list: ClassList) -> str:
+    """One list as a Moodle export again: the columns of its own export, in
+    its order (all of them for a task that recorded none)."""
+    recorded = {e["name"]: e["columns"] for e in job.get("class_lists") or []}
+    columns = recorded.get(class_list.name) or class_list.columns
+    out = io.StringIO()
+    writer = csv.DictWriter(
+        out, fieldnames=columns, restval="", extrasaction="ignore", lineterminator="\n"
+    )
+    writer.writeheader()
+    writer.writerows(class_list.rows)
+    return out.getvalue()
 
 
 def job_groups(job: dict) -> list:

@@ -384,3 +384,62 @@ def test_a_nan_among_the_groups_of_an_old_task_is_left_out(client, alice, jobs):
     resp = client.post("/jobs/info", data={"job_id": job_id, "token": alice})
     assert b"NaN" not in resp.data
     assert resp.get_json(force=True)["response"]["groups"] == [1.0, 2.0]
+
+
+# ---------------------------------------------------- downloading the lists ---
+def _download(client, token, job_id, name):
+    return client.post(
+        "/jobs/class_lists/download",
+        data={"job_id": job_id, "token": token, "name": name},
+    )
+
+
+def test_each_list_is_downloaded_with_the_columns_of_its_export(
+    client, alice, jobs, storage_root
+):
+    _evaluate(
+        client,
+        alice,
+        _files(("A.csv", SECTION_A), ("B.csv", SECTION_B)),
+        assignments=json.dumps({"2345678": "B"}),
+    )
+    job_id = jobs.find_one({"user_id": "alice"})["job_id"]
+
+    a = _download(client, alice, job_id, "A")
+    assert a.status_code == 200, a.data
+    assert a.headers["Content-Disposition"].endswith("A.csv")
+    # Bob was moved to B: no longer in A
+    assert a.data.decode().splitlines() == [
+        "Identifiant,Nom complet,Matricule,Note",
+        "P1,Alice A,0123456,",
+    ]
+    b = list(
+        csv.DictReader(io.StringIO(_download(client, alice, job_id, "B").data.decode()))
+    )
+    assert list(b[0]) == ["Identifiant", "Nom complet", "Matricule", "Groupe", "Note"]
+    assert [r["Matricule"] for r in b] == ["3456789", "2345678"]
+
+
+def test_the_list_of_a_task_given_one_is_downloaded_as_notes(
+    client, alice, jobs, storage_root
+):
+    _evaluate(client, alice, _files(("A.csv", b"Matricule,Nom complet\n1,=cmd()\n")))
+    job_id = jobs.find_one({"user_id": "alice"})["job_id"]
+    resp = _download(client, alice, job_id, "notes")
+    assert resp.status_code == 200, resp.data
+    # opened in a spreadsheet: the formula is not run
+    [row] = list(csv.DictReader(io.StringIO(resp.data.decode())))
+    assert row["Nom complet"] != "=cmd()"
+    assert row["Nom complet"].endswith("=cmd()")
+
+
+def test_an_unknown_list_or_another_users_task_is_404(
+    client, alice, two_lists, user_factory, login
+):
+    assert _download(client, alice, two_lists["job_id"], "Z").status_code == 404
+    user_factory("mallory")
+    assert (
+        _download(client, login("mallory"), two_lists["job_id"], "A").status_code == 404
+    )
+    resp = client.post("/jobs/class_lists/download", data={"token": alice, "name": "A"})
+    assert resp.status_code == 400

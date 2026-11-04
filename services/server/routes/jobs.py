@@ -18,15 +18,19 @@ from utils.responses import Response
 from flask_cors import cross_origin
 from werkzeug.utils import secure_filename
 from rmn_common import auto_grade
-from rmn_common.class_lists import lists_of_combined, metadata
+from rmn_common.class_lists import metadata
 from rmn_common.moodle import MoodleFields as MF
 from rmn_common.questions import validate_bonus_map, validate_questions
+from rmn_common.spreadsheet import defuse_csv
 from rmn_common.status import Document_Status, Job_Status
 from auth import verify_share_token, verify_token
 from context import TEMP_FOLDER, mongo, redis, sio, storage
 from service.class_lists import (
+    current_lists,
     duplicates_answer,
     job_groups,
+    list_csv,
+    task_csv_ids,
     read_assignments,
     read_uploads,
     students_of,
@@ -1006,14 +1010,9 @@ def replace_class_lists(job, form, uploads):
             response=json.dumps({"response": "Error: keep invalide."}), status=400
         )
 
-    output_id = os.path.normpath(f"output_csv{os.sep}{job_id}.csv")
-    notes_file_id = job.get("notes_file_id") or os.path.join("csv", f"{job_id}.csv")
-    current_id = output_id if os.path.isfile(storage.abs_path(output_id)) else notes_file_id
+    notes_file_id, output_id = task_csv_ids(job)
     recorded = job.get("class_lists") or []
-    current = []
-    if os.path.isfile(storage.abs_path(current_id)):
-        with open(storage.abs_path(current_id), encoding="utf-8-sig") as f:
-            current = lists_of_combined(f.read(), recorded)
+    current = current_lists(job)
     unknown = [n for n in keep if n not in {c.name for c in current}]
     if unknown:
         return Response(
@@ -1049,6 +1048,48 @@ def replace_class_lists(job, form, uploads):
         {"$set": {"students_list": students_of(lists, assignments), "class_lists": meta}},
     )
     return Response(response=json.dumps({"response": "OK"}), status=200)
+
+
+@bp.route("/class_lists/download", methods=["POST"])
+@cross_origin()
+@verify_token()
+def download_class_list(user_id):
+    """One class list of a task as a csv (``name``, as ``/info`` lists them),
+    as the task has it now: the columns of its export, a student moved to
+    another list no longer in it. What the csv dialog offers to download
+    before a list is removed or replaced.
+    """
+    request_form = request.form
+    if "job_id" not in request_form or "name" not in request_form:
+        return Response(
+            response=json.dumps({"response": "Error: job_id and name are required."}),
+            status=400,
+        )
+    job = mongo["RMN"]["eval_jobs"].find_one(
+        {"job_id": str(request_form["job_id"]), "user_id": user_id}
+    )
+    if job is None:
+        return Response(
+            response=json.dumps({"response": f"Error: job {request_form['job_id']} for user {user_id} doesn't exist."}),
+            status=404,
+        )
+    name = str(request_form["name"])
+    found = [c for c in current_lists(job) if c.name == name]
+    if not found:
+        return Response(
+            response=json.dumps({"response": f"Error: liste inconnue : {name}."}),
+            status=404,
+        )
+    path = temp_upload_path(f"{name}.csv")
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write(list_csv(job, found[0]))
+    # opened in a spreadsheet: a roster value that reads as a formula is not run
+    defuse_csv(str(path))
+    # as files/download does: the open file is still sent once unlinked
+    file_send = send_file(str(path), download_name=f"{name}.csv", as_attachment=True,
+                          mimetype="text/csv")
+    os.remove(path)
+    return file_send
 
 
 @bp.route("/update/status", methods=["POST"])
