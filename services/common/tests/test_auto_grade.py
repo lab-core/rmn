@@ -345,6 +345,19 @@ def test_progress_counts_every_copy_of_the_questions_being_read():
     }
 
 
+def test_progress_leaves_out_the_pages_of_a_deleted_copy():
+    questions = FakeCollection(
+        [
+            _question(0, auto_grade_status=PENDING, basename="a"),
+            _question(1, auto_grade_status=PENDING, basename="b"),
+            _question(2, auto_grade_status=DONE, basename="c"),
+        ]
+    )
+    assert auto_grade.progress(questions, "j", ["b"]) == {
+        "1": {"pending": 1, "running": 0, "done": 1, "graded": 0, "total": 2}
+    }
+
+
 def test_is_running_while_a_page_is_pending_or_claimed():
     assert not auto_grade.is_running(
         FakeCollection([_question(0, auto_grade_status=DONE)]), "j"

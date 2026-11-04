@@ -478,7 +478,10 @@ def get_job():
         "copies_errors": job.get("copies_errors"),
         # how far the grade reading has got, question by question, so the
         # dashboard and the correction screen can say what is waiting on what
-        "auto_grade_progress": auto_grade.progress(db["job_questions"], job_id),
+        # (the deleted copies left out, as everywhere the task is counted)
+        "auto_grade_progress": auto_grade.progress(
+            db["job_questions"], job_id, db["job_documents"].distinct(
+                "filename", {"job_id": job_id, "status": Document_Status.DELETED.value})),
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 
