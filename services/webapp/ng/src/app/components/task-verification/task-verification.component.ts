@@ -343,20 +343,18 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   generateFormattedIndexes(): void {
+    // a page shows its copy's number, the one of the matricule page and of the
+    // dashboard's search, so that a deleted copy or a group filter does not
+    // renumber the others; servers without it number the copies in the list
     this.formattedIndexes = {};
-    if (this.index !== "Tout sélectionner") {
-      // a single question: the copies are numbered in the list
-      this.subExamsList.forEach((exam, i) => {
-        this.formattedIndexes[exam.document_index] = `${i + 1}`;
-      });
-      return;
-    }
     const indices = {};
     for (const exam of this.subExamsList) {
       if (!(exam.question in indices)) {
         indices[exam.question] = 1;
       }
-      this.formattedIndexes[exam.document_index] = `${indices[exam.question]}|${exam.question}`;
+      const copy = exam.copy_number ?? indices[exam.question];
+      this.formattedIndexes[exam.document_index] =
+        this.index !== "Tout sélectionner" ? `${copy}` : `${copy}|${exam.question}`;
       indices[exam.question] += 1;
     }
   }
@@ -640,6 +638,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       const selected = selectedCopyIndex(jobId, this.examsList);
       const copy = localStorage.getItem(`${jobId}_copy`);
       const inGroup = (exam: any) => !this.group || exam['group'] == this.group;
+      if (selected < 0 && selectedCopyIndex(jobId, this.allPages.filter((exam) => exam.copy_deleted)) >= 0) {
+        // deleted since the dashboard pointed at it: its pages are not listed
+        this.notificationService.showWarning(
+          "La copie choisie dans le tableau de bord a été supprimée : la correction s'ouvre sur une autre.",
+          'Copie supprimée');
+      }
       if (selected >= 0) {
         this.currentCopy = selected;
       } else if (copy !== null && this.examsList[parseInt(copy)] && inGroup(this.examsList[parseInt(copy)])) {

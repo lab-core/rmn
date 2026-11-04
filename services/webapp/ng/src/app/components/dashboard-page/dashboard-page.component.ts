@@ -257,6 +257,12 @@ export class DashboardPageComponent {
       entry.index = exam.document_index;
       entry.basename = exam.filename;
       entry.copy = copy;
+      // still found, so that the search tells it was deleted instead of
+      // pointing the correction pages at it
+      entry.deleted = exam.status === DocumentStatus.DELETED;
+      if (entry.deleted) {
+        entry.identifiant += ' (supprimée)';
+      }
       if (entry !== student) {
         entries.push(entry);  // unknown student, or a second copy of the same one
       }
@@ -274,8 +280,8 @@ export class DashboardPageComponent {
    *  task-verification's selectedCopyIndex). The key is the copy's identity,
    *  not a position: the pages order their lists differently. */
   public selectCopy() {
-    if (!this.copySelection || this.copySelection.copy === undefined) {
-      return;  // N/A: the student has no recognised copy
+    if (!this.copySelection || this.copySelection.copy === undefined || this.copySelection.deleted) {
+      return;  // N/A: the student has no recognised copy, or it was deleted
     }
     localStorage.setItem(
       selectedCopyKey(this.taskId),

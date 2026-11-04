@@ -365,6 +365,27 @@ describe('TaskVerificationComponent', () => {
     expect(component.allPages.length).toBe(4);
   });
 
+  it("numbers a page by its copy, which a deleted copy does not shift", async () => {
+    const numbered = QUESTION_DOCS.map(d => ({
+      ...d, copy_number: d.basename === 'a' ? 1 : 2, copy_deleted: d.basename === 'a' }));
+    await create(JOB, {}, {}, numbered);
+    // b stays the 2nd copy, as on the matricule page
+    expect(component.formattedIndexes).toEqual({ 11: '2|Q1', 13: '2|Q3' });
+    component.onQuestionIndexChange({ value: '3' } as any);
+    await settle();
+    expect(component.formattedIndexes).toEqual({ 13: '2' });
+  });
+
+  it('warns when the copy picked on the dashboard was deleted since', async () => {
+    await create(JOB, {}, {}, WITH_B_DELETED);
+    expect(notification.showWarning).not.toHaveBeenCalled();
+    localStorage.setItem('job_dashboard_copy', JSON.stringify({ document_index: 1, basename: 'b' }));
+    component.currentCopy = -1;
+    await component.getDocuments();
+    expect(notification.showWarning).toHaveBeenCalledWith(jasmine.any(String), 'Copie supprimée');
+    expect(component.currentDocumentIndex).toBe(10);  // a_Q1
+  });
+
   it('an offline correction still sends the pages of a copy deleted meanwhile', async () => {
     await create(JOB, {}, {}, WITH_B_DELETED);
     const saveCopy = spyOn(component, 'saveCopy').and.resolveTo(true);

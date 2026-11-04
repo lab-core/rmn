@@ -138,8 +138,8 @@ describe('DashboardPageComponent', () => {
   it('builds the copy picker from the student list and points the correction pages at the pick', async () => {
     await create();
     expect(component.copiesList).toEqual([
-      { identifiant: '1234567 - Alice A (a)', index: 0, basename: 'a', copy: 0 },
-      { identifiant: '2345678 - Bob B (b)', index: 1, basename: 'b', copy: 1 },
+      { identifiant: '1234567 - Alice A (a)', index: 0, basename: 'a', copy: 0, deleted: false },
+      { identifiant: '2345678 - Bob B (b)', index: 1, basename: 'b', copy: 1, deleted: false },
     ]);
     expect(component.copySelection).toBeNull();
 
@@ -168,6 +168,20 @@ describe('DashboardPageComponent', () => {
     expect(localStorage.getItem('job_dashboard_copy')).toBeNull();
   });
 
+  it('the search tells a deleted copy instead of its number', async () => {
+    await create();
+    component.examsList[1].status = 'DELETED';
+    component.getCopiesList();
+    const bob = component.copiesList[1];
+    expect(bob.identifiant).toBe('2345678 - Bob B (b) (supprimée)');
+    component.copySelection = bob;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.deleted-copy-warning').textContent.trim()).toBe('Copie supprimée');
+    expect((fixture.nativeElement.querySelector('.select-index-button') as HTMLButtonElement).disabled).toBeTrue();
+    component.selectCopy();
+    expect(localStorage.getItem('job_dashboard_copy')).toBeNull();
+  });
+
   it('a copy is found by its file name until its student is known', async () => {
     await create();
     component.examsList.push(
@@ -176,9 +190,9 @@ describe('DashboardPageComponent', () => {
     );
     component.getCopiesList();
     expect(component.copiesList.slice(2)).toEqual([
-      { identifiant: 'scan_003', index: 2, basename: 'scan_003', copy: 2 },
+      { identifiant: 'scan_003', index: 2, basename: 'scan_003', copy: 2, deleted: false },
       // a second copy with the same matricule is an entry of its own
-      { identifiant: '1234567 - Alice A (scan_004)', index: 3, basename: 'scan_004', copy: 3 },
+      { identifiant: '1234567 - Alice A (scan_004)', index: 3, basename: 'scan_004', copy: 3, deleted: false },
     ]);
 
     component.copySelection = component.copiesList[2];

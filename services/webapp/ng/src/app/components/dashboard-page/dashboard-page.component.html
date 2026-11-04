@@ -30,10 +30,14 @@
                 [(ngModel)]="copySelection">
             </ng-select>
         </div>
-        <p>{{ this.copySelection ? (this.copySelection.copy + 1 || "N/A") : "" }}</p>
+        @if (this.copySelection?.deleted) {
+          <p class="deleted-copy-warning">Copie supprimée</p>
+        } @else {
+          <p>{{ this.copySelection ? (this.copySelection.copy + 1 || "N/A") : "" }}</p>
+        }
         @if (this.copySelection) {
 <button class="select-index-button" mat-raised-button color="primary" (click)="selectCopy()"
-                [disabled]="this.copySelection.copy === undefined">Sélectionner</button>
+                [disabled]="this.copySelection.copy === undefined || this.copySelection.deleted">Sélectionner</button>
 }
       }
       <!-- on the row of the search box, at the table's right edge, in the

@@ -165,6 +165,42 @@ def test_the_pages_of_a_deleted_copy_are_flagged(client, job, owner, db):
     assert [d["copy_deleted"] for d in body["response"]] == [True, True]
 
 
+def test_the_pages_keep_their_copy_number_when_a_copy_is_deleted(
+    client, job, owner, db
+):
+    """The pages carry the copy's number of the matricule page, which a
+    deleted copy keeps taking: the next copy stays the 2nd."""
+    db["job_documents"].insert_one(
+        {
+            "job_id": job,
+            "document_index": 1,
+            "filename": "copy2",
+            "status": "TO VALIDATE",
+        }
+    )
+    db["job_questions"].insert_one(
+        {
+            "job_id": job,
+            "document_index": 2,
+            "question_index": 1,
+            "question": "Q1",
+            "basename": "copy2",
+            "filename": "copy2_Q1",
+            "status": "TO VALIDATE",
+            "grade": None,
+            "annotated": False,
+        }
+    )
+    db["job_documents"].update_one(
+        {"filename": "copy1"}, {"$set": {"status": "DELETED"}}
+    )
+    status, body = _list(client, job, owner, questions="true")
+    assert status == 200
+    assert [
+        (d["basename"], d["copy_number"], d["copy_deleted"]) for d in body["response"]
+    ] == [("copy1", 1, True), ("copy1", 1, True), ("copy2", 2, False)]
+
+
 def test_a_deleted_copy_keeps_the_grades_saved_meanwhile(client, job, db):
     """An offline correction synced after the copy was deleted: the grade is
     kept for a restore, and the copy stays deleted."""

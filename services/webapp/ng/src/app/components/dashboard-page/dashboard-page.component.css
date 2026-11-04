@@ -69,6 +69,11 @@ app-main-menu {
   margin-right: 20px;
 }
 
+.select-index-container>p.deleted-copy-warning {
+  color: red;
+  font-weight: bold;
+}
+
 .index-input-div {
   width: 40%;
   margin-right: 30px;
