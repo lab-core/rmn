@@ -373,3 +373,14 @@ def test_a_shared_link_names_the_list(client, login, finished_two_lists):
     )
     assert resp.status_code == 200, resp.data
     assert resp.get_json(force=True)["response"]["share_url"].endswith("&list_index=1")
+
+
+def test_a_nan_among_the_groups_of_an_old_task_is_left_out(client, alice, jobs):
+    """Stored by the executor for a student without a group: as NaN in the
+    json, no browser could read the task any more."""
+    _evaluate(client, alice, _files(("A.csv", SECTION_A)))
+    job_id = jobs.find_one({"user_id": "alice"})["job_id"]
+    jobs.update_one({"job_id": job_id}, {"$set": {"groups": [1.0, 2.0, float("nan")]}})
+    resp = client.post("/jobs/info", data={"job_id": job_id, "token": alice})
+    assert b"NaN" not in resp.data
+    assert resp.get_json(force=True)["response"]["groups"] == [1.0, 2.0]

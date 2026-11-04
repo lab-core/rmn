@@ -1048,6 +1048,27 @@ def test_each_class_list_gets_its_folder_notes_and_moodle_zip(
     assert set(_grades_csv(storage_root)[LIST_COLUMN]) == {"Section A", "Section B"}
 
 
+def test_a_student_without_a_group_has_no_group_folder(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    """Numbered groups with a student outside of them: pandas reads them as
+    1.0 and NaN, which named the folders "1.0" and "nan"."""
+    roster = ROSTER.assign(Groupe=["01", "01", None, "02"])
+    job = _job(mongo_db, storage_root, roster=roster)
+    _split_copies(tmp_path, mongo_db, scanned_copy_factory)
+
+    _finalize(job, tmp_path)
+
+    assert _zip_names(storage_root / "output_zip" / "job_all.zip") == {
+        "1/Martin_Alice_1111111.pdf",
+        "Tremblay_Carol_3333333.pdf",
+    }
+
+
 def test_a_task_of_one_class_list_records_no_lists(
     tmp_path: Path,
     storage_root: Path,

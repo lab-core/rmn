@@ -6,7 +6,7 @@ import shutil
 import numpy as np
 import pandas as pd
 from python.process_copy.add_grades import process_writing
-from python.process_copy.mcc import group_label, zipdirbatch
+from python.process_copy.mcc import group_label, group_value, zipdirbatch
 from python.process_copy.recognize import get_date
 from rmn_common.class_lists import LIST_COLUMN, output_columns
 from rmn_common.moodle import MoodleFields as MF
@@ -292,8 +292,9 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
             copies_path = ensure_within(all_copies_folder_path.joinpath(list_folder),
                                         all_copies_folder_path)
             copies_path.mkdir(exist_ok=True)
-            if l_group:
-                group = df.at[matricule, l_group]
+            # no folder named "1.0" or "nan" (mcc.group_value)
+            group = group_value(df.at[matricule, l_group]) if l_group else None
+            if group:
                 copies_path = ensure_within(copies_path.joinpath(safe_path_component(group)),
                                             all_copies_folder_path)
                 copies_path.mkdir(exist_ok=True)

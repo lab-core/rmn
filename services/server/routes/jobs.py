@@ -26,6 +26,7 @@ from auth import verify_share_token, verify_token
 from context import TEMP_FOLDER, mongo, redis, sio, storage
 from service.class_lists import (
     duplicates_answer,
+    job_groups,
     read_assignments,
     read_uploads,
     students_of,
@@ -509,7 +510,7 @@ def get_job():
         "validate_matricule": job.get("validate_matricule", True),
         # a task made before the option gives 0 to the absent, as it always did
         "absent_zero": job.get("absent_zero", True),
-        "groups": job.get("groups", [""]),
+        "groups": job_groups(job),
         # the names of the class lists; a task given a single one has none
         # recorded, and goes by the name the csv dialog gives it
         "class_lists": [entry["name"] for entry in job.get("class_lists") or []] or ["notes"],

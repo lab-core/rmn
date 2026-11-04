@@ -5,6 +5,7 @@ import uuid
 from flask import Blueprint, request
 
 from utils.responses import Response
+from service.class_lists import job_groups
 from flask_cors import cross_origin
 from rmn_common.status import Document_Status
 from auth import verify_share_token, verify_token
@@ -150,7 +151,7 @@ def share_matricule_verification(user_id):
     resp = {
         "job_id": job["job_id"],
         "share_url": share_url,
-        "groups": job.get("groups", [""])
+        "groups": job_groups(job)
     }
     return Response(response=json.dumps({"response": resp}), status=200)
 

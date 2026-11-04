@@ -6,6 +6,7 @@ teacher's choice for a student found in several lists, the answer that asks
 for it, and the combined csv written to the share.
 """
 
+import math
 import os
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -112,3 +113,18 @@ def students_of(
                     {"matricule": row[MF.mat], MF.name: row.get(MF.name, "")}
                 )
     return students
+
+
+def job_groups(job: dict) -> list:
+    """The groups of a task, for the webapp.
+
+    The executor stored them as pandas read the group column: a student
+    without a group put a NaN among them, which json.dumps writes as NaN and
+    no browser parses, so the dashboard of the task did not load. The
+    executor no longer stores it; a task processed before keeps it in Mongo.
+    """
+    return [
+        g
+        for g in job.get("groups", [""])
+        if not (isinstance(g, float) and math.isnan(g))
+    ]

@@ -58,6 +58,22 @@ def load_csv(grades_csv):
     return grades_dfs, grades_names
 
 
+def group_value(group):
+    """A student's group as text, or None when they have none.
+
+    pandas reads a group column with an empty cell as numbers: "01" is 1.0
+    and the empty cell NaN. The group then read "1.0", and NaN went into the
+    task's list of groups, which no browser parses back from json (the
+    dashboard of the task stopped loading) -- as soon as one student had no
+    group, or one class list of several no group column.
+    """
+    if group is None or pd.isna(group) or not str(group).strip():
+        return None
+    if isinstance(group, float) and group.is_integer():
+        return str(int(group))
+    return str(group)
+
+
 def group_label(df):
     group_df = df.filter(regex=MF.group)
     if group_df.shape[1] >= 1:
