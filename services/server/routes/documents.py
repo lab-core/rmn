@@ -52,6 +52,17 @@ def get_documents(validity):
             question = f"Q{validity}"
         docs = list(db["job_questions"].find(query))
         count = db["job_questions"].count_documents(query)
+        # the pages of a deleted copy stay listed and keep taking grades, so
+        # that restoring the copy brings back what was corrected meanwhile;
+        # the webapp hides them from grading and from the counts
+        copies = list(db["job_documents"].find(
+            {"job_id": job_id}, {"filename": 1, "status": 1}).sort("document_index", 1))
+        deleted_copies = {c["filename"] for c in copies
+                          if c.get("status") == Document_Status.DELETED.value}
+        # a page carries its copy's number, the one the matricule page and the
+        # dashboard's search show, deleted copies included: grading keeps
+        # numbering the same copy the same way when one is deleted or filtered
+        copy_numbers = {c["filename"]: n for n, c in enumerate(copies, start=1)}
         # whether a copy carries annotations is read from its pdf once, then
         # kept: copies stored before the field have none yet
         for doc in docs:
@@ -69,6 +80,8 @@ def get_documents(validity):
                 "question_index": doc["question_index"],
                 "question": doc["question"],
                 "basename": doc["basename"],
+                "copy_deleted": doc["basename"] in deleted_copies,
+                "copy_number": copy_numbers.get(doc["basename"]),
                 "grade": doc["grade"],
                 "tag": doc.get("tag"),
                 # validated in the app with no grade: corrected, its grade

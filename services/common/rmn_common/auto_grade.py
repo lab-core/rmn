@@ -15,7 +15,7 @@ suggestion until a human confirms it in the correction screen, and
 finalisation only ever sums what was confirmed.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from pymongo import ReturnDocument
 
@@ -305,7 +305,9 @@ def queue_document(
     return run if result.modified_count else None
 
 
-def progress(job_questions: Any, job_id: str) -> Dict[str, Dict[str, int]]:
+def progress(
+    job_questions: Any, job_id: str, deleted_copies: Iterable[str] = ()
+) -> Dict[str, Dict[str, int]]:
     """How far the reading has got, question by question.
 
     Derived from the documents themselves rather than kept as a counter: a
@@ -318,14 +320,26 @@ def progress(job_questions: Any, job_id: str) -> Dict[str, Dict[str, int]]:
     what was read made a question of seventeen copies report "16/16" and look
     complete when one had simply been skipped; ``graded`` is how many.
 
+    The pages of a deleted copy are left out: they may still be read, and
+    keep what is read for a restore, but the task no longer counts them.
+
+    Args:
+        job_questions: The ``job_questions`` collection.
+        job_id: The task.
+        deleted_copies: File names of the task's deleted copies, which their
+            pages carry as ``basename``.
+
     Returns:
         ``{question_index: {"pending", "running", "done", "graded", "total"}}``.
     """
+    deleted = set(deleted_copies)
     counts: Dict[str, Dict[str, int]] = {}
     for row in job_questions.find(
         {"job_id": job_id},
-        {"question_index": 1, "auto_grade_status": 1, "grade": 1},
+        {"question_index": 1, "auto_grade_status": 1, "grade": 1, "basename": 1},
     ):
+        if row.get("basename") in deleted:
+            continue
         question = str(row.get("question_index"))
         entry = counts.setdefault(
             question,

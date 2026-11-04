@@ -142,14 +142,47 @@ export class PdfManagementDialogComponent {
   /// so another question in the zip has nowhere to go. Its pages used to be
   /// dropped here without a word -- and since they never reached the server,
   /// the server had nothing to refuse and said nothing either.
+  ///
+  /// Only used when the zip has no csv saying which copies it holds: the
+  /// copies of a deleted student are left out, as the export leaves them out.
   copiesOfQuestion(questionIndex: string): Array<any> {
-    const copies = this.data.allExamsList.filter((exam) => exam.question === questionIndex);
+    const copies = this.data.allExamsList.filter(
+      (exam) => exam.question === questionIndex && !exam.copy_deleted);
     if (copies.length === 0) {
       this.notificationService.showWarning(
         `${questionIndex} a été ignorée : aucune copie de cette question n'est `
         + `accessible depuis ce lien.`, 'Attention');
     }
     return copies;
+  }
+
+  /// The copies of a question in the order of its pages in the zip, as the
+  /// csv of the export lists them (its Fichier and Index columns).
+  ///
+  /// Matching by position over the copies listed now gave the pages of one
+  /// student to another as soon as the list differed from the exported one:
+  /// an export filtered by group, a copy deleted or added since. The csv says
+  /// which copy each batch holds, deleted ones included (their grades are
+  /// kept for a restore).
+  ///
+  /// @param pdfFiles The question's batches (Q1.pdf, Q1_1.pdf...), in order.
+  /// @param csvOrder The copy indices of each batch, by batch name.
+  /// @return The copies and the indices the task does not know (empty when
+  ///     all are found), or null when the csv does not cover every batch.
+  copiesInZipOrder(pdfFiles: string[], csvOrder: { [pdfName: string]: number[] }):
+      { copies: DialogData['allExamsList'], unknown: number[] } | null {
+    const indices: number[] = [];
+    for (const pdfFile of pdfFiles) {
+      const order = csvOrder[pdfFile.split('/').pop()];
+      if (!order) {
+        return null;
+      }
+      indices.push(...order);
+    }
+    const copies = indices.map((index) =>
+      this.data.allExamsList.find((exam) => exam.document_index === index));
+    const unknown = indices.filter((_, k) => copies[k] === undefined);
+    return { copies, unknown };
   }
 
   async downloadAllFilesAsZip() {
@@ -448,7 +481,8 @@ export class PdfManagementDialogComponent {
     });
   }
 
-  async parseCSVGrades(filename: string, file: File | Blob, grades: any) {
+  async parseCSVGrades(filename: string, file: File | Blob, grades: any,
+                       order: { [pdfName: string]: number[] } = {}) {
     // Entire file
     const text: string = String(await this.readFileSync(file, true));
     const lines = csvLines(text);
@@ -463,6 +497,11 @@ export class PdfManagementDialogComponent {
     const nCols = values.length;
     const gradeIndex = values.indexOf('Note');
     const docIndex = values.indexOf('Index');
+    // which batch each row's copy is in, for copiesInZipOrder
+    const fileIndex = values.indexOf('Fichier');
+    const broken = new Set<string>();
+    const fileOrder: { [pdfName: string]: number[] } = {};
+    let skippedRow = false;
     if (gradeIndex === -1 || docIndex === -1) {
       this.notificationService.showError(`Csv file (${filename}) does not have either Note or/and Index columns.`, 'Erreur!');
       return -1;
@@ -474,20 +513,39 @@ export class PdfManagementDialogComponent {
       values = splitCsvLine(line, sep).map((v) => v.trim());
       if (values.length !== nCols) {
         this.notificationService.showError(`Csv file (${filename}) has an invalid row: ${line}`, 'Erreur!');
+        skippedRow = true;
         continue;
       }
       const grade = parseFloat(values[gradeIndex].replace(',', '.'));
+      // parseInt never throws: a non-numeric Index used to be dropped silently
+      const index = parseInt(values[docIndex], 10);
+      const pdfName = fileIndex === -1 ? undefined : values[fileIndex];
+      if (pdfName !== undefined) {
+        // a row without a grade still holds its copy's place in the batch;
+        // a batch with an unreadable Index cannot say where its copies are
+        if (isNaN(index)) {
+          broken.add(pdfName);
+        } else {
+          (fileOrder[pdfName] ??= []).push(index);
+        }
+      }
       if (isNaN(grade)) {
         continue;  // no grade for this copy
       }
-      // parseInt never throws: a non-numeric Index used to be dropped silently
-      const index = parseInt(values[docIndex], 10);
       if (isNaN(index)) {
         this.notificationService.showError(`Csv file (${filename}) has an invalid Index for row: ${line}`, 'Erreur!');
         continue;
       }
       grades[index] = grade;
       ++n;
+    }
+    // a row skipped leaves its batch one copy short, in an unknown place
+    if (!skippedRow) {
+      for (const [pdfName, indices] of Object.entries(fileOrder)) {
+        if (!broken.has(pdfName)) {
+          order[pdfName] = indices;
+        }
+      }
     }
     return n;
   }
@@ -502,6 +560,7 @@ export class PdfManagementDialogComponent {
     const zip = new JSZip();
 
     const grades = {};
+    const csvOrder: { [pdfName: string]: number[] } = {};
     const mergedFiles = new Map<string, ArrayBuffer>();
     const pdfFilesByIndex = new Map<string, string>();
     const mergedPDFDocs = {};
@@ -543,7 +602,7 @@ export class PdfManagementDialogComponent {
       for (const f of zipMergedCSV) {
         if (!f.startsWith('__MACOSX')) {
           const csvDoc = await zipContent.file(f).async('blob');
-          await this.parseCSVGrades(f, csvDoc, grades);
+          await this.parseCSVGrades(f, csvDoc, grades, csvOrder);
           i++;
           this.percentageDone = Math.round(50 * i / nLength);
         }
@@ -671,6 +730,22 @@ export class PdfManagementDialogComponent {
         nQuestionExams += totalPageCount / pagesPerQuestion;
       }
 
+      // the copies each question's pages go to, before anything is split
+      const copiesByQuestion: { [questionIndex: string]: DialogData['allExamsList'] } = {};
+      for (const questionIndex of Object.keys(mergedPDFDocs)) {
+        const pdfFiles = keys.map((key) => pdfFilesByIndex[key])
+          .filter((f) => f.match(/Q\d+(?=(_\d+)?.pdf$)/)[0] === questionIndex);
+        const inOrder = this.copiesInZipOrder(pdfFiles, csvOrder);
+        if (inOrder !== null && inOrder.unknown.length > 0) {
+          this.notificationService.showError(
+            `Le csv de ${questionIndex} nomme des copies qui ne sont pas dans la tâche `
+            + `(index ${inOrder.unknown.join(', ')}). Rien n'a été remplacé.`, 'Erreur');
+          this.processing = false;
+          return;
+        }
+        copiesByQuestion[questionIndex] = inOrder?.copies ?? this.copiesOfQuestion(questionIndex);
+      }
+
       this.info = 'Splitting (3/4)';
       this.percentageDone = 0;
       i = 0;
@@ -678,7 +753,7 @@ export class PdfManagementDialogComponent {
         await this.timeout();
         const mergedDoc = mergedPDFDocs[questionIndex];
         const totalPageCount = mergedDoc.getPageCount();
-        const originalDocs = this.copiesOfQuestion(questionIndex);
+        const originalDocs = copiesByQuestion[questionIndex];
         const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
 
         let startPage = 0;

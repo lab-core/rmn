@@ -191,7 +191,9 @@ def test_read_grades_rejects_an_unreachable_job_and_a_bad_question(
     # the share-token guard runs first and answers 401 for anything it cannot
     # resolve to a job of this user, a missing job_id included; the handler's
     # own checks are the ones it lets through
-    missing = client.post("/documents/read_grades", data={"job_id": "nope", "token": token})
+    missing = client.post(
+        "/documents/read_grades", data={"job_id": "nope", "token": token}
+    )
     bad = client.post(
         "/documents/read_grades",
         data={"job_id": JOB, "question_index": "soon", "token": token},
@@ -277,6 +279,31 @@ def test_progress_counts_a_copy_the_teacher_graded_as_done_not_as_owing(
         + progress["graded"]
         == progress["total"]
     )
+
+
+def test_progress_leaves_out_the_pages_of_a_deleted_copy(
+    client, app_module_fixture, login, user_factory
+):
+    """ "Lecture à faire : 0/8" with two of the eight copies deleted: the
+    task counts six."""
+    mongo = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    token = login("alice")
+    make_reading_job(mongo)
+    for index in (1, 2):
+        add_question(mongo, index, auto_grade_status=auto_grade.PENDING)
+    mongo["job_questions"].update_one(
+        {"job_id": JOB, "document_index": 0},
+        {"$set": {"auto_grade_status": auto_grade.PENDING}},
+    )
+    mongo["job_documents"].insert_one(
+        {"job_id": JOB, "filename": "copy2", "status": Document_Status.DELETED.value}
+    )
+
+    resp = client.post("/jobs/info", data={"job_id": JOB, "token": token})
+
+    progress = resp.get_json(force=True)["response"]["auto_grade_progress"]["3"]
+    assert (progress["pending"], progress["total"]) == (2, 2)
 
 
 def test_progress_says_nothing_about_a_question_no_reading_has_touched(

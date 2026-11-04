@@ -664,6 +664,73 @@ describe('PdfManagementDialogComponent export and import', () => {
     expect(matchReplace()).toEqual([]);
   });
 
+  /** Q1 pdfs of one page each, 500 + index points wide: which copy a page is. */
+  async function copiesOfWidth(indices: number[]) {
+    const sources = new Map<number, string>();
+    for (const index of indices) {
+      const doc = await PDFDocument.create();
+      doc.addPage([500 + index, 792]);
+      const bytes = (await doc.save()) as Uint8Array<ArrayBuffer>;
+      sources.set(index, URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })));
+    }
+    docService.getPdfSource.and.callFake(async (jobId, index) => ({ url: sources.get(index) } as any));
+  }
+
+  async function widthOf(form: FormData, name: string): Promise<number> {
+    const copy = await PDFDocument.load(await (await sentZip(form)).file(name).async('arraybuffer'));
+    return copy.getPages()[0].getWidth();
+  }
+
+  it('gives each copy its own pages back when the copies listed changed since the export', async () => {
+    const copy = (d: number, extra = {}) => ({ document_index: d, question: 'Q1', filename: `Q1_${d}`, status: 'TO VALIDATE', ...extra });
+    await copiesOfWidth([0, 2]);
+    // exported from a list without copy 1 (another group, or deleted)
+    data.examsList = [copy(0), copy(2)];
+    const exported = await exportZip();
+    exported.file('Q1/notes.csv', 'Fichier,Index,Note\nQ1.pdf,0,8\nQ1.pdf,2,5\n');
+    // imported with copy 1 in the list: matching by position gave 2's page to 1
+    data.allExamsList = [copy(0), copy(1), copy(2)];
+
+    await component.uploadZipFile(new File([await exported.generateAsync({ type: 'blob' })], 'back.zip'));
+    const req = await waitForUpload();
+
+    expect(Object.keys((await sentZip(req.request.body)).files).sort()).toEqual(['Q1_0.pdf', 'Q1_2.pdf']);
+    expect(await widthOf(req.request.body, 'Q1_2.pdf')).toBe(502);
+    expect(JSON.parse(req.request.body.get('grades'))).toEqual({ 0: 8, 2: 5 });
+    expect(notification.showWarning).not.toHaveBeenCalled();
+    req.flush({ response: 'OK' });
+  });
+
+  it('keeps the pages of a copy deleted after the export, for a restore', async () => {
+    data.allExamsList = [0, 1].map((d) => ({ document_index: d, question: 'Q1', filename: `Q1_${d}`, copy_deleted: d === 1 }));
+    await component.uploadZipFile(await zipFile({
+      'Q1/Q1.pdf': await exportedPdf('Q1.pdf', 2),
+      'Q1/notes.csv': 'Fichier,Index,Note\nQ1.pdf,0,\nQ1.pdf,1,4\n',
+    }));
+    const req = await waitForUpload();
+    expect(Object.keys((await sentZip(req.request.body)).files).sort()).toEqual(['Q1_0.pdf', 'Q1_1.pdf']);
+    req.flush({ response: 'OK' });
+  });
+
+  it('without a csv, splits over the copies listed, the deleted ones left out as the export does', async () => {
+    data.allExamsList = [0, 1, 2].map((d) => ({ document_index: d, question: 'Q1', filename: `Q1_${d}`, copy_deleted: d === 1 }));
+    await component.uploadZipFile(await zipFile({ 'Q1/Q1.pdf': await exportedPdf('Q1.pdf', 2) }));
+    const req = await waitForUpload();
+    expect(Object.keys((await sentZip(req.request.body)).files).sort()).toEqual(['Q1_0.pdf', 'Q1_2.pdf']);
+    req.flush({ response: 'OK' });
+  });
+
+  it('replaces nothing when the csv names a copy the task does not have', async () => {
+    data.allExamsList = [{ document_index: 0, question: 'Q1', filename: 'Q1_0' }];
+    await component.uploadZipFile(await zipFile({
+      'Q1/Q1.pdf': await exportedPdf('Q1.pdf', 2),
+      'Q1/notes.csv': 'Fichier,Index,Note\nQ1.pdf,0,1\nQ1.pdf,5,2\n',
+    }));
+    expect(notification.showError).toHaveBeenCalledWith(jasmine.stringContaining('index 5'), 'Erreur');
+    expect(component.processing).toBeFalse();
+    expect(matchReplace()).toEqual([]);
+  });
+
   it('reports a file that is not a zip', async () => {
     await component.uploadZipFile(new File(['plain text'], 'notes.txt'));
 

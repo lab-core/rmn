@@ -121,6 +121,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   colorChosen: string;
 
   examsList: Array<any>;
+  allPages: DocumentsService['documentsList'] = [];
   subExamsList: Array<any>;
   group: string;
   groupsList: Array<string>;
@@ -342,20 +343,18 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   }
 
   generateFormattedIndexes(): void {
+    // a page shows its copy's number, the one of the matricule page and of the
+    // dashboard's search, so that a deleted copy or a group filter does not
+    // renumber the others; servers without it number the copies in the list
     this.formattedIndexes = {};
-    if (this.index !== "Tout sélectionner") {
-      // a single question: the copies are numbered in the list
-      this.subExamsList.forEach((exam, i) => {
-        this.formattedIndexes[exam.document_index] = `${i + 1}`;
-      });
-      return;
-    }
     const indices = {};
     for (const exam of this.subExamsList) {
       if (!(exam.question in indices)) {
         indices[exam.question] = 1;
       }
-      this.formattedIndexes[exam.document_index] = `${indices[exam.question]}|${exam.question}`;
+      const copy = exam.copy_number ?? indices[exam.question];
+      this.formattedIndexes[exam.document_index] =
+        this.index !== "Tout sélectionner" ? `${copy}` : `${copy}|${exam.question}`;
       indices[exam.question] += 1;
     }
   }
@@ -605,7 +604,10 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
 
   async getDocuments() {
     await this.docService.getDocuments(this.tasksService.getvalidatingTaskId(), true);
-    this.examsList = this.docService.documentsList;
+    // the pages of a deleted copy are neither graded nor counted here; the
+    // offline sync still finds them in allPages (see pageByDocumentIndex)
+    this.allPages = this.docService.documentsList;
+    this.examsList = this.allPages.filter((exam) => !exam.copy_deleted);
     // // sort examsList by question and then by document_index
     // this.examsList.sort((e1, e2) => {
     //   if (e1.question === e2.question) {
@@ -636,6 +638,12 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
       const selected = selectedCopyIndex(jobId, this.examsList);
       const copy = localStorage.getItem(`${jobId}_copy`);
       const inGroup = (exam: any) => !this.group || exam['group'] == this.group;
+      if (selected < 0 && selectedCopyIndex(jobId, this.allPages.filter((exam) => exam.copy_deleted)) >= 0) {
+        // deleted since the dashboard pointed at it: its pages are not listed
+        this.notificationService.showWarning(
+          "La copie choisie dans le tableau de bord a été supprimée : la correction s'ouvre sur une autre.",
+          'Copie supprimée');
+      }
       if (selected >= 0) {
         this.currentCopy = selected;
       } else if (copy !== null && this.examsList[parseInt(copy)] && inGroup(this.examsList[parseInt(copy)])) {
@@ -786,6 +794,15 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   // position in it: every lookup by document index goes through here
   examByDocumentIndex(documentIndex: number) {
     return this.examsList.find(exam => exam.document_index === documentIndex);
+  }
+
+  /**
+   * A page of the task, its copy deleted or not: what the offline sync
+   * saves, so that a copy deleted while it was corrected offline keeps its
+   * grades, for the day it is restored.
+   */
+  pageByDocumentIndex(documentIndex: number) {
+    return this.allPages.find(exam => exam.document_index === documentIndex);
   }
 
   async changeCurrentDocumentIndex(docIndex, status, updateScroll: boolean=true): Promise<void> {
@@ -1211,7 +1228,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
         // the upload half works on every copy of the task: a zip may carry
         // several questions, and the server checks the right to each one it
         // finds before writing it
-        allExamsList: this.examsList,
+        allExamsList: this.allPages,
         offlineCopies: this.offlineCopies
       },
     });
@@ -1265,7 +1282,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     this.notificationService.showInfo('Téléversement des copies en cours...', 'Information');
     this.downloadingOffline = true;
     for (const copy of this.offlineCopies.values()) {
-      const exam = this.examByDocumentIndex(copy.pdfSrc.index);
+      const exam = this.pageByDocumentIndex(copy.pdfSrc.index);
       if (exam === undefined) {
         this.notificationService.showError(`La copie ${copy.pdfSrc.index} ne fait plus partie de la tâche.`, 'Error');
         continue;
@@ -1311,7 +1328,7 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
   async loadOfflineCopies() {
     const allCopies = await db.getAllCopies();
     for (const copy of allCopies) {
-      const exam = this.examByDocumentIndex(copy.pdfSrc.index);
+      const exam = this.pageByDocumentIndex(copy.pdfSrc.index);
       if (exam === undefined) {
         continue;  // stored for a copy that is no longer part of this task
       }
