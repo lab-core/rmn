@@ -20,17 +20,34 @@
         }
       </div>
     }
-    <div class="file-container">
-      <div class="file-logo csv-logo">
-      </div>
-      <div class="file-input-div">
-        <input type="text" id="notes_csv_file" value="notes">
-      </div>
-      <button mat-raised-button color="primary" (click)="checkInputBox('notes_csv_file', false)">Télécharger</button>
-      @if (!data.share) {
-        <button mat-raised-button color="primary" (click)="checkInputBox('notes_csv_file', true)">Partager</button>
+    @if (data.lists?.length) {
+      <!-- a task of several class lists: the notes of each, for its own assignment -->
+      @for (list of data.lists; track list.name; let k = $index) {
+        <div class="file-container">
+          <div class="file-logo csv-logo">
+          </div>
+          <div class="file-input-div">
+            <input type="text" [attr.id]="notesId(k)" [value]="'notes-' + list.name">
+          </div>
+          <button mat-raised-button color="primary" (click)="checkInputBox('notes_csv_file', false, undefined, k)">Télécharger</button>
+          @if (!data.share) {
+            <button mat-raised-button color="primary" (click)="checkInputBox('notes_csv_file', true, undefined, k)">Partager</button>
+          }
+        </div>
       }
-    </div>
+    } @else {
+      <div class="file-container">
+        <div class="file-logo csv-logo">
+        </div>
+        <div class="file-input-div">
+          <input type="text" id="notes_csv_file" value="notes">
+        </div>
+        <button mat-raised-button color="primary" (click)="checkInputBox('notes_csv_file', false)">Télécharger</button>
+        @if (!data.share) {
+          <button mat-raised-button color="primary" (click)="checkInputBox('notes_csv_file', true)">Partager</button>
+        }
+      </div>
+    }
     @if (data.stats) {
       <div class="file-container">
         <div class="file-logo pdf-logo">

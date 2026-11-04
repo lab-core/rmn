@@ -4,6 +4,7 @@ import os
 import zipfile
 
 import pandas as pd
+import pytest
 
 from process_copy import mcc
 from rmn_common.moodle import MoodleFields as MF
@@ -96,3 +97,13 @@ def test_zipdirbatch_of_an_empty_folder_creates_nothing(tmp_path, monkeypatch):
     (tmp_path / "empty").mkdir()
     assert mcc.zipdirbatch(str(tmp_path / "empty")) == []
     assert not (tmp_path / "moodle.zip").exists()
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [("A", "A"), ("01", "01"), (1, "1"), (1.0, "1"), (2.5, "2.5"),
+     (float("nan"), None), (None, None), ("", None), ("  ", None)],
+)
+def test_a_group_is_text_and_a_missing_one_none(value, expected):
+    # a numbered group column with an empty cell is read as 1.0 and NaN
+    assert mcc.group_value(value) == expected

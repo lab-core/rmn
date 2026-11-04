@@ -10,7 +10,7 @@ from process_copy.batching import FORK, InlineBatches, ProcessBatches, max_ram_g
 from process_copy.config import min_documents_for_max_questions
 from process_copy.database import Database
 from process_copy.imaging import memory_used_gb
-from process_copy.mcc import load_csv
+from process_copy.mcc import group_value, load_csv
 from rmn_common.moodle import MoodleFields as MF
 from rmn_common.status import Document_Status, Job_Status
 from utils.clients import socketio_client
@@ -50,7 +50,8 @@ def process_all(
     if len(group_df.columns) > 0:
         if len(group_df.columns) > 1:
             print(f"Warning: several columns match the group regex ({MF.group}):", group_df.columns)
-        groups = np.unique(all_grades_dfs[group_df.columns[0]]).tolist()  # transform the column to a list with only one appearance
+        # each group once, as the copies carry it, a student without one aside
+        groups = sorted({g for g in map(group_value, all_grades_dfs[group_df.columns[0]]) if g})
 
     # Update job status
     job = db.update_job_status_to_run(job_id, names_mat_json, groups)

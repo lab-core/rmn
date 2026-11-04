@@ -1,0 +1,30 @@
+h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+mat-icon {
+  color: #d32f2f;
+}
+
+p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.duplicates {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.duplicates th,
+.duplicates td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.duplicates mat-select {
+  min-width: 140px;
+}

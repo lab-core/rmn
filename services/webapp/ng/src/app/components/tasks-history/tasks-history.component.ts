@@ -381,7 +381,7 @@ export class TasksHistoryComponent implements OnInit {
           width: '80%',
           maxWidth: '600px',
           height: '90%',
-          data: { taskId: task.job_id, nbZipFile: data['nZips'], stats: data['stats'] }
+          data: { taskId: task.job_id, nbZipFile: data['nZips'], stats: data['stats'], lists: data['lists'] }
         })
         dialogRef.afterClosed().pipe(first()).subscribe(async result => {
           if (result) {
