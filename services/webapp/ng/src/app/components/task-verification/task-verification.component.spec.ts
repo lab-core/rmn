@@ -367,7 +367,6 @@ describe('TaskVerificationComponent', () => {
     component.checkValidationButton();
     expect(component.disabledValidationButton).toBeFalse();
     expect(component.showFilter()).toBeFalse();
-    expect(component.filesListHeight()).toBe('100%');
   });
 
   it('a socket status change updates the task', async () => {

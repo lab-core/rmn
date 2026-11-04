@@ -1180,13 +1180,6 @@ export class TaskVerificationComponent implements OnInit, OnDestroy {
     return (this.loggued() || this.shareAll) && this.groupsList.length > 1;
   }
 
-  filesListHeight(): string {
-    let height = 80;
-    if (!this.userService.shared()) height += 10;
-    if (!this.showFilter()) height += 10;
-    if (this.aboveMaxOnly) height -= 5;  // the filter's banner
-    return height + '%';
-  }
 
   checkValidationButton(): void {
     // this.disabledValidationButton = !this.job || this.job["job_status"] !== 'VALIDATION';

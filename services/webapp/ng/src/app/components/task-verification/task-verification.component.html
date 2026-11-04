@@ -35,7 +35,7 @@
       }
       <div class="tiles-help">Copies <app-help-tip key="grading.tiles"></app-help-tip>
         <app-help-tip key="grading.shortcuts" class="shortcuts-help"></app-help-tip></div>
-      <div class="files-list-container" [ngStyle]="{'height': filesListHeight()}" id="files-list-container">
+      <div class="files-list-container" id="files-list-container">
         @for (exam of subExamsList; track exam; let i = $index) {
           <div class="file-container"
             (click)="changeCurrentDocumentIndex(exam.document_index, exam.status, false)">

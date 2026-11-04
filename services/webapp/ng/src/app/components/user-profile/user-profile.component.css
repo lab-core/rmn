@@ -140,6 +140,8 @@ app-main-menu {
     text-align: center;
     font-size: 18px;
     padding: 10px;
+    /* a long e-mail address wraps instead of leaving the card */
+    overflow-wrap: anywhere;
   }
 
   .text-box-check {

@@ -197,7 +197,6 @@ describe('MatriculeVerificationComponent', () => {
   it('the group filter narrows the list and moves to its first copy', async () => {
     await create();
     expect(component.showFilter()).toBeTrue();
-    expect(component.filesListHeight()).toBe('90%');
     component.group = 'B';
     component.loadSubExamsList();
     await settle();

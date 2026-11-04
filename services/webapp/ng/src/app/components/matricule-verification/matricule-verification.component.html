@@ -12,7 +12,7 @@
             </select>
           </div>
         }
-        <div class="files-list-container" [ngStyle]="{'height': this.filesListHeight()}" id="files-list-container">
+        <div class="files-list-container" id="files-list-container">
           @for (exam of this.subExamsList; track exam; let i = $index) {
             <div class="file-container"
               (click)="changeCurrentCopy(exam.document_index, exam.status, false)">

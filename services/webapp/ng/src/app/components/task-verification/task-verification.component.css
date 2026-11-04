@@ -106,6 +106,7 @@
 .filter-job-container {
     width: 100%;
     height: 15%;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -119,8 +120,11 @@
     justify-content: center;
 }
 
+/* the copies take whatever height the filters, the title and the button leave */
 .files-list-container {
     width: 100%;
+    flex: 1 1 0;
+    min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-wrap: wrap;
@@ -236,12 +240,17 @@
     -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
 }
 
+/* the help wrapper sizes to its button, so no percentage of the sidebar here */
+.files-container > app-help-hover {
+    flex-shrink: 0;
+    margin: 12px 8px;
+}
+
 .pdf-management-button {
     border-radius: 5px;
-    height: 7%;
-    width: 80%;
-    margin-top: 5%;
-    margin-bottom: 2%;
+    white-space: normal;
+    height: auto;
+    min-height: 36px;
     font-size: 100%;
     transition: 0.3s;
     box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
@@ -761,6 +770,7 @@ app-pdf-viewer {
 
 /* the dashboard's "note(s) > max" link: only the grades above the maximum */
 .above-max-filter {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -783,6 +793,7 @@ app-pdf-viewer {
 }
 
 .tiles-help {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   font-size: 13px;
