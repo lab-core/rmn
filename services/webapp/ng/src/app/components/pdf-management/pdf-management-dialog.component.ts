@@ -10,6 +10,7 @@ import { PDFDocument, PDFArray, PDFDict, PDFHexString, PDFName, PDFNumber, PDFSt
 import { saveAs } from 'file-saver';
 import { csvLines, detectSeparator, splitCsvLine } from 'src/app/csv';
 import { dropUnreachableObjectStreams } from 'src/app/stale-object-streams';
+import { annotationsByPage, annotationsByPageWithPdfjs, readingDifference } from 'src/app/pdf-reading-check';
 import JSZip from 'jszip';
 
 import { DocumentStatus } from '../../generated/rmn-contracts';
@@ -493,6 +494,16 @@ export class PdfManagementDialogComponent {
     return n;
   }
 
+  /// @brief The pages' annotations as pdf.js reads them, to check pdf-lib's
+  ///   reading against; null when the viewer has not loaded pdf.js.
+  async readWithPdfjs(bytes: Uint8Array): Promise<string[] | null> {
+    const reading = await annotationsByPageWithPdfjs(bytes);
+    if (reading === null) {
+      console.warn('pdf.js is not loaded: the imported pdfs are read by pdf-lib alone');
+    }
+    return reading;
+  }
+
   async timeout(ms = 0) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -583,6 +594,19 @@ export class PdfManagementDialogComponent {
           // a pdf editor may leave the export's object stream behind, which
           // pdf-lib would read instead of the annotated pages
           const pdfDoc = await PDFDocument.load(dropUnreachableObjectStreams(mergedFiles[pdfFile]).bytes);
+          // and whatever else it may misread: pdf.js reads the file through
+          // its cross-references, and both must see the same pages and the
+          // same annotations on each (before the markers are removed)
+          const pdfjsReading = await this.readWithPdfjs(new Uint8Array(mergedFiles[pdfFile]));
+          const difference = pdfjsReading && readingDifference(annotationsByPage(pdfDoc), pdfjsReading);
+          if (difference) {
+            this.notificationService.showError(
+              `${pdfFile} ne se lit pas correctement (${difference}) : un éditeur pdf l'a probablement `
+              + `mal réenregistré. Réparez-le (par ex. qpdf in.pdf out.pdf) ou exportez-le de nouveau. `
+              + `Rien n'a été remplacé.`, 'Erreur');
+            this.processing = false;
+            return;
+          }
 
           // recover question index
           const match = pdfFile.match(/Q\d+(?=(_\d+)?.pdf$)/);

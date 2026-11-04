@@ -570,6 +570,30 @@ describe('PdfManagementDialogComponent export and import', () => {
     expect(dialogRef.close).not.toHaveBeenCalled();
   });
 
+  it('replaces nothing when pdf.js reads the annotations of a page differently', async () => {
+    data.allExamsList = [0, 1].map((i) => ({ document_index: i, question: 'Q1', filename: `Q1_${i}` }));
+    // the grader's note on page 2, which pdf-lib would have missed
+    const read = spyOn(component, 'readWithPdfjs').and.resolveTo(['Text', 'Ink+Text']);
+    await component.uploadZipFile(await zipFile({ 'Q1.pdf': await exportedPdf('Q1.pdf', 2) }));
+
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(notification.showError).toHaveBeenCalledWith(
+      jasmine.stringContaining('Q1.pdf ne se lit pas correctement (les annotations de la page 2'), 'Erreur');
+    expect(matchReplace()).toEqual([]);
+    expect(component.processing).toBeFalse();
+  });
+
+  it('goes on when pdf.js reads the same pages and annotations', async () => {
+    data.allExamsList = [0, 1].map((i) => ({ document_index: i, question: 'Q1', filename: `Q1_${i}` }));
+    spyOn(component, 'readWithPdfjs').and.resolveTo(['Text', 'Text']);  // the markers
+    await component.uploadZipFile(await zipFile({ 'Q1.pdf': await exportedPdf('Q1.pdf', 2) }));
+    const req = await waitForUpload();
+
+    expect(Object.keys((await sentZip(req.request.body)).files)).toEqual(['Q1_0.pdf', 'Q1_1.pdf']);
+    expect(notification.showError).not.toHaveBeenCalled();
+    req.flush({ response: 'OK' });
+  });
+
   it('reads the pages of a pdf an editor saved again over the export', async () => {
     data.allExamsList = [0, 1, 2].map((i) => ({ document_index: i, question: 'Q1', filename: `Q1_${i}` }));
     await component.uploadZipFile(await zipFile({ 'Q1.pdf': await editorResaved(await exportedPdf('Q1.pdf', 3)) }));
