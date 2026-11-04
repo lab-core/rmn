@@ -9,6 +9,8 @@ import { OfflineCopy } from 'src/app/services/offline-db';
 import { PDFDocument, PDFArray, PDFDict, PDFHexString, PDFName, PDFNumber, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import { saveAs } from 'file-saver';
 import { csvLines, detectSeparator, splitCsvLine } from 'src/app/csv';
+import { dropUnreachableObjectStreams } from 'src/app/stale-object-streams';
+import { annotationsByPage, annotationsByPageWithPdfjs, readingDifference } from 'src/app/pdf-reading-check';
 import JSZip from 'jszip';
 
 import { DocumentStatus } from '../../generated/rmn-contracts';
@@ -550,6 +552,16 @@ export class PdfManagementDialogComponent {
     return n;
   }
 
+  /// @brief The pages' annotations as pdf.js reads them, to check pdf-lib's
+  ///   reading against; null when the viewer has not loaded pdf.js.
+  async readWithPdfjs(bytes: Uint8Array): Promise<string[] | null> {
+    const reading = await annotationsByPageWithPdfjs(bytes);
+    if (reading === null) {
+      console.warn('pdf.js is not loaded: the imported pdfs are read by pdf-lib alone');
+    }
+    return reading;
+  }
+
   async timeout(ms = 0) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -638,7 +650,22 @@ export class PdfManagementDialogComponent {
       for (const index of keys) {
         const pdfFile = pdfFilesByIndex[index];
         try {
-          const pdfDoc = await PDFDocument.load(mergedFiles[pdfFile]);
+          // a pdf editor may leave the export's object stream behind, which
+          // pdf-lib would read instead of the annotated pages
+          const pdfDoc = await PDFDocument.load(dropUnreachableObjectStreams(mergedFiles[pdfFile]).bytes);
+          // and whatever else it may misread: pdf.js reads the file through
+          // its cross-references, and both must see the same pages and the
+          // same annotations on each (before the markers are removed)
+          const pdfjsReading = await this.readWithPdfjs(new Uint8Array(mergedFiles[pdfFile]));
+          const difference = pdfjsReading && readingDifference(annotationsByPage(pdfDoc), pdfjsReading);
+          if (difference) {
+            this.notificationService.showError(
+              `${pdfFile} ne se lit pas correctement (${difference}) : un éditeur pdf l'a probablement `
+              + `mal réenregistré. Réparez-le (par ex. qpdf in.pdf out.pdf) ou exportez-le de nouveau. `
+              + `Rien n'a été remplacé.`, 'Erreur');
+            this.processing = false;
+            return;
+          }
 
           // recover question index
           const match = pdfFile.match(/Q\d+(?=(_\d+)?.pdf$)/);
@@ -755,6 +782,17 @@ export class PdfManagementDialogComponent {
         const totalPageCount = mergedDoc.getPageCount();
         const originalDocs = copiesByQuestion[questionIndex];
         const pagesPerQuestion = nPagesPerQuestion.get(questionIndex);
+        // the pages go to the copies by position: one page more or less and
+        // every copy after it gets another student's pages, so nothing is
+        // replaced (a few copies were, with a warning about the rest)
+        if (totalPageCount !== originalDocs.length * pagesPerQuestion) {
+          this.notificationService.showError(
+            `${questionIndex} a ${totalPageCount} page(s) au lieu de ${originalDocs.length * pagesPerQuestion} `
+            + `(${originalDocs.length} copies de ${pagesPerQuestion} page(s)) : des pages ont été ajoutées ou `
+            + `enlevées, ou un éditeur pdf a mal réenregistré le fichier. Rien n'a été remplacé.`, 'Erreur');
+          this.processing = false;
+          return;
+        }
 
         let startPage = 0;
         let j = 0;
@@ -763,16 +801,6 @@ export class PdfManagementDialogComponent {
           try {
             const singlePagePdf = await PDFDocument.create();
             const endPage = startPage + pagesPerQuestion;
-
-            if (totalPageCount < endPage) {
-              // counted over every copy still to come, not only the first one
-              // that does not fit (which always read "missing: 1 copies")
-              const miss = originalDocs.length - j;
-              const message = `The merged document for ${questionIndex} does not have enough pages for ${originalDoc.filename}.pdf and the copies after it. Required: ${originalDocs.length * pagesPerQuestion}, available: ${totalPageCount}, missing: ${miss} copies.`;
-              console.warn(message);
-              this.notificationService.showWarning(message, 'Warning');
-              break;
-            }
 
             const copiedPages = await singlePagePdf.copyPages(mergedDoc, Array.from({length: pagesPerQuestion}, (_, l) => startPage + l));
             let k = j * pagesPerQuestion;

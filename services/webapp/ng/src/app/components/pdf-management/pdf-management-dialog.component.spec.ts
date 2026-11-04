@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { HttpEventType } from '@angular/common/http';
 import JSZip from 'jszip';
-import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFString } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString } from 'pdf-lib';
 
 import { PdfManagementDialogComponent } from './pdf-management-dialog.component';
 import { DocumentsService } from 'src/app/services/documents.service';
@@ -280,6 +280,27 @@ describe('PdfManagementDialogComponent', () => {
   });
 });
 
+/** `pdf` as Preview writes it again: a classic cross-reference table, and
+ *  left in the file, unreachable, the export's cross-reference stream and an
+ *  object stream holding its page tree with only the first page. */
+async function editorResaved(pdf: Uint8Array): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(pdf);
+  const pages = doc.catalog.get(PDFName.of('Pages')) as PDFRef;
+  const first = doc.getPages()[0].ref;
+  const text = new TextDecoder('latin1').decode(await doc.save({ useObjectStreams: false }));
+  const header = `${pages.objectNumber} 0 `;
+  const content = `${header}<< /Type /Pages /Kids [ ${first.objectNumber} 0 R ] /Count 1 >>`;
+  const stream = `${doc.context.largestObjectNumber + 1} 0 obj\n`
+    + `<< /Type /ObjStm /N 1 /First ${header.length} /Length ${content.length} >>\n`
+    + `stream\n${content}\nendstream\nendobj\n`
+    + `${doc.context.largestObjectNumber + 2} 0 obj\n`
+    + `<< /Type /XRef /Size 1 /W [ 1 1 1 ] >>\nendobj\n`;
+  const xref = text.lastIndexOf('\nxref\n') + 1;  // not the one of startxref
+  const resaved = text.slice(0, xref) + stream + text.slice(xref)
+    .replace(/startxref\s+\d+/, `startxref\n${xref + stream.length}`);
+  return Uint8Array.from(resaved, (c) => c.charCodeAt(0));
+}
+
 /** A pdf of `pages` blank letter pages, as bytes. */
 async function pdfBytes(pages: number): Promise<Uint8Array<ArrayBuffer>> {
   const doc = await PDFDocument.create();
@@ -532,24 +553,56 @@ describe('PdfManagementDialogComponent export and import', () => {
     expect(upload).not.toHaveBeenCalled();
   });
 
-  it('warns when the pages sent back cover fewer copies than the question has', async () => {
+  it('replaces nothing when the pages sent back do not match the copies of the question', async () => {
     data.allExamsList = [
       { document_index: 0, question: 'Q1', filename: 'Q1_0' },
       { document_index: 1, question: 'Q1', filename: 'Q1_1' },
       { document_index: 2, question: 'Q3', filename: 'Q3_2' },
       { document_index: 3, question: 'Q1', filename: 'Q1_3' },
     ];
+    // the first copy used to be replaced, and the others left with a warning
     await component.uploadZipFile(await zipFile({ 'Q1.pdf': await exportedPdf('Q1.pdf', 1) }));
-    const req = await waitForUpload();
 
-    // every copy short is counted, not only the first one that does not fit
-    expect(notification.showWarning).toHaveBeenCalledWith(
-      jasmine.stringContaining('Required: 3, available: 1, missing: 2 copies'), 'Warning');
-    expect(Object.keys((await sentZip(req.request.body)).files)).toEqual(['Q1_0.pdf']);
-    req.flush('boom', { status: 500, statusText: 'Server Error' });
-    expect(notification.showError).toHaveBeenCalledWith('Erreur lors du remplacement des fichiers', 'Erreur');
+    expect(notification.showError).toHaveBeenCalledWith(
+      jasmine.stringContaining("Q1 a 1 page(s) au lieu de 3 (3 copies de 1 page(s))"), 'Erreur');
+    expect(matchReplace()).toEqual([]);
     expect(component.processing).toBeFalse();
     expect(dialogRef.close).not.toHaveBeenCalled();
+  });
+
+  it('replaces nothing when pdf.js reads the annotations of a page differently', async () => {
+    data.allExamsList = [0, 1].map((i) => ({ document_index: i, question: 'Q1', filename: `Q1_${i}` }));
+    // the grader's note on page 2, which pdf-lib would have missed
+    const read = spyOn(component, 'readWithPdfjs').and.resolveTo(['Text', 'Ink+Text']);
+    await component.uploadZipFile(await zipFile({ 'Q1.pdf': await exportedPdf('Q1.pdf', 2) }));
+
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(notification.showError).toHaveBeenCalledWith(
+      jasmine.stringContaining('Q1.pdf ne se lit pas correctement (les annotations de la page 2'), 'Erreur');
+    expect(matchReplace()).toEqual([]);
+    expect(component.processing).toBeFalse();
+  });
+
+  it('goes on when pdf.js reads the same pages and annotations', async () => {
+    data.allExamsList = [0, 1].map((i) => ({ document_index: i, question: 'Q1', filename: `Q1_${i}` }));
+    spyOn(component, 'readWithPdfjs').and.resolveTo(['Text', 'Text']);  // the markers
+    await component.uploadZipFile(await zipFile({ 'Q1.pdf': await exportedPdf('Q1.pdf', 2) }));
+    const req = await waitForUpload();
+
+    expect(Object.keys((await sentZip(req.request.body)).files)).toEqual(['Q1_0.pdf', 'Q1_1.pdf']);
+    expect(notification.showError).not.toHaveBeenCalled();
+    req.flush({ response: 'OK' });
+  });
+
+  it('reads the pages of a pdf an editor saved again over the export', async () => {
+    data.allExamsList = [0, 1, 2].map((i) => ({ document_index: i, question: 'Q1', filename: `Q1_${i}` }));
+    await component.uploadZipFile(await zipFile({ 'Q1.pdf': await editorResaved(await exportedPdf('Q1.pdf', 3)) }));
+    const req = await waitForUpload();
+
+    // pdf-lib took the stale page tree and saw one page of the three
+    expect(Object.keys((await sentZip(req.request.body)).files)).toEqual(['Q1_0.pdf', 'Q1_1.pdf', 'Q1_2.pdf']);
+    expect(notification.showError).not.toHaveBeenCalled();
+    req.flush({ response: 'OK' });
   });
 
   it('refuses a pdf whose name no longer matches the one it was exported under', async () => {
