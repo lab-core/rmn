@@ -3,6 +3,15 @@
   <div class="guide-panel">
     <nav class="guide-toc">
       <h2>Guide d'utilisation</h2>
+      <!-- narrow screens: the chapters in a dropdown rather than a list -->
+      <mat-form-field class="guide-toc-select" appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Chapitre</mat-label>
+        <mat-select [value]="current" (selectionChange)="openChapter($event.value)">
+          @for (chapter of chapters; track chapter.file) {
+            <mat-option [value]="chapter">{{ chapter.title }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
       <ul>
         @for (chapter of chapters; track chapter.file) {
           <li>

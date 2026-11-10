@@ -117,7 +117,12 @@ app-main-menu {
   overflow-x: auto;
 }
 
-/* tablets and phones: the chapters in a strip above the text */
+/* the dropdown of the chapters: narrow screens only */
+.guide-toc-select {
+  display: none;
+}
+
+/* tablets and phones: the chapters in a dropdown above the text */
 @media (max-width: 900px) {
   .guide-panel {
     top: calc(10vh + 8px);
@@ -134,18 +139,14 @@ app-main-menu {
     border-bottom: 1px solid #ddd;
   }
 
-  .guide-toc h2 {
+  .guide-toc h2,
+  .guide-toc ul {
     display: none;
   }
 
-  .guide-toc ul {
-    display: flex;
-    gap: 4px;
-    overflow-x: auto;
-  }
-
-  .guide-toc a {
-    white-space: nowrap;
+  .guide-toc-select {
+    display: block;
+    width: 100%;
   }
 
   .guide-content {
