@@ -13,7 +13,7 @@ from process_copy import digit_bank
 from process_copy.classifier import load_classifier
 from process_copy.config import min_documents_for_max_questions
 from process_copy.database import Database
-from process_copy.mcc import get_name, group_label, load_csv
+from process_copy.mcc import get_name, group_label, group_value, load_csv
 from rmn_common.moodle import MoodleFields as MF
 from rmn_common.status import Document_Status
 from utils.clients import socketio_client
@@ -299,7 +299,7 @@ def grade_files(
             else:
                 l_group = group_label(grades_dfs[i])
                 if l_group:
-                    group = str(grades_dfs[i].at[m, l_group])
+                    group = group_value(grades_dfs[i].at[m, l_group])
                     print("Group:", group)
 
             # fill moodle csv file

@@ -14,12 +14,9 @@ from process_copy.imaging import imwrite_png, make_square
 from process_copy.contours import find_digit_contours
 
 
-
-
-
-
-
-def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7, confusions=None):
+def extract_digit(
+    cnt, gray, thresh, classifier, threshold=1e-2, border=7, confusions=None
+):
     """Candidates ``(probability, digit)`` of the digit drawn by contour ``cnt``.
 
     ``confusions`` maps a digit the model confuses to the digit it may be
@@ -76,19 +73,19 @@ def extract_digit(cnt, gray, thresh, classifier, threshold=1e-2, border=7, confu
     return d
 
 
-
-
-def extract_all_digits(cnts, gray, thresh, classifier, threshold=1e-2, border=7, confusions=None):
+def extract_all_digits(
+    cnts, gray, thresh, classifier, threshold=1e-2, border=7, confusions=None
+):
     all_digits = []
     for c in cnts:
         try:
-            d = extract_digit(c, gray, thresh, classifier, threshold, border, confusions)
+            d = extract_digit(
+                c, gray, thresh, classifier, threshold, border, confusions
+            )
             all_digits.append((c, d))
         except Exception as e:
             print(e)
     return all_digits
-
-
 
 
 def split_digits(digits, dot):
@@ -96,8 +93,6 @@ def split_digits(digits, dot):
     number = "".join("%d" % d[1] for d in digits[:dot])
     decimals = "".join("%d" % d[1] for d in digits[dot:])
     return number, decimals
-
-
 
 
 def extract_number(digits, dot, just_allowed_decimals=False):
@@ -109,8 +104,6 @@ def extract_number(digits, dot, just_allowed_decimals=False):
     return float("%s.%s" % (number, decimals or "0"))
 
 
-
-
 def allowed_decimals_with_digits(n_digits, allowed=None):
     """Allowed decimal parts written with ``n_digits`` digits, "0" excluded.
 
@@ -119,8 +112,6 @@ def allowed_decimals_with_digits(n_digits, allowed=None):
     """
     allowed = allowed_decimals if allowed is None else allowed
     return [d for d in allowed if len(d) == n_digits and int(d) != 0]
-
-
 
 
 def random_allowed_decimals(recognised, allowed=None, rng=random):
@@ -152,7 +143,13 @@ def random_allowed_decimals(recognised, allowed=None, rng=random):
 INVENTED_DECIMALS_PENALTY = 0.5
 
 
-def process_digits_combinations(all_digits, dot):
+def process_digits_combinations(all_digits, dot, truncate=True):
+    """Ranked ``(probability, value)`` readings of the recognised digits.
+
+    ``truncate`` lets a "1" inside the number stand for the slash of a
+    "x / total" written in a printed box; callers that know where the
+    separators are (the ink reader) turn it off.
+    """
     # create all combinations
     combinations = [(0, [])]
     # check if finding the question total (e.g., / 5) in the box if present.
@@ -160,16 +157,21 @@ def process_digits_combinations(all_digits, dot):
     # We just cut all numbers at that point if any
     trunc_combinations = []
     j = 0
-    for (c, d) in all_digits:
-        for (p, i) in d:
+    for c, d in all_digits:
+        for p, i in d:
             # check if a 1 not in first position and after dot if any
-            # check if neither first and last digit and not first digit after the dot if any
-            if i == 1 and 0 < j < len(all_digits) - 1 and (dot >= len(all_digits) or j > dot):
+            # check if neither first and last digit and not first digit after
+            # the dot if any
+            if (
+                truncate
+                and i == 1
+                and 0 < j < len(all_digits) - 1
+                and (dot >= len(all_digits) or j > dot)
+            ):
                 # give a bonus to the truncated number as generally more probable
-               trunc_combinations += [
-                   (cumul + j*p, digits)
-                   for (cumul, digits) in combinations
-               ]
+                trunc_combinations += [
+                    (cumul + j * p, digits) for (cumul, digits) in combinations
+                ]
         # add every possible combinations
         combinations = [
             (cumul + p, digits + [(c, i)])
@@ -196,15 +198,17 @@ def process_digits_combinations(all_digits, dot):
         p, digits = ranked[0]
         integer, decimals = split_digits(digits, dot)
         decimals = random_allowed_decimals(decimals)
-        numbers.append((INVENTED_DECIMALS_PENALTY * p / len(digits),
-                        float("%s.%s" % (integer, decimals or "0"))))
+        numbers.append(
+            (
+                INVENTED_DECIMALS_PENALTY * p / len(digits),
+                float("%s.%s" % (integer, decimals or "0")),
+            )
+        )
 
     if not numbers:
         return [(1.0, 0)]
 
     return sorted(numbers, reverse=True)
-
-
 
 
 def correct_decimals(p, allowed=None, rng=random):
@@ -219,8 +223,6 @@ def correct_decimals(p, allowed=None, rng=random):
     n = float("%s.%s" % (number, decimals or "0"))
     print("Correct decimals:", p, "->", n)
     return n
-
-
 
 
 def test(gray_img, classifier=None, trim=None, meta=None):
@@ -239,7 +241,8 @@ def test(gray_img, classifier=None, trim=None, meta=None):
 
     with digit_bank.reading(**(meta or {})):
         # find contours of the numbers as well as the dot number position
-        # return a sorted list of the relevant digits' contours and the dot position (and the threshold image used)
+        # return a sorted list of the relevant digits' contours and the dot
+        # position (and the threshold image used)
         cnts, dot, thresh = find_digit_contours(gray, trim=trim)
 
         # if found no digits contours, return 0

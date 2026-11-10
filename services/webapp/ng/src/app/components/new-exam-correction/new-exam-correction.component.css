@@ -493,6 +493,23 @@ mat-spinner {
   align-items: center;
 }
 
+.class-lists {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.class-lists li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.class-lists-hint {
+  display: block;
+  color: #555;
+}
+
 /* tablets and phones: the wizard takes the width, below the menu */
 @media (max-width: 900px) {
     .stepper_horizontal {

@@ -30,7 +30,7 @@ import cv2
 import numpy as np
 
 from process_copy import digit_bank, recognize
-from process_copy.config import matricule_box
+from process_copy.config import allowed_decimals, matricule_box
 
 DPI = 300
 ZOOM = DPI / 72.0
@@ -77,7 +77,7 @@ SEPARATOR_MIN_Y = 0.55
 # digit out -- no digit of the same number is a hairline -- together with
 # ``SEPARATOR_MIN_Y`` and the decimals that must follow it.
 COMMA_MAX_HEIGHT = 0.6
-COMMA_MAX_WIDTH = 0.18
+COMMA_MAX_WIDTH = 0.2
 SLASH_MIN_HEIGHT = 0.6
 SLASH_STRAIGHTNESS = 0.25
 # a slash leans; the upright stroke of a handwritten "4" is straight and tall
@@ -93,6 +93,28 @@ VINCULUM_MIN_WIDTH = 0.6
 # against the whole mark, which it widens itself: the rule under a "1" ran the
 # width of the digit and a little past it, 0.55 of a mark it had stretched.
 UNDERLINE_MIN_WIDTH = 0.8
+# A speck: a stroke this small in both directions, relative to the median
+# stroke of its part, that is not the decimal point -- the pen touching down at
+# the end of the circle or the slash. Rendered, it becomes one more digit:
+# "8/10" read "8/109" and the whole grade was thrown away.
+SPECK_MAX = 0.15
+# A slash proposed to ``pick`` may be short beside the mark: written on a
+# diagonal, "7,5/8" has a slash well under half the height of the whole.
+SLASH_SPLIT_MIN_LENGTH = 0.35
+# No glyph of a fraction is much bigger than its slash. Without this the
+# upright of a "4" -- half the length of the slash -- was proposed as the slash
+# of "4/10", the real slash went to the denominator and read as a 1 beside the
+# "10", which matched. A "6" under a short slash measured 1.27 times it.
+SLASH_SPLIT_MAX_GLYPH = 1.5
+# A stroke under this share of the median one is a piece of a glyph -- its bar,
+# its flag, its decimal point -- and goes with the glyph nearest to it rather
+# than by the side of the slash it happens to lie on.
+SLASH_SPLIT_SMALL = 0.5
+# Cutting touching digits apart (``_touching_digits``): a group of strokes
+# shorter than this share of the tallest is a piece of a digit, and a straight
+# stroke narrower than this share of its height is a stem.
+MINOR = 0.5
+STEM_MAX_ASPECT = 0.6
 
 # ``/FreeText`` contents carry an author prefix ("u:8.5"). A grade is a bare
 # number or a fraction; "ok", "bon raisonnement" and the signed adjustments
@@ -166,6 +188,12 @@ class Candidate:
     dot_x: Optional[float] = None
     denominator_strokes: List[Stroke] = field(default_factory=list)
     denominator_dot_x: Optional[float] = None
+    # ``(numerator, denominator, dot_x)`` splits on a stroke that may be a
+    # fraction slash or may be a "1": kept only when the denominator reads as
+    # the question's maximum (see ``slash_splits``)
+    fraction_splits: List[Tuple[List[Stroke], List[Stroke], Optional[float]]] = field(
+        default_factory=list
+    )
     circled: bool = False
     text: Optional[str] = None
     page_size: Tuple[float, float] = (612.0, 792.0)
@@ -348,8 +376,7 @@ def _surrounds(stroke: Stroke, others: Sequence[Stroke]) -> bool:
     cy = (inner[1] + inner[3]) / 2
     angles = np.arctan2(stroke.points[:, 1] - cy, stroke.points[:, 0] - cx)
     visited = np.unique(
-        ((angles + math.pi) / (2 * math.pi) * SURROUND_BINS).astype(int)
-        % SURROUND_BINS
+        ((angles + math.pi) / (2 * math.pi) * SURROUND_BINS).astype(int) % SURROUND_BINS
     )
     return len(visited) >= SURROUND_MIN_BINS
 
@@ -372,11 +399,29 @@ def enclosing_stroke(members: Sequence[Stroke]) -> Optional[Stroke]:
     biggest = max(members, key=lambda s: _area(s.bbox))
     box = biggest.bbox
     others = [s for s in members if s is not biggest]
-    if not all(_contains(box, s.bbox) for s in others):
+    if all(_contains(box, s.bbox) for s in others):
+        if biggest.closed or _surrounds(biggest, others):
+            return biggest
         return None
-    if biggest.closed or _surrounds(biggest, others):
+    # One stroke may stray out of the ring -- the pen's tail as it leaves the
+    # circle. Unrecognised, the ring stayed among the glyphs and the circled
+    # "2.5" of one copy read as a confident 0.
+    held = held_by(biggest, members)
+    if held and len(others) - len(held) == 1 and _surrounds(biggest, held):
         return biggest
     return None
+
+
+def held_by(circle: Stroke, members: Sequence[Stroke]) -> List[Stroke]:
+    """The strokes of ``members`` whose centre lies inside ``circle``'s box."""
+    x0, y0, x1, y1 = circle.bbox
+    return [
+        s
+        for s in members
+        if s is not circle
+        and x0 <= (s.bbox[0] + s.bbox[2]) / 2 <= x1
+        and y0 <= (s.bbox[1] + s.bbox[3]) / 2 <= y1
+    ]
 
 
 def _area(box: Tuple[float, float, float, float]) -> float:
@@ -439,7 +484,11 @@ def split_separator(members: Sequence[Stroke], box: Tuple[float, float, float, f
             right = [s for s in rest if s.bbox[0] >= (sx0 + sx1) / 2]
             if left and right and len(left) + len(right) == len(rest):
                 left, dot = _decimal_point(left, _union([s.bbox for s in left]))
-                return left, right, dot
+                return (
+                    _without_specks(left),
+                    _without_specks(right),
+                    dot,
+                )
         if straight and flat and wide and rest:
             # every stroke goes to one side or the other, by its centre: a
             # digit drawn against a hand-drawn bar often crosses it, and
@@ -450,10 +499,154 @@ def split_separator(members: Sequence[Stroke], box: Tuple[float, float, float, f
             below = [s for s in rest if (s.bbox[1] + s.bbox[3]) / 2 >= middle]
             if above and below:
                 above, dot = _decimal_point(above, _union([s.bbox for s in above]))
-                return above, below, dot
+                return (
+                    _without_specks(above),
+                    _without_specks(below),
+                    dot,
+                )
 
     glyphs, dot = _decimal_point(_without_underline(members), box)
-    return glyphs, [], dot
+    return _without_specks(glyphs), [], dot
+
+
+def slash_splits(
+    members: Sequence[Stroke], box: Tuple[float, float, float, float]
+) -> List[Tuple[List[Stroke], List[Stroke], Optional[float]]]:
+    """Splits of a mark on a stroke that may be the slash of a fraction.
+
+    ``split_separator`` only splits on a slash it can be sure of: tall and
+    leaning. Two graders of the MTH1007 autumn 2026 exam write slashes it has
+    to refuse. One draws ``7/10`` with the slash straight up, the same shape as
+    a "1" or as the upright of a "4"; read whole it became "7110", was divided
+    down to 7.11 and had its decimals re-fitted, and a whole question came
+    back a quarter or half point out at full confidence. The other writes
+    ``7,5/8`` on a diagonal, the numerator high on the left and the 8 low on
+    the right, so the slash is short beside the mark it cuts in two.
+
+    What tells a slash from a digit is the denominator, so this only
+    proposes: one split per straight stroke long enough to be a slash, the
+    longest first, which ``pick`` keeps only when the side after the slash
+    reads as the question's maximum. A "4.5" split on the upright of its 4 has
+    a "5" for a denominator, and a decimal point after the slash besides.
+
+    The strokes are shared out by the side of the slash line their centre
+    lies on, which serves the upright and the diagonal layout alike; the bar
+    of a 5 or of a 7 often runs into the slash, so containment is not asked.
+
+    Args:
+        members: Strokes of one cluster, circle already removed.
+        box: Bounding box of the cluster.
+
+    Returns:
+        ``(numerator, denominator, dot_x)`` per possible slash.
+    """
+    height = max(box[3] - box[1], 1e-6)
+    slashes = []
+    for stroke in members:
+        sx0, sy0, sx1, sy1 = stroke.bbox
+        length = math.hypot(sx1 - sx0, sy1 - sy0)
+        if (
+            length >= SLASH_SPLIT_MIN_LENGTH * height
+            and (sx1 - sx0) < VINCULUM_MIN_ASPECT * (sy1 - sy0)
+            and _straightness(stroke) < SLASH_STRAIGHTNESS
+        ):
+            slashes.append((length, stroke))
+    slashes.sort(key=lambda weighed: -weighed[0])
+
+    splits = []
+    for length, slash in slashes:
+        top, bottom = _ends_top_first(slash)
+        dx, dy = top[0] - bottom[0], top[1] - bottom[1]
+        rest = [s for s in members if s is not slash]
+
+        def side(stroke):
+            cx = (stroke.bbox[0] + stroke.bbox[2]) / 2
+            cy = (stroke.bbox[1] + stroke.bbox[3]) / 2
+            # positive on the right of a line drawn upwards
+            return dx * (cy - bottom[1]) - dy * (cx - bottom[0])
+
+        left, right = _share_out(rest, side)
+        if not left or not right:
+            continue
+        if any(_extent(s) > SLASH_SPLIT_MAX_GLYPH * length for s in rest):
+            continue
+        if _decimal_point(right, _union([s.bbox for s in right]))[1] is not None:
+            # the decimals follow the point: "4.5" split on the upright of
+            # its 4 has the point on the right, a fraction never does
+            continue
+        left, dot = _decimal_point(left, _union([s.bbox for s in left]))
+        left = _without_specks(left)
+        right = _without_specks(right)
+        if not left or not right:
+            continue
+        dot_x = None if dot is None else (dot.bbox[0] + dot.bbox[2]) / 2
+        splits.append((left, right, dot_x))
+    return splits
+
+
+def _share_out(strokes, side) -> Tuple[List[Stroke], List[Stroke]]:
+    """``strokes`` on each side of a slash: ``side(stroke) < 0`` is the left.
+
+    The glyphs go by the side their centre lies on. A small stroke goes with
+    the glyph nearest to it instead: the short top stroke of a "5" drawn
+    against the top of a diagonal slash lies across the line, and "0/5" read
+    "01" over 5.
+    """
+    if not strokes:
+        return [], []
+    small = SLASH_SPLIT_SMALL * float(np.median([_extent(s) for s in strokes]))
+    big = [s for s in strokes if _extent(s) > small] or list(strokes)
+    left = [s for s in big if side(s) < 0]
+    right = [s for s in big if side(s) >= 0]
+    for stroke in strokes:
+        if stroke in big:
+            continue
+        nearest = min(big, key=lambda other: _gap(stroke.bbox, other.bbox))
+        (left if nearest in left else right).append(stroke)
+    return left, right
+
+
+def _gap(a, b) -> float:
+    """Distance between two boxes, 0 when they overlap."""
+    dx = max(a[0] - b[2], b[0] - a[2], 0.0)
+    dy = max(a[1] - b[3], b[1] - a[3], 0.0)
+    return math.hypot(dx, dy)
+
+
+def _extent(stroke: Stroke) -> float:
+    """The larger side of a stroke's box."""
+    x0, y0, x1, y1 = stroke.bbox
+    return max(x1 - x0, y1 - y0)
+
+
+def _ends_top_first(stroke: Stroke) -> Tuple[np.ndarray, np.ndarray]:
+    """The two ends of a straight stroke, the higher one first."""
+    first, last = stroke.points[0], stroke.points[-1]
+    return (first, last) if first[1] <= last[1] else (last, first)
+
+
+def _without_specks(strokes: Sequence[Stroke]) -> List[Stroke]:
+    """``strokes`` without the specks, unless nothing else is left.
+
+    The decimal point has already been taken out by the time this runs; what
+    remains this small is where the pen touched down, and drawn for the
+    classifier it is one more digit. Small is measured against the strokes
+    themselves -- the numerator alone, for a fraction -- and against the
+    median one: against a stacked mark twice its height, the short arm of a
+    "4" counted as a speck and "4,5" over 8 read 1.5.
+    """
+    strokes = list(strokes)
+    if len(strokes) < 2:
+        return strokes
+    # the median stroke, not the span: one oversized stroke -- a circle the
+    # pen did not close around everything -- made the loops of an 8 specks
+    limit = SPECK_MAX * float(np.median([_extent(s) for s in strokes]))
+    kept = [
+        s
+        for s in strokes
+        if (s.bbox[2] - s.bbox[0]) > limit or (s.bbox[3] - s.bbox[1]) > limit
+    ]
+    return kept or strokes
 
 
 def _without_underline(members: Sequence[Stroke]) -> List[Stroke]:
@@ -562,6 +755,94 @@ def _merge_stacked(blobs: List[np.ndarray]) -> List[np.ndarray]:
     return merged
 
 
+def _touching_digits(component: np.ndarray, inks) -> List[np.ndarray]:
+    """One connected blob of ink, cut back into the digits that drew it.
+
+    Two digits written close touch once the strokes are drawn thick: the foot
+    of the 7 in "5.75" ran into the 5, the "1" and the "0" of a "10" met, and
+    each pair reached the classifier as a single digit -- "5.75" read 5.5,
+    "7/10" lost its denominator. The strokes say which ink is whose, so the
+    blob is shared out between groups of strokes that sit side by side.
+
+    Strokes stacked in the same columns are one digit (the two pieces of a 5,
+    the bar of a 7). An upright hairline stays with the glyph on its left:
+    that is the upright of a 4, or the stem of a 1 whose flag was drawn
+    apart, while the "1" of a "10" has nothing on its left to join. A piece
+    far shorter than the digits is never one of its own.
+
+    Args:
+        component: Boolean mask of one connected blob.
+        inks: ``(stroke, mask)`` for every stroke of the number.
+
+    Returns:
+        One boolean mask per digit, left to right; ``[component]`` when the
+        blob is one digit.
+    """
+    members = [(stroke, ink) for stroke, ink in inks if (ink[component] > 0).any()]
+    if len(members) < 2:
+        return [component]
+    groups: List[List] = []
+    for stroke, ink in sorted(members, key=lambda m: m[0].bbox[0]):
+        x0, _, x1, _ = stroke.bbox
+        for group in groups:
+            g0 = min(s.bbox[0] for s, _ in group)
+            g1 = max(s.bbox[2] for s, _ in group)
+            overlap = min(x1, g1) - max(x0, g0)
+            if overlap > MERGE_OVERLAP * min(x1 - x0, g1 - g0):
+                group.append((stroke, ink))
+                break
+        else:
+            groups.append([(stroke, ink)])
+    # a piece far shorter than the digits -- the bar of a 5 drawn apart, the
+    # cross of a 7 -- belongs to the digit nearest to it
+    tallest = max(_group_box(g)[3] - _group_box(g)[1] for g in groups)
+    major = [
+        g for g in groups if _group_box(g)[3] - _group_box(g)[1] >= MINOR * tallest
+    ]
+    for group in groups:
+        if any(group is g for g in major):
+            continue
+        nearest = min(major, key=lambda g: _gap(_group_box(group), _group_box(g)))
+        nearest.extend(group)
+    major.sort(key=lambda g: _group_box(g)[0])
+    joined: List[List] = []
+    for group in major:
+        if joined and _stem(group):
+            joined[-1] = joined[-1] + group
+        else:
+            joined.append(group)
+    if len(joined) < 2:
+        return [component]
+    parts = []
+    taken = np.zeros_like(component)
+    for group in joined:
+        ink = np.zeros(component.shape, bool)
+        for _, mask in group:
+            ink |= mask > 0
+        part = component & ink & ~taken
+        taken |= part
+        if part.any():
+            parts.append(part)
+    return parts or [component]
+
+
+def _group_box(group) -> Tuple[float, float, float, float]:
+    return _union([stroke.bbox for stroke, _ in group])
+
+
+def _stem(group) -> bool:
+    """A group that is one straight stroke, upright or leaning a little: the
+    stem of a 4 or of a flagged 1, never a digit of its own beside the glyph
+    it touches on its left."""
+    if len(group) != 1:
+        return False
+    stroke = group[0][0]
+    x0, y0, x1, y1 = stroke.bbox
+    return (x1 - x0) < STEM_MAX_ASPECT * (y1 - y0) and (
+        _straightness(stroke) < SLASH_STRAIGHTNESS
+    )
+
+
 def render_number(
     strokes: Sequence[Stroke], dot_x: Optional[float] = None
 ) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray], int]:
@@ -599,25 +880,29 @@ def render_number(
     height = int((box[3] - box[1]) * ZOOM) + 2 * pad
     thresh = np.zeros((height, width), np.uint8)
 
+    inks = []
     for stroke in strokes:
+        ink = np.zeros((height, width), np.uint8)
         px = (stroke.points - np.array([box[0], box[1]])) * ZOOM + pad
         if len(px) > 1:
-            cv2.polylines(
-                thresh, [px.astype(np.int32)], False, 255, thickness, cv2.LINE_8
-            )
+            cv2.polylines(ink, [px.astype(np.int32)], False, 255, thickness, cv2.LINE_8)
         bx = stroke.bbox
         if (bx[2] - bx[0]) * ZOOM < 12 and (bx[3] - bx[1]) * ZOOM < 12:
             # a stroke that is a dot on the page must survive as a blob
             centre = px.mean(axis=0).astype(int)
-            cv2.circle(thresh, tuple(centre), thickness, 255, -1, cv2.LINE_8)
+            cv2.circle(ink, tuple(centre), thickness, 255, -1, cv2.LINE_8)
+        inks.append((stroke, ink))
+        thresh |= ink
 
     count, labels = cv2.connectedComponents(thresh, connectivity=8)
     blobs: List[np.ndarray] = []
     for label in range(1, count):
-        ys, xs = np.nonzero(labels == label)
-        if len(xs) < 4:
+        component = labels == label
+        if np.count_nonzero(component) < 4:
             continue
-        blobs.append(np.stack([xs, ys], axis=1))
+        for part in _touching_digits(component, inks):
+            ys, xs = np.nonzero(part)
+            blobs.append(np.stack([xs, ys], axis=1))
     contours = [
         blob.reshape(-1, 1, 2).astype(np.int32) for blob in _merge_stacked(blobs)
     ]
@@ -662,11 +947,27 @@ def read_number(
     # one staged reading per candidate mark; only the one pick() settles on is
     # kept (keep_last below), the rest are ink that is not a grade
     with digit_bank.reading(dot=dot) if stage else nullcontext():
-        all_digits = recognize.extract_all_digits(contours, gray, thresh, classifier)
+        # each digit is cut from its own pixels: the convex hull the scan
+        # pipeline masks with reaches into a digit that touched this one
+        all_digits = []
+        for contour in contours:
+            own = np.zeros_like(thresh)
+            own[contour[:, 0, 1], contour[:, 0, 0]] = 255
+            all_digits += recognize.extract_all_digits([contour], gray, own, classifier)
         if not all_digits:
             return []
-        digit_bank.annotate(read=recognize.most_probable_digits(all_digits))
-        return recognize.process_digits_combinations(all_digits, dot)
+        read = recognize.most_probable_digits(all_digits)
+        if dot >= len(all_digits) > 1 and read.startswith("0"):
+            # nobody writes a grade "05": the point after the 0 was lost
+            # (drawn into the 5, or too faint to be a stroke of its own), and
+            # "0.5/5" was read as full marks
+            dot = 1
+            digit_bank.annotate(dot=dot)
+        digit_bank.annotate(read=read)
+        # the separators are known from the strokes: a "1" in the middle is a
+        # digit, not a slash the scan pipeline has to guess at -- truncating
+        # on it turned the comma of "3,5" into the end of the number
+        return recognize.process_digits_combinations(all_digits, dot, truncate=False)
 
 
 # ------------------------------------------------------------------ raster --
@@ -756,7 +1057,7 @@ def raster_candidates(page: Any, max_points: Optional[float] = None) -> List[Can
             # graded the colour path reads the matricule as one.
             continue
         circle = enclosing_stroke(members)
-        inner = [s for s in members if s is not circle] if circle else list(members)
+        inner = held_by(circle, members) if circle else list(members)
         if not inner:
             continue
         inner_box = _union([s.bbox for s in inner])
@@ -871,7 +1172,7 @@ def grade_candidates(page: Any, max_points: Optional[float] = None) -> List[Cand
         if not MIN_CLUSTER_W <= width <= MAX_CLUSTER_W:
             continue
         circle = enclosing_stroke(members)
-        inner = [s for s in members if s is not circle] if circle else list(members)
+        inner = held_by(circle, members) if circle else list(members)
         if not inner:
             continue
         inner_box = _union([s.bbox for s in inner])
@@ -887,6 +1188,7 @@ def grade_candidates(page: Any, max_points: Optional[float] = None) -> List[Cand
                 number_strokes=numerator,
                 dot_x=dot_x,
                 denominator_strokes=denominator,
+                fraction_splits=([] if denominator else slash_splits(inner, inner_box)),
                 circled=circle is not None,
                 page_size=page_size,
             )
@@ -1098,6 +1400,23 @@ def grade_ceiling(max_points: Optional[float]) -> Optional[float]:
     return max_points + headroom
 
 
+def _allowed_decimals(value: float) -> bool:
+    """Whether ``value``'s decimal part is one ``config.allowed_decimals`` has."""
+    decimals = f"{value:.10f}".rstrip("0").partition(".")[2]
+    return not decimals or decimals in allowed_decimals
+
+
+def _reads_as(readings, value) -> bool:
+    """Whether ``value`` is among the ranked readings of a denominator.
+
+    Not only the first: the "10" under one grade read 12 at 0.91 and 10 at
+    0.59. Any reading will do because the glyph count is fixed by the strokes
+    -- a single digit cannot come back as "10" -- so a sub-question mark such
+    as "1/2" still disagrees with a question out of 10.
+    """
+    return any(abs(v - value) <= 1e-6 for _, v in readings or [])
+
+
 def _bounded(readings, max_points):
     """The best reading that fits the question, repairing a misplaced dot.
 
@@ -1129,7 +1448,14 @@ def _bounded(readings, max_points):
             repaired = repaired / 10
         repaired = recognize.correct_decimals(repaired)
         if 0 <= repaired <= ceiling + 1e-6:
-            return probability * 0.5, repaired, repaired > max_points + 1e-6
+            # halved from a real probability: the truncated-fraction bonus of
+            # process_digits_combinations sums to nearly 2, and halving that
+            # left "55.1" repaired to 5.75 at full confidence
+            return (
+                min(1.0, probability) * 0.5,
+                repaired,
+                repaired > max_points + 1e-6,
+            )
     return None
 
 
@@ -1188,6 +1514,20 @@ def pick(
         # the grader of this page is unknown: the nearest of the spots
         return min(math.hypot(cx - mx, cy - my) for mx, my in modal_centre)
 
+    def fell_through(candidate):
+        # A learned position says where the grade is. When the mark there
+        # could not be read, the next one is usually a correction in the body
+        # of the answer: reading "8/10" failed on one copy and the page was
+        # graded 1, at full confidence, off a tick two inches lower. A page
+        # whose nearest mark is itself away from the position is left alone
+        # -- some graders move the grade about the page.
+        return (
+            bool(modal_centre)
+            and candidate is not ordered[0]
+            and distance(ordered[0]) <= POSITION_RADIUS
+            and distance(candidate) > POSITION_RADIUS
+        )
+
     ordered = sorted(candidates, key=distance)
     ambiguous = (
         len(ordered) > 1 and abs(distance(ordered[0]) - distance(ordered[1])) < 0.03
@@ -1225,12 +1565,18 @@ def pick(
                 n_candidates=len(candidates),
             )
 
+        slash_matched = False
         if candidate.source == "raster":
             readings = read_raster(candidate, classifier)
         else:
-            readings = read_number(
-                candidate.number_strokes, candidate.dot_x, classifier
-            )
+            number, dot_x = candidate.number_strokes, candidate.dot_x
+            if max_points is not None:
+                for numerator, denominator, split_dot in candidate.fraction_splits:
+                    den = read_number(denominator, None, classifier, stage=False)
+                    if _reads_as(den, max_points):
+                        number, dot_x, slash_matched = numerator, split_dot, True
+                        break
+            readings = read_number(number, dot_x, classifier)
         if not readings:
             continue
         best = _bounded(readings, max_points)
@@ -1251,9 +1597,19 @@ def pick(
                 stage=False,
             )
             if den and max_points is not None:
-                if abs(den[0][1] - max_points) > 1e-6:
+                if not _reads_as(den, max_points):
                     continue  # denominator disagrees: a sub-question mark
                 probability = min(1.0, probability + DENOMINATOR_BONUS)
+        if not _allowed_decimals(value):
+            # graders write the allowed decimals and nothing else: a 0.97 is
+            # digits read off a mark that is not quite the grade -- "0.75/5"
+            # with its slash taken for a 1
+            probability = min(probability, NO_PRIOR_CEILING)
+        if (candidate.denominator_strokes or slash_matched) and over_max:
+            # "11/10": the grader wrote the maximum under it, so a numerator
+            # above it is a misread -- a "1" whose flag is a stroke of its
+            # own reads as 11 -- far more often than a bonus
+            probability = min(probability, NO_PRIOR_CEILING)
 
         if candidate.circled:
             probability = min(1.0, probability + CIRCLE_BONUS)
@@ -1264,7 +1620,7 @@ def pick(
             probability = min(probability, RASTER_CEILING)
         if ambiguous:
             probability *= 0.5
-        if unplaced:
+        if unplaced or fell_through(candidate):
             probability = min(probability, NO_PRIOR_CEILING)
         if bonus or (max_points is not None and max_points < LOW_MAX_POINTS):
             probability = min(probability, UNMEASURED_CEILING)

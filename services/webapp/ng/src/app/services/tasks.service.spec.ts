@@ -145,7 +145,7 @@ describe('TasksService', () => {
 
   it('addTask serialises the maps, reports progress and resolves on the response', async () => {
     const pending = service.addTask(
-      new File([''], 'copies.zip'), new File([''], 'notes.csv'), 'front', 'regular',
+      new File([''], 'copies.zip'), [new File([''], 'notes.csv')], 'front', 'regular',
       new Map([['Q1', 2], ['Q2', 1]]), new Map([['Q1', 10], ['Q2', 5]]), new Map([['Q1', false], ['Q2', true]]),
       'Exam', 'Front', 'Regular', 'true', true);
 
@@ -169,6 +169,20 @@ describe('TasksService', () => {
     await pending;
     expect(service.getpercentageDone()).toBe(100);
     expect(notification.showInfo).toHaveBeenCalled();
+  });
+
+  it('addTask sends every class list and the list of each student found in several', async () => {
+    const pending = service.addTask(
+      new File([''], 'copies.zip'), [new File(['a'], 'A.csv'), new File(['b'], 'B.csv')], 'front', 'regular',
+      new Map([['Q1', 2]]), new Map([['Q1', 10]]), new Map([['Q1', false]]),
+      'Exam', 'Front', 'Regular', 'true', true, null, null, { '2345678': 'B' });
+
+    const req = http.expectOne('/api/jobs/evaluate');
+    const form = req.request.body as FormData;
+    expect((form.getAll('notes_csv_file') as File[]).map((f) => f.name)).toEqual(['A.csv', 'B.csv']);
+    expect(form.get('assignments')).toBe('{"2345678":"B"}');
+    req.flush({ response: 'OK' });
+    await pending;
   });
 
   it('addTask names the task to inherit the files from, and sends neither', async () => {
@@ -220,7 +234,7 @@ describe('TasksService', () => {
   it('addTask rejects when the upload fails', async () => {
     spyOn(console, 'error');
     const pending = service.addTask(
-      new File([''], 'copies.zip'), new File([''], 'notes.csv'), 'front', 'regular',
+      new File([''], 'copies.zip'), [new File([''], 'notes.csv')], 'front', 'regular',
       new Map(), new Map(), new Map(), 'Exam', 'Front', 'Regular', 'false', false);
     http.expectOne('/api/jobs/evaluate').flush({ response: 'bad' }, { status: 400, statusText: 'Bad Request' });
     await expectAsync(pending).toBeRejected();

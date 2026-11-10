@@ -101,7 +101,7 @@ export const HELP: Record<string, HelpEntry> = {
     chapter: '05-nouvelle-tache', anchor: 'le-tableau-des-questions',
   },
   'wizard.csv': {
-    text: 'Le « formulaire d\'évaluation » téléchargé du devoir Moodle (colonnes Matricule, Identifiant, Nom complet, Note maximale…), sans le modifier.',
+    text: 'Le « formulaire d\'évaluation » téléchargé du devoir Moodle (colonnes Matricule, Identifiant, Nom complet, Note maximale…), sans le modifier. Plusieurs devoirs : un fichier par devoir, chacun aura ses notes et ses zip Moodle.',
     chapter: '05-nouvelle-tache', anchor: 'étape-4--téléverser-le-csv-de-moodle',
   },
 
@@ -172,7 +172,7 @@ export const HELP: Record<string, HelpEntry> = {
     chapter: '06-suivi', anchor: 'ajouter-des-copies-ou-remplacer-le-csv',
   },
   'dashboard.update-csv': {
-    text: 'Remplacer le formulaire d\'évaluation, par exemple après l\'ajout d\'un étudiant dans Moodle.',
+    text: 'Retirer ou ajouter un formulaire d\'évaluation (une liste par devoir Moodle), par exemple après l\'ajout d\'un étudiant dans Moodle.',
     chapter: '06-suivi', anchor: 'ajouter-des-copies-ou-remplacer-le-csv',
   },
   'dashboard.finalize': {
@@ -341,7 +341,7 @@ export const HELP: Record<string, HelpEntry> = {
     chapter: '10-retour-moodle', anchor: 'déposer-les-copies-corrigées',
   },
   'files.notes': {
-    text: '« notes » : le formulaire d\'évaluation rempli, à importer dans Moodle (« Importer le formulaire d\'évaluation »).',
+    text: '« notes » : le formulaire d\'évaluation rempli, à importer dans Moodle (« Importer le formulaire d\'évaluation »). Plusieurs devoirs : un « notes » et des « moodle » par devoir, à son nom.',
     chapter: '10-retour-moodle', anchor: 'importer-les-notes',
   },
 };

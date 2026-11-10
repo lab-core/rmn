@@ -8,7 +8,7 @@ Retournez dans le devoir Moodle, onglet **Travaux remis**. Les deux imports se f
 
    ![Actions → Déposer un formulaire d'évaluation](img/moodle-actions-formulaire.png)
 
-2. Déposez le `notes.csv` téléchargé de rmn. Laissez **Encodage** à UTF-8 et **Séparateur** à Virgule.
+2. Déposez le `notes.csv` téléchargé de rmn (pour une tâche de plusieurs devoirs, le `notes-<liste>` de ce devoir). Laissez **Encodage** à UTF-8 et **Séparateur** à Virgule.
 3. Cochez **Autorise la modification de données modifiées plus récemment dans Moodle que dans le formulaire d'évaluation** si des notes ont déjà été saisies dans Moodle pour ce devoir.
 
    ![Le formulaire de dépôt du csv](img/moodle-import-formulaire.png)

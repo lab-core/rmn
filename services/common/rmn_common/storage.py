@@ -92,8 +92,9 @@ class Storage:
         ("output_stats", "{job_id}.pdf"),
         ("zips", "{job_id}.zip"),  # legacy single-zip layout
     )
-    # files whose name starts with the job id (e.g. output_zip/<job_id>_all.zip)
-    _JOB_GLOBS = (("output_zip", "{job_id}_*.zip"),)
+    # files whose name starts with the job id (e.g. output_zip/<job_id>_all.zip,
+    # output_csv/<job_id>_1.csv: the notes of one of several class lists)
+    _JOB_GLOBS = (("output_zip", "{job_id}_*.zip"), ("output_csv", "{job_id}_*.csv"))
     # every prefix the two tables above reach into, directories aside
     _JOB_PREFIXES = frozenset(prefix for prefix, _ in _JOB_FILES + _JOB_GLOBS)
 

@@ -1,66 +1,60 @@
 .dialog-container {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
 
-.pdf-container {
-    width: 80%;
-    height: 80%;
-    margin: 10%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+h3 {
+  margin: 0 0 8px;
 }
 
-.csv-container {
-  margin-bottom: 10%;
-  width: 80%;
+.hint {
+  margin: 0 0 12px;
+  color: #555;
 }
 
-.csv-container label {
-    margin-right: 10%;
+.class-lists {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
-#cvsSep {
-  width: 15%;
-  margin-top: 2%;
-  margin-bottom: 5%;
+.class-lists li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.list-name {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.class-lists li.removed .list-name {
+  text-decoration: line-through;
+  color: #999;
 }
 
 .replace-zip-button {
-    border-radius: 5px;
-    height: 30%;
-    width: 100%;
-    margin-top: 5%;
-    font-size: 100%;
-    transition: 0.3s;
-    box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
-    -moz-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52 0.7);
-    -webkit-box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
-    -o-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
-    -ms-box-shadow: 0 1.5px 5px 0px rgba(52, 52, 52, 0.7);
-}
-
-.replace-zip-button:hover {
-    background-color: #d2d8e6;
-    transform: scale(1.05, 1.05);
-    transition: 0.3s;
+  border-radius: 5px;
+  width: 100%;
+  margin-top: 16px;
+  box-shadow: 0 1.5px 5px 0px rgb(52 52 52 / 70%);
 }
 
 .upload-container {
-    margin-top: 10%;
-    text-align: center;
-    width: 80%;
+  text-align: center;
 }
 
 .drop-zone {
-  margin-top: 20px;
-  margin-bottom: 10px;
+  margin-top: 12px;
   border: 2px dashed #ccc;
   padding: 15px;
   cursor: pointer;
@@ -73,4 +67,15 @@
 
 #file-input {
   display: none;
+}
+
+.alert {
+  color: red;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
 }

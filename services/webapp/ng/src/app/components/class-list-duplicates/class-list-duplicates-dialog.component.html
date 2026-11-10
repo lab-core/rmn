@@ -1,0 +1,35 @@
+<h2 mat-dialog-title>
+  <mat-icon>warning</mat-icon>
+  Étudiants dans plusieurs listes
+</h2>
+<mat-dialog-content>
+  <p>Ces étudiants sont dans plus d'une liste de classe. Corrigez les fichiers Moodle si c'est une erreur ;
+    en attendant, choisissez la liste de chacun : il sera retiré des autres.</p>
+  <table class="duplicates">
+    <thead>
+      <tr><th>Matricule</th><th>Nom</th><th>Liste</th></tr>
+    </thead>
+    <tbody>
+      @for (duplicate of data.duplicates; track duplicate.matricule) {
+        <tr>
+          <td>{{ duplicate.matricule }}</td>
+          <td>{{ duplicate.name }}</td>
+          <td>
+            <mat-select [attr.aria-label]="'Liste de ' + duplicate.name" placeholder="Choisir"
+                        [(value)]="assignments[duplicate.matricule]">
+              @for (list of duplicate.lists; track list) {
+                <mat-option [value]="list">{{ list }}</mat-option>
+              }
+            </mat-select>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-stroked-button class="cancel" (click)="dialogRef.close(undefined)">Annuler</button>
+  <button mat-flat-button class="confirm" color="primary" [disabled]="!complete()" (click)="confirm()">
+    Continuer
+  </button>
+</mat-dialog-actions>

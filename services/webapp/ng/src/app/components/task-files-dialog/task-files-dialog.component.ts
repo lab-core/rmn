@@ -10,11 +10,19 @@ import { SERVER_URL } from 'src/app/utils';
 import { first } from 'rxjs/operators';
 import { JobStatus } from '../../generated/rmn-contracts';
 
+/** A class list of a task given several: its name and its Moodle zips. */
+export interface ClassListFiles {
+  name: string;
+  zips: number[];
+}
+
 export interface DialogData {
   taskId: string;
   nbZipFile: number;
   stats: boolean;
   share?: boolean;
+  // a task given several class lists: the Moodle zips and the notes of each
+  lists?: ClassListFiles[];
 }
 
 @Component({
@@ -59,21 +67,31 @@ export class TaskFilesDialogComponent implements OnInit {
     if (index == 0) {
       value = "copies";
     } else {
-      value = "moodle";
-      if (index > 1) {
-        value += `-${index}`;
+      // a Moodle zip of one class list, named after it
+      const list = this.data.lists?.find((l) => l.zips.includes(index));
+      const position = list ? list.zips.indexOf(index) + 1 : index;
+      value = list ? `moodle-${list.name}` : "moodle";
+      if (position > 1) {
+        value += `-${position}`;
       }
     }
     return value;
   }
 
-  checkInputBox(inputId : string, share: boolean, index : number = undefined){
+  /** The id of the notes row of a class list (or of the task's notes). */
+  notesId(listIndex: number = undefined): string {
+    return listIndex === undefined ? 'notes_csv_file' : `notes_csv_file-list-${listIndex}`;
+  }
+
+  checkInputBox(inputId : string, share: boolean, index : number = undefined, listIndex: number = undefined){
     let inputValue : string;
 
     if(inputId === 'zip_file'){
       inputId = this.setZipIds(index);
       inputValue = (<HTMLInputElement>document.getElementById(inputId)).value;
       inputId = inputId.split('-index-')[0];
+    }else if (inputId === 'notes_csv_file') {
+      inputValue = (<HTMLInputElement>document.getElementById(this.notesId(listIndex))).value;
     }else{
       inputValue = (<HTMLInputElement>document.getElementById(inputId)).value;
     }
@@ -81,14 +99,14 @@ export class TaskFilesDialogComponent implements OnInit {
     if(inputValue.trim() === ""){
       this.showNotificationError();
     } else if (share) {
-      this.shareTask(inputValue, inputId, index);
+      this.shareTask(inputValue, inputId, index, listIndex);
     } else {
       // this.downloadFile(inputValue, inputId, index);
-      this.openShareURL(inputValue, inputId, index);
+      this.openShareURL(inputValue, inputId, index, listIndex);
     }
   }
 
-  async openShareURL(inputValue, inputId, index=undefined) {
+  async openShareURL(inputValue, inputId, index=undefined, listIndex: number = undefined) {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('job_id', this.data.taskId);
@@ -97,8 +115,12 @@ export class TaskFilesDialogComponent implements OnInit {
     if (index !== undefined) {
       formdata.append('zip_index', index.toString());
       filename = this.setDefaultZipValues(index) + '.zip';
-    } else if (filename == 'notes') {
-      filename = 'notes.csv';
+    } else if (inputId === 'notes_csv_file') {
+      if (listIndex !== undefined) {
+        formdata.append('list_index', listIndex.toString());
+      }
+      // a notes file renamed in the box used to be saved as .pdf
+      filename = filename.endsWith('.csv') ? filename : filename + '.csv';
     } else {
       filename += '.pdf';
     }
@@ -124,8 +146,9 @@ export class TaskFilesDialogComponent implements OnInit {
     });
   }
 
-  shareTask(inputValue, inputId, index=undefined) {
-    const data = { taskId: this.data.taskId, taskName: inputValue, file: inputId, shareType: 'file', zip_index: index}
+  shareTask(inputValue, inputId, index=undefined, listIndex: number = undefined) {
+    const data = { taskId: this.data.taskId, taskName: inputValue, file: inputId, shareType: 'file', zip_index: index,
+                   ...(listIndex !== undefined ? { list_index: listIndex } : {}) }
     this.dialog.open(TaskShareDialogComponent, {
       width: '30%',
       maxWidth: '400px',

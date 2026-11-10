@@ -11,6 +11,8 @@ import { first } from 'rxjs/operators';
 
 import { saveAs } from 'file-saver';
 import { csvLines, detectSeparator, splitCsvLine } from 'src/app/csv';
+import { MatDialog } from '@angular/material/dialog';
+import { ClassListAssignments, askClassListAssignments } from '../class-list-duplicates/class-list-duplicates-dialog.component';
 
 //DropBox API
 declare function dropboxFiles(): void;
@@ -29,7 +31,8 @@ declare function onedrivePickerCSV(): void;
 })
 export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy {
   copies: File;
-  csv: File;
+  // one Moodle export per assignment (a task can be given several)
+  csvs: File[] = [];
   firstFormGroup: any;
   secondFormGroup: any;
   thirdFormGroup: any;
@@ -96,7 +99,8 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     private renderer: Renderer2,
     private userService: UserService,
     private notifyService: NotificationService,
-    private _formBuilder: FormBuilder
+    private _formBuilder: FormBuilder,
+    private dialog: MatDialog
   ) {
     this.firstFormGroup = this._formBuilder.group({
       firstCtrl: ['', Validators.required],
@@ -340,7 +344,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
 
   getDropBoxUploadCSV() {
     if (this.csvName != "") {
-      this.csv = null;
+      this.csvs = [];
       this.csvName = "";
     }
 
@@ -355,7 +359,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
 
   getOneDriveUploadCSV() {
     if (this.csvName != "") {
-      this.csv = null;
+      this.csvs = [];
       this.csvName = "";
     }
 
@@ -424,10 +428,17 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       document.getElementById("csv-upload-label").innerHTML = "";
     }
 
+    // several files at once, or one after the other: one Moodle export per
+    // assignment, each added to the task's class lists
     const target = fileInput.target as HTMLInputElement;
-    const file: File = (target.files as FileList)[0];
+    for (const file of Array.from(target.files as FileList)) {
+      this.addCsv(file);
+    }
+  }
 
-    // Verify csv file
+  /** Check a csv and add it to the class lists (a file of the same name is
+   *  replaced). */
+  private addCsv(file: File) {
     const reader = new FileReader();
     reader.onload = () => {
       // Every line must have the header's number of fields; quoted separators
@@ -447,16 +458,21 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
       }
 
       if (validCSV) {
-        this.csv = file;
+        this.csvs = [...this.csvs.filter((f) => f.name !== file.name), file];
         this.reuseCsv = false;  // the upload replaces the source task's notes
-        this.setCSVName(file.name);
+        this.setCSVName(this.csvs.map((f) => f.name).join(", "));
         this.saveTask();
       } else {
-        this.csvName = "";
         this.notifyService.showError("Veuillez fournir un csv valide", "ERREUR");
       }
     };
     reader.readAsText(file);
+  }
+
+  /** Take a class list out of the task being defined. */
+  removeCsv(index: number) {
+    this.csvs = this.csvs.filter((_, i) => i !== index);
+    this.setCSVName(this.csvs.map((f) => f.name).join(", "));
   }
 
   setCSVName(csvName: string) {
@@ -493,10 +509,10 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   async convertDownloadableCSV() {
     if (this.getDropboxAttibute("csv-dropbox-input") != null) {
       const blob = await fetch(document.getElementById("csv-dropbox-input").getAttribute("value")).then(r => r.blob());
-      this.csv = new File([blob], document.getElementById("csv-upload-label").getAttribute("value"));
+      this.csvs = [new File([blob], document.getElementById("csv-upload-label").getAttribute("value"))];
     } else if (this.getOneDriveAttibute("csv-onedrive-input") != null) {
       const blob = await fetch(document.getElementById("csv-onedrive-input").getAttribute("value")).then(r => r.blob());
-      this.csv = new File([blob], document.getElementById("csv-upload-label").getAttribute("value"));
+      this.csvs = [new File([blob], document.getElementById("csv-upload-label").getAttribute("value"))];
     }
   }
 
@@ -625,13 +641,29 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
           this.statisticsForStudents = false;
         }
         // what is reused is not sent: the server copies it from the source
-        await this.tasksService.addTask(this.reuseCopies ? null : this.copies,
-                                        this.reuseCsv ? null : this.csv,
-                                        this.selectedFrontTemplate, this.selectedRegularTemplate,
-                                        this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName,
-                                        front_template_name, regular_template_name, this.statisticsForStudents,
-                                        this.validateMatricule, this.sourceTask ? this.sourceTask.id : null,
-                                        this.sourceShareToken);
+        const send = (assignments: ClassListAssignments = null) => this.tasksService.addTask(
+          this.reuseCopies ? null : this.copies,
+          this.reuseCsv ? null : this.csvs,
+          this.selectedFrontTemplate, this.selectedRegularTemplate,
+          this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName,
+          front_template_name, regular_template_name, this.statisticsForStudents,
+          this.validateMatricule, this.sourceTask ? this.sourceTask.id : null,
+          this.sourceShareToken, assignments);
+        try {
+          await send();
+        } catch (error) {
+          // a student in several class lists: ask which one, and send again
+          const assignments = await askClassListAssignments(this.dialog, error);
+          if (assignments === null) {
+            throw error;
+          }
+          if (assignments === undefined) {
+            this.uploading = false;
+            this.notifyService.showInfo("La tâche n'a pas été créée.", "Listes de classe");
+            return;
+          }
+          await send(assignments);
+        }
         this.removeTask();
         this.doNotSaveTask = true;
         this.reroute();
@@ -779,7 +811,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   /** Stop reusing the notes of the source task; another csv must be given. */
   dropReusedCsv(): void {
     this.reuseCsv = false;
-    this.csv = undefined;
+    this.csvs = [];
     this.csvName = "";
   }
 

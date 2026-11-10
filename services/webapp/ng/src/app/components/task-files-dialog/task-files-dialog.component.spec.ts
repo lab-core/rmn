@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef, MatDialogConfig } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
@@ -76,6 +76,34 @@ describe('TaskFilesDialogComponent', () => {
     http.expectNone('/api/files/share');
   });
 
+  it('names the Moodle zips and the notes of each class list of a task given several', async () => {
+    create({ nbZipFile: 4, stats: false, lists: [{ name: 'A', zips: [1] }, { name: 'B', zips: [2, 3] }] });
+    expect(inputs().map(i => [i.id, i.value])).toEqual([
+      ['zip_file-index-0', 'copies'],
+      ['zip_file-index-1', 'moodle-A'],
+      ['zip_file-index-2', 'moodle-B'],
+      ['zip_file-index-3', 'moodle-B-2'],
+      ['notes_csv_file-list-0', 'notes-A'],
+      ['notes_csv_file-list-1', 'notes-B'],
+    ]);
+
+    spyOn(HTMLAnchorElement.prototype, 'click');
+    component.checkInputBox('notes_csv_file', false, undefined, 1);
+    const req = http.expectOne('/api/files/share');
+    const form = req.request.body as FormData;
+    expect(form.get('file')).toBe('notes_csv_file');
+    expect(form.get('list_index')).toBe('1');
+    req.flush({ response: { share_url: 'https://rmn/f?x' } });
+    await settle();
+    const anchor = fixture.nativeElement.querySelector('#download-file') as HTMLAnchorElement;
+    expect(anchor.getAttribute('download')).toBe('notes-B.csv');
+
+    const open = spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of(undefined) } as unknown as MatDialogRef<unknown>);
+    component.checkInputBox('notes_csv_file', true, undefined, 0);
+    expect((open.calls.mostRecent().args[1] as MatDialogConfig).data).toEqual(jasmine.objectContaining(
+      { file: 'notes_csv_file', list_index: 0, taskName: 'notes-A' }));
+  });
+
   it('downloads through a share link carrying the chosen file name', async () => {
     create({});
     const click = spyOn(HTMLAnchorElement.prototype, 'click');
@@ -108,7 +136,7 @@ describe('TaskFilesDialogComponent', () => {
 
   it('share opens the share dialog and relays its outcome', () => {
     create({});
-    spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of({ success: true, message: 'Le lien a été copié' }) } as any);
+    spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of({ success: true, message: 'Le lien a été copié' }) } as unknown as MatDialogRef<unknown>);
 
     component.checkInputBox('zip_file', true, 0);
 
@@ -117,7 +145,7 @@ describe('TaskFilesDialogComponent', () => {
     }));
     expect(notification.showSuccess).toHaveBeenCalledWith('Le lien a été copié', 'Succès!');
 
-    (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of({ success: false, message: 'nope' }) } as any);
+    (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of({ success: false, message: 'nope' }) } as unknown as MatDialogRef<unknown>);
     component.checkInputBox('notes_csv_file', true);
     expect(notification.showError).toHaveBeenCalledWith('nope', 'Erreur!');
   });
@@ -156,11 +184,11 @@ describe('TaskFilesDialogComponent', () => {
 
   it('says nothing when the share dialog is closed without an outcome', () => {
     create({});
-    spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of(undefined) } as any);
+    spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of(undefined) } as unknown as MatDialogRef<unknown>);
     component.checkInputBox('notes_csv_file', true);
-    (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of({ success: true }) } as any);
+    (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of({ success: true }) } as unknown as MatDialogRef<unknown>);
     component.checkInputBox('notes_csv_file', true);
-    (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of({ success: false }) } as any);
+    (dialog.open as jasmine.Spy).and.returnValue({ afterClosed: () => of({ success: false }) } as unknown as MatDialogRef<unknown>);
     component.checkInputBox('notes_csv_file', true);
     expect(notification.showSuccess).not.toHaveBeenCalled();
     expect(notification.showError).not.toHaveBeenCalled();

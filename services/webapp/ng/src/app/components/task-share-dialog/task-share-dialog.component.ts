@@ -26,6 +26,8 @@ export interface DialogData {
   questionIndex?: number;
   file?: string;
   zip_index?: number;
+  // the notes of one class list of a task given several
+  list_index?: number;
   all?: boolean;
 }
 
@@ -70,6 +72,9 @@ export class TaskShareDialogComponent implements OnInit {
     }
     if (this.data.zip_index !== undefined) {
       formdata.append('zip_index', this.data.zip_index.toString());
+    }
+    if (this.data.list_index !== undefined) {
+      formdata.append('list_index', this.data.list_index.toString());
     }
 
     await this.http.post<any>(`${SERVER_URL}${SHARE_ROUTES[this.data.shareType]}/share`, formdata)
