@@ -337,3 +337,55 @@ tbody td {
   display: inline-flex;
   align-items: center;
 }
+
+/* the statistics table scrolls sideways when the screen is narrower */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* tablets and phones: the task takes the width, below the menu */
+@media (max-width: 900px) {
+  /* room on the left for the back strip */
+  .task-container {
+    width: calc(100% - 56px);
+    height: 90vh;
+    margin-top: 10vh;
+    margin-left: 40px;
+    font-size: 1em;
+  }
+
+  .back-button {
+    width: 40px;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .checkbox-container {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .checkbox-container label {
+    white-space: normal;
+  }
+
+  /* the search row wraps: the search box, then the buttons */
+  .select-index-container {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .index-input-div {
+    flex: 1 1 140px;
+    margin-right: 0;
+  }
+
+  .select-index-button {
+    margin-left: 0;
+  }
+
+  .select-index-container>p {
+    margin: 0 8px 0 0;
+  }
+}

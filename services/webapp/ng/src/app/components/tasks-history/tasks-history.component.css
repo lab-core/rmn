@@ -49,11 +49,6 @@ app-main-menu {
 }
 
 /* below that, the table needs the margins to keep its buttons in sight */
-@media (max-width: 1100px) {
-    .container_tasks {
-        width: 96%;
-    }
-}
 
 mat-form-field {
     font-size: 14px;
@@ -254,4 +249,22 @@ mat-progress-spinner {
   font-size: 13px;
   font-weight: 500;
   color: #1976d2;
+}
+
+/* below that, the table needs the margins to keep its buttons in sight */
+@media (max-width: 1100px) {
+    .container_tasks {
+        width: 96%;
+    }
+}
+
+/* phones: the filter takes the width, below the menu */
+@media (max-width: 600px) {
+    .tasks-history-container {
+        margin-top: 10vh;
+    }
+
+    .filter mat-form-field {
+        width: calc(100% - 32px);
+    }
 }

@@ -53,6 +53,8 @@
 }
     <div class="task-content">
       @if (task) {
+<!-- wider than a phone: the table scrolls on its own, the buttons stay put -->
+<div class="table-scroll">
 <table>
         <thead>
           <tr>
@@ -167,6 +169,7 @@
           </tr>
         </tbody>
       </table>
+</div>
 }
       @if (loggued() && !shared() && !disableButtons) {
 <div class="validate-job-container">

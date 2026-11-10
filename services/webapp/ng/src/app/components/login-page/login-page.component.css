@@ -1,75 +1,59 @@
- .background {
-    min-height: 100%;
-    background-image: url("~src/assets/background-gradient.png");
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: cover;
+/* the gradient covers the viewport behind the page, dimmed */
+.background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: url("~src/assets/background-gradient.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: brightness(70%);
+  opacity: 0.9;
+}
 
-    height: 100%;
-    filter: brightness(70%);
-    opacity: 0.9;
-  }
+/* the card centered, scrolling when the screen is shorter than it */
+.login-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-  mat-card {
-    /*background-color:  rgba(0, 0, 0, 0.255);*/
-    border: 1px inset rgb(157, 156, 157);
-    border-style: solid;
-    border-radius: 50px;
-    position: absolute;
-    top:0;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    margin: auto;
-    text-align: center;
-    padding: 0;
+/* the avatar overlaps the top of the card */
+.login-box {
+  width: min(100%, 560px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
-
-    box-shadow: 0 5px 10px 0px rgb(0 0 0 / 10%);
-    -moz-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.1);
-    -webkit-box-shadow: 0 5px 10px 0px rgb(0 0 0 / 10%);
-    -o-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.1);
-    -ms-box-shadow: 0 5px 10px 0px rgba(0, 0, 0, 0.1);
-  }
-
-
-  @media screen and (min-width: 1024px) and (max-width: 1366px) {
-      mat-card {
-          width : 45%;
-          height : 40%;
-      }
-
-      #logo {
-        top: -45%;
-      }
-  }
-
-
-  @media screen and (max-width: 1023px), (min-width: 1367px) {
-      mat-card {
-          width : 25%;
-          height : 60%;
-      }
-
-      #logo {
-        top: -65%;
-      }
-  }
+mat-card {
+  width: 100%;
+  border: 1px solid rgb(157, 156, 157);
+  border-radius: 50px;
+  text-align: center;
+  padding: 0;
+  box-shadow: 0 5px 10px 0px rgb(0 0 0 / 10%);
+}
 
   mat-card-title{
     background-color: #1aebb6;
-    padding: 45px;
+    padding: 80px 24px 30px;
     color:#000000;
     border-top-left-radius: 50px;
     border-top-right-radius: 50px;
-    font-size: 250%;
+    font-size: clamp(1.5rem, 7vw, 2.5rem);
+    line-height: 1.2;
     font-weight: 100;
     text-align: center;
   }
 
   mat-card-content{
     /*background-color:  rgba(255, 255, 255, 0.15);*/
-    padding: 10%;
+    padding: 8% 16px;
   }
 
   mat-form-field{
@@ -81,14 +65,15 @@
   } */
   .login-button{
     margin-top: 8%;
-    padding: 6%;
+    padding: 12px;
     border-radius: 10px;
     font-weight: 500;
     width: 80%;
-    height: 100%;
+    height: auto;
+    min-height: 56px;
     background-color: #0051ff;
     color: white;
-    font-size: 185%;
+    font-size: clamp(1.1rem, 5vw, 1.85rem);
     transition: 0.3s;
 
 
@@ -110,12 +95,11 @@
   }
 
   #logo{
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    margin: auto;
+    position: relative;
     z-index: 2;
+    max-width: 40%;
+    height: auto;
+    margin-bottom: -70px;
   }
 
   .icon-display {

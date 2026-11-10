@@ -133,3 +133,52 @@
     flex-direction: column;
     align-items: center;
 }
+
+/* narrower screens: the entries share the full width, smaller */
+@media (max-width: 900px) {
+    .buttons-container {
+        width: 100%;
+        padding: 0 4px;
+        box-sizing: border-box;
+    }
+
+    .buttons-container > div,
+    .disconnect-button {
+        flex: 1 1 0;
+        width: auto;
+        min-width: 0;
+    }
+
+    .buttons-container .menu-entry > mat-icon,
+    .disconnect-button .menu-entry > mat-icon {
+        height: 32px;
+        width: 32px;
+        font-size: 32px;
+    }
+
+    .buttons-container .menu-entry > span,
+    .disconnect-button .menu-entry > span {
+        font-size: 12px;
+        line-height: 1.1;
+    }
+}
+
+/* phones: icons only, the labels stay for screen readers (and in the tooltips) */
+@media (max-width: 600px) {
+    .buttons-container .menu-entry > mat-icon,
+    .disconnect-button .menu-entry > mat-icon {
+        height: 28px;
+        width: 28px;
+        font-size: 28px;
+    }
+
+    .buttons-container .menu-entry > span,
+    .disconnect-button .menu-entry > span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}

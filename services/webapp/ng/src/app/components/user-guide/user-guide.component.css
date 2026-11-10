@@ -109,3 +109,47 @@ app-main-menu {
 .guide-error {
   color: #b00020;
 }
+
+/* a wide table of a chapter scrolls on its own */
+.guide-content ::ng-deep table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* tablets and phones: the chapters in a strip above the text */
+@media (max-width: 900px) {
+  .guide-panel {
+    top: calc(10vh + 8px);
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    flex-direction: column;
+  }
+
+  .guide-toc {
+    flex: 0 0 auto;
+    padding: 8px;
+    border-right: none;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .guide-toc h2 {
+    display: none;
+  }
+
+  .guide-toc ul {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+  }
+
+  .guide-toc a {
+    white-space: nowrap;
+  }
+
+  .guide-content {
+    padding: 8px 16px 24px;
+    overflow-wrap: break-word;
+  }
+}

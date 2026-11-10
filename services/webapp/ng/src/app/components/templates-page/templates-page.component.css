@@ -67,7 +67,7 @@ app-main-menu {
 }
 
 
-@media screen and (max-width: 1023px), (min-width: 1367px) {
+@media screen and (min-width: 1367px) {
     .templates-container {
         width: 40%;
         margin-top: 10%;
@@ -205,4 +205,56 @@ app-main-menu {
 .delete-icon:hover {
     cursor: pointer;
     transform: scale(1.1,1.1);
+}
+
+/* tablets and phones: the list takes the width, the rows grow with their title */
+@media screen and (max-width: 1023px) {
+    .templates-container {
+        width: calc(100% - 32px);
+        max-width: 640px;
+        margin-top: 10%;
+    }
+
+    .template-container {
+        height: auto;
+        min-height: 56px;
+    }
+
+    .template-title {
+        padding: 8px 0;
+        overflow-wrap: anywhere;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .templates-search-create {
+        height: auto;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 0;
+    }
+
+    .templates-search-create > mat-form-field {
+        width: 100%;
+    }
+
+    .filter-field {
+        margin-bottom: 0;
+    }
+
+    .create-new-button {
+        width: 100%;
+        height: 40px;
+        margin-left: 0;
+    }
+
+    .templates-header {
+        height: 48px;
+    }
+
+    .template-title,
+    .templates-header-title,
+    .templates-header-actions {
+        font-size: 16px;
+    }
 }

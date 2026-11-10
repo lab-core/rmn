@@ -492,3 +492,30 @@ mat-spinner {
   display: inline-flex;
   align-items: center;
 }
+
+/* tablets and phones: the wizard takes the width, below the menu */
+@media (max-width: 900px) {
+    .stepper_horizontal {
+        width: calc(100% - 32px);
+        margin-top: calc(10vh + 16px);
+    }
+
+    ::ng-deep .stepper_horizontal .mat-horizontal-content-container {
+        padding: 0 8px 16px;
+    }
+
+    ::ng-deep .stepper_horizontal .mat-horizontal-stepper-header {
+        padding: 0 8px;
+    }
+}
+
+/* phones: only the current step keeps its label in the header */
+@media (max-width: 600px) {
+    ::ng-deep .stepper_horizontal .mat-step-label:not(.mat-step-label-selected) {
+        display: none;
+    }
+
+    ::ng-deep .stepper_horizontal .mat-stepper-horizontal-line {
+        min-width: 8px;
+    }
+}
