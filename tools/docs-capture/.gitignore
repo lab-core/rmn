@@ -1,4 +1,4 @@
 demo/
 frames/
 .cache/
-node_modules/
+node_modules

@@ -30,7 +30,7 @@ deployment/secrets.yml
 
 # local runtime data and build output
 storage/
-node_modules/
+node_modules
 .angular/
 services/executor/tmp_*/
 services/server/temp/
