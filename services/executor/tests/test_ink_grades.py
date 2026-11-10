@@ -212,14 +212,15 @@ def test_the_enclosing_circle_is_told_from_the_digits():
 # stayed in as a digit, and 4.75 came back as 6.975 on the autumn 2026 Q5.
 def test_the_upright_of_a_four_is_not_taken_for_a_separator():
     """A dot beats a hairline, wherever each sits in the stroke list."""
+
     def stroke(x0, y0, x1, y1, steps=8):
         xs = np.linspace(x0, x1, steps)
         ys = np.linspace(y0, y1, steps)
         return ink_grades.Stroke(points=np.stack([xs, ys], axis=1))
 
     diagonal = stroke(0.0, 0.0, 5.0, 11.5)
-    upright = stroke(5.0, 4.0, 5.2, 11.6)   # the bar of the 4: a hairline
-    point = stroke(7.5, 17.4, 7.9, 17.8)    # the decimal point, low and tiny
+    upright = stroke(5.0, 4.0, 5.2, 11.6)  # the bar of the 4: a hairline
+    point = stroke(7.5, 17.4, 7.9, 17.8)  # the decimal point, low and tiny
     seven = stroke(10.0, 2.0, 13.7, 17.7)
     five = stroke(16.0, 2.0, 22.9, 12.7)
     members = [diagonal, upright, point, seven, five]
@@ -234,6 +235,7 @@ def test_the_upright_of_a_four_is_not_taken_for_a_separator():
 
 def test_a_comma_is_still_the_separator_when_no_dot_was_written():
     """The hairline rule stays: a comma is what a French grader writes."""
+
     def stroke(x0, y0, x1, y1, steps=8):
         xs = np.linspace(x0, x1, steps)
         ys = np.linspace(y0, y1, steps)
@@ -643,3 +645,151 @@ def test_the_2026_corpus_is_read_and_graded_for_trust(
     reading, _ = _read(entry, classifier)
     assert reading.grade == expected
     assert reading.confident is confident
+
+
+# ------------------------------------------------- MTH1007 autumn 2026 marks --
+# MTH1007 autumn 2026: every question had its own grader, and most wrote the
+# grade as a fraction over the question's maximum -- "7/10" with the slash
+# straight up, "7,5/8" on a diagonal, "0.75/5" in a wide circle. These are the
+# graders' strokes only: the ink annotations of the grade mark, replayed on a
+# blank page, with no scan and no student. Before these rules, under half of
+# Q1 was read right and a quarter of what was prefilled was wrong; Q5's "x/8"
+# mostly came back as a confident 8.
+GRADE_MARKS = json.load(open(os.path.join(FIXTURE_DIR, "grade_marks.json")))
+
+
+def _blank_page_with(strokes):
+    """A blank page carrying ``strokes`` as one ink annotation."""
+    width, height = GRADE_MARKS["page_size"]
+    doc = pymupdf.open()
+    page = doc.new_page(width=width, height=height)
+    page.add_ink_annot([[tuple(point) for point in stroke] for stroke in strokes])
+    return doc
+
+
+def _read_mark(name, classifier):
+    mark = GRADE_MARKS["marks"][name]
+    with _blank_page_with(mark["strokes"]) as doc:
+        candidates = ink_grades.grade_candidates(doc[0], mark["max_points"])
+        return ink_grades.pick(
+            candidates, tuple(mark["modal"]), mark["max_points"], classifier
+        )
+
+
+@pytest.mark.parametrize("name", sorted(GRADE_MARKS["marks"]))
+def test_a_grade_written_as_a_fraction_reads_its_numerator(name, classifier):
+    mark = GRADE_MARKS["marks"][name]
+    reading = _read_mark(name, classifier)
+    if mark["expected"] is not None:
+        assert reading.grade == mark["expected"], mark["note"]
+    assert reading.confident == mark["confident"], mark["note"]
+
+
+def test_the_upright_of_a_decimal_four_is_not_a_fraction_slash():
+    """ "4.5" on a question out of 5 must not become 4 over 5.
+
+    The upright of the 4 is as tall and as straight as an upright slash, and
+    the "5" after it reads as the maximum; what gives it away is the decimal
+    point on its right, where a fraction never has one.
+    """
+
+    def stroke(x0, y0, x1, y1, steps=8):
+        xs = np.linspace(x0, x1, steps)
+        ys = np.linspace(y0, y1, steps)
+        return ink_grades.Stroke(points=np.stack([xs, ys], axis=1))
+
+    diagonal = stroke(0.0, 0.0, 4.0, 11.5)
+    upright = stroke(5.0, 0.0, 5.2, 17.0)
+    point = stroke(7.5, 17.4, 7.9, 17.8)
+    five = stroke(10.0, 2.0, 16.9, 12.7)
+    members = [diagonal, upright, point, five]
+    box = ink_grades._union([s.bbox for s in members])
+
+    assert ink_grades.slash_splits(members, box) == []
+
+
+def test_a_speck_is_not_a_digit():
+    """Where the pen touched down by the "10": rendered, it is a third digit."""
+    one = _stroke([(0, 0), (0, 20)])
+    zero = _stroke([(6, 0), (14, 0), (14, 20), (6, 20), (6, 0)])
+    speck = _stroke([(18, 2), (18.5, 2.2)])
+    kept = ink_grades._without_specks([one, zero, speck])
+    assert kept == [one, zero]
+    # a mark made of nothing but specks is left alone
+    assert ink_grades._without_specks([speck]) == [speck]
+
+
+def test_a_mark_away_from_the_learned_position_is_never_confident(classifier):
+    """When the mark at the position cannot be read, the next one is a guess.
+
+    On one copy the circled "8/10" failed and the page was graded 1, at full
+    confidence, off a tick in the body of the answer.
+    """
+    at_position = ink_grades.Candidate(
+        bbox=(260, 20, 300, 40), text="u:1/2", page_size=(612.0, 792.0)
+    )
+    far = ink_grades.Candidate(
+        bbox=(195, 290, 205, 350),
+        number_strokes=[_vertical_stroke(200.0, 290.0, 350.0)],
+        page_size=(612.0, 792.0),
+    )
+    reading = ink_grades.pick([at_position, far], (0.45, 0.04), 10.0, classifier)
+    assert reading.grade is not None
+    assert reading.confidence <= ink_grades.NO_PRIOR_CEILING
+
+
+def test_a_repaired_reading_is_halved_from_a_real_probability():
+    """The combinations' truncated bonus sums near 2; halving that is 1."""
+    probability, value, _ = ink_grades._bounded([(1.99, 55.1)], 10.0)
+    assert value <= 10.0
+    assert probability <= 0.5
+
+
+def test_a_leading_zero_is_read_as_the_decimal_point_that_was_lost(classifier):
+    """Nobody writes a grade "05": a point after the 0 was not seen."""
+    zero = [_stroke([(0, 0), (8, 0), (8, 20), (0, 20), (0, 0)])]
+    five = [_stroke([(22, 0), (14, 0), (14, 9), (22, 11), (22, 20), (14, 20)])]
+    readings = ink_grades.read_number(zero + five, None, classifier, stage=False)
+    assert readings
+    assert all(value < 1 for _, value in readings)
+
+
+@pytest.mark.parametrize(
+    "value, allowed",
+    [
+        (7.0, True),
+        (7.5, True),
+        (0.25, True),
+        (5.75, True),
+        (0.97, False),
+        (9.51, False),
+    ],
+)
+def test_only_the_allowed_decimals_are_a_grade(value, allowed):
+    assert ink_grades._allowed_decimals(value) == allowed
+
+
+def test_a_one_inside_a_number_is_a_digit_when_the_separators_are_known():
+    """The scan pipeline may cut "3 1 5" at the "1", taking it for a slash.
+
+    The ink reader knows its separators from the strokes and turns that off:
+    the comma of "3,5" read as a 1 had made the grade 3.
+    """
+    digits = [(None, [(1.0, 3)]), (None, [(1.0, 1)]), (None, [(1.0, 5)])]
+    truncated = recognize.process_digits_combinations(digits, 3)
+    kept = recognize.process_digits_combinations(digits, 3, truncate=False)
+    assert any(value == 3 for _, value in truncated)
+    assert all(value == 315 for _, value in kept)
+
+
+def test_touching_digits_are_cut_apart_by_their_strokes():
+    """Two digits drawn into each other are two contours, a 4 stays one."""
+    seven = _stroke([(0, 0), (10, 0), (6, 20)])
+    five = _stroke([(18, 0), (8, 0), (8, 9), (18, 11), (18, 20), (6, 18)])
+    _, _, contours, _ = ink_grades.render_number([seven, five])
+    assert len(contours) == 2
+
+    four_arm = _stroke([(6, 0), (0, 12), (10, 12)])
+    four_stem = _stroke([(8, 4), (8.5, 20)])
+    _, _, contours, _ = ink_grades.render_number([four_arm, four_stem])
+    assert len(contours) == 1
