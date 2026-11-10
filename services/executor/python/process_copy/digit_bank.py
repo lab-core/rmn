@@ -37,7 +37,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from hashlib import sha1
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from rmn_common import digit_models, settings
 
@@ -599,19 +599,21 @@ def purge_job(storage: Any, job_id: str, dry_run: bool = False) -> Dict[str, int
                 removed.append(entry)
             else:
                 kept_lines.append(line)
-                still_used.add(entry.get("sha1"))
+                still_used.add(_sample_key(entry))
     files = 0
     for entry in removed:
-        if entry.get("sha1") in still_used:
+        # a file is its label and its pixels: the same image filed under
+        # another label is another file, and keying on the pixels alone left
+        # 290 samples of purged jobs on the share with no line of their own
+        key = _sample_key(entry)
+        if key in still_used:
             continue
-        path = os.path.join(
-            _label_dir(storage, str(entry["label"])), f"{entry['sha1']}.png"
-        )
+        path = os.path.join(_label_dir(storage, key[0]), f"{key[1]}.png")
         if os.path.exists(path):
             files += 1
             if not dry_run:
                 os.remove(path)
-        still_used.add(entry.get("sha1"))  # a duplicate line of this job
+        still_used.add(key)  # a duplicate line of this job
     if not dry_run and removed:
         temporary = f"{index}.{uuid.uuid4().hex}.tmp"
         with open(temporary, "w") as f:
@@ -620,6 +622,50 @@ def purge_job(storage: Any, job_id: str, dry_run: bool = False) -> Dict[str, int
             )
         os.replace(temporary, index)
     return {"lines": len(removed), "files": files}
+
+
+def _sample_key(entry: Dict[str, Any]) -> Tuple[str, str]:
+    """``(label, sha1)``: what names a sample file, ``samples/<label>/<sha1>.png``."""
+    return str(entry.get("label")), str(entry.get("sha1"))
+
+
+def prune(storage: Any, dry_run: bool = False) -> List[str]:
+    """Delete the sample files no line of the index names.
+
+    Training reads the files, not the index, so a file left without a line --
+    by an interrupted purge, or by the purge that keyed files on their pixels
+    alone -- is still trained on though nothing says where it came from.
+
+    Args:
+        storage: The storage holding the bank.
+        dry_run: List without deleting.
+
+    Returns:
+        The storage-relative paths of the files deleted, or to delete.
+    """
+    root = storage.abs_path(SAMPLES_DIR)
+    index = storage.abs_path(INDEX_FILE)
+    if not os.path.isdir(root):
+        return []
+    named = set()
+    if os.path.exists(index):
+        with open(index) as f:
+            for line in f:
+                try:
+                    named.add(_sample_key(json.loads(line)))
+                except ValueError:
+                    continue
+    orphans = []
+    for label in sorted(os.listdir(root)):
+        directory = os.path.join(root, label)
+        if not label.isdigit() or not os.path.isdir(directory):
+            continue
+        for name in sorted(os.listdir(directory)):
+            if name.endswith(".png") and (label, name[: -len(".png")]) not in named:
+                orphans.append(os.path.join(SAMPLES_DIR, label, name))
+                if not dry_run:
+                    os.remove(os.path.join(directory, name))
+    return orphans
 
 
 def _read_digit(meta: Dict[str, Any], position: int) -> Optional[int]:

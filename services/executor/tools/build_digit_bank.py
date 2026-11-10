@@ -14,6 +14,7 @@ Usage:
     python tools/build_digit_bank.py rebuild --job <job_id> --dry-run
     python tools/build_digit_bank.py rebuild --job <job_id>
     python tools/build_digit_bank.py purge --job <job_id>
+    python tools/build_digit_bank.py prune --dry-run
 
 ``rebuild`` replaces a job's samples with what the reader as it is now makes
 of the pages a human graded -- for a job banked by a reader that has since
@@ -88,6 +89,15 @@ def purge(args, storage) -> None:
     counts = digit_bank.purge_job(storage, args.job, dry_run=args.dry_run)
     verb = "would remove" if args.dry_run else "removed"
     print(f"{args.job}: {verb} {counts['lines']} index lines, {counts['files']} files")
+
+
+def prune(args, storage) -> None:
+    """Delete the sample files no index line names."""
+    orphans = digit_bank.prune(storage, dry_run=args.dry_run)
+    for path in orphans:
+        print(" ", path)
+    verb = "would delete" if args.dry_run else "deleted"
+    print(f"{verb} {len(orphans)} files without an index line")
 
 
 def rebuild(args, storage) -> None:
@@ -176,6 +186,9 @@ def main(argv=None) -> int:
     p_purge.add_argument("--job", required=True)
     p_purge.add_argument("--dry-run", action="store_true", help="count only")
 
+    p_prune = sub.add_parser("prune", help="delete sample files no index line names")
+    p_prune.add_argument("--dry-run", action="store_true", help="list only")
+
     p_rebuild = sub.add_parser(
         "rebuild", help="re-read a job's graded pages and replace its samples"
     )
@@ -211,6 +224,8 @@ def main(argv=None) -> int:
         promote(args, storage)
     elif args.command == "purge":
         purge(args, storage)
+    elif args.command == "prune":
+        prune(args, storage)
     elif args.command == "rebuild":
         rebuild(args, storage)
     elif args.command == "export":
