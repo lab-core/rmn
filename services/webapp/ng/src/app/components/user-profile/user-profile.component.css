@@ -172,3 +172,37 @@ app-main-menu {
   color: #b00020;
 }
 
+
+/* phones: the card below the menu, as tall as its content */
+@media (max-width: 600px) {
+  mat-card {
+    width: calc(100% - 32px);
+    height: auto;
+    margin-top: calc(10vh + 16px);
+    margin-bottom: 16px;
+    border-radius: 30px;
+  }
+
+  mat-card-title {
+    padding: 30px 16px;
+    font-size: clamp(1.5rem, 8vw, 2.5rem);
+    border-top-left-radius: 30px;
+    border-top-right-radius: 30px;
+  }
+
+  .info-container {
+    width: 100%;
+  }
+
+  .text-box-definition,
+  .text-box,
+  .text-box-check {
+    width: 50%;
+    font-size: 16px;
+  }
+
+  .buttons-container {
+    width: auto;
+    margin-bottom: 16px;
+  }
+}

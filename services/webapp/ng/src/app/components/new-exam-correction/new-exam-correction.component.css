@@ -509,3 +509,70 @@ mat-spinner {
   display: block;
   color: #555;
 }
+
+/* tablets and phones: the wizard takes the width, below the menu */
+@media (max-width: 900px) {
+    .stepper_horizontal {
+        width: calc(100% - 32px);
+        margin-top: calc(10vh + 16px);
+    }
+
+    ::ng-deep .stepper_horizontal .mat-horizontal-content-container {
+        padding: 0 8px 16px;
+    }
+
+    ::ng-deep .stepper_horizontal .mat-horizontal-stepper-header {
+        padding: 0 8px;
+    }
+}
+
+/* phones: only the current step keeps its label in the header; the other
+   steps keep the width of their number, the current label shrinks */
+@media (max-width: 600px) {
+    ::ng-deep .stepper_horizontal .mat-step-label:not(.mat-step-label-selected) {
+        display: none;
+    }
+
+    ::ng-deep .stepper_horizontal .mat-horizontal-stepper-header {
+        flex: none;
+        padding: 0 4px;
+    }
+
+    ::ng-deep .stepper_horizontal .mat-horizontal-stepper-header[aria-selected="true"] {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    /* Material pulls the lines under its 24px header padding: none here */
+    ::ng-deep .stepper_horizontal .mat-stepper-horizontal-line {
+        min-width: 8px;
+        margin: 0;
+    }
+
+    ::ng-deep .stepper_horizontal .mat-horizontal-stepper-header[aria-selected="true"] .mat-step-label {
+        min-width: 0;
+    }
+
+    /* the number of questions: room for two digits */
+    #nQuestions-input {
+        width: 5em;
+        padding: 8px;
+    }
+
+    /* the questions table fits the screen: tighter cells, inputs that shrink */
+    .questions-table th, .questions-table td {
+        padding: 6px 4px;
+        font-size: 14px;
+    }
+
+    .questions-table td input[type=number] {
+        min-width: 0;
+        padding: 6px 4px;
+    }
+
+    .number-pages-container {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}

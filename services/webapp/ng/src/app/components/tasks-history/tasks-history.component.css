@@ -49,11 +49,6 @@ app-main-menu {
 }
 
 /* below that, the table needs the margins to keep its buttons in sight */
-@media (max-width: 1100px) {
-    .container_tasks {
-        width: 96%;
-    }
-}
 
 mat-form-field {
     font-size: 14px;
@@ -254,4 +249,105 @@ mat-progress-spinner {
   font-size: 13px;
   font-weight: 500;
   color: #1976d2;
+}
+
+/* below that, the table needs the margins to keep its buttons in sight */
+@media (max-width: 1100px) {
+    .container_tasks {
+        width: 96%;
+    }
+}
+
+/* tablets: the action buttons keep their icon only (the title names them) */
+@media (max-width: 1180px) {
+    .button-cell .button-label {
+        display: none;
+    }
+
+    .button-cell {
+        min-width: 0;
+        padding: 0 10px;
+    }
+
+    .button-cell mat-icon {
+        margin: 0;
+    }
+
+    td {
+        font-size: 15px;
+    }
+
+    th {
+        font-size: 14px;
+    }
+}
+
+/* phones: the filter takes the width, below the menu */
+@media (max-width: 600px) {
+    .tasks-history-container {
+        margin-top: 10vh;
+    }
+
+    .filter mat-form-field {
+        width: calc(100% - 32px);
+    }
+}
+
+/* narrow screens: each task is a card, a value beside its column name, the
+   actions on one line at the bottom */
+@media (max-width: 760px) {
+    /* the tbody comes from mat-table's template: no attribute of this component */
+    .container_elements,
+    .container_elements ::ng-deep tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .container_elements tr.element-header-row {
+        display: none;
+    }
+
+    .container_elements tr.element-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 4px 8px;
+        height: auto;
+        padding: 10px 12px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .container_elements tr.element-row td {
+        flex: 1 0 100%;
+        width: auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 2px 0;
+        border: none;
+        text-align: right;
+        overflow-wrap: anywhere;
+    }
+
+    .container_elements tr.element-row td[data-label]::before {
+        content: attr(data-label);
+        flex: none;
+        font-weight: 500;
+        color: #555;
+        text-align: left;
+    }
+
+    /* the empty informations of most tasks take no line */
+    .container_elements tr.element-row td.mat-column-job_infos:empty,
+    .container_elements tr.element-row td.mat-column-job_infos:not(:has(*)) {
+        display: none;
+    }
+
+    .container_elements tr.element-row td.mat-column-job_deletion,
+    .container_elements tr.element-row td.mat-column-job_duplicate,
+    .container_elements tr.element-row td.mat-column-job_share {
+        flex: 0 0 auto;
+        padding-top: 6px;
+    }
 }

@@ -133,6 +133,11 @@ export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
     }
   }
 
+  /** Opens a chapter picked in the dropdown of the narrow screens. */
+  openChapter(chapter: GuideChapter): void {
+    this.router.navigate(['/user-guide', chapter.file]);
+  }
+
   /** Links between chapters stay in the app; the others open in a new tab. */
   onContentClick(event: MouseEvent): void {
     const anchor = (event.target as HTMLElement).closest('a');

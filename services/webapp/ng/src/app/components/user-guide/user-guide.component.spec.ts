@@ -71,6 +71,17 @@ describe('UserGuideComponent', () => {
     expect(fixture.nativeElement.querySelector('.guide-toc a.active').textContent).toContain('Créer la tâche');
   });
 
+  it('offers the chapters in a dropdown that opens the one picked', async () => {
+    await answer('05-nouvelle-tache', '# Créer la tâche');
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.resolveTo(true);
+    const component = fixture.componentInstance;
+    expect(fixture.nativeElement.querySelector('.guide-toc-select mat-select')).not.toBeNull();
+    const chapter = component.chapters[component.chapters.length - 1];
+    component.openChapter(chapter);
+    expect(router.navigate).toHaveBeenCalledWith(['/user-guide', chapter.file]);
+  });
+
   it('gives the headings the ids of GitHub', async () => {
     await answer('05-nouvelle-tache', '# Créer la tâche\n\n## Étape 1 : Nommer la tâche');
     expect(fixture.nativeElement.querySelector('.guide-content h2').id).toBe('étape-1--nommer-la-tâche');
