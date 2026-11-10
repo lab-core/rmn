@@ -627,3 +627,41 @@ def test_the_rebuild_command_replaces_a_jobs_samples(storage_root, mongo_db, cap
     assert build_digit_bank.main(["rebuild", "--job", JOB]) == 0
     assert {e["label"] for e in bank_index(storage_root)} == {7}
     assert {f.split("/")[0] for f in bank_files(storage_root)} == {"7"}
+
+
+def test_the_same_image_under_another_label_is_another_file(storage_root):
+    """A plain stroke renders the same in any job; its label makes the file.
+
+    Keying the purge on the pixels alone kept ``1/<sha>`` because ``other``
+    had banked the same image as a 7, and left it with no line at all.
+    """
+    store = digit_bank.default_storage
+    image = crop(200)
+    digit_bank.add_sample(store, image, "1", {"job_id": JOB})
+    digit_bank.add_sample(store, image, "7", {"job_id": "other"})
+    sha = bank_index(storage_root)[0]["sha1"]
+
+    assert digit_bank.purge_job(store, JOB) == {"lines": 1, "files": 1}
+    assert bank_files(storage_root) == [f"7/{sha}.png"]
+    assert digit_bank.prune(store, dry_run=True) == []
+
+
+def test_files_without_an_index_line_are_pruned(storage_root, capsys):
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "tools"))
+    import build_digit_bank
+
+    store = digit_bank.default_storage
+    digit_bank.add_sample(store, crop(200), "3", {"job_id": JOB})
+    orphan = storage_root / digit_bank.SAMPLES_DIR / "5" / "deadbeef.png"
+    orphan.parent.mkdir(parents=True, exist_ok=True)
+    orphan.write_bytes(b"png")
+
+    assert build_digit_bank.main(["prune", "--dry-run"]) == 0
+    assert "would delete 1 files" in capsys.readouterr().out
+    assert orphan.exists()
+
+    assert digit_bank.prune(store) == [f"{digit_bank.SAMPLES_DIR}/5/deadbeef.png"]
+    assert not orphan.exists()
+    assert len(bank_files(storage_root)) == 1
