@@ -345,7 +345,7 @@ tbody td {
 }
 
 /* tablets and phones: the task takes the width, below the menu */
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   /* room on the left for the back strip */
   .task-container {
     width: calc(100% - 56px);
@@ -387,5 +387,72 @@ tbody td {
 
   .select-index-container>p {
     margin: 0 8px 0 0;
+  }
+}
+
+/* phones: each question is a card, a value beside its column name, the
+   actions at the bottom */
+@media (max-width: 760px) {
+  .table-scroll table,
+  .table-scroll tbody {
+    display: block;
+    margin: 12px 0;
+  }
+
+  .table-scroll thead {
+    display: none;
+  }
+
+  .table-scroll tr {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+    border: 1px solid black;
+    background-color: rgb(255 255 255 / 60%);
+  }
+
+  .table-scroll tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    border: none;
+    border-bottom: 1px solid #ddd;
+    padding: 6px 10px;
+    text-align: right;
+  }
+
+  .table-scroll tbody td[data-label]::before {
+    content: attr(data-label);
+    flex: none;
+    font-weight: 500;
+    text-align: left;
+  }
+
+  .table-scroll tbody td.question-name {
+    justify-content: center;
+    background-color: #f2f2f2;
+    font-weight: bold;
+  }
+
+  /* the cells a row leaves empty take no line */
+  .table-scroll tbody td:empty,
+  .table-scroll tbody td.bonus-cell:not(:has(input)) {
+    display: none;
+  }
+
+  .table-scroll tbody td.histogram-cell .histogram-container {
+    width: auto;
+  }
+
+  .table-scroll tbody td.action-buttons {
+    justify-content: center;
+    border-bottom: none;
+  }
+
+  .table-scroll .row-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }

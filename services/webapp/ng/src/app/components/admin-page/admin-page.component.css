@@ -453,3 +453,76 @@ td.mat-mdc-cell {
     flex-shrink: 0;
   }
 }
+
+/* tablets: the page takes the width, "Prendre le rôle" keeps its icon only */
+@media (max-width: 1180px) {
+  .admin-container {
+    width: calc(100% - 32px);
+  }
+
+  .actions .impersonate {
+    min-width: 0;
+    padding: 0 10px;
+  }
+
+  .actions .impersonate .button-label {
+    display: none;
+  }
+
+  .actions .impersonate mat-icon {
+    margin: 0;
+  }
+
+  .role-select, .managers-select {
+    width: 130px;
+  }
+}
+
+/* narrow screens: each account is a card, a value beside its column name,
+   the actions on the last line */
+@media (max-width: 900px) {
+  /* the tbody comes from mat-table's template: no attribute of this component */
+  .table table,
+  .table table ::ng-deep tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .table tr.mat-mdc-header-row {
+    display: none;
+  }
+
+  .table tr.mat-mdc-row {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    padding: 10px 12px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .table tr.mat-mdc-row td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-height: 36px;
+    padding: 0;
+    border: none;
+    overflow-wrap: anywhere;
+  }
+
+  .table tr.mat-mdc-row td[data-label]::before {
+    content: attr(data-label);
+    flex: none;
+    font-weight: 500;
+    color: #555;
+  }
+
+  .table tr.mat-mdc-row td.actions {
+    justify-content: flex-end;
+  }
+
+  .table tr.mat-mdc-row td.empty {
+    justify-content: center;
+  }
+}

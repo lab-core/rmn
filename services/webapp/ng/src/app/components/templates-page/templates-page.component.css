@@ -62,7 +62,6 @@ app-main-menu {
 @media screen and (min-width: 1024px) and (max-width: 1366px) {
     .templates-container {
         width: 60%;
-        margin-top: 20%;
     }
 }
 
@@ -70,7 +69,6 @@ app-main-menu {
 @media screen and (min-width: 1367px) {
     .templates-container {
         width: 40%;
-        margin-top: 10%;
     }
 }
 
@@ -212,7 +210,6 @@ app-main-menu {
     .templates-container {
         width: calc(100% - 32px);
         max-width: 640px;
-        margin-top: 10%;
     }
 
     .template-container {
@@ -257,4 +254,43 @@ app-main-menu {
     .templates-header-actions {
         font-size: 16px;
     }
+}
+
+/* every screen: the frame fits below the menu and inside the screen; the
+   search row and the header take their own height, the list the rest and
+   scrolls (fixed percentages spilled out on short screens) */
+.background {
+    height: auto;
+    min-height: 100vh;
+    box-sizing: border-box;
+    padding: calc(10vh + 16px) 0 16px;
+    justify-content: flex-start;
+}
+
+.templates-container {
+    height: auto;
+    max-height: calc(90vh - 32px);
+}
+
+.templates-search-create {
+    height: auto;
+    min-height: 84px;
+    flex-shrink: 0;
+}
+
+.templates-header {
+    height: 48px;
+    flex-shrink: 0;
+}
+
+.templates-list {
+    flex: 1 1 auto;
+    min-height: 120px;
+    max-height: none;
+    margin-bottom: 16px;
+}
+
+.template-container {
+    height: auto;
+    min-height: 56px;
 }
