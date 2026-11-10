@@ -233,8 +233,7 @@ def recording(
         yield None
         return
     previous = _current
-    current = Recording(
-        storage or default_storage, job_id, document_index, kind, meta)
+    current = Recording(storage or default_storage, job_id, document_index, kind, meta)
     _current = current
     try:
         yield current
@@ -332,6 +331,12 @@ def digits_of(value: float, n_digits: int, dot: Optional[int]) -> Optional[str]:
     # the student writes no leading zero, so the whole part has to fit exactly
     if len(integer) != whole or len(fraction) != decimals:
         return None
+    # nor zeros after the last decimal, beyond the one of a "3.0": crops past
+    # the decimals are not digits of the number. "9.5/10" read whole was five
+    # crops, 9.5 written "9.5000" labelled the slash and the 1 of the 10 as
+    # zeros -- 14 % of one job's samples
+    if len(fraction) - max(len(fraction.rstrip("0")), 1) > 0:
+        return None
     digits = integer + fraction
     if not digits.isdigit() or len(digits) != n_digits:
         return None
@@ -345,7 +350,9 @@ def _label_dir(storage: Any, label: str) -> str:
     return storage.abs_path(os.path.join(SAMPLES_DIR, label))
 
 
-def add_sample(storage: Any, crop: np.ndarray, label: str, meta: Dict[str, Any]) -> bool:
+def add_sample(
+    storage: Any, crop: np.ndarray, label: str, meta: Dict[str, Any]
+) -> bool:
     """Write one labelled digit into the bank, unless it is already there.
 
     The file name is the hash of the pixels, so re-promoting a job, or the
@@ -368,11 +375,16 @@ def add_sample(storage: Any, crop: np.ndarray, label: str, meta: Dict[str, Any])
     index = storage.abs_path(INDEX_FILE)
     os.makedirs(os.path.dirname(index), exist_ok=True)
     with open(index, "a") as f:
-        f.write(json.dumps(dict(meta, sha1=digest, label=int(label), size=SAMPLE_SIZE)) + "\n")
+        f.write(
+            json.dumps(dict(meta, sha1=digest, label=int(label), size=SAMPLE_SIZE))
+            + "\n"
+        )
     return True
 
 
-def _confirmed_matricule(job: Dict[str, Any], doc: Optional[Dict[str, Any]]) -> Optional[str]:
+def _confirmed_matricule(
+    job: Dict[str, Any], doc: Optional[Dict[str, Any]]
+) -> Optional[str]:
     """The matricule of a copy when a human validated it, else None.
 
     A job created without ``validate_matricule`` marks its copies VALIDATED by
@@ -424,7 +436,9 @@ def saves_images(db: Any) -> bool:
     switch says then, not what it said when the task ran. The
     ``saveVerifiedImages`` that older user rows (and tasks) carry is ignored.
     """
-    return settings.save_verified_images(db.get_collection(settings.SETTINGS_COLLECTION))
+    return settings.save_verified_images(
+        db.get_collection(settings.SETTINGS_COLLECTION)
+    )
 
 
 def drop_staged(storage: Any, job_id: str) -> None:
@@ -435,7 +449,9 @@ def drop_staged(storage: Any, job_id: str) -> None:
     who opted out staged has no future at all. Keeping either would leave the
     ink of real students on the share for nothing.
     """
-    shutil.rmtree(storage.abs_path(os.path.join(STAGED_DIR, job_id)), ignore_errors=True)
+    shutil.rmtree(
+        storage.abs_path(os.path.join(STAGED_DIR, job_id)), ignore_errors=True
+    )
 
 
 def promote_job(
@@ -492,9 +508,9 @@ def promote_job(
     questions: Dict[int, Dict[int, Any]] = {}
     for q in db.questions_collection().find({"job_id": job_id}):
         if q.get("grade") is not None:
-            questions.setdefault(q["document_index"], {})[
-                int(q["question_index"])
-            ] = q["grade"]
+            questions.setdefault(q["document_index"], {})[int(q["question_index"])] = q[
+                "grade"
+            ]
 
     for root, _dirs, files in os.walk(staged_root):
         for name in sorted(files):
@@ -514,7 +530,9 @@ def promote_job(
             doc = documents.get(meta.get("document_index"))
             if meta.get("kind") == MATRICULE:
                 confirmed = _confirmed_matricule(job, doc)
-                labels = confirmed if confirmed and len(confirmed) == len(crops) else None
+                labels = (
+                    confirmed if confirmed and len(confirmed) == len(crops) else None
+                )
             else:
                 grade = _confirmed_grade(
                     meta, doc, questions.get(meta.get("document_index"), {})
@@ -540,6 +558,68 @@ def promote_job(
         # of those that could
         drop_staged(storage, job_id)
     return counts
+
+
+def purge_job(storage: Any, job_id: str, dry_run: bool = False) -> Dict[str, int]:
+    """Take a job's samples out of the bank, and their lines out of the index.
+
+    For a job whose readings are not fit to train on -- read by a reader that
+    has since been fixed (``tools/build_digit_bank.py rebuild``). A sample is
+    named after its pixels, so another job may have banked the very same
+    image: such a file stays, only this job's index lines go.
+
+    The index is rewritten whole and swapped in, so a reader of it never sees
+    half a file; run it while no job is being finalised, or the lines that
+    job appends meanwhile are lost.
+
+    Args:
+        storage: The storage holding the bank.
+        job_id: The job to take out.
+        dry_run: Count without changing anything.
+
+    Returns:
+        ``{"lines": index lines removed, "files": sample files deleted}``.
+    """
+    index = storage.abs_path(INDEX_FILE)
+    if not os.path.exists(index):
+        return {"lines": 0, "files": 0}
+    kept_lines: List[str] = []
+    removed: List[Dict[str, Any]] = []
+    still_used = set()
+    with open(index) as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                kept_lines.append(line)  # not ours to judge
+                continue
+            if entry.get("job_id") == job_id:
+                removed.append(entry)
+            else:
+                kept_lines.append(line)
+                still_used.add(entry.get("sha1"))
+    files = 0
+    for entry in removed:
+        if entry.get("sha1") in still_used:
+            continue
+        path = os.path.join(
+            _label_dir(storage, str(entry["label"])), f"{entry['sha1']}.png"
+        )
+        if os.path.exists(path):
+            files += 1
+            if not dry_run:
+                os.remove(path)
+        still_used.add(entry.get("sha1"))  # a duplicate line of this job
+    if not dry_run and removed:
+        temporary = f"{index}.{uuid.uuid4().hex}.tmp"
+        with open(temporary, "w") as f:
+            f.writelines(
+                line if line.endswith("\n") else line + "\n" for line in kept_lines
+            )
+        os.replace(temporary, index)
+    return {"lines": len(removed), "files": files}
 
 
 def _read_digit(meta: Dict[str, Any], position: int) -> Optional[int]:
@@ -579,7 +659,9 @@ def samples(storage: Any = None, size: int = SAMPLE_SIZE, margin: float = 0.0):
             img = cv2.imread(os.path.join(root, label, name), cv2.IMREAD_GRAYSCALE)
             if img is None:
                 continue
-            x.append(img if size == img.shape[0] and not margin else view(img, size, margin))
+            x.append(
+                img if size == img.shape[0] and not margin else view(img, size, margin)
+            )
             y.append(int(label))
     if not x:
         return np.empty((0, size, size), dtype="uint8"), np.array([], dtype="int")
@@ -593,7 +675,9 @@ def counts(storage: Any = None) -> Dict[int, int]:
     if not os.path.isdir(root):
         return {}
     return {
-        int(label): len([f for f in os.listdir(os.path.join(root, label)) if f.endswith(".png")])
+        int(label): len(
+            [f for f in os.listdir(os.path.join(root, label)) if f.endswith(".png")]
+        )
         for label in sorted(os.listdir(root))
         if label.isdigit()
     }
