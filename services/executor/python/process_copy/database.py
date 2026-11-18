@@ -1,5 +1,6 @@
 import datetime as dt
 from rmn_common import auto_grade
+from rmn_common.matricule_history import history_entry, push_history
 from rmn_common.status import Document_Status, Job_Status
 from utils.storage import Storage, ROOT_DIR
 from utils.clients import mongo_client
@@ -90,9 +91,46 @@ class Database:
         )
 
     def update_document(
-        self, job_id, doc_index, grades, status, matricule, time, group, matricule_confidence=None,
-        only_if_status=None
-    ):
+        self,
+        job_id: str,
+        doc_index: int,
+        grades: list | None,
+        status: Document_Status,
+        matricule: str | int | None,
+        time: float,
+        group: str | None,
+        matricule_confidence: float | None = None,
+        only_if_status: Document_Status | None = None,
+        history_by: str | None = None,
+    ) -> bool:
+        """Record what was read off a copy.
+
+        Args:
+            job_id: The copy's task.
+            doc_index: The copy's ``document_index``.
+            grades: Its grades, None to keep those it has.
+            status: Its new status.
+            matricule: The matricule read.
+            time: How long the reading took, in seconds.
+            group: Its student's group, None to keep the one it has.
+            matricule_confidence: The probability that the matricule read is
+                the right one (``recognize.matricule_confidence``), stored
+                rounded; None when it was not read here.
+            only_if_status: Change the copy only while it has this status: a
+                teacher may validate (or delete) it on the matricule page
+                while it is being read, and their answer wins.
+            history_by: Also append the matricule proposed to the copy's
+                history (``rmn_common.matricule_history``) as made by this
+                (``reader``), with the unrounded confidence, so a copy that
+                ends up with the wrong student tells whether the reading or a
+                person gave it; the matricule page appends the corrections.
+
+        Returns:
+            Whether the copy was found (with ``only_if_status``) and updated.
+
+        Raises:
+            Exception: Whatever MongoDB raised, after printing it.
+        """
         try:
             # return updated doc
             set = {
@@ -113,11 +151,24 @@ class Database:
             # while it is being read: their answer wins over the reading
             if only_if_status is not None:
                 query["status"] = only_if_status.value
+            update = {"$set": set}
+            if history_by is not None:
+                # unrounded: 0.0 on the copy may be a proposal of 0.00004
+                confidence = None
+                if matricule_confidence is not None:
+                    confidence = float(matricule_confidence)
+                entry = history_entry(
+                    history_by,
+                    matricule=set["matricule"],
+                    status=set["status"],
+                    confidence=confidence,
+                )
+                update["$push"] = push_history(entry)
             return (
                 self.documents_collection()
                 .update_one(
                     query,
-                    {"$set": set},
+                    update,
                 )
                 .matched_count
                 > 0

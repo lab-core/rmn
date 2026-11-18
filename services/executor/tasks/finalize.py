@@ -3,6 +3,8 @@
 import os
 import re
 import shutil
+from pathlib import Path
+from typing import Any
 import numpy as np
 import pandas as pd
 from python.process_copy.add_grades import process_writing
@@ -42,6 +44,109 @@ def promote_digit_bank(db, storage, job_id):
         print("Digit bank:", ", ".join(f"{k}={v}" for k, v in counts.items()))
     except Exception as e:
         print("Could not add the digits of job", job_id, "to the bank:", e)
+
+
+# the grade columns finalize_job writes, one per active question
+QUESTION_COLUMN = re.compile(r"Q\d+")
+
+
+def read_original_grades(
+    storage: Any, job_id: str, folder: Path
+) -> pd.DataFrame | None:
+    """The grade and date of each student in the class list the task was made with.
+
+    The csv uploaded at the task's creation (``csv/<job_id>.csv``) is never
+    rewritten by a finalization: it holds what Moodle sent.
+
+    Args:
+        storage: The storage the task's files are in.
+        job_id: The task.
+        folder: Where to copy the csv to read it.
+
+    Returns:
+        The grade and date columns it has, indexed by matricule (a matricule
+        given twice keeps its first row), or None when there is no such csv
+        or it cannot be read.
+    """
+    original_id = os.path.join("csv", f"{job_id}.csv")
+    if not os.path.isfile(storage.abs_path(original_id)):
+        return None
+    try:
+        local = str(folder.joinpath("original.csv"))
+        storage.copy_from(original_id, local)
+        original = pd.read_csv(local, index_col=MF.mat, dtype={MF.mat: str})
+    except Exception as e:
+        print("The class list the task was made with cannot be read:", e)
+        return None
+    original = original[~original.index.duplicated()]
+    return original[[c for c in (MF.grade, MF.mdate) if c in original.columns]]
+
+
+def clear_earlier_grades(
+    df: pd.DataFrame, original: pd.DataFrame | None = None
+) -> list[str]:
+    """Put back as Moodle sent them the rows an earlier finalization filled.
+
+    A job finalized again starts from the csv the last finalization wrote, so
+    a student whose copy went to someone else since then (a matricule
+    corrected in between) would keep that copy's grades, date and index.
+    Only finalize_job writes ``index``: the rows that have one lose their
+    question grades and index, and get back the grade and date of the class
+    list the task was made with, or no grade ("-" as date) when it does not
+    have them. The copies of now are written after, and the absents get what
+    the task says.
+
+    Args:
+        df: The grades, indexed by matricule; changed in place.
+        original: The grade and date Moodle sent (``read_original_grades``).
+
+    Returns:
+        The matricules of the rows put back.
+    """
+    if "index" not in df.columns:
+        return []
+    earlier = df["index"].notna()
+    if not earlier.any():
+        return []
+    questions = [c for c in df.columns if QUESTION_COLUMN.fullmatch(str(c))]
+    df.loc[earlier, questions + ["index"]] = np.nan
+    for column, empty in ((MF.grade, np.nan), (MF.mdate, "-")):
+        if column not in df.columns:
+            continue
+        df[column] = df[column].astype(object)
+        sent = pd.Series(empty, index=df.index[earlier], dtype=object)
+        if original is not None and column in original.columns:
+            known = original[column].reindex(sent.index)
+            sent = known.where(known.notna(), sent)
+        df.loc[earlier, column] = sent
+    return [str(m) for m in df.index[earlier]]
+
+
+def lost_copies_warning(df: pd.DataFrame, put_back: list[str]) -> str | None:
+    """The teacher's warning about the students left without a grade.
+
+    A student who had a copy at an earlier finalization and has none now
+    gets no grade when the task leaves the absents alone, and Moodle's import
+    ignores an empty grade: the one imported before stays in Moodle.
+
+    Args:
+        df: The grades, once the copies of now are written.
+        put_back: The matricules ``clear_earlier_grades`` put back.
+
+    Returns:
+        The warning, or None when every one of them has a grade now.
+    """
+    if MF.grade not in df.columns:
+        return None
+    empty = [m for m in put_back if pd.isna(df.at[m, MF.grade])]
+    if not empty:
+        return None
+    shown = ", ".join(empty[:10]) + (", ..." if len(empty) > 10 else "")
+    return (
+        f"{len(empty)} étudiant(s) n'ont plus de copie depuis la finalisation "
+        f"précédente ({shown}) : leur note est vide dans le fichier de notes, et "
+        "l'import de Moodle ignore une note vide. Vérifiez leur note dans Moodle."
+    )
 
 
 def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
@@ -115,14 +220,25 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
     class_lists = eval_job.get("class_lists") or []
     several = len(class_lists) > 1 and LIST_COLUMN in df.columns
 
+    put_back = clear_earlier_grades(
+        df, read_original_grades(storage, job_id, VALIDATE_FOLDER)
+    )
+
     # a student without a graded copy (absent, copy deleted) gets 0 and today's
     # date unless the task says otherwise: then the row keeps what Moodle
     # sent, an empty grade that Moodle's import leaves alone (an excused
     # absence). Tasks older than the option have no field: 0, as before.
     date = get_date()
+    # a class list made by hand may lack Moodle's grade or date column: the
+    # copies' loop below adds them
     if eval_job.get("absent_zero", True):
-        df[MF.grade] = df[MF.grade].fillna(0)
-        df[MF.mdate] = df[MF.mdate].apply(lambda x: x if pd.notna(x) and x != '-' else date)
+        df[MF.grade] = df[MF.grade].fillna(0) if MF.grade in df.columns else 0
+        if MF.mdate in df.columns:
+            df[MF.mdate] = df[MF.mdate].apply(
+                lambda x: x if pd.notna(x) and x != "-" else date
+            )
+        else:
+            df[MF.mdate] = date
     n_max_points_per_question = eval_job["n_max_points_per_question"]
     statistics_for_students = eval_job["statistics_for_students"]
     # print("statistics_for_students", statistics_for_students)
@@ -166,6 +282,10 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
                 df.loc[mat, MF.grade] = total_score
                 df.loc[mat, MF.mdate] = date
                 df.loc[mat, "index"] = doc["document_index"] + 1
+
+    lost_warning = lost_copies_warning(df, put_back)
+    if lost_warning:
+        print(lost_warning)
 
     # save grades; the file is opened in a spreadsheet by the teacher, so a
     # roster value that reads as a formula is neutralised first
@@ -363,6 +483,13 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
         stats_file_id = None
         stats_infos = {"job_infos": "Tâche terminée sans le pdf des statistiques générales, "
                                     f"qui n'a pas pu être créé : {e}"}
+
+    # what this finalization has to say, or nothing: a warning of an earlier
+    # one (or the "matricules ready" of the validation) is out of date now
+    stats_message = (stats_infos or {}).get("job_infos")
+    stats_infos = {
+        "job_infos": " ".join(m for m in (lost_warning, stats_message) if m)
+    }
 
     if stopH.stop():
         cleanup_deleted_job(db, storage, job_id)

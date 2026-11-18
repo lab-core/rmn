@@ -1,6 +1,7 @@
 """The executor's MongoDB wrapper, against mongomock."""
 
 import datetime as dt
+from typing import Any
 
 from process_copy.database import Database
 from rmn_common.status import Document_Status, Job_Status
@@ -80,6 +81,51 @@ def test_an_update_can_require_the_copy_to_be_still_unread(mongo_db):
                               only_if_status=Document_Status.NOT_READY) is False
     doc = db.get_document("job", 0)
     assert (doc["status"], doc["matricule"]) == ("HIGH ACCURACY", "2345678")
+
+
+def test_the_reader_proposal_is_kept_in_the_matricule_history(mongo_db: Any) -> None:
+    db = Database()
+    unread = Document_Status.NOT_READY
+    db.insert_document("job", 0, [], "", unread, "", 0, "copy.pdf")
+    assert db.update_document(
+        "job",
+        0,
+        None,
+        Document_Status.TO_VALIDATE,
+        "2345678",
+        1,
+        "",
+        matricule_confidence=0.00004,
+        only_if_status=unread,
+        history_by="reader",
+    )
+    doc = db.get_document("job", 0)
+    assert doc["matricule_confidence"] == 0.0
+    [entry] = doc["matricule_history"]
+    assert entry["by"] == "reader"
+    assert (entry["matricule"], entry["status"]) == ("2345678", "TO VALIDATE")
+    # the history keeps what the rounding on the copy hides
+    assert entry["confidence"] == 0.00004
+    assert entry["date"] is not None
+
+    # an update that is not a reading adds nothing
+    db.update_document("job", 0, [1], Document_Status.VALIDATED, "2345678", 1, None)
+    assert len(db.get_document("job", 0)["matricule_history"]) == 1
+
+    # a reading that comes after a person's answer is dropped, history included
+    dropped = db.update_document(
+        "job",
+        0,
+        None,
+        Document_Status.TO_VALIDATE,
+        "NA",
+        1,
+        "",
+        only_if_status=unread,
+        history_by="reader",
+    )
+    assert dropped is False
+    assert len(db.get_document("job", 0)["matricule_history"]) == 1
 
 
 def test_job_max_questions_and_run_status(mongo_db):

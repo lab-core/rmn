@@ -777,6 +777,103 @@ def test_a_deleted_copy_stays_deleted_when_the_job_is_finalized_again(
     assert "Total (/ 15) & 8 & 7.00" in notes
 
 
+def test_a_class_list_without_moodle_grade_columns_is_finalized(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    roster = ROSTER.drop(columns=[MF.grade, MF.mdate])
+    job = _job(mongo_db, storage_root, roster=roster, absent_zero=True)
+    _split_copies(tmp_path, mongo_db, scanned_copy_factory)
+
+    _finalize(job, tmp_path)
+
+    df = _grades_csv(storage_root)
+    assert df.loc["1111111", MF.grade] == 8.0
+    assert df.loc["2222222", MF.grade] == 0
+    assert pd.notna(df.loc["2222222", MF.mdate])
+
+
+@pytest.mark.parametrize("absent_zero", [True, False])
+def test_a_copy_given_to_another_student_leaves_the_first_one_absent(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+    absent_zero: bool,
+) -> None:
+    # Carol's copy validated as Bob's by mistake, finalized, corrected and
+    # finalized again: Bob, who has no copy, must not keep Carol's grades
+    job = _job(mongo_db, storage_root, absent_zero=absent_zero)
+    copies = {
+        "alice": COPIES["alice"],
+        "carol": ("2222222", COPIES["carol"][1], "VALIDATED"),
+    }
+    _split_copies(tmp_path, mongo_db, scanned_copy_factory, copies)
+    _finalize(job, tmp_path)
+    assert _grades_csv(storage_root).loc["2222222", MF.grade] == 6.0
+
+    mongo_db["job_documents"].update_one(
+        {"filename": "carol"}, {"$set": {"matricule": "3333333"}}
+    )
+    shutil.rmtree(tmp_path / "work")
+    _finalize(job, tmp_path)
+
+    df = _grades_csv(storage_root)
+    assert df.loc["3333333", MF.grade] == 6.0
+    assert df.loc["3333333", "index"] == 2
+    assert pd.isna(df.loc["2222222", "Q1"]) and pd.isna(df.loc["2222222", "index"])
+    infos = mongo_db["eval_jobs"].find_one({"job_id": "job"}).get("job_infos") or ""
+    if absent_zero:
+        assert df.loc["2222222", MF.grade] == 0
+        assert "2222222" not in infos
+    else:
+        assert pd.isna(df.loc["2222222", MF.grade])
+        assert df.loc["2222222", MF.mdate] == "-"
+        # Moodle's import ignores an empty grade: the teacher is told
+        assert "1 étudiant(s)" in infos and "2222222" in infos
+    # the rows no finalization filled stay as Moodle sent them
+    assert df.loc["5555555", MF.grade] == 12.0
+    assert df.loc["1111111", MF.grade] == 8.0
+
+
+def test_a_row_put_back_gets_the_grade_moodle_sent(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    fake_pdflatex: list[str],
+) -> None:
+    # Carol's copy validated as Eve's, who had 12 in Moodle's export: once
+    # corrected, Eve gets back her 12 and its date from the class list the
+    # task was made with, not an empty grade or a 0
+    job = _job(mongo_db, storage_root, absent_zero=True)
+    original = storage_root / "csv" / "job.csv"
+    original.parent.mkdir(parents=True, exist_ok=True)
+    ROSTER.to_csv(original, index=False)
+    copies = {"carol": ("5555555", COPIES["carol"][1], "VALIDATED")}
+    _split_copies(tmp_path, mongo_db, scanned_copy_factory, copies)
+    _finalize(job, tmp_path)
+    assert _grades_csv(storage_root).loc["5555555", MF.grade] == 6.0
+
+    mongo_db["job_documents"].update_one(
+        {"filename": "carol"}, {"$set": {"matricule": "3333333"}}
+    )
+    shutil.rmtree(tmp_path / "work")
+    _finalize(job, tmp_path)
+
+    df = _grades_csv(storage_root)
+    assert df.loc["5555555", MF.grade] == 12.0
+    assert df.loc["5555555", MF.mdate] == "lundi 01 septembre 2026, 10:00"
+    assert pd.isna(df.loc["5555555", "index"])
+    assert df.loc["3333333", MF.grade] == 6.0
+    # nothing to warn about this time
+    assert mongo_db["eval_jobs"].find_one({"job_id": "job"})["job_infos"] == ""
+
+
 # --------------------------------------------------- stops and failures
 
 

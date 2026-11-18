@@ -444,6 +444,7 @@ def find_matricules(
                         group,
                         matricule_confidence=confidence,
                         only_if_status=Document_Status.NOT_READY,
+                        history_by="reader",
                 ):
                     if db.get_document(job_id, doc_index) is None:
                         raise KeyError(f"Document {filename} was not found.")
@@ -478,7 +479,8 @@ def find_matricules(
                 try:
                     db.update_document(job_id, doc_index, None, Document_Status.TO_VALIDATE,
                                        "", time.time() - start_time, "", matricule_confidence=0.0,
-                                       only_if_status=Document_Status.NOT_READY)
+                                       only_if_status=Document_Status.NOT_READY,
+                                       history_by="reader")
                 except Exception as e2:
                     print(e2)
 

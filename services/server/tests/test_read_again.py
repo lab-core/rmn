@@ -1,6 +1,7 @@
 """Reading the matricules or the grades of a job again, from its page."""
 
 import json
+from typing import Any
 
 import pytest
 
@@ -82,6 +83,33 @@ def test_only_the_copies_nobody_validated_are_read_again(
     job = db["eval_jobs"].find_one({"job_id": JOB})
     assert job["job_status"] == Job_Status.QUEUED.value and "job_infos" not in job
     assert queue() == [{"job_id": JOB}]
+
+
+def test_the_copies_read_again_say_so_in_their_history(
+    client: Any,
+    user_factory: Any,
+    job_factory: Any,
+    login: Any,
+    db: Any,
+    queue: Any,
+) -> None:
+    user_factory("alice")
+    job_factory(JOB, "alice", status=Job_Status.VALIDATION.value)
+    _documents(db, Document_Status.VALIDATED, Document_Status.TO_VALIDATE)
+
+    assert _read_matricules(client, login("alice")).status_code == 200
+
+    validated, read_again = (
+        db["job_documents"].find({"job_id": JOB}).sort("document_index")
+    )
+    assert "matricule_history" not in validated
+    [entry] = read_again["matricule_history"]
+    assert (entry["by"], entry["event"]) == ("owner", "read_again")
+    assert (entry["previous_status"], entry["status"]) == (
+        Document_Status.TO_VALIDATE.value,
+        Document_Status.NOT_READY.value,
+    )
+    assert entry["matricule"] == "2000001"
 
 
 def test_nothing_to_read_when_everything_is_validated(

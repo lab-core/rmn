@@ -6,6 +6,7 @@ created and revoked by the owner only.
 """
 
 import json
+from typing import Any
 
 import pytest
 
@@ -250,7 +251,9 @@ def test_another_user_cannot_unshare(client, job, user_factory, login):
 
 
 def test_unshare_requires_a_job_id(client, job, login):
-    assert client.post("/matricules/unshare", data={"token": login()}).status_code == 400
+    assert (
+        client.post("/matricules/unshare", data={"token": login()}).status_code == 400
+    )
 
 
 @pytest.mark.parametrize("route", ["/matricules/update", "/matricules/status/update"])
@@ -265,3 +268,108 @@ def test_a_malformed_document_index_is_400(client, job, login, route):
     }
     assert _doc(job)["matricule"] == "111"
     job.sio.emit.assert_not_called()
+
+
+# ------------------------------------------------------- matricule history
+
+
+def test_a_correction_is_kept_in_the_history_with_what_it_replaced(
+    client: Any,
+    job: Any,
+    login: Any,
+) -> None:
+    _update(client, token=login("alice"))
+
+    [entry] = _doc(job)["matricule_history"]
+    assert entry["by"] == "owner"
+    assert (entry["previous_matricule"], entry["matricule"]) == ("111", "1234567")
+    assert (entry["previous_status"], entry["status"]) == ("TO VALIDATE", "VALIDATED")
+    assert entry["date"] is not None
+
+
+@pytest.mark.parametrize("share_token,scope", [("tok-mat", "mat"), ("tok-all", "all")])
+def test_the_history_tells_a_share_link_from_the_owner(
+    client: Any,
+    job: Any,
+    share_token: Any,
+    scope: Any,
+) -> None:
+    _update(client, share_token=share_token)
+    assert _doc(job)["matricule_history"][-1]["by"] == f"share:{scope}"
+
+
+def test_every_correction_is_appended(
+    client: Any,
+    job: Any,
+    login: Any,
+) -> None:
+    token = login("alice")
+    _update(client, token=token)
+    client.post(
+        "/matricules/update",
+        data={
+            "job_id": "j1",
+            "document_index": "0",
+            "matricule": "7654321",
+            "token": token,
+        },
+    )
+    _update(client, token=token)
+    # validated again as it is: nothing to add
+    _update(client, token=token)
+
+    history = _doc(job)["matricule_history"]
+    assert [(e["previous_matricule"], e["matricule"]) for e in history] == [
+        ("111", "1234567"),
+        ("1234567", "7654321"),
+        ("7654321", "1234567"),
+    ]
+
+
+def test_a_status_change_is_kept_in_the_history(
+    client: Any,
+    job: Any,
+    login: Any,
+) -> None:
+    data = {"job_id": "j1", "document_index": "0", "status": "DELETED"}
+    client.post("/matricules/status/update", data={**data, "token": login()})
+    # the same status again is not a change
+    client.post("/matricules/status/update", data={**data, "token": login()})
+
+    [entry] = _doc(job)["matricule_history"]
+    assert entry["by"] == "owner"
+    assert (entry["previous_status"], entry["status"]) == ("TO VALIDATE", "DELETED")
+    assert entry["matricule"] == "111"
+
+
+def test_a_refused_change_leaves_no_history(
+    client: Any,
+    job: Any,
+) -> None:
+    _update(client, share_token="tok-q1", question_index="1")
+    assert "matricule_history" not in _doc(job)
+
+
+def test_the_history_is_bounded(
+    client: Any,
+    job: Any,
+    login: Any,
+    app_module_fixture: Any,
+) -> None:
+    from rmn_common.matricule_history import MAX_ENTRIES
+
+    token = login("alice")
+    for i in range(MAX_ENTRIES + 3):
+        client.post(
+            "/matricules/update",
+            data={
+                "job_id": "j1",
+                "document_index": "0",
+                "matricule": str(i),
+                "token": token,
+            },
+        )
+
+    history = _doc(job)["matricule_history"]
+    assert len(history) == MAX_ENTRIES
+    assert history[-1]["matricule"] == str(MAX_ENTRIES + 2)
