@@ -6,6 +6,7 @@ created and revoked by the owner only.
 """
 
 import json
+from typing import Any
 
 import pytest
 
@@ -272,7 +273,11 @@ def test_a_malformed_document_index_is_400(client, job, login, route):
 # ------------------------------------------------------- matricule history
 
 
-def test_a_correction_is_kept_in_the_history_with_what_it_replaced(client, job, login):
+def test_a_correction_is_kept_in_the_history_with_what_it_replaced(
+    client: Any,
+    job: Any,
+    login: Any,
+) -> None:
     _update(client, token=login("alice"))
 
     [entry] = _doc(job)["matricule_history"]
@@ -283,12 +288,21 @@ def test_a_correction_is_kept_in_the_history_with_what_it_replaced(client, job, 
 
 
 @pytest.mark.parametrize("share_token,scope", [("tok-mat", "mat"), ("tok-all", "all")])
-def test_the_history_tells_a_share_link_from_the_owner(client, job, share_token, scope):
+def test_the_history_tells_a_share_link_from_the_owner(
+    client: Any,
+    job: Any,
+    share_token: Any,
+    scope: Any,
+) -> None:
     _update(client, share_token=share_token)
     assert _doc(job)["matricule_history"][-1]["by"] == f"share:{scope}"
 
 
-def test_every_correction_is_appended(client, job, login):
+def test_every_correction_is_appended(
+    client: Any,
+    job: Any,
+    login: Any,
+) -> None:
     token = login("alice")
     _update(client, token=token)
     client.post(
@@ -312,7 +326,11 @@ def test_every_correction_is_appended(client, job, login):
     ]
 
 
-def test_a_status_change_is_kept_in_the_history(client, job, login):
+def test_a_status_change_is_kept_in_the_history(
+    client: Any,
+    job: Any,
+    login: Any,
+) -> None:
     data = {"job_id": "j1", "document_index": "0", "status": "DELETED"}
     client.post("/matricules/status/update", data={**data, "token": login()})
     # the same status again is not a change
@@ -324,12 +342,20 @@ def test_a_status_change_is_kept_in_the_history(client, job, login):
     assert entry["matricule"] == "111"
 
 
-def test_a_refused_change_leaves_no_history(client, job):
+def test_a_refused_change_leaves_no_history(
+    client: Any,
+    job: Any,
+) -> None:
     _update(client, share_token="tok-q1", question_index="1")
     assert "matricule_history" not in _doc(job)
 
 
-def test_the_history_is_bounded(client, job, login, app_module_fixture):
+def test_the_history_is_bounded(
+    client: Any,
+    job: Any,
+    login: Any,
+    app_module_fixture: Any,
+) -> None:
     from rmn_common.matricule_history import MAX_ENTRIES
 
     token = login("alice")

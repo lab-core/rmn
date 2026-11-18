@@ -19,6 +19,7 @@ from flask_cors import cross_origin
 from werkzeug.utils import secure_filename
 from rmn_common import auto_grade
 from rmn_common.class_lists import metadata
+from rmn_common.matricule_history import history_entry, push_history
 from rmn_common.moodle import MoodleFields as MF
 from rmn_common.questions import validate_bonus_map, validate_questions
 from rmn_common.spreadsheet import defuse_csv
@@ -1298,13 +1299,33 @@ def read_matricules(user_id):
             status=400,
         )
 
-    reset = db["job_documents"].update_many(
+    # one copy at a time, for its history: the reading that follows is the
+    # owner's asking, not the reader's own second opinion
+    unread = Document_Status.NOT_READY.value
+    reset = 0
+    for doc in db["job_documents"].find(
         {
             "job_id": job_id,
             "status": {"$in": [Document_Status.TO_VALIDATE.value, Document_Status.HIGH_ACCURACY.value]},
         },
-        {"$set": {"status": Document_Status.NOT_READY.value}, "$unset": {"matricule_confidence": ""}},
-    ).modified_count
+        {"status": 1, "matricule": 1},
+    ):
+        entry = history_entry(
+            "owner",
+            event="read_again",
+            matricule=doc.get("matricule"),
+            status=unread,
+            previous_status=doc["status"],
+        )
+        reset += db["job_documents"].update_one(
+            # validated meanwhile on the matricule page: left alone
+            {"_id": doc["_id"], "status": doc["status"]},
+            {
+                "$set": {"status": unread},
+                "$unset": {"matricule_confidence": ""},
+                "$push": push_history(entry),
+            },
+        ).modified_count
     if reset == 0:
         return Response(
             response=json.dumps({"response": "Error: every matricule is already validated."}),

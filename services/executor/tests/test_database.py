@@ -1,6 +1,7 @@
 """The executor's MongoDB wrapper, against mongomock."""
 
 import datetime as dt
+from typing import Any
 
 from process_copy.database import Database
 from rmn_common.status import Document_Status, Job_Status
@@ -82,13 +83,21 @@ def test_an_update_can_require_the_copy_to_be_still_unread(mongo_db):
     assert (doc["status"], doc["matricule"]) == ("HIGH ACCURACY", "2345678")
 
 
-def test_the_reader_proposal_is_kept_in_the_matricule_history(mongo_db):
+def test_the_reader_proposal_is_kept_in_the_matricule_history(mongo_db: Any) -> None:
     db = Database()
     unread = Document_Status.NOT_READY
     db.insert_document("job", 0, [], "", unread, "", 0, "copy.pdf")
     assert db.update_document(
-        "job", 0, None, Document_Status.TO_VALIDATE, "2345678", 1, "",
-        matricule_confidence=0.00004, only_if_status=unread, history_by="reader",
+        "job",
+        0,
+        None,
+        Document_Status.TO_VALIDATE,
+        "2345678",
+        1,
+        "",
+        matricule_confidence=0.00004,
+        only_if_status=unread,
+        history_by="reader",
     )
     doc = db.get_document("job", 0)
     assert doc["matricule_confidence"] == 0.0
@@ -104,10 +113,18 @@ def test_the_reader_proposal_is_kept_in_the_matricule_history(mongo_db):
     assert len(db.get_document("job", 0)["matricule_history"]) == 1
 
     # a reading that comes after a person's answer is dropped, history included
-    assert db.update_document(
-        "job", 0, None, Document_Status.TO_VALIDATE, "NA", 1, "",
-        only_if_status=unread, history_by="reader",
-    ) is False
+    dropped = db.update_document(
+        "job",
+        0,
+        None,
+        Document_Status.TO_VALIDATE,
+        "NA",
+        1,
+        "",
+        only_if_status=unread,
+        history_by="reader",
+    )
+    assert dropped is False
     assert len(db.get_document("job", 0)["matricule_history"]) == 1
 
 
