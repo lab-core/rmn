@@ -147,13 +147,13 @@ def test_a_question_link_cannot_list_the_whole_copies(client, job):
     assert "response" not in body
 
 
-def test_non_consecutive_question_documents_are_refused(client, job, owner, db):
+def test_the_owner_lists_question_pages_with_holes(client, job, owner, db):
     db["job_questions"].update_one(
         {"job_id": job, "document_index": 1}, {"$set": {"document_index": 3}}
     )
     status, body = _list(client, job, owner, questions="true")
-    assert status == 400
-    assert "consecutive" in body["Error"]
+    assert status == 200
+    assert [d["document_index"] for d in body["response"]] == [0, 3]
 
 
 def test_a_question_link_lists_its_pages_of_several_batches(client, job, db):
