@@ -288,11 +288,32 @@ describe('NewExamCorrectionComponent', () => {
     expect(Array.from(args[4].entries())).toEqual([['Q1', 2], ['Q2', 0], ['Q3', 1]]);
     expect(Array.from(args[5].entries())).toEqual([['Q1', 10], ['Q2', 0], ['Q3', 5]]);
     expect(Array.from(args[6].entries())).toEqual([['Q1', false], ['Q2', false], ['Q3', false]]);
-    // the last two are the task this one was created from and the token of
-    // its share link: none here
-    expect(args.slice(7)).toEqual(['Quiz', 'Front', 'Regular', true, true, null, null, null]);
+    // then the task this one was created from and the token of its share
+    // link (none here), the class list assignments, and the later pages read
+    expect(args.slice(7)).toEqual(['Quiz', 'Front', 'Regular', true, true, null, null, null, true]);
     expect(localStorage.getItem('newTask')).toBeNull();
     expect(router.navigate).toHaveBeenCalledWith(['/main-menu']);
+  });
+
+  it('"Aucun" for the later pages sends no template and reads the cover only', async () => {
+    await create();
+    component.taskName = 'Quiz';
+    component.csvName = 'notes.csv';
+    component.csvs = [new File([''], 'notes.csv')];
+    component.selectedRegularTemplate = component.noLaterPagesTemplate;
+    selectFront();
+    component.updatePageCount('Q1', change('2'));
+    component.updateMaxPoints('Q1', change('10'));
+    component.toggleIgnored('Q2');
+    component.updatePageCount('Q3', change('1'));
+    component.updateMaxPoints('Q3', change('5'));
+
+    await component.createTask();
+
+    const args = tasks.addTask.calls.mostRecent().args;
+    expect([args[2], args[3]]).toEqual(['t1', '']);
+    expect(args[9]).toBe('');
+    expect(args[15]).toBeFalse();
   });
 
   it('a task without correction sends empty maps', async () => {
@@ -721,7 +742,7 @@ describe('NewExamCorrectionComponent', () => {
       expect(args[1]).toBeNull();
       expect(args.slice(2, 4)).toEqual(['t1', 't2']);
       expect(args.slice(8, 10)).toEqual(['Front', 'Regular']);
-      expect(args.slice(12)).toEqual(['src-1', 'dash-token', null]);
+      expect(args.slice(12)).toEqual(['src-1', 'dash-token', null, true]);
     });
 
     it('a user without any template of their own can still create it', async () => {
@@ -810,6 +831,19 @@ describe('NewExamCorrectionComponent', () => {
       const args = tasks.addTask.calls.mostRecent().args;
       expect((args[0] as File).size).toBe(22);
       expect(args[12]).toBe('src-1');
+    });
+
+    it('a source read on its cover only keeps "Aucun" for the later pages', async () => {
+      await create(TEMPLATES, () => {}, 'src-1');
+      expect(component.selectedRegularTemplate).toBe('t2');
+
+      tasks.getTaskById.and.resolveTo({
+        ...SOURCE, regular_template_id: null, regular_template_name: null,
+        matricule_on_later_pages: false,
+      });
+      await component.loadSourceTask('src-1');
+
+      expect(component.selectedRegularTemplate).toBe(component.noLaterPagesTemplate);
     });
 
     it('says so and stays usable when the source is gone', async () => {

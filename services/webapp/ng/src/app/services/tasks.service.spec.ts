@@ -156,6 +156,7 @@ describe('TasksService', () => {
     expect(form.get('bonus_enabled_map')).toBe('[["Q1",false],["Q2",true]]');
     expect(form.get('job_name')).toBe('Exam');
     expect(form.get('validate_matricule')).toBe('true');
+    expect(form.get('matricule_on_later_pages')).toBe('true');
     expect(form.get('statistics_for_students')).toBe('true');
     expect(form.get('user_id')).toBe('alice');
     expect(req.request.reportProgress).toBeTrue();
@@ -229,6 +230,19 @@ describe('TasksService', () => {
 
     req.flush({ response: { job_id: 'src-1' } });
     expect(await pending).toEqual({ job_id: 'src-1' });
+  });
+
+  it('addTask says when the matricule is read on the cover page only', async () => {
+    const pending = service.addTask(
+      null, null, 'front', '', new Map(), new Map(), new Map(),
+      'Exam', 'Front', '', 'true', true, null, null, null, false);
+
+    const req = http.expectOne('/api/jobs/evaluate');
+    const form = req.request.body as FormData;
+    expect(form.get('regular_template_id')).toBe('');
+    expect(form.get('matricule_on_later_pages')).toBe('false');
+    req.flush({ response: 'OK' });
+    await pending;
   });
 
   it('addTask rejects when the upload fails', async () => {

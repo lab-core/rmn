@@ -20,7 +20,7 @@ Vous pouvez utiliser votre propre page de garde. Elle doit garder une rangée de
 
 Après la page de garde, chaque question occupe **un nombre fixe de pages**, le même pour toutes les copies (par exemple Q1 : 2 pages, Q2 : 1 page…). C'est ce qui permet à rmn de découper les copies par question. Demandez aux étudiants de ne pas arracher de page et de ne pas en ajouter : une copie qui n'a pas le bon nombre de pages est mise de côté (voir [Suivre la tâche](06-suivi.md#copies-à-rectifier)).
 
-Si le haut de chaque page porte aussi des cases « Matricule » (comme dans le template « Example: Page intérieure »), rmn s'en sert pour confirmer le matricule de la page de garde.
+Si le haut de chaque page porte aussi des cases « Matricule » (comme dans le template « Example: Page intérieure »), rmn s'en sert pour confirmer le matricule de la page de garde. Sinon, choisissez « Aucun » comme template des pages suivantes à la [création de la tâche](05-nouvelle-tache.md#étape-2--assigner-les-templates) : le matricule n'est alors lu que sur la page de garde.
 
 ## Numériser les copies (cas B)
 

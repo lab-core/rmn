@@ -1086,7 +1086,10 @@ def _inside_matricule(box, page_size, pad=0.01) -> bool:
     box, and such a mark is far bigger than the cells and spills out of the
     band, so it is kept.
     """
-    x0, y0, x1, y1 = matricule_region(page_size)
+    region = matricule_region(page_size)
+    if region is None:
+        return False
+    x0, y0, x1, y1 = region
     return (
         box[0] >= x0 - pad * page_size[0]
         and box[2] <= x1 + pad * page_size[0]
@@ -1196,12 +1199,15 @@ def grade_candidates(page: Any, max_points: Optional[float] = None) -> List[Cand
     return candidates
 
 
-def matricule_region(page_size: Tuple[float, float]) -> Tuple[float, ...]:
+def matricule_region(page_size: Tuple[float, float]) -> Optional[Tuple[float, ...]]:
     """The printed matricule band of a regular page, in display points.
 
     Shares ``config.matricule_box`` with the recogniser so that a job whose
-    template moves the box moves this with it.
+    template moves the box moves this with it. None for a job whose later
+    pages have no template: they hold no matricule.
     """
+    if matricule_box["exam"]["regular"] is None:
+        return None
     x0, x1, y0, y1 = matricule_box["exam"]["regular"]
     return (
         x0 * page_size[0],

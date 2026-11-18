@@ -339,6 +339,24 @@ def test_the_template_boxes_are_applied_for_the_job(
     assert runtime.grade_box["exam"]["grade"] == (0.5, 0.6, 0.7, 0.8)
 
 
+def test_a_job_without_later_pages_template_reads_the_cover_only(
+    tmp_path: Path,
+    storage_root: Path,
+    mongo_db: Any,
+    scanned_copy_factory: Callable[..., Path],
+    recognition: MagicMock,
+) -> None:
+    job = _new_job(mongo_db, storage_root)
+    mongo_db["eval_jobs"].update_one(
+        {"job_id": "job"}, {"$set": {"matricule_on_later_pages": False}}
+    )
+    _upload(tmp_path, scanned_copy_factory, {"copie_2478756": None})
+
+    _run(job, tmp_path)
+
+    assert runtime.matricule_box["exam"]["regular"] is None
+
+
 def test_a_failing_recognition_is_retried_then_reported(
     tmp_path: Path,
     storage_root: Path,
