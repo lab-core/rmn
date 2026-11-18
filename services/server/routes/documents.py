@@ -31,7 +31,17 @@ bp = Blueprint("documents", __name__, url_prefix="/documents")
 @bp.route("", methods=["POST"])
 @cross_origin()
 @verify_share_token(return_validity=True)
-def get_documents(validity):
+def get_documents(validity: str | None) -> Response:
+    """The copies of a job, or with ``questions`` the pages of its questions.
+
+    Args:
+        validity: The share-token scope, None for the job owner. A
+            single-question link ("2") lists only that question's pages.
+
+    Returns:
+        The list, sorted by ``document_index``, or a 401 when the scope does
+        not cover what is asked.
+    """
     request_form = request.form
     job_id = str(request_form["job_id"])
 
@@ -97,11 +107,13 @@ def get_documents(validity):
             }
             for doc in docs if question is None or doc["question"] == question
         ]
+        # sorted, holes included: each batch of copies is numbered question by
+        # question after the previous batch (see the executor's
+        # insert_copies), so the pages of one question are not consecutive
+        # once copies are added later. The correction screen orders the pages
+        # by copy and moves by position in that array; it uses document_index
+        # as a key, never to compute an offset.
         resp = sorted(resp, key=lambda k: k["document_index"])
-        if resp and resp[-1]["document_index"] - resp[0]["document_index"] != len(resp) - 1:
-            print(resp)
-            print(resp[-1]["document_index"], "-", resp[0]["document_index"], " != ", len(resp) - 1)
-            return Response(response=json.dumps({"Error": "The indices are not consecutive and increasing"}), status=400)
     else:
         if validity is not None and validity != "mat" and validity != "all":
             return Response(response=json.dumps({"Error": "You don't have access to these documents"}), status=401)
