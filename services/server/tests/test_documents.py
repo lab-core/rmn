@@ -156,6 +156,27 @@ def test_non_consecutive_question_documents_are_refused(client, job, owner, db):
     assert "consecutive" in body["Error"]
 
 
+def test_a_question_link_lists_its_pages_of_several_batches(client, job, db):
+    # a second copy added in a later batch: its pages come after every page of
+    # the first batch, so the pages of Q1 are 0 and 2
+    for index, question in ((2, "Q1"), (3, "Q2")):
+        db["job_questions"].insert_one(
+            {
+                "job_id": job,
+                "document_index": index,
+                "question_index": index - 1,
+                "question": question,
+                "basename": "copy2",
+                "filename": f"copy2_{question}",
+                "status": "TO VALIDATE",
+                "grade": None,
+            }
+        )
+    status, body = _list(client, job, _q1(), questions="true")
+    assert status == 200
+    assert [d["document_index"] for d in body["response"]] == [0, 2]
+
+
 def test_the_pages_of_a_deleted_copy_are_flagged(client, job, owner, db):
     status, body = _list(client, job, owner, questions="true")
     assert [d["copy_deleted"] for d in body["response"]] == [False, False]

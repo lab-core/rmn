@@ -98,7 +98,15 @@ def get_documents(validity):
             for doc in docs if question is None or doc["question"] == question
         ]
         resp = sorted(resp, key=lambda k: k["document_index"])
-        if resp and resp[-1]["document_index"] - resp[0]["document_index"] != len(resp) - 1:
+        # The pages of every question of the job are numbered one after the
+        # other. Those of one question are not: each batch of copies is
+        # numbered question by question after the previous batch (see the
+        # executor's insert_copies), so a single-question link of a task whose
+        # copies came in two batches has holes, and refusing it left the link
+        # with no copy at all. Only the whole list must be consecutive.
+        filtered = question is not None or request_form.get("documents_indices")
+        if not filtered and resp and \
+                resp[-1]["document_index"] - resp[0]["document_index"] != len(resp) - 1:
             print(resp)
             print(resp[-1]["document_index"], "-", resp[0]["document_index"], " != ", len(resp) - 1)
             return Response(response=json.dumps({"Error": "The indices are not consecutive and increasing"}), status=400)
