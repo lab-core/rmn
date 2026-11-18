@@ -14,6 +14,10 @@ import { csvLines, detectSeparator, splitCsvLine } from 'src/app/csv';
 import { MatDialog } from '@angular/material/dialog';
 import { ClassListAssignments, askClassListAssignments } from '../class-list-duplicates/class-list-duplicates-dialog.component';
 
+/** The choice of the later pages' select that picks no template at all: the
+ *  matricule is then read on the cover page only. */
+export const NO_LATER_PAGES_TEMPLATE = 'none';
+
 //DropBox API
 declare function dropboxFiles(): void;
 declare function dropboxCSV(): void;
@@ -48,6 +52,7 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
   selectedFrontTemplate: string = "";
   selectedFrontTemplateName: string = "";
   selectedRegularTemplate: string = "";
+  readonly noLaterPagesTemplate = NO_LATER_PAGES_TEMPLATE;
   disabled: boolean = false;
   uploading: boolean = false;
   statisticsForStudents: boolean = true;
@@ -633,7 +638,11 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
           this.copies = this.createEmptyZipFile();
         }
         const front_template_name = this.templates.find(template => template['template_id'] == this.selectedFrontTemplate)['template_name'];
-        const regular_template_name = this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name'];
+        const laterPages = this.selectedRegularTemplate !== NO_LATER_PAGES_TEMPLATE;
+        const regular_template_id = laterPages ? this.selectedRegularTemplate : '';
+        const regular_template_name = laterPages
+          ? this.templates.find(template => template['template_id'] == this.selectedRegularTemplate)['template_name']
+          : '';
         if (!this.correct) {
           this.nPagesPerQuestion.clear();
           this.nMaxPointsPerQuestion.clear();
@@ -644,11 +653,11 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
         const send = (assignments: ClassListAssignments = null) => this.tasksService.addTask(
           this.reuseCopies ? null : this.copies,
           this.reuseCsv ? null : this.csvs,
-          this.selectedFrontTemplate, this.selectedRegularTemplate,
+          this.selectedFrontTemplate, regular_template_id,
           this.nPagesPerQuestion, this.nMaxPointsPerQuestion, this.bonusEnabledMap, this.taskName,
           front_template_name, regular_template_name, this.statisticsForStudents,
           this.validateMatricule, this.sourceTask ? this.sourceTask.id : null,
-          this.sourceShareToken, assignments);
+          this.sourceShareToken, assignments, laterPages);
         try {
           await send();
         } catch (error) {
@@ -754,7 +763,9 @@ export class NewExamCorrectionComponent implements OnInit, OnChanges, OnDestroy 
     this.taskName = `${job.job_name} (copie)`;
     this.selectedFrontTemplate = job.front_template_id;
     this.selectedFrontTemplateName = job.front_template_name;
-    this.selectedRegularTemplate = job.regular_template_id;
+    // a task made before the option has no field and read the later pages
+    this.selectedRegularTemplate = job.matricule_on_later_pages === false
+      ? NO_LATER_PAGES_TEMPLATE : job.regular_template_id;
     this.restoreQuestions(this.nPagesPerQuestion, job.n_pages_per_question);
     this.restoreQuestions(this.nMaxPointsPerQuestion, job.n_max_points_per_question);
     this.restoreQuestions(this.bonusEnabledMap, job.bonus_enabled_map);

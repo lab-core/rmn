@@ -79,7 +79,9 @@ def process_job(db, storage, sio, job, TMP_DIR, stopH):
     box_grade_list, box_matricule_list, regular_box_matricule_list = \
         db.get_templates_info(job_params["front_template_id"],
                               job_params["regular_template_id"])
-    apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricule_list)
+    # a job made before the option read the later pages too
+    apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricule_list,
+                         later_pages=job_params.get("matricule_on_later_pages", True))
 
     args = [
         copies_folder,

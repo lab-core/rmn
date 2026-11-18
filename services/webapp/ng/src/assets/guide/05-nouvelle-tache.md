@@ -13,7 +13,7 @@ Donnez un nom qui permet de retrouver la tâche dans la liste, par exemple « MT
 ![Choix des templates](img/assistant-2.png)
 
 - **Template pour la page de garde** : en général « Example: Page de couverture ». Ce template fixe le nombre de questions.
-- **Template pour les pages suivantes** : en général « Example: Page intérieure ». Il indique où lire le matricule sur les autres pages.
+- **Template pour les pages suivantes** : en général « Example: Page intérieure ». Il indique où lire le matricule sur les autres pages. Si vos pages intérieures ne portent pas le matricule, choisissez **Aucun (matricule sur la page de garde seulement)** : rmn ne cherche alors le matricule que sur la page de garde.
 
 ## Étape 3 : Téléverser les copies
 

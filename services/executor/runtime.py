@@ -85,16 +85,23 @@ class Heartbeat:
         return False
 
 
-def apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricule_list):
+def apply_template_boxes(box_grade_list, box_matricule_list, regular_box_matricule_list,
+                         later_pages=True):
     """Point the recogniser at the boxes of this job's templates.
 
     The boxes are module globals of ``config``; a job whose template defines
     no box used to keep the previous job's coordinates (one process handles
     many jobs outside production), so it now falls back to the defaults.
+
+    ``later_pages`` False (the job's ``matricule_on_later_pages``): no box at
+    all on the pages after the cover, not even the default one, so the
+    matricule is read on the cover page only.
     """
     def rounded(values, default):
         return tuple(round(x, 2) for x in values) if values is not None else default
 
-    matricule_box['exam']['regular'] = rounded(regular_box_matricule_list, DEFAULT_MATRICULE_BOX['exam']['regular'])
+    matricule_box['exam']['regular'] = (
+        rounded(regular_box_matricule_list, DEFAULT_MATRICULE_BOX['exam']['regular'])
+        if later_pages else None)
     matricule_box['exam']['front'] = rounded(box_matricule_list, DEFAULT_MATRICULE_BOX['exam']['front'])
     grade_box['exam']['grade'] = rounded(box_grade_list, DEFAULT_GRADE_BOX['exam']['grade'])

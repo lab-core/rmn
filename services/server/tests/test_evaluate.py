@@ -68,6 +68,41 @@ def test_absent_zero_is_on_unless_unchecked(
     assert job["absent_zero"] is stored
 
 
+def test_the_later_pages_have_a_template_unless_none_is_picked(
+    client, user_factory, login, app_module_fixture
+):
+    user_factory("alice")
+    token = login("alice")
+    eval_jobs = app_module_fixture.mongo["RMN"]["eval_jobs"]
+
+    resp = _evaluate(client, "alice", token, [["Q1", 1]], [["Q1", 5]], job_name="a")
+    assert resp.status_code == 200, resp.data
+    job = eval_jobs.find_one({"job_name": "a"})
+    assert job["matricule_on_later_pages"] is True
+    assert job["regular_template_id"] == "regular"
+
+    # "Aucun": the matricule is read on the cover page only
+    resp = _evaluate(
+        client,
+        "alice",
+        token,
+        [["Q1", 1]],
+        [["Q1", 5]],
+        job_name="b",
+        regular_template_id="",
+        regular_template_name="",
+        matricule_on_later_pages="false",
+    )
+    assert resp.status_code == 200, resp.data
+    job = eval_jobs.find_one({"job_name": "b"})
+    assert job["matricule_on_later_pages"] is False
+    assert job["regular_template_id"] is None
+    assert job["regular_template_name"] is None
+
+    info = client.post("/jobs/info", data={"job_id": job["job_id"], "token": token})
+    assert info.get_json()["response"]["matricule_on_later_pages"] is False
+
+
 @pytest.mark.parametrize(
     "pages,points",
     [
@@ -603,3 +638,29 @@ def test_the_wizard_reads_a_shared_task_with_the_session_and_the_link(
     resp = client.post("/jobs/info", headers=headers,
                        data={"job_id": "shared", "user_id": "bob"})
     assert resp.status_code == 401  # not without the link
+
+
+def test_a_shared_task_without_later_pages_template_copies_the_front_one_only(
+    client, user_factory, login, app_module_fixture, storage_root
+):
+    db = app_module_fixture.mongo["RMN"]
+    user_factory("alice")
+    user_factory("bob")
+    source = _shared_source(app_module_fixture, storage_root)
+
+    resp = _from_shared(
+        client,
+        login("bob"),
+        source,
+        regular_template_id="",
+        regular_template_name="",
+        matricule_on_later_pages="false",
+    )
+
+    assert resp.status_code == 200, resp.data
+    new = db["eval_jobs"].find_one({"job_name": "Intra bob"})
+    assert new["regular_template_id"] is None
+    assert db["template"].find_one({"template_id": new["front_template_id"]})[
+        "user_id"
+    ] == "bob"
+    assert db["template"].count_documents({"user_id": "bob"}) == 1

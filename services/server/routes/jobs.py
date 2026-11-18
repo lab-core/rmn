@@ -120,8 +120,10 @@ def evaluate(user_id):
     """Create a task and queue it for splitting.
 
     Form fields: the templates, the per-question pages, points and bonus, the
-    name and the two switches; files: ``zip_file`` (the copies) and
-    ``notes_csv_file`` (the Moodle export).
+    name and the switches (``matricule_on_later_pages`` "false": no template
+    for the later pages, the matricule is read on the cover page only);
+    files: ``zip_file`` (the copies) and ``notes_csv_file`` (the Moodle
+    export).
 
     ``notes_csv_file`` may be given several times, one Moodle export per
     assignment: the task keeps them in one csv and splits its notes and
@@ -247,6 +249,13 @@ def evaluate(user_id):
     regular_template_id = str(request_form["regular_template_id"])
     front_template_name = str(request_form["front_template_name"])
     regular_template_name = str(request_form["regular_template_name"])
+    # off: the matricule is read on the cover page only, the later pages have
+    # no template (not even the default box at the top right)
+    matricule_on_later_pages = (
+        request_form.get("matricule_on_later_pages", "true").lower() == "true"
+    )
+    if not matricule_on_later_pages:
+        regular_template_id = regular_template_name = None
     job_name = str(request_form["job_name"])
     statistics_for_students = request_form["statistics_for_students"].lower() == "true"
     try:
@@ -278,7 +287,11 @@ def evaluate(user_id):
             ("front_template_id", front_template_id),
             ("regular_template_id", regular_template_id),
         ):
-            if template_id != source.get(field) or template_id in copied:
+            if (
+                template_id is None
+                or template_id != source.get(field)
+                or template_id in copied
+            ):
                 continue
             try:
                 copied[template_id] = TemplateService.copy_for_user(
@@ -318,6 +331,7 @@ def evaluate(user_id):
         "regular_template_id": regular_template_id,
         "front_template_name": front_template_name,
         "regular_template_name": regular_template_name,
+        "matricule_on_later_pages": matricule_on_later_pages,
         "queued_time": dt.datetime.now(dt.UTC),
         "job_status": Job_Status.SPLIT.value,
         "retry": 0,
@@ -504,6 +518,8 @@ def get_job():
         "job_name": job["job_name"],
         "front_template_name": job.get("front_template_name"),
         "regular_template_name": job.get("regular_template_name"),
+        # a task made before the option read the later pages too
+        "matricule_on_later_pages": job.get("matricule_on_later_pages", True),
         "students_list": job["students_list"],
         "job_infos": job.get("job_infos", ""),
         "n_max_points_per_question": job["n_max_points_per_question"],
