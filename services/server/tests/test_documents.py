@@ -159,6 +159,17 @@ def test_the_owner_lists_question_pages_with_holes(client, job, owner, db):
 def test_a_question_link_lists_its_pages_of_several_batches(client, job, db):
     # a second copy added in a later batch: its pages come after every page of
     # the first batch, so the pages of Q1 are 0 and 2
+    db["job_documents"].insert_one(
+        {
+            "job_id": job,
+            "document_index": 1,
+            "filename": "copy2",
+            "matricule": "7654321",
+            "grades": [None, None],
+            "status": "TO VALIDATE",
+            "execution_time": 1.0,
+        }
+    )
     for index, question in ((2, "Q1"), (3, "Q2")):
         db["job_questions"].insert_one(
             {
@@ -175,6 +186,8 @@ def test_a_question_link_lists_its_pages_of_several_batches(client, job, db):
     status, body = _list(client, job, _q1(), questions="true")
     assert status == 200
     assert [d["document_index"] for d in body["response"]] == [0, 2]
+    # numbered as the copies are, whatever the batch
+    assert [d["copy_number"] for d in body["response"]] == [1, 2]
 
 
 def test_the_pages_of_a_deleted_copy_are_flagged(client, job, owner, db):
