@@ -357,3 +357,13 @@ def test_without_a_class_list_the_cover_is_never_enough(classifier):
     found, _index, read = _read_booklet(case, classifier, [])
     assert found == case["matricule"]
     assert len(read) > 1
+
+
+def test_without_a_template_for_the_later_pages_only_the_cover_is_read(classifier):
+    # "Aucun" for the later pages: no box there, however doubtful the cover
+    case = next(c for c in SPEC["matricules"] if not c.get("known_miss"))
+    pages = _ReadPages([page_with(case["file"], SPEC["matricule_box"])] * 16)
+    found, _id_box, _index = recognize.find_matricule(
+        pages, SPEC["matricule_box"], None, classifier, [], separate_box=True)
+    assert found == case["matricule"]
+    assert pages.read == {0}

@@ -45,6 +45,9 @@
                         <mat-form-field appearance="fill">
                             <mat-label>Template pour les pages suivantes</mat-label>
                             <mat-select [(value)]="selectedRegularTemplate" [disabled]="this.uploading">
+                                <mat-option [value]="noLaterPagesTemplate">
+                                    Aucun (matricule sur la page de garde seulement)
+                                </mat-option>
                                 @for (template of templates; track template) {
 <mat-option [value]="template.template_id">
                                     {{template.template_name}}

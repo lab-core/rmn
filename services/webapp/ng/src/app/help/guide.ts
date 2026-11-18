@@ -77,7 +77,7 @@ export const HELP: Record<string, HelpEntry> = {
     chapter: '05-nouvelle-tache', anchor: 'étape-1--nommer-la-tâche',
   },
   'wizard.templates': {
-    text: 'Le template de la page de garde indique où lire le matricule et les cases de notes ; celui des pages suivantes, où lire le matricule sur les autres pages.',
+    text: 'Le template de la page de garde indique où lire le matricule et les cases de notes ; celui des pages suivantes, où lire le matricule sur les autres pages (« Aucun » : sur la page de garde seulement).',
     chapter: '05-nouvelle-tache', anchor: 'étape-2--assigner-les-templates',
   },
   'wizard.copies': {

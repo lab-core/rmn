@@ -102,7 +102,8 @@ export class TasksService {
                 taskName, front_template_name, regular_template_name,
                 statistics_for_students, validateMatricule, sourceJobId = null,
                 sourceShareToken: string = null,
-                assignments: Record<string, string> = null): Promise<void> {
+                assignments: Record<string, string> = null,
+                matriculeOnLaterPages: boolean = true): Promise<void> {
     const formdata: FormData = new FormData();
     this.userService.addTokens(formdata);
     formdata.append('front_template_id', front_template_id);
@@ -121,6 +122,9 @@ export class TasksService {
     formdata.append('regular_template_name', regular_template_name);
     formdata.append('statistics_for_students', statistics_for_students);
     formdata.append('validate_matricule', validateMatricule ? "true" : "false");
+    // false: no template for the later pages, the matricule is read on the
+    // cover page only
+    formdata.append('matricule_on_later_pages', matriculeOnLaterPages ? "true" : "false");
 
     this.percentDone = 0;
     return new Promise((resolve, reject) => {

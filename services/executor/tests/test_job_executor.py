@@ -188,6 +188,20 @@ def test_template_boxes_fall_back_to_the_defaults():
     assert runtime.matricule_box["exam"]["front"] == DEFAULT_MATRICULE_BOX["exam"]["front"]
 
 
+def test_a_job_without_later_pages_template_has_no_later_pages_box():
+    from process_copy.config import DEFAULT_MATRICULE_BOX
+
+    runtime.apply_template_boxes(None, [0.2, 0.8, 0.1, 0.3], [0.5, 0.9, 0.0, 0.1],
+                                 later_pages=False)
+    assert runtime.matricule_box["exam"]["regular"] is None
+    assert runtime.matricule_box["exam"]["front"] == (0.2, 0.8, 0.1, 0.3)
+
+    # the next job reads its later pages again, with the default box
+    runtime.apply_template_boxes(None, None, None)
+    default = DEFAULT_MATRICULE_BOX["exam"]["regular"]
+    assert runtime.matricule_box["exam"]["regular"] == default
+
+
 # ------------------------------------------------------------ job ids (X20)
 
 

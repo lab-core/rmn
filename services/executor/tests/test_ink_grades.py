@@ -793,3 +793,10 @@ def test_touching_digits_are_cut_apart_by_their_strokes():
     four_stem = _stroke([(8, 4), (8.5, 20)])
     _, _, contours, _ = ink_grades.render_number([four_arm, four_stem])
     assert len(contours) == 1
+
+
+def test_later_pages_without_template_have_no_matricule_band(monkeypatch):
+    monkeypatch.setitem(ink_grades.matricule_box["exam"], "regular", None)
+    page_size = (612.0, 792.0)
+    assert ink_grades.matricule_region(page_size) is None
+    assert not ink_grades._inside_matricule((400, 10, 450, 40), page_size)
