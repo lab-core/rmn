@@ -44,6 +44,37 @@ def promote_digit_bank(db, storage, job_id):
         print("Could not add the digits of job", job_id, "to the bank:", e)
 
 
+# the grade columns finalize_job writes, one per active question
+QUESTION_COLUMN = re.compile(r"Q\d+")
+
+
+def clear_earlier_grades(df: pd.DataFrame) -> None:
+    """Empty the rows an earlier finalization of the job filled.
+
+    A job finalized again starts from the csv the last finalization wrote, so
+    a student whose copy went to someone else since then (a matricule
+    corrected in between) would keep that copy's grades, date and index.
+    Only finalize_job writes ``index``: the rows that have one are put back
+    as Moodle sends a student without a grade, before the copies of now are
+    written and the absents get what the task says.
+
+    Args:
+        df: The grades, indexed by matricule; changed in place.
+    """
+    if "index" not in df.columns:
+        return
+    earlier = df["index"].notna()
+    if not earlier.any():
+        return
+    questions = [c for c in df.columns if QUESTION_COLUMN.fullmatch(str(c))]
+    df.loc[earlier, questions + ["index"]] = np.nan
+    if MF.grade in df.columns:
+        df.loc[earlier, MF.grade] = np.nan
+    if MF.mdate in df.columns:
+        df[MF.mdate] = df[MF.mdate].astype(object)
+        df.loc[earlier, MF.mdate] = "-"
+
+
 def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
     job_id = job["job_id"]
     user_id = job["user_id"]
@@ -115,14 +146,23 @@ def finalize_job(db, storage, sio, job, TMP_DIR, stopH):
     class_lists = eval_job.get("class_lists") or []
     several = len(class_lists) > 1 and LIST_COLUMN in df.columns
 
+    clear_earlier_grades(df)
+
     # a student without a graded copy (absent, copy deleted) gets 0 and today's
     # date unless the task says otherwise: then the row keeps what Moodle
     # sent, an empty grade that Moodle's import leaves alone (an excused
     # absence). Tasks older than the option have no field: 0, as before.
     date = get_date()
+    # a class list made by hand may lack Moodle's grade or date column: the
+    # copies' loop below adds them
     if eval_job.get("absent_zero", True):
-        df[MF.grade] = df[MF.grade].fillna(0)
-        df[MF.mdate] = df[MF.mdate].apply(lambda x: x if pd.notna(x) and x != '-' else date)
+        df[MF.grade] = df[MF.grade].fillna(0) if MF.grade in df.columns else 0
+        if MF.mdate in df.columns:
+            df[MF.mdate] = df[MF.mdate].apply(
+                lambda x: x if pd.notna(x) and x != "-" else date
+            )
+        else:
+            df[MF.mdate] = date
     n_max_points_per_question = eval_job["n_max_points_per_question"]
     statistics_for_students = eval_job["statistics_for_students"]
     # print("statistics_for_students", statistics_for_students)

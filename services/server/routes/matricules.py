@@ -7,6 +7,8 @@ from flask import Blueprint, request
 from utils.responses import Response
 from service.class_lists import job_groups
 from flask_cors import cross_origin
+from pymongo import ReturnDocument
+from rmn_common.matricule_history import history_entry, push_history
 from rmn_common.status import Document_Status
 from auth import verify_share_token, verify_token
 from context import mongo, sio
@@ -16,10 +18,33 @@ from utils.forms import form_int
 bp = Blueprint("matricules", __name__, url_prefix="/matricules")
 
 
+def changed_by(validity: str | None) -> str:
+    """Who changes a copy, for its matricule history.
+
+    Args:
+        validity: The share-link scope, None for the job owner.
+
+    Returns:
+        ``owner``, or ``share:<scope>`` for a share link.
+    """
+    return "owner" if validity is None else f"share:{validity}"
+
+
 @bp.route("/update", methods=["POST"])
 @cross_origin()
-@verify_share_token(question=False)
-def update_matricule():
+@verify_share_token(question=False, return_validity=True)
+def update_matricule(validity: str | None) -> Response:
+    """Give a copy its matricule and validate it.
+
+    The change is appended to the copy's matricule history, with the value it
+    replaces and who made it.
+
+    Args:
+        validity: The share-link scope, None for the job owner.
+
+    Returns:
+        OK, or a 400 when a field is missing.
+    """
     request_form = request.form
 
     required_fields = ["job_id", "document_index", "matricule"]
@@ -35,10 +60,28 @@ def update_matricule():
     matricule = str(request_form["matricule"])
 
     db = mongo["RMN"]
-    db["job_documents"].update_one(
+    status = Document_Status.VALIDATED.value
+    before = db["job_documents"].find_one_and_update(
         {"job_id": job_id, "document_index": document_index},
-        {"$set": {"matricule": matricule, "status": Document_Status.VALIDATED.value}}
+        {"$set": {"matricule": matricule, "status": status}},
+        projection={"matricule": 1, "status": 1},
+        return_document=ReturnDocument.BEFORE,
     )
+    # a copy validated again as it was is not a change
+    if before is not None and (before.get("matricule"), before.get("status")) != (
+        matricule,
+        status,
+    ):
+        entry = history_entry(
+            changed_by(validity),
+            matricule=matricule,
+            status=status,
+            previous_matricule=before.get("matricule"),
+            previous_status=before.get("status"),
+        )
+        db["job_documents"].update_one(
+            {"_id": before["_id"]}, {"$push": push_history(entry)}
+        )
 
     # The teacher annotated the copy in the app and saved it without typing a
     # grade: the mark they drew is on the page now, so read it. Only this copy
@@ -57,8 +100,19 @@ def update_matricule():
 
 @bp.route("/status/update", methods=["POST"])
 @cross_origin()
-@verify_share_token(question=False)
-def update_matricule_status():
+@verify_share_token(question=False, return_validity=True)
+def update_matricule_status(validity: str | None) -> Response:
+    """Set the status of a copy (validated, deleted...) on the matricule page.
+
+    The change is appended to the copy's matricule history, with the status
+    it replaces and who made it.
+
+    Args:
+        validity: The share-link scope, None for the job owner.
+
+    Returns:
+        OK, or a 400 when a field is missing or the status is unknown.
+    """
     request_form = request.form
 
     required_fields = ["job_id", "document_index", "status"]
@@ -82,10 +136,22 @@ def update_matricule_status():
         )
 
     db = mongo["RMN"]
-    db["job_documents"].update_one(
+    before = db["job_documents"].find_one_and_update(
         {"job_id": job_id, "document_index": document_index},
-        {"$set": {"status": status}}
+        {"$set": {"status": status}},
+        projection={"matricule": 1, "status": 1},
+        return_document=ReturnDocument.BEFORE,
     )
+    if before is not None and before.get("status") != status:
+        entry = history_entry(
+            changed_by(validity),
+            matricule=before.get("matricule"),
+            status=status,
+            previous_status=before.get("status"),
+        )
+        db["job_documents"].update_one(
+            {"_id": before["_id"]}, {"$push": push_history(entry)}
+        )
 
     user_id = db["eval_jobs"].find_one({"job_id": job_id})["user_id"]
 

@@ -1,5 +1,6 @@
 import datetime as dt
 from rmn_common import auto_grade
+from rmn_common.matricule_history import history_entry, push_history
 from rmn_common.status import Document_Status, Job_Status
 from utils.storage import Storage, ROOT_DIR
 from utils.clients import mongo_client
@@ -90,9 +91,25 @@ class Database:
         )
 
     def update_document(
-        self, job_id, doc_index, grades, status, matricule, time, group, matricule_confidence=None,
-        only_if_status=None
-    ):
+        self,
+        job_id,
+        doc_index,
+        grades,
+        status,
+        matricule,
+        time,
+        group,
+        matricule_confidence=None,
+        only_if_status=None,
+        history_by: str | None = None,
+    ) -> bool:
+        """Record what was read off a copy.
+
+        ``history_by`` (``reader``) also appends the matricule proposed to the
+        copy's history (rmn_common.matricule_history), so a copy that ends
+        up with the wrong student tells whether the reading or a person gave
+        it; the matricule page appends the corrections.
+        """
         try:
             # return updated doc
             set = {
@@ -113,11 +130,24 @@ class Database:
             # while it is being read: their answer wins over the reading
             if only_if_status is not None:
                 query["status"] = only_if_status.value
+            update = {"$set": set}
+            if history_by is not None:
+                # unrounded: 0.0 on the copy may be a proposal of 0.00004
+                confidence = None
+                if matricule_confidence is not None:
+                    confidence = float(matricule_confidence)
+                entry = history_entry(
+                    history_by,
+                    matricule=set["matricule"],
+                    status=set["status"],
+                    confidence=confidence,
+                )
+                update["$push"] = push_history(entry)
             return (
                 self.documents_collection()
                 .update_one(
                     query,
-                    {"$set": set},
+                    update,
                 )
                 .matched_count
                 > 0
