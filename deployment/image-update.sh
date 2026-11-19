@@ -14,29 +14,47 @@
 # keeps a runtime that records another digest than the registry's (a platform
 # manifest instead of the index) from restarting the pods at every run.
 #
-# The Jobs (executor, trainer, idle-sweep) need nothing: each run starts a new
-# pod, which pulls the tag.
+# The Jobs (executor, trainer, idle-sweep) always run the newest image: each
+# run starts a new pod, which pulls the tag. But the executor image is large,
+# and the first task after a release would wait for that pull. With
+# --executor SCALEDJOB, a new image of that KEDA ScaledJob wakes an executor
+# right away, as `minikube-helper.sh -r` does (GET /admin/executor queues an
+# empty job), so the node holds the image before a task needs it. The digest
+# it woke an executor for is kept in the annotation rmn/executor-digest of the
+# CronJob named by --state-cronjob (default image-update).
 #
 #   deployment/image-update.sh server socketio webapp
 #   deployment/image-update.sh --dry-run server     # report, change nothing
+#   deployment/image-update.sh --executor job-executor server socketio webapp
 #
 # Environment: NAMESPACE (default: the current one), SLACK_TOKEN and
-# SLACK_CHANNEL to announce each rollout (optional).
+# SLACK_CHANNEL to announce each rollout (optional); for --executor,
+# ADMIN_API_KEY and SERVER_URL (no /api prefix, default http://server:5000).
 # Requires: bash, kubectl, jq, curl.
 set -euo pipefail
 
 ANNOTATION="rmn/image-digest"
+EXECUTOR_ANNOTATION="rmn/executor-digest"
 dry_run=0
+executor=""
+state_cronjob="image-update"
 deployments=()
-for arg in "$@"; do
-  case "$arg" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --dry-run) dry_run=1 ;;
-    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
-    -*) echo "unknown option: $arg" >&2; exit 2 ;;
-    *) deployments+=("$arg") ;;
+    --executor|--state-cronjob)
+      [ $# -ge 2 ] || { echo "$1 needs a value" >&2; exit 2; }
+      if [ "$1" = --executor ]; then executor="$2"; else state_cronjob="$2"; fi
+      shift ;;
+    -h|--help) sed -n '2,35p' "$0"; exit 0 ;;
+    -*) echo "unknown option: $1" >&2; exit 2 ;;
+    *) deployments+=("$1") ;;
   esac
+  shift
 done
-[ "${#deployments[@]}" -gt 0 ] || { echo "usage: $0 [--dry-run] DEPLOYMENT..." >&2; exit 2; }
+if [ "${#deployments[@]}" -eq 0 ] && [ -z "$executor" ]; then
+  echo "usage: $0 [--dry-run] [--executor SCALEDJOB] DEPLOYMENT..." >&2; exit 2
+fi
 
 ns_args=()
 [ -n "${NAMESPACE:-}" ] && ns_args=(-n "$NAMESPACE")
@@ -67,16 +85,24 @@ slack() {
     | jq -e .ok > /dev/null || echo "Slack post failed" >&2
 }
 
+# "repo:tag" of an image reference, ":latest" added when it has no tag; fails
+# on an image pinned by digest
+image_tag() {
+  local image="$1"
+  [[ "$image" == *@* ]] && return 1
+  [[ "${image##*/}" == *:* ]] || image="$image:latest"
+  echo "$image"
+}
+
 status=0
-for name in "${deployments[@]}"; do
+for name in "${deployments[@]+"${deployments[@]}"}"; do
   if ! dep="$(kubectl "${ns_args[@]}" get deployment "$name" -o json)"; then
     status=1; continue
   fi
   image="$(jq -r '.spec.template.spec.containers[0].image' <<<"$dep")"
-  if [[ "$image" == *@* ]]; then
-    echo "$name: $image is pinned by digest, skipped"; continue
+  if ! image="$(image_tag "$image")"; then
+    echo "$name: pinned by digest, skipped"; continue
   fi
-  [[ "${image##*/}" == *:* ]] || image="$image:latest"
   if ! latest="$(hub_digest "$image")" || [ -z "$latest" ]; then
     echo "$name: cannot read the digest of $image on Docker Hub" >&2
     status=1; continue
@@ -103,4 +129,48 @@ for name in "${deployments[@]}"; do
     status=1
   fi
 done
+
+# --- the executor: wake one when its image changed ---------------------------
+wake_executor() {
+  local image latest woken code
+  if ! image="$(kubectl "${ns_args[@]}" get scaledjob "$executor" \
+      -o jsonpath='{.spec.jobTargetRef.template.spec.containers[0].image}')"; then
+    return 1
+  fi
+  if ! image="$(image_tag "$image")"; then
+    echo "$executor: pinned by digest, skipped"; return 0
+  fi
+  if ! latest="$(hub_digest "$image")" || [ -z "$latest" ]; then
+    echo "$executor: cannot read the digest of $image on Docker Hub" >&2
+    return 1
+  fi
+  woken="$(kubectl "${ns_args[@]}" get cronjob "$state_cronjob" -o json \
+    | jq -r --arg a "$EXECUTOR_ANNOTATION" '.metadata.annotations[$a] // ""')" || return 1
+  if [ "$latest" = "$woken" ]; then
+    echo "$executor: $image is $latest, an executor already pulled it"; return 0
+  fi
+  echo "$executor: $image is now $latest, waking an executor to pull it"
+  [ "$dry_run" -eq 1 ] && return 0
+  if [ -z "${ADMIN_API_KEY:-}" ]; then
+    echo "$executor: ADMIN_API_KEY is not set, cannot wake an executor" >&2
+    return 1
+  fi
+  # the key goes through curl's config on stdin, not the argv
+  code="$(printf 'header = "X-Admin-Key: %s"\n' "$ADMIN_API_KEY" \
+    | curl -sS --max-time 30 --retry 3 --retry-all-errors --config - \
+        -o /dev/null -w '%{http_code}' "${SERVER_URL:-http://server:5000}/admin/executor")" \
+    || code="unreachable"
+  if [ "$code" != 200 ]; then
+    echo "$executor: the server answered $code to /admin/executor" >&2
+    return 1
+  fi
+  # recorded only once an executor was asked for: a failure retries next run
+  kubectl "${ns_args[@]}" annotate --overwrite cronjob "$state_cronjob" \
+    "$EXECUTOR_ANNOTATION=$latest" > /dev/null || return 1
+  echo "$executor: executor woken"
+}
+if [ -n "$executor" ]; then
+  wake_executor || status=1
+fi
+
 exit "$status"

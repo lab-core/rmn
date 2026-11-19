@@ -1,6 +1,8 @@
 # Pulls newly published images: every 5 minutes, deployment/image-update.sh
 # rolls out server, socketio and webapp when their tag (rmni/<service>:main)
-# points at another image on Docker Hub than the one running. The script is
+# points at another image on Docker Hub than the one running, and wakes an
+# executor when rmni/executor:main changed, so that its large image is pulled
+# before a task needs it (as `minikube-helper.sh -r` does). The script is
 # mounted from the image-update-script ConfigMap generated in
 # kustomization.yaml; run it by hand with `deployment/image-update.sh --dry-run
 # server socketio webapp`.
@@ -10,7 +12,9 @@ kind: ServiceAccount
 metadata:
   name: image-update
 ---
-# read the pods' images, patch only the three Deployments it updates
+# read the pods' images, patch only the three Deployments it updates; read the
+# executor's image, and keep the digest it woke an executor for on its own
+# CronJob
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -23,6 +27,14 @@ rules:
   - apiGroups: [""]
     resources: [pods]
     verbs: [list]
+  - apiGroups: [keda.sh]
+    resources: [scaledjobs]
+    resourceNames: [job-executor]
+    verbs: [get]
+  - apiGroups: [batch]
+    resources: [cronjobs]
+    resourceNames: [image-update]
+    verbs: [get, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -67,7 +79,7 @@ spec:
               # bash + kubectl + jq + curl, the image of the health sentinel
               image: alpine/k8s:1.31.4
               command: [/bin/bash, /opt/image-update/image-update.sh]
-              args: [server, socketio, webapp]
+              args: [--executor, job-executor, server, socketio, webapp]
               env:
                 # root fs is read-only; kubectl wants a writable cache dir
                 - name: HOME
@@ -76,6 +88,14 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
+                # /admin/executor, over the in-cluster Service
+                - name: SERVER_URL
+                  value: http://server:5000
+                - name: ADMIN_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: admin-api-key
                 # announce each rollout in the sentinel's channel
                 - name: SLACK_CHANNEL
                   valueFrom:

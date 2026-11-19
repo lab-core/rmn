@@ -241,7 +241,11 @@ minutes) rolls out `server`, `socketio` and `webapp`, and posts it to the
 sentinel's Slack channel. It compares the digest the tag points at on Docker
 Hub with the running pods' image, and records the digest it rolled out for in
 the pod template annotation `rmn/image-digest`, so each image is rolled out
-once. The executor and trainer Jobs need nothing: each run pulls the tag.
+once. The executor and trainer Jobs run the newest image anyway, since each
+run pulls the tag; but when `rmni/executor:main` changes, the CronJob also
+wakes an executor (`/admin/executor`, like `minikube-helper.sh -r`) so that
+its large image is already on the node when a task comes. The digest it woke
+one for is the annotation `rmn/executor-digest` of the CronJob.
 
 A release tag (`v*`) publishes `rmni/<service>:<version>` only, not `:main`:
 run the "Publish All Docker images" workflow on `main` for the cluster to pick
@@ -249,7 +253,7 @@ the release up.
 
 To see what it would do, or to stop it while you deploy by hand:
 ```
-deployment/image-update.sh --dry-run server socketio webapp
+deployment/image-update.sh --dry-run --executor job-executor server socketio webapp
 kubectl patch cronjob image-update -p '{"spec":{"suspend":true}}'   # false to resume
 ```
 
