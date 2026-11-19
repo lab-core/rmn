@@ -314,7 +314,7 @@ jobs:
         run: scripts/deploy.sh --storage nfs --dry-run > /dev/null
       - name: Shell scripts parse and pass shellcheck (errors only)
         run: |
-          for f in scripts/*.sh minikube-helper.sh deployment/k8s-health.sh; do
+          for f in scripts/*.sh minikube-helper.sh deployment/k8s-health.sh deployment/image-update.sh; do
             bash -n "$f"
           done
-          shellcheck -S error scripts/*.sh minikube-helper.sh deployment/k8s-health.sh
+          shellcheck -S error scripts/*.sh minikube-helper.sh deployment/k8s-health.sh deployment/image-update.sh

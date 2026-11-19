@@ -234,6 +234,25 @@ Or delete the corresponding pods for a Replication Controller:
 kubectl delete pods <modified deployment pod>
 ```
 
+#### New images are pulled automatically
+The services run `rmni/<service>:main`. When CI publishes a new image under
+that tag, the `image-update` CronJob (`deployment/image-update.yml`, every 5
+minutes) rolls out `server`, `socketio` and `webapp`, and posts it to the
+sentinel's Slack channel. It compares the digest the tag points at on Docker
+Hub with the running pods' image, and records the digest it rolled out for in
+the pod template annotation `rmn/image-digest`, so each image is rolled out
+once. The executor and trainer Jobs need nothing: each run pulls the tag.
+
+A release tag (`v*`) publishes `rmni/<service>:<version>` only, not `:main`:
+run the "Publish All Docker images" workflow on `main` for the cluster to pick
+the release up.
+
+To see what it would do, or to stop it while you deploy by hand:
+```
+deployment/image-update.sh --dry-run server socketio webapp
+kubectl patch cronjob image-update -p '{"spec":{"suspend":true}}'   # false to resume
+```
+
 #### If deploys suddenly crawl again
 
 Between roughly September and 2026-10-09, a `docker pull` inside the minikube
