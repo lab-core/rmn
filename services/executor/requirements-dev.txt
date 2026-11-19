@@ -3,7 +3,7 @@
 # the contracts shared with the server (services/common); the Docker image
 # installs the same package from the build context
 -e ../common
-pytest==9.1.1
+pytest==9.2.0
 pytest-timeout==2.4.0
 # coverage in CI: the thresholds live in .coveragerc
 pytest-cov==7.1.0
