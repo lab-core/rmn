@@ -1,0 +1,133 @@
+# Pulls newly published images: every 5 minutes, deployment/image-update.sh
+# rolls out server, socketio and webapp when their tag (rmni/<service>:main)
+# points at another image on Docker Hub than the one running, and wakes an
+# executor when rmni/executor:main changed, so that its large image is pulled
+# before a task needs it (as `minikube-helper.sh -r` does). The script is
+# mounted from the image-update-script ConfigMap generated in
+# kustomization.yaml; run it by hand with `deployment/image-update.sh --dry-run
+# server socketio webapp`.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: image-update
+---
+# read the pods' images, patch only the three Deployments it updates; read the
+# executor's image, and keep the digest it woke an executor for on its own
+# CronJob
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: image-update
+rules:
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [server, socketio, webapp]
+    verbs: [get, patch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [list]
+  - apiGroups: [keda.sh]
+    resources: [scaledjobs]
+    resourceNames: [job-executor]
+    verbs: [get]
+  - apiGroups: [batch]
+    resources: [cronjobs]
+    resourceNames: [image-update]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: image-update
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: image-update
+subjects:
+  - kind: ServiceAccount
+    name: image-update
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: image-update
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 240
+      backoffLimit: 0
+      template:
+        spec:
+          serviceAccountName: image-update
+          restartPolicy: Never
+          automountServiceAccountToken: true
+          # fsGroup: the projected token is root-only without it (see
+          # health-sentinel.yml)
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            fsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: image-update
+              # bash + kubectl + jq + curl, the image of the health sentinel
+              image: alpine/k8s:1.31.4
+              command: [/bin/bash, /opt/image-update/image-update.sh]
+              args: [--executor, job-executor, server, socketio, webapp]
+              env:
+                # root fs is read-only; kubectl wants a writable cache dir
+                - name: HOME
+                  value: /tmp
+                - name: NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                # /admin/executor, over the in-cluster Service
+                - name: SERVER_URL
+                  value: http://server:5000
+                # optional, as for the server: without it the executor is
+                # left alone and the Deployments are still rolled out
+                - name: ADMIN_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: admin-api-key
+                      optional: true
+                # announce each rollout in the sentinel's channel
+                - name: SLACK_CHANNEL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: rmn-config
+                      key: slack-channel
+                - name: SLACK_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: rmn-secrets
+                      key: slack-token
+                      optional: true
+              resources:
+                requests: {cpu: 50m, memory: 64Mi}
+                limits: {cpu: 200m, memory: 128Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              volumeMounts:
+                - name: script
+                  mountPath: /opt/image-update
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: script
+              configMap:
+                name: image-update-script
+                defaultMode: 0555
+            - name: tmp
+              emptyDir: {}

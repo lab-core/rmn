@@ -34,6 +34,9 @@ resources:
   - health-sentinel.yml
   # monthly storage report (orphans + disk usage by age, Slack; never deletes)
   - storage-report.yml
+  # rolls server/socketio/webapp out when their :main image is republished
+  # (every 5 min)
+  - image-update.yml
 
 # Storage: server and executors mount the node directory /data/nfs directly
 # (hostPath, single-node clusters). For a multi-node cluster, enable the NFS
@@ -67,6 +70,10 @@ configMapGenerator:
   - name: storage-report-script
     files:
       - storage-report.sh
+  # the image update script, mounted into the image-update CronJob
+  - name: image-update-script
+    files:
+      - image-update.sh
 
 replacements:
   - path: replacements.yaml
