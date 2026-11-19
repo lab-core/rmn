@@ -1,6 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatSelectHarness } from '@angular/material/select/testing';
 import { ActivatedRoute, ParamMap, Router, RouterModule, convertToParamMap } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
@@ -75,10 +77,13 @@ describe('UserGuideComponent', () => {
     await answer('05-nouvelle-tache', '# Créer la tâche');
     const router = TestBed.inject(Router);
     spyOn(router, 'navigate').and.resolveTo(true);
-    const component = fixture.componentInstance;
-    expect(fixture.nativeElement.querySelector('.guide-toc-select mat-select')).not.toBeNull();
-    const chapter = component.chapters[component.chapters.length - 1];
-    component.openChapter(chapter);
+    const select = await TestbedHarnessEnvironment.loader(fixture)
+      .getHarness(MatSelectHarness.with({selector: '.guide-toc-select mat-select'}));
+    expect(await select.getValueText()).toBe('5. Créer la tâche');
+    const chapters = fixture.componentInstance.chapters;
+    const chapter = chapters[chapters.length - 1];
+    await select.open();
+    await select.clickOptions({text: chapter.title});
     expect(router.navigate).toHaveBeenCalledWith(['/user-guide', chapter.file]);
   });
 
@@ -137,6 +142,10 @@ describe('UserGuideComponent', () => {
     params.next(convertToParamMap({chapter: '12-administration'}));
     await answer('12-administration', '# 12. Administrer rmn');
     expect(fixture.componentInstance.current.file).toBe('12-administration');
+    // the dropdown names it too, rather than showing blank
+    const select = await TestbedHarnessEnvironment.loader(fixture)
+      .getHarness(MatSelectHarness.with({selector: '.guide-toc-select mat-select'}));
+    expect(await select.getValueText()).toBe('12. Administrer rmn');
   });
 
   it('opens the overview for a chapter the role does not see', async () => {

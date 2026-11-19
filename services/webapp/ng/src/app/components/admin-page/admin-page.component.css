@@ -426,34 +426,6 @@ td.mat-mdc-cell {
   color: #2e7d32;
 }
 
-@media (max-width: 1000px) {
-  .system {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-
-/* phones: the page takes the width, the filter and the button share the toolbar */
-@media (max-width: 600px) {
-  .admin-container {
-    width: calc(100% - 32px);
-  }
-
-  .toolbar {
-    gap: 12px;
-  }
-
-  .toolbar mat-form-field {
-    flex: 1 1 auto;
-    width: auto;
-    min-width: 0;
-  }
-
-  .toolbar app-help-hover {
-    flex-shrink: 0;
-  }
-}
-
 /* tablets: the page takes the width, "Prendre le rôle" keeps its icon only */
 @media (max-width: 1180px) {
   .admin-container {
@@ -475,6 +447,13 @@ td.mat-mdc-cell {
 
   .role-select, .managers-select {
     width: 130px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .system {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
@@ -500,9 +479,10 @@ td.mat-mdc-cell {
     border-bottom: 1px solid #ddd;
   }
 
+  /* the label on the left, the cell's content together on the right */
   .table tr.mat-mdc-row td {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     gap: 12px;
     min-height: 36px;
@@ -514,15 +494,31 @@ td.mat-mdc-cell {
   .table tr.mat-mdc-row td[data-label]::before {
     content: attr(data-label);
     flex: none;
+    margin-right: auto;
     font-weight: 500;
     color: #555;
   }
 
-  .table tr.mat-mdc-row td.actions {
-    justify-content: flex-end;
+  /* the row shown when the filter matches no account (matNoDataRow) */
+  .table tr.mat-mdc-no-data-row td.empty {
+    justify-content: center;
+  }
+}
+
+/* phones: the filter and the button share the toolbar (the page width is set
+   for tablets above) */
+@media (max-width: 600px) {
+  .toolbar {
+    gap: 12px;
   }
 
-  .table tr.mat-mdc-row td.empty {
-    justify-content: center;
+  .toolbar mat-form-field {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .toolbar app-help-hover {
+    flex-shrink: 0;
   }
 }
