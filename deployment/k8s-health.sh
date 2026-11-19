@@ -33,7 +33,8 @@
 # Unknown, Pending too long, CrashLoopBackOff / image pull errors, containers
 # not ready, restart count, OOMKilled); Deployments and ReplicationControllers
 # with missing replicas; failed Jobs (KEDA executor runs); CronJobs without a
-# recent success (48h, or the rmn/success-window-hours annotation); PVC/PV not Bound; KEDA ScaledJob not Ready; recent Warning
+# recent success (48h, or the rmn/success-window-hours annotation; not before
+# that long after their creation); PVC/PV not Bound; KEDA ScaledJob not Ready; recent Warning
 # events; HTTP probes of the public host.
 #
 # Requires: bash, kubectl, jq, curl (for --host / --slack); busybox coreutils
@@ -253,7 +254,10 @@ active_jobs="$(jq '[.items[]|select((.status.active // 0) > 0)]|length' <<<"$job
 fine "jobs $active_jobs active, $(jq '[.items[]|select((.status.succeeded // 0) > 0)]|length' <<<"$jobs") succeeded (retained)"
 
 # A CronJob must have succeeded within 48h, or within the hours of its
-# rmn/success-window-hours annotation (a monthly job cannot meet 48h).
+# rmn/success-window-hours annotation (a monthly job cannot meet 48h). A
+# CronJob created less than that window ago is not judged yet: a new one
+# (image-update after its first deploy) has no success while its first run is
+# still going, and a failing run is reported by the failed jobs check above.
 cronjobs="$(kget cronjobs -n "$namespace")"
 while IFS=$'\x1f' read -r name last_ok window; do
   [ -z "$name" ] && continue
@@ -261,6 +265,7 @@ while IFS=$'\x1f' read -r name last_ok window; do
 done < <(jqr --argjson now "$now_epoch" '
   .items[]|select(.spec.suspend != true)|select(.status.lastScheduleTime != null)
   |((.metadata.annotations["rmn/success-window-hours"] // "48")|tonumber) as $window
+  |select(($now - (.metadata.creationTimestamp|fromdateiso8601)) > $window * 3600)
   |select((.status.lastSuccessfulTime == null) or (($now - (.status.lastSuccessfulTime|fromdateiso8601)) > $window * 3600))
   |[.metadata.name, (.status.lastSuccessfulTime // ""), $window]|row' <<<"$cronjobs")
 
