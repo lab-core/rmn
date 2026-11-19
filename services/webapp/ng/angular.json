@@ -24,13 +24,7 @@
               {
                 "glob": "**/*",
                 "input": "node_modules/ngx-extended-pdf-viewer/assets/",
-                "output": "/assets/",
-                "ignore": ["pdf.*.mjs", "viewer-*.mjs"]
-              },
-              {
-                "glob": "**/*",
-                "input": "node_modules/ngx-extended-pdf-viewer/bleeding-edge/",
-                "output": "/bleeding-edge/"
+                "output": "/assets/"
               }
             ],
             "styles": [
