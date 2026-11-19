@@ -7,7 +7,7 @@
       <mat-form-field class="guide-toc-select" appearance="outline" subscriptSizing="dynamic">
         <mat-label>Chapitre</mat-label>
         <mat-select [value]="current" (selectionChange)="openChapter($event.value)">
-          @for (chapter of chapters; track chapter.file) {
+          @for (chapter of tocChapters; track chapter.file) {
             <mat-option [value]="chapter">{{ chapter.title }}</mat-option>
           }
         </mat-select>

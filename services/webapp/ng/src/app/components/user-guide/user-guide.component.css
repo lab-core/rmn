@@ -110,13 +110,6 @@ app-main-menu {
   color: #b00020;
 }
 
-/* a wide table of a chapter scrolls on its own */
-.guide-content ::ng-deep table {
-  display: block;
-  max-width: 100%;
-  overflow-x: auto;
-}
-
 /* the dropdown of the chapters: narrow screens only */
 .guide-toc-select {
   display: none;
@@ -124,6 +117,13 @@ app-main-menu {
 
 /* tablets and phones: the chapters in a dropdown above the text */
 @media (max-width: 900px) {
+  /* a wide table of a chapter scrolls on its own */
+  .guide-content ::ng-deep table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
   .guide-panel {
     top: calc(10vh + 8px);
     left: 8px;

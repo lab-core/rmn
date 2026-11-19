@@ -48,8 +48,6 @@ app-main-menu {
     overflow: auto;
 }
 
-/* below that, the table needs the margins to keep its buttons in sight */
-
 mat-form-field {
     font-size: 14px;
     width: 30%;
@@ -317,11 +315,12 @@ mat-progress-spinner {
         border-bottom: 1px solid #ddd;
     }
 
+    /* the label on the left, the cell's content together on the right */
     .container_elements tr.element-row td {
         flex: 1 0 100%;
         width: auto;
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
         align-items: center;
         gap: 12px;
         padding: 2px 0;
@@ -333,6 +332,7 @@ mat-progress-spinner {
     .container_elements tr.element-row td[data-label]::before {
         content: attr(data-label);
         flex: none;
+        margin-right: auto;
         font-weight: 500;
         color: #555;
         text-align: left;
@@ -342,6 +342,20 @@ mat-progress-spinner {
     .container_elements tr.element-row td.mat-column-job_infos:empty,
     .container_elements tr.element-row td.mat-column-job_infos:not(:has(*)) {
         display: none;
+    }
+
+    /* the row shown when the filter matches no task (matNoDataRow): it is
+       not an element-row, so it takes the width itself */
+    .container_elements tr.mat-mdc-no-data-row,
+    .container_elements tr.mat-mdc-no-data-row td {
+        display: block;
+        width: auto;
+    }
+
+    .container_elements tr.mat-mdc-no-data-row td {
+        padding: 12px;
+        white-space: normal;
+        text-align: center;
     }
 
     .container_elements tr.element-row td.mat-column-job_deletion,

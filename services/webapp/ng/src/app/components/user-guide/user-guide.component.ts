@@ -69,6 +69,10 @@ export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
   // « Revenir à … » leads to one
   private reachable: GuideChapter[];
   current: GuideChapter = GUIDE_CHAPTERS[0];
+  // the options of the dropdown: the chapters, and the open one when it is
+  // not among them (an admin acting as a user, on an admin chapter), so the
+  // dropdown never shows blank
+  tocChapters: GuideChapter[];
   html = '';
   error = '';
   private subscription: Subscription;
@@ -79,6 +83,7 @@ export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
               userService: UserService) {
     this.chapters = visibleChapters(userService.role);
     this.reachable = userService.impersonatedBy ? visibleChapters(UserRole.ADMIN) : this.chapters;
+    this.tocChapters = this.chapters;
   }
 
   ngOnInit(): void {
@@ -94,6 +99,7 @@ export class UserGuideComponent implements OnInit, AfterViewChecked, OnDestroy {
     const chapter = this.reachable.find((c) => c.file === file) || this.chapters[0];
     if (chapter !== this.current || !this.html) {
       this.current = chapter;
+      this.tocChapters = this.chapters.includes(chapter) ? this.chapters : [...this.chapters, chapter];
       try {
         const markdown = await firstValueFrom(
           this.http.get(GUIDE_DIR + chapter.file + '.md', {responseType: 'text'}));
