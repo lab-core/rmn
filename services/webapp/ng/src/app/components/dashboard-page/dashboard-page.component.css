@@ -411,9 +411,11 @@ tbody td {
     background-color: rgb(255 255 255 / 60%);
   }
 
+  /* the label on the left, the cell's content together on the right (with
+     space-between, a cell of several nodes spread them over the line) */
   .table-scroll tbody td {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     gap: 12px;
     border: none;
@@ -425,6 +427,7 @@ tbody td {
   .table-scroll tbody td[data-label]::before {
     content: attr(data-label);
     flex: none;
+    margin-right: auto;
     font-weight: 500;
     text-align: left;
   }
@@ -437,7 +440,8 @@ tbody td {
 
   /* the cells a row leaves empty take no line */
   .table-scroll tbody td:empty,
-  .table-scroll tbody td.bonus-cell:not(:has(input)) {
+  .table-scroll tbody td.bonus-cell:not(:has(input)),
+  .table-scroll tbody td.action-buttons:not(:has(.row-actions > *)) {
     display: none;
   }
 
