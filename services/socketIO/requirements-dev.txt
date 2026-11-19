@@ -1,6 +1,6 @@
 # Test-only dependencies (install alongside requirements.txt to run pytest).
 -r requirements.txt
-pytest==9.1.1
+pytest==9.2.0
 pytest-timeout==2.4.0
 # coverage in CI: the thresholds live in .coveragerc
 pytest-cov==7.1.0
