@@ -75,14 +75,11 @@ updates:
       # 7 (#107) broke `ng build`. Lift when the Angular group moves.
       - dependency-name: typescript
         versions: [">=6.1"]
-      # Pinned to a 31.0.0 alpha: the eraser and the undo/redo buttons are in
-      # its bleeding-edge bundle (pdf.js 6.3) only. 31.x prereleases and
-      # releases still come through; the next major waits for a manual check
-      # of that bundle and of the stored ink format. Any bump fails `npm ci`
-      # until services/webapp/ng/scripts/patch-pdf-viewer.mjs is updated:
-      # drop the fixes the new version ships, port the others.
+      # 32.x releases come through; the next major waits for a manual check
+      # of the eraser, undo/redo and the stored ink format on a rotated
+      # scanned copy (the pdf viewer's grading screen).
       - dependency-name: ngx-extended-pdf-viewer
-        versions: [">=32"]
+        versions: [">=33"]
       # zone.js/testing (0.16) patches describe/it on the jasmine Env; jasmine
       # 7 blocks monkey patching ("Cannot assign to read only property
       # 'describe'", #134) and Angular has not moved to 7 (angular/angular

@@ -23,8 +23,8 @@ describe('PDFViewerComponent', () => {
     spyOn(console, 'log');
   });
 
-  it('loads the bleeding-edge bundle, the one with the eraser and undo/redo', () => {
-    expect(pdfDefaultOptions.assetsFolder).toBe('bleeding-edge');
+  it('loads the default bundle, which has the eraser and undo/redo since 32', () => {
+    expect(pdfDefaultOptions.assetsFolder).toBe('assets');
   });
 
   it('tells the user when the copy has no pdf', () => {
