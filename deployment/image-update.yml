@@ -91,11 +91,14 @@ spec:
                 # /admin/executor, over the in-cluster Service
                 - name: SERVER_URL
                   value: http://server:5000
+                # optional, as for the server: without it the executor is
+                # left alone and the Deployments are still rolled out
                 - name: ADMIN_API_KEY
                   valueFrom:
                     secretKeyRef:
                       name: rmn-secrets
                       key: admin-api-key
+                      optional: true
                 # announce each rollout in the sentinel's channel
                 - name: SLACK_CHANNEL
                   valueFrom:

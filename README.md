@@ -246,6 +246,10 @@ run pulls the tag; but when `rmni/executor:main` changes, the CronJob also
 wakes an executor (`/admin/executor`, like `minikube-helper.sh -r`) so that
 its large image is already on the node when a task comes. The digest it woke
 one for is the annotation `rmn/executor-digest` of the CronJob.
+Docker Hub or the server out of reach is only logged and retried at the next
+run; the Job fails only when the cluster refuses something (a missing
+Deployment, a denied patch). Without an `admin-api-key` the executor is left
+alone.
 
 A release tag (`v*`) publishes `rmni/<service>:<version>` only, not `:main`:
 run the "Publish All Docker images" workflow on `main` for the cluster to pick
